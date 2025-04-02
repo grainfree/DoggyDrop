@@ -1,0 +1,14 @@
+﻿.vs/
+bin/
+obj/
+*.user
+*.suo
+*.dbmdl
+*.log
+*.sqlite
+*.pdb
+*.cache
+*.csproj.user
+*.db
+*.db-shm
+*.db-wal

@@ -1,0 +1,86 @@
+﻿@model IEnumerable<DoggyDrop.Models.TrashBin>
+@using System.Text.Json
+
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @TempData["SuccessMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Zapri"></button>
+    </div>
+}
+
+
+@{
+    ViewData["Title"] = "Zemljevid košev";
+
+    // Generiramo JSON za vse koše
+    var json = JsonSerializer.Serialize(
+        Model.Select(b => new
+        {
+            name = b.Name,
+            latitude = b.Latitude,
+            longitude = b.Longitude,
+
+            date = b.DateAdded.ToString("dd.MM.yyyy"),
+            image = b.ImageUrl
+        })
+    );
+    var binsJson = Html.Raw(json);
+}
+
+<h2 class="text-center mb-4">Zemljevid košev za pasje iztrebke</h2>
+
+<!-- Zemljevid -->
+<div id="map" style="height: 500px; width: 100%;" class="mb-4"></div>
+
+<!-- Gumb za dodajanje - centriran -->
+<div class="text-center mb-5">
+    <a href="/Map/Add" class="btn btn-success btn-lg">
+        ➕ Dodaj nov koš
+    </a>
+</div>
+
+
+@section Scripts {
+    <script>
+        const bins = @binsJson;
+
+
+                window.initMap = function () {
+            const map = new google.maps.Map(document.getElementById("map"), {
+                center: { lat: 46.5547, lng: 15.6459 },
+                zoom: 14
+            });
+
+            bins.forEach(bin => {
+                const marker = new google.maps.Marker({
+                    position: { lat: bin.latitude, lng: bin.longitude },
+                    map: map,
+                    title: bin.name
+                });
+
+                    const infoContent = `
+            <div style="max-width: 200px;">
+                <strong>${bin.name}</strong><br>
+                Dodano: ${bin.date}<br>
+                ${bin.image ? `<img src="${bin.image}" alt="Koš" style="width:100%; margin-top:5px;">` : ""}
+            </div>
+        `;
+
+
+                 const infoWindow = new google.maps.InfoWindow({
+        content: infoContent
+                });
+
+                marker.addListener("click", () => {
+                    infoWindow.open(map, marker);
+                });
+            });
+        };
+
+    </script>
+
+    <script async
+            src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC7BZuc_0STrDlrpQL6HF3mcQJW2HV4cDI&callback=initMap">
+    </script>
+}

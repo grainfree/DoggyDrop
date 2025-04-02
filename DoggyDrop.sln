@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.13.35828.75 d17.13
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DoggyDrop", "DoggyDrop\DoggyDrop.csproj", "{02BB0C88-F28C-4F59-B4A4-B7E7EB12884D}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{02BB0C88-F28C-4F59-B4A4-B7E7EB12884D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{02BB0C88-F28C-4F59-B4A4-B7E7EB12884D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{02BB0C88-F28C-4F59-B4A4-B7E7EB12884D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{02BB0C88-F28C-4F59-B4A4-B7E7EB12884D}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {024A68AF-2CBC-4622-8FC1-E2FF6B42C077}
+	EndGlobalSection
+EndGlobal

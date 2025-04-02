@@ -1,0 +1,108 @@
+﻿@model DoggyDrop.Models.TrashBinViewModel
+
+@{
+    ViewData["Title"] = "Dodaj nov koš";
+}
+
+<h2>Dodaj nov koš</h2>
+
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        @TempData["SuccessMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Zapri"></button>
+    </div>
+}
+
+
+<!-- 🗺️ Interaktivni zemljevid -->
+<div id="map" style="height: 400px; width: 100%;" class="mb-4 rounded border"></div>
+
+<form asp-action="Add" method="post" enctype="multipart/form-data">
+    <div class="form-group mb-3">
+        <label asp-for="Name" class="form-label">Ime lokacije</label>
+        <input asp-for="Name" class="form-control" />
+        <span asp-validation-for="Name" class="text-danger"></span>
+    </div>
+
+    <!-- 🖼️ Naloži sliko -->
+    <div class="form-group mb-3">
+        <label asp-for="ImageFile" class="form-label">Slika koša (iz telefona)</label>
+        <input asp-for="ImageFile" type="file" class="form-control" accept="image/*" capture="environment" />
+        <span asp-validation-for="ImageFile" class="text-danger"></span>
+    </div>
+
+    <!-- 📍 Lokacija koša -->
+    <div class="form-group mb-3">
+        <label asp-for="Latitude" class="form-label">Zemljepisna širina</label>
+        <input asp-for="Latitude" class="form-control" readonly />
+        <span asp-validation-for="Latitude" class="text-danger"></span>
+    </div>
+
+    <div class="form-group mb-3">
+        <label asp-for="Longitude" class="form-label">Zemljepisna dolžina</label>
+        <input asp-for="Longitude" class="form-control" readonly />
+        <span asp-validation-for="Longitude" class="text-danger"></span>
+    </div>
+
+    <button type="submit" class="btn btn-success">Shrani lokacijo</button>
+</form>
+
+@section Scripts {
+    @await Html.PartialAsync("_ValidationScriptsPartial")
+
+    <script>
+        let map;
+        let marker;
+
+        window.initMap = function () {
+            map = new google.maps.Map(document.getElementById("map"), {
+                center: { lat: 46.5547, lng: 15.6459 }, // Slovenj Gradec (ali drug kraj)
+                zoom: 15
+            });
+
+            // 🎯 GPS lokacija uporabnika
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(function (position) {
+                    const userLocation = {
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude
+                    };
+
+                    map.setCenter(userLocation);
+                    placeMarker(userLocation);
+                }, function (error) {
+                    console.warn("Geolokacija ni bila dovoljena ali ni na voljo.");
+                });
+            }
+
+            // Klik na zemljevid
+            map.addListener("click", function (e) {
+                const clickedLocation = {
+                    lat: e.latLng.lat(),
+                    lng: e.latLng.lng()
+                };
+                placeMarker(clickedLocation);
+            });
+        };
+
+        function placeMarker(location) {
+            if (marker) {
+                marker.setMap(null);
+            }
+
+            marker = new google.maps.Marker({
+                position: location,
+                map: map
+            });
+
+            // Nastavi v obrazec
+            document.getElementById("Latitude").value = location.lat.toFixed(6);
+            document.getElementById("Longitude").value = location.lng.toFixed(6);
+        }
+    </script>
+
+    <script async
+            src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC7BZuc_0STrDlrpQL6HF3mcQJW2HV4cDI&callback=initMap">
+    </script>
+}

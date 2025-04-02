@@ -1,0 +1,48 @@
+﻿@model IEnumerable<DoggyDrop.Models.TrashBin>
+
+@{
+    ViewData["Title"] = "Upravljanje košev";
+}
+
+<h2>Koši v čakalni vrsti</h2>
+
+@if (!Model.Any())
+{
+    <div class="alert alert-info">
+        Trenutno ni nobenih novih predlogov za potrditev.
+    </div>
+}
+else
+{
+    <table class="table table-bordered table-striped">
+        <thead class="table-dark">
+            <tr>
+                <th>Ime</th>
+                <th>Lokacija</th>
+                <th>Datum</th>
+                <th>Slika</th>
+                <th>Akcije</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var bin in Model)
+            {
+                <tr>
+                    <td>@bin.Name</td>
+                    <td>@bin.Latitude, @bin.Longitude</td>
+                    <td>@bin.DateAdded.ToString("dd.MM.yyyy")</td>
+                    <td>
+                        @if (!string.IsNullOrEmpty(bin.ImageUrl))
+                        {
+                            <img src="@bin.ImageUrl" alt="Slika koša" style="max-width: 100px;" />
+                        }
+                    </td>
+                    <td>
+                        <a href="/Map/Approve/@bin.Id" class="btn btn-success btn-sm me-2">✅ Potrdi</a>
+                        <a href="/Map/Reject/@bin.Id" class="btn btn-danger btn-sm">🗑️ Zavrni</a>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
