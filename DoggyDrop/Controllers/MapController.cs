@@ -61,7 +61,7 @@ namespace DoggyDrop.Controllers
                 Latitude = double.Parse(model.Latitude, CultureInfo.InvariantCulture),
                 Longitude = double.Parse(model.Longitude, CultureInfo.InvariantCulture),
                 ImageUrl = imagePath,
-                DateAdded = DateTime.Now,
+                DateAdded = DateTime.UtcNow,
                 IsApproved = User.IsInRole("Admin")
             };
 

@@ -1,43 +1,44 @@
-using DoggyDrop.Data;
+ï»¿using DoggyDrop.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI;
+using Microsoft.Extensions.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+Console.WriteLine("ðŸ“¡ Connection string: " + builder.Configuration.GetConnectionString("DefaultConnection"));
 
-// Add services to the container.
-builder.Services.AddControllersWithViews();
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddDefaultIdentity<IdentityUser>(options => options.SignIn.RequireConfirmedAccount = false)
     .AddRoles<IdentityRole>()
     .AddEntityFrameworkStores<ApplicationDbContext>();
 
 builder.Services.AddControllersWithViews();
-builder.Services.AddRazorPages(); // dodaj za /Identity
-
+builder.Services.AddRazorPages();
 
 var app = builder.Build();
+
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler("/Home/Error");
+}
 
 app.UseStaticFiles();
 app.UseRouting();
 
-app.UseAuthentication(); // mora biti pred UseAuthorization
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Map}/{action=Index}/{id?}");
 
+app.MapRazorPages();
 
-app.MapRazorPages(); // za /Identity strani (prijava, registracija)
-
-
+// Sejanje baze
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
@@ -45,36 +46,18 @@ using (var scope = app.Services.CreateScope())
     DbInitializer.Seed(context);
 }
 
-
-// Configure the HTTP request pipeline.
-if (!app.Environment.IsDevelopment())
-{
-    app.UseExceptionHandler("/Home/Error");
-}
-app.UseStaticFiles();
-
-app.UseRouting();
-
-app.UseAuthorization();
-
-app.MapControllerRoute(
-    name: "default",
-    pattern: "{controller=Map}/{action=Index}/{id?}");
-
-
+// Dodajanje admin uporabnika
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
     var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
     var userManager = services.GetRequiredService<UserManager<IdentityUser>>();
 
-    // 1. Dodaj vlogo "Admin", èe še ne obstaja
     if (!await roleManager.RoleExistsAsync("Admin"))
     {
         await roleManager.CreateAsync(new IdentityRole("Admin"));
     }
 
-    // 2. Ustvari uporabnika admin@doggydrop.com, èe še ne obstaja
     var adminEmail = "admin@doggydrop.app";
     var adminUser = await userManager.FindByEmailAsync(adminEmail);
     if (adminUser == null)
@@ -86,10 +69,9 @@ using (var scope = app.Services.CreateScope())
             EmailConfirmed = true
         };
 
-        await userManager.CreateAsync(adminUser, "Admin123!"); // geslo lahko kasneje spremeniš
+        await userManager.CreateAsync(adminUser, "Admin123!");
         await userManager.AddToRoleAsync(adminUser, "Admin");
     }
 }
-
 
 app.Run();

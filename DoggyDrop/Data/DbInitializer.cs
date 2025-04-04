@@ -16,7 +16,8 @@ namespace DoggyDrop.Data
                     Name = "Koš pri mestnem parku",
                     Latitude = 46.3924,
                     Longitude = 15.5742,
-                    DateAdded = DateTime.Now,
+                    DateAdded = DateTime.UtcNow,
+
                     IsApproved = true
                 },
                 new TrashBin
@@ -24,7 +25,8 @@ namespace DoggyDrop.Data
                     Name = "Koš pri avtobusni postaji",
                     Latitude = 46.3910,
                     Longitude = 15.5775,
-                    DateAdded = DateTime.Now,
+                    DateAdded = DateTime.UtcNow,
+
                     IsApproved = true
                 },
                 new TrashBin
@@ -32,7 +34,8 @@ namespace DoggyDrop.Data
                     Name = "Koš na Tomažičevi ulici",
                     Latitude = 46.3901,
                     Longitude = 15.5698,
-                    DateAdded = DateTime.Now,
+                    DateAdded = DateTime.UtcNow,
+
                     IsApproved = true
                 }
             };
