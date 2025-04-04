@@ -25,12 +25,34 @@
         <span asp-validation-for="Name" class="text-danger"></span>
     </div>
 
-    <!-- 🖼️ Naloži sliko -->
+    <!-- 📷 Posnemi fotografijo + predogled -->
     <div class="form-group mb-3">
-        <label asp-for="ImageFile" class="form-label">Slika koša (iz telefona)</label>
-        <input asp-for="ImageFile" type="file" class="form-control" accept="image/*" capture="environment" />
+        <label class="form-label">📸 Posnemi fotografijo koša</label>
+
+        <!-- Gumb za kamero -->
+        <label for="ImageFile" class="btn btn-outline-primary w-100 py-3 fs-5">
+            📷 Klikni za zajem fotografije
+        </label>
+
+        <!-- Skrit file input -->
+        <input asp-for="ImageFile"
+               type="file"
+               id="ImageFile"
+               accept="image/*"
+               capture="environment"
+               class="d-none"
+               onchange="previewImage(event)" />
+
+        <!-- 🖼️ Predogled slike -->
+        <div id="imagePreviewContainer" class="mt-3" style="display: none;">
+            <p class="mb-1">📷 Predogled:</p>
+            <img id="imagePreview" src="#" alt="Predogled slike" class="img-thumbnail" style="max-height: 300px;" />
+        </div>
+
         <span asp-validation-for="ImageFile" class="text-danger"></span>
     </div>
+
+
 
     <!-- 📍 Lokacija koša -->
     <div class="form-group mb-3">
@@ -101,6 +123,26 @@
             document.getElementById("Longitude").value = location.lng.toFixed(6);
         }
     </script>
+
+    <script>
+        function previewImage(event) {
+            const input = event.target;
+            const previewContainer = document.getElementById("imagePreviewContainer");
+            const preview = document.getElementById("imagePreview");
+
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+
+                reader.onload = function (e) {
+                    preview.src = e.target.result;
+                    previewContainer.style.display = "block";
+                };
+
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+    </script>
+
 
     <script async
             src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC7BZuc_0STrDlrpQL6HF3mcQJW2HV4cDI&callback=initMap">

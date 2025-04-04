@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DoggyDrop.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20250403133931_InitialCreate")]
+    [Migration("20250404080222_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
