@@ -126,5 +126,47 @@ namespace DoggyDrop.Controllers
 
             return RedirectToAction("Manage");
         }
+        // =============================
+        // Vrni vse odobrene koše v JSON formatu za iskanje najbližjega
+        // =============================
+        [HttpGet]
+        public IActionResult FindNearest()
+        {
+            var bins = _context.TrashBins
+                .Where(t => t.IsApproved)
+                .Select(b => new
+                {
+                    b.Name,
+                    b.Latitude,
+                    b.Longitude
+                })
+                .ToList();
+
+            return Json(bins);
+        }
+        [HttpGet]
+        public IActionResult GetNearestBin(double latitude, double longitude)
+        {
+            var nearestBin = _context.TrashBins
+                .Where(b => b.IsApproved)
+                .OrderBy(b =>
+                    Math.Pow(b.Latitude - latitude, 2) + Math.Pow(b.Longitude - longitude, 2)
+                )
+                .FirstOrDefault();
+
+            if (nearestBin == null)
+                return NotFound();
+
+            return Json(new
+            {
+                nearestBin.Name,
+                nearestBin.Latitude,
+                nearestBin.Longitude,
+                nearestBin.ImageUrl
+            });
+        }
+
     }
 }
+
+
