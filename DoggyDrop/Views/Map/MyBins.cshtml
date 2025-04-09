@@ -1,0 +1,65 @@
+﻿@model IEnumerable<DoggyDrop.Models.TrashBin>
+
+@{
+    ViewData["Title"] = "Moji predlogi";
+
+    var count = (int)(ViewBag.BinCount ?? 0);
+    string badge = "";
+    if (count >= 10)
+    {
+        badge = "🥇 Zlata značka";
+    }
+    else if (count >= 5)
+    {
+        badge = "🥈 Srebrna značka";
+    }
+    else if (count >= 1)
+    {
+        badge = "🥉 Bronasta značka";
+    }
+}
+}
+
+<h2>📋 Moji predlogi</h2>
+
+@if (!string.IsNullOrEmpty(badge))
+{
+    <p><strong>Tvoja značka:</strong> <span class="badge bg-primary">@badge</span></p>
+}
+
+
+@if (!Model.Any())
+{
+    <p>Nisi še dodal nobenega koša.</p>
+}
+else
+{
+    <table class="table table-bordered table-striped">
+        <thead>
+            <tr>
+                <th>Ime</th>
+                <th>Datum</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var bin in Model)
+            {
+                <tr>
+                    <td>@bin.Name</td>
+                    <td>@bin.DateAdded.ToLocalTime().ToString("dd.MM.yyyy")</td>
+                    <td>
+                        @if (bin.IsApproved)
+                        {
+                            <span class="badge bg-success">Odobreno</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-warning text-dark">V čakanju</span>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}

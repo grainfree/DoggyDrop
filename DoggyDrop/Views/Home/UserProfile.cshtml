@@ -1,0 +1,23 @@
+﻿@using Microsoft.AspNetCore.Identity
+@model DoggyDrop.ViewModels.UserProfileViewModel
+@{
+    ViewData["Title"] = "Moj profil";
+}
+
+<h2 class="text-center mb-4">👤 Moj profil</h2>
+
+<div class="card p-4">
+    <p><strong>Email:</strong> @Model.Email</p>
+    <p><strong>Dodanih košev:</strong> @Model.TotalBins</p>
+
+    <h4>🏅 Značke</h4>
+    <ul>
+        @foreach (var badge in Model.Badges)
+        {
+            <li>@badge</li>
+        }
+    </ul>
+
+    <a class="btn btn-outline-primary mt-3" asp-controller="Map" asp-action="MyBins">📍 Moje lokacije</a>
+    <a class="btn btn-outline-success mt-2" href="#">👥 Povabi prijatelja</a>
+</div>

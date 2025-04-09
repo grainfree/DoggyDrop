@@ -1,0 +1,50 @@
+﻿@model IEnumerable<DoggyDrop.Models.TrashBin>
+
+@{
+    ViewData["Title"] = "Moji predlogi";
+}
+
+<h2>📝 Moji predlogi</h2>
+
+@if (!Model.Any())
+{
+    <p>Niste še dodali nobenega koša.</p>
+}
+else
+{
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>Ime</th>
+                <th>Datum dodajanja</th>
+                <th>Status</th>
+                <th>Slika</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var bin in Model)
+            {
+                <tr>
+                    <td>@bin.Name</td>
+                    <td>@bin.DateAdded.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
+                    <td>
+                        @if (bin.IsApproved)
+                        {
+                            <span class="text-success">✔️ Odobreno</span>
+                        }
+                        else
+                        {
+                            <span class="text-warning">⏳ Čaka na odobritev</span>
+                        }
+                    </td>
+                    <td>
+                        @if (!string.IsNullOrEmpty(bin.ImageUrl))
+                        {
+                            <img src="@bin.ImageUrl" alt="Slika koša" style="width: 100px;" />
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
