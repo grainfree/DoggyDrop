@@ -5,6 +5,9 @@ using System.Linq;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using System.Globalization;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+
 
 namespace DoggyDrop.Controllers
 {
@@ -12,11 +15,14 @@ namespace DoggyDrop.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly IWebHostEnvironment _environment;
+        private readonly UserManager<IdentityUser> _userManager;
 
-        public MapController(ApplicationDbContext context, IWebHostEnvironment environment)
+
+        public MapController(ApplicationDbContext context, IWebHostEnvironment environment, UserManager<IdentityUser> userManager)
         {
             _context = context;
             _environment = environment;
+            _userManager = userManager;
         }
 
         // =============================
@@ -62,7 +68,8 @@ namespace DoggyDrop.Controllers
                 Longitude = double.Parse(model.Longitude, CultureInfo.InvariantCulture),
                 ImageUrl = imagePath,
                 DateAdded = DateTime.UtcNow,
-                IsApproved = User.IsInRole("Admin")
+                IsApproved = User.IsInRole("Admin"),
+                UserId = User?.Identity?.IsAuthenticated == true ? _userManager.GetUserId(User) : null
             };
 
             _context.TrashBins.Add(newBin);
@@ -165,6 +172,42 @@ namespace DoggyDrop.Controllers
                 nearestBin.ImageUrl
             });
         }
+        [HttpGet]
+        public IActionResult MySubmissions()
+        {
+            if (!User.Identity.IsAuthenticated)
+            {
+                return RedirectToAction("Login", "Account", new { area = "Identity" });
+            }
+
+            var userId = _userManager.GetUserId(User);
+
+            var myBins = _context.TrashBins
+                .Where(b => b.UserId == userId)
+                .OrderByDescending(b => b.DateAdded)
+                .ToList();
+
+            return View(myBins);
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> MyBins()
+        {
+            if (!User.Identity.IsAuthenticated)
+                return RedirectToAction("Index");
+
+            var userId = _userManager.GetUserId(User);
+
+            var myBins = await _context.TrashBins
+                .Where(b => b.UserId == userId)
+                .ToListAsync();
+
+            ViewBag.BinCount = myBins.Count;
+
+            return View(myBins);
+        }
+
+
 
     }
 }

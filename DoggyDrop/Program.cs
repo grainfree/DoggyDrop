@@ -1,4 +1,4 @@
-﻿using DoggyDrop.Data;
+using DoggyDrop.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI;
@@ -72,6 +72,6 @@ using (var scope = app.Services.CreateScope())
         await userManager.CreateAsync(adminUser, "Admin123!");
         await userManager.AddToRoleAsync(adminUser, "Admin");
     }
-}
+} 
 
 app.Run();
