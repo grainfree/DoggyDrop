@@ -22,8 +22,12 @@
                     <span class="navbar-toggler-icon"></span>
                 </button>
                 <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
-                   
-                  
+
+                    <p class="text-danger">
+                        SignedIn: @SignInManager.IsSignedIn(User)<br />
+                        Authenticated: @User.Identity.IsAuthenticated
+                    </p>
+
                     
                     <ul class="navbar-nav flex-grow-1">
                         <li class="nav-item">
@@ -32,6 +36,17 @@
                         <li class="nav-item">
                             <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
                         </li>
+
+                        @if (SignInManager.IsSignedIn(User))
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link text-dark" asp-controller="Map" asp-action="MyBins">📋 Moji predlogi</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link text-dark" asp-controller="Home" asp-action="UserProfile">👤 Moj profil</a>
+                            </li>
+                        }
+
 
                         @if (User.Identity.IsAuthenticated && User.IsInRole("Admin"))
                         {
@@ -44,6 +59,7 @@
                     <div class="d-flex">
                         @if (SignInManager.IsSignedIn(User))
                         {
+
                             <span class="navbar-text me-2">
                                 Pozdravljen, @UserManager.GetUserName(User)!
                             </span>
