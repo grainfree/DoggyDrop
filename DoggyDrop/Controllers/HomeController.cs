@@ -12,15 +12,12 @@ public class HomeController : Controller
 {
     private readonly ILogger<HomeController> _logger;
     private readonly ApplicationDbContext _context;
-    private readonly UserManager<IdentityUser> _userManager;
+    private readonly UserManager<ApplicationUser> _userManager;
     private readonly IWebHostEnvironment _environment;
 
 
-    public HomeController(
-    ILogger<HomeController> logger,
-    ApplicationDbContext context,
-    UserManager<IdentityUser> userManager,
-    IWebHostEnvironment environment)
+    public HomeController(ILogger<HomeController> logger, ApplicationDbContext context, UserManager<ApplicationUser> userManager, IWebHostEnvironment environment)
+
     {
         _logger = logger;
         _context = context;
