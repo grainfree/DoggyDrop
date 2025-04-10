@@ -13,13 +13,21 @@ public class HomeController : Controller
     private readonly ILogger<HomeController> _logger;
     private readonly ApplicationDbContext _context;
     private readonly UserManager<IdentityUser> _userManager;
+    private readonly IWebHostEnvironment _environment;
 
-    public HomeController(ILogger<HomeController> logger, ApplicationDbContext context, UserManager<IdentityUser> userManager)
+
+    public HomeController(
+    ILogger<HomeController> logger,
+    ApplicationDbContext context,
+    UserManager<IdentityUser> userManager,
+    IWebHostEnvironment environment)
     {
         _logger = logger;
         _context = context;
         _userManager = userManager;
+        _environment = environment;
     }
+
 
     public IActionResult Index()
     {
@@ -50,19 +58,52 @@ public class HomeController : Controller
             .CountAsync();
 
         var badges = new List<string>();
-
         if (totalBins >= 1)
             badges.Add("🥇 Prvi koš");
         if (totalBins >= 5)
             badges.Add("🎯 Skupinski cilj");
 
+        // 🖼️ pridobi profilno sliko
+        var user = await _userManager.FindByIdAsync(userId);
+        var profileImageUrl = (user as ApplicationUser)?.ProfileImageUrl;
+
         var viewModel = new UserProfileViewModel
         {
             Email = userEmail,
             TotalBins = totalBins,
-            Badges = badges
+            Badges = badges,
+            ProfileImageUrl = profileImageUrl
         };
 
         return View("UserProfile", viewModel);
     }
+
+    [HttpPost]
+    public async Task<IActionResult> UploadProfileImage(IFormFile profileImage)
+    {
+        if (profileImage != null && profileImage.Length > 0)
+        {
+            var uploadsFolder = Path.Combine(_environment.WebRootPath, "profile-pics");
+            Directory.CreateDirectory(uploadsFolder);
+
+            var userId = _userManager.GetUserId(User);
+            var uniqueFileName = $"{userId}{Path.GetExtension(profileImage.FileName)}";
+            var filePath = Path.Combine(uploadsFolder, uniqueFileName);
+
+            using (var stream = new FileStream(filePath, FileMode.Create))
+            {
+                await profileImage.CopyToAsync(stream);
+            }
+
+            var imageUrl = "/profile-pics/" + uniqueFileName;
+
+            // ➕ Shrani pot v bazo (ali v ViewModel preko storitve, odvisno od tvoje logike)
+
+            // Za demo: lahko dodaš zapis v session (ali shraniš drugje)
+            HttpContext.Session.SetString("ProfileImageUrl", imageUrl);
+        }
+
+        return RedirectToAction("UserProfile");
+    }
+
 }

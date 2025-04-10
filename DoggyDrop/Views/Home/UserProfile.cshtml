@@ -6,9 +6,39 @@
 
 <h2 class="text-center mb-4">👤 Moj profil</h2>
 
+<div class="text-center mb-3">
+    @if (!string.IsNullOrEmpty(Model.ProfileImageUrl))
+    {
+        <img src="@Model.ProfileImageUrl" alt="Profilna slika" class="rounded-circle mb-2" style="width: 120px; height: 120px; object-fit: cover;" />
+    }
+    else
+    {
+        <div class="rounded-circle bg-secondary d-inline-block mb-2" style="width: 120px; height: 120px;"></div>
+    }
+
+    <form asp-action="UploadProfileImage" method="post" enctype="multipart/form-data">
+        <input type="file" name="profileImage" accept="image/*" class="form-control mt-2" />
+        <button type="submit" class="btn btn-sm btn-primary mt-1">Posodobi sliko</button>
+    </form>
+</div>
+
+
 <div class="card p-4">
     <p><strong>Email:</strong> @Model.Email</p>
     <p><strong>Dodanih košev:</strong> @Model.TotalBins</p>
+
+    <h4 class="mt-4">🖼️ Profilna slika</h4>
+
+    <form asp-controller="Home" asp-action="UploadProfileImage" enctype="multipart/form-data" method="post">
+        <input type="file" name="profileImage" class="form-control" />
+        <button type="submit" class="btn btn-primary mt-2">Naloži profilno sliko</button>
+    </form>
+
+    @if (!string.IsNullOrEmpty(Model.ProfileImageUrl))
+    {
+        <img src="@Model.ProfileImageUrl" alt="Profilna slika" class="img-thumbnail mt-3" style="max-width: 200px;" />
+    }
+  
 
     <h4>🏅 Značke</h4>
     <ul>
