@@ -5,6 +5,8 @@ using DoggyDrop.ViewModels;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using DoggyDrop.Data;
+using CloudinaryDotNet.Actions;
+using CloudinaryDotNet;
 
 namespace DoggyDrop.Controllers;
 
@@ -76,31 +78,33 @@ public class HomeController : Controller
     }
 
     [HttpPost]
-    public async Task<IActionResult> UploadProfileImage(IFormFile profileImage)
+    public async Task<IActionResult> UploadProfileImage(IFormFile profileImage, [FromServices] Cloudinary cloudinary)
     {
         if (profileImage != null && profileImage.Length > 0)
         {
-            var uploadsFolder = Path.Combine(_environment.WebRootPath, "profile-pics");
-            Directory.CreateDirectory(uploadsFolder);
-
             var userId = _userManager.GetUserId(User);
-            var uniqueFileName = $"{userId}{Path.GetExtension(profileImage.FileName)}";
-            var filePath = Path.Combine(uploadsFolder, uniqueFileName);
 
-            using (var stream = new FileStream(filePath, FileMode.Create))
+            await using var stream = profileImage.OpenReadStream();
+
+            var uploadParams = new ImageUploadParams
             {
-                await profileImage.CopyToAsync(stream);
+                File = new FileDescription(profileImage.FileName, stream),
+                PublicId = $"profile_pictures/{userId}", // ali dodaj .ToLower() če želiš
+                Overwrite = true
+            };
+
+            var uploadResult = await cloudinary.UploadAsync(uploadParams);
+
+            if (uploadResult.StatusCode == System.Net.HttpStatusCode.OK)
+            {
+                var user = await _userManager.GetUserAsync(User);
+                user.ProfileImageUrl = uploadResult.SecureUrl.ToString();
+                await _userManager.UpdateAsync(user);
             }
-
-            var imageUrl = "/profile-pics/" + uniqueFileName;
-
-            // ➕ Shrani pot v bazo (ali v ViewModel preko storitve, odvisno od tvoje logike)
-
-            // Za demo: lahko dodaš zapis v session (ali shraniš drugje)
-            HttpContext.Session.SetString("ProfileImageUrl", imageUrl);
         }
 
         return RedirectToAction("UserProfile");
     }
+
 
 }
