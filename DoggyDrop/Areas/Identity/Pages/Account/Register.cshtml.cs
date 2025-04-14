@@ -170,7 +170,6 @@ namespace DoggyDrop.Areas.Identity.Pages.Account
             }
         }
 
-
         private IUserEmailStore<ApplicationUser> GetEmailStore()
         {
             if (!_userManager.SupportsUserEmail)
@@ -179,6 +178,7 @@ namespace DoggyDrop.Areas.Identity.Pages.Account
             }
             return (IUserEmailStore<ApplicationUser>)_userStore;
         }
+
 
     }
 }
