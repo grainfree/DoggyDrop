@@ -1,53 +1,51 @@
 ﻿@using Microsoft.AspNetCore.Identity
 @model DoggyDrop.ViewModels.UserProfileViewModel
+
 @{
     ViewData["Title"] = "Moj profil";
 }
 
 <h2 class="text-center mb-4">👤 Moj profil</h2>
 
-<div class="text-center mb-3">
+<div class="text-center mb-4">
     @if (!string.IsNullOrEmpty(Model.ProfileImageUrl))
     {
-        <img src="@Model.ProfileImageUrl" alt="Profilna slika" class="rounded-circle mb-2" style="width: 120px; height: 120px; object-fit: cover;" />
+        <img src="@Model.ProfileImageUrl" alt="Profilna slika" class="rounded-circle" style="width: 120px; height: 120px; object-fit: cover;" />
     }
     else
     {
-        <div class="rounded-circle bg-secondary d-inline-block mb-2" style="width: 120px; height: 120px;"></div>
+        <div class="rounded-circle bg-secondary d-inline-block" style="width: 120px; height: 120px;"></div>
     }
 
-    <form asp-action="UploadProfileImage" method="post" enctype="multipart/form-data">
-        <input type="file" name="profileImage" accept="image/*" class="form-control mt-2" />
-        <button type="submit" class="btn btn-sm btn-primary mt-1">Posodobi sliko</button>
+    <form asp-action="UploadProfileImage" method="post" enctype="multipart/form-data" class="mt-2">
+        <div class="input-group">
+            <input type="file" name="profileImage" class="form-control" accept="image/*" required />
+            <button type="submit" class="btn btn-primary">Naloži</button>
+        </div>
     </form>
 </div>
 
-
-<div class="card p-4">
+<div class="card p-4 shadow-sm">
     <p><strong>Email:</strong> @Model.Email</p>
     <p><strong>Dodanih košev:</strong> @Model.TotalBins</p>
 
-    <h4 class="mt-4">🖼️ Profilna slika</h4>
-
-    <form asp-controller="Home" asp-action="UploadProfileImage" enctype="multipart/form-data" method="post">
-        <input type="file" name="profileImage" class="form-control" />
-        <button type="submit" class="btn btn-primary mt-2">Naloži profilno sliko</button>
-    </form>
-
-    @if (!string.IsNullOrEmpty(Model.ProfileImageUrl))
+    <h4 class="mt-4">🎖️ Značke</h4>
+    @if (Model.Badges.Any())
     {
-        <img src="@Model.ProfileImageUrl" alt="Profilna slika" class="img-thumbnail mt-3" style="max-width: 200px;" />
+        <ul class="list-inline">
+            @foreach (var badge in Model.Badges)
+            {
+                <li class="list-inline-item badge bg-success me-2">@badge</li>
+            }
+        </ul>
     }
-  
+    else
+    {
+        <p>Zaenkrat še nimaš značk.</p>
+    }
 
-    <h4>🏅 Značke</h4>
-    <ul>
-        @foreach (var badge in Model.Badges)
-        {
-            <li>@badge</li>
-        }
-    </ul>
-
-    <a class="btn btn-outline-primary mt-3" asp-controller="Map" asp-action="MyBins">📍 Moje lokacije</a>
-    <a class="btn btn-outline-success mt-2" href="#">👥 Povabi prijatelja</a>
+    <div class="mt-4">
+        <a class="btn btn-outline-primary me-2" asp-controller="Map" asp-action="MyBins">📍 Moje lokacije</a>
+        <a class="btn btn-outline-success" href="#">👥 Povabi prijatelja</a>
+    </div>
 </div>
