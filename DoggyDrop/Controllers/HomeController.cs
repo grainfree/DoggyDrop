@@ -89,14 +89,12 @@ public class HomeController : Controller
             try
             {
                 var userId = _userManager.GetUserId(User);
-
                 await using var stream = profileImage.OpenReadStream();
 
                 var uploadParams = new ImageUploadParams
                 {
                     File = new FileDescription(profileImage.FileName, stream),
-                    PublicId = $"profile_pictures/{userId}",
-                    Overwrite = true
+                    Folder = "profile_pictures"
                 };
 
                 var uploadResult = await cloudinary.UploadAsync(uploadParams);
@@ -106,26 +104,21 @@ public class HomeController : Controller
                     var user = await _userManager.GetUserAsync(User);
                     user.ProfileImageUrl = uploadResult.SecureUrl.ToString();
                     await _userManager.UpdateAsync(user);
-
-                    TempData["SuccessMessage"] = "Profilna slika uspešno posodobljena.";
                 }
                 else
                 {
-                    TempData["ErrorMessage"] = $"Napaka pri nalaganju: {uploadResult.Error?.Message}";
+                    TempData["Error"] = $"Napaka pri nalaganju slike: {uploadResult.Error?.Message}";
                 }
             }
             catch (Exception ex)
             {
-                TempData["ErrorMessage"] = $"Izjema: {ex.Message}";
+                TempData["Error"] = $"Napaka pri nalaganju slike: {ex.Message}";
             }
-        }
-        else
-        {
-            TempData["ErrorMessage"] = "Prosimo, izberi datoteko za nalaganje.";
         }
 
         return RedirectToAction("UserProfile");
     }
+
 
 
 }
