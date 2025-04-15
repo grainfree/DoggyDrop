@@ -5,8 +5,7 @@ using DoggyDrop.ViewModels;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using DoggyDrop.Data;
-using CloudinaryDotNet.Actions;
-using CloudinaryDotNet;
+using DoggyDrop.Services;
 
 namespace DoggyDrop.Controllers;
 
@@ -16,17 +15,21 @@ public class HomeController : Controller
     private readonly ApplicationDbContext _context;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IWebHostEnvironment _environment;
+    private readonly CloudinaryService _cloudinaryService;
 
-
-    public HomeController(ILogger<HomeController> logger, ApplicationDbContext context, UserManager<ApplicationUser> userManager, IWebHostEnvironment environment)
-
+    public HomeController(
+        ILogger<HomeController> logger,
+        ApplicationDbContext context,
+        UserManager<ApplicationUser> userManager,
+        IWebHostEnvironment environment,
+        CloudinaryService cloudinaryService)
     {
         _logger = logger;
         _context = context;
         _userManager = userManager;
         _environment = environment;
+        _cloudinaryService = cloudinaryService;
     }
-
 
     public IActionResult Index()
     {
@@ -62,9 +65,8 @@ public class HomeController : Controller
         if (totalBins >= 5)
             badges.Add("🎯 Skupinski cilj");
 
-        // 🖼️ pridobi profilno sliko
         var user = await _userManager.FindByIdAsync(userId);
-        var profileImageUrl = (user as ApplicationUser)?.ProfileImageUrl;
+        var profileImageUrl = user?.ProfileImageUrl;
 
         var viewModel = new UserProfileViewModel
         {
@@ -78,33 +80,20 @@ public class HomeController : Controller
     }
 
     [HttpPost]
-    public async Task<IActionResult> UploadProfileImage(IFormFile profileImage, [FromServices] Cloudinary cloudinary)
+    public async Task<IActionResult> UploadProfileImage(IFormFile profileImage)
     {
         if (profileImage != null && profileImage.Length > 0)
         {
-            var userId = _userManager.GetUserId(User);
+            var user = await _userManager.GetUserAsync(User);
+            var imageUrl = await _cloudinaryService.UploadImageAsync(profileImage);
 
-            await using var stream = profileImage.OpenReadStream();
-
-            var uploadParams = new ImageUploadParams
+            if (!string.IsNullOrEmpty(imageUrl))
             {
-                File = new FileDescription(profileImage.FileName, stream),
-                PublicId = $"profile_pictures/{userId}", // ali dodaj .ToLower() če želiš
-                Overwrite = true
-            };
-
-            var uploadResult = await cloudinary.UploadAsync(uploadParams);
-
-            if (uploadResult.StatusCode == System.Net.HttpStatusCode.OK)
-            {
-                var user = await _userManager.GetUserAsync(User);
-                user.ProfileImageUrl = uploadResult.SecureUrl.ToString();
+                user.ProfileImageUrl = imageUrl;
                 await _userManager.UpdateAsync(user);
             }
         }
 
         return RedirectToAction("UserProfile");
     }
-
-
 }
