@@ -84,42 +84,48 @@ public class HomeController : Controller
     [HttpPost]
     public async Task<IActionResult> UploadProfileImage(IFormFile profileImage, [FromServices] Cloudinary cloudinary)
     {
-        if (profileImage == null || profileImage.Length == 0)
+        if (profileImage != null && profileImage.Length > 0)
         {
-            TempData["ErrorMessage"] = "Datoteka ni bila izbrana ali je prazna.";
-            return RedirectToAction("UserProfile");
-        }
+            try
+            {
+                var userId = _userManager.GetUserId(User);
 
-        var user = await _userManager.GetUserAsync(User);
-        if (user == null)
-        {
-            TempData["ErrorMessage"] = "Uporabnik ni prijavljen.";
-            return RedirectToAction("UserProfile");
-        }
+                await using var stream = profileImage.OpenReadStream();
 
-        await using var stream = profileImage.OpenReadStream();
+                var uploadParams = new ImageUploadParams
+                {
+                    File = new FileDescription(profileImage.FileName, stream),
+                    PublicId = $"profile_pictures/{userId}",
+                    Overwrite = true
+                };
 
-        var uploadParams = new ImageUploadParams
-        {
-            File = new FileDescription(profileImage.FileName, stream),
-            PublicId = $"profile_pictures/{user.Id}",
-            Overwrite = true
-        };
+                var uploadResult = await cloudinary.UploadAsync(uploadParams);
 
-        var uploadResult = await cloudinary.UploadAsync(uploadParams);
+                if (uploadResult.StatusCode == System.Net.HttpStatusCode.OK)
+                {
+                    var user = await _userManager.GetUserAsync(User);
+                    user.ProfileImageUrl = uploadResult.SecureUrl.ToString();
+                    await _userManager.UpdateAsync(user);
 
-        if (uploadResult.StatusCode == System.Net.HttpStatusCode.OK)
-        {
-            user.ProfileImageUrl = uploadResult.SecureUrl.ToString();
-            await _userManager.UpdateAsync(user);
-            TempData["SuccessMessage"] = "Profilna slika je bila uspešno posodobljena.";
+                    TempData["SuccessMessage"] = "Profilna slika uspešno posodobljena.";
+                }
+                else
+                {
+                    TempData["ErrorMessage"] = $"Napaka pri nalaganju: {uploadResult.Error?.Message}";
+                }
+            }
+            catch (Exception ex)
+            {
+                TempData["ErrorMessage"] = $"Izjema: {ex.Message}";
+            }
         }
         else
         {
-            TempData["ErrorMessage"] = "Napaka pri nalaganju slike.";
+            TempData["ErrorMessage"] = "Prosimo, izberi datoteko za nalaganje.";
         }
 
         return RedirectToAction("UserProfile");
     }
+
 
 }
