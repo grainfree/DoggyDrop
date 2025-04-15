@@ -6,6 +6,8 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using DoggyDrop.Data;
 using DoggyDrop.Services;
+using CloudinaryDotNet.Actions;
+using CloudinaryDotNet;
 
 namespace DoggyDrop.Controllers;
 
@@ -80,20 +82,44 @@ public class HomeController : Controller
     }
 
     [HttpPost]
-    public async Task<IActionResult> UploadProfileImage(IFormFile profileImage)
+    public async Task<IActionResult> UploadProfileImage(IFormFile profileImage, [FromServices] Cloudinary cloudinary)
     {
-        if (profileImage != null && profileImage.Length > 0)
+        if (profileImage == null || profileImage.Length == 0)
         {
-            var user = await _userManager.GetUserAsync(User);
-            var imageUrl = await _cloudinaryService.UploadImageAsync(profileImage);
+            TempData["ErrorMessage"] = "Datoteka ni bila izbrana ali je prazna.";
+            return RedirectToAction("UserProfile");
+        }
 
-            if (!string.IsNullOrEmpty(imageUrl))
-            {
-                user.ProfileImageUrl = imageUrl;
-                await _userManager.UpdateAsync(user);
-            }
+        var user = await _userManager.GetUserAsync(User);
+        if (user == null)
+        {
+            TempData["ErrorMessage"] = "Uporabnik ni prijavljen.";
+            return RedirectToAction("UserProfile");
+        }
+
+        await using var stream = profileImage.OpenReadStream();
+
+        var uploadParams = new ImageUploadParams
+        {
+            File = new FileDescription(profileImage.FileName, stream),
+            PublicId = $"profile_pictures/{user.Id}",
+            Overwrite = true
+        };
+
+        var uploadResult = await cloudinary.UploadAsync(uploadParams);
+
+        if (uploadResult.StatusCode == System.Net.HttpStatusCode.OK)
+        {
+            user.ProfileImageUrl = uploadResult.SecureUrl.ToString();
+            await _userManager.UpdateAsync(user);
+            TempData["SuccessMessage"] = "Profilna slika je bila uspešno posodobljena.";
+        }
+        else
+        {
+            TempData["ErrorMessage"] = "Napaka pri nalaganju slike.";
         }
 
         return RedirectToAction("UserProfile");
     }
+
 }
