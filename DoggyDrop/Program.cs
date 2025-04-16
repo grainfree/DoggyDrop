@@ -30,7 +30,8 @@ builder.Services.AddRazorPages();
 builder.Services.AddScoped<CloudinaryService>();
 
 
-var cloudinarySettings = builder.Configuration.GetSection("Cloudinary").Get<CloudinarySettings>();
+var cloudinarySettings = builder.Configuration.GetSection("CloudinarySettings").Get<CloudinarySettings>();
+
 
 
 var cloudinary = new Cloudinary(new Account(
