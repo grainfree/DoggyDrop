@@ -9,30 +9,36 @@ using DoggyDrop.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// 🔍 Izpiši connection string za diagnostiko
 Console.WriteLine("📡 Connection string: " + builder.Configuration.GetConnectionString("DefaultConnection"));
 
-
+// 🔌 Database povezava
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-builder.Services.AddScoped<UserManager<ApplicationUser>>();
-builder.Services.AddScoped<SignInManager<ApplicationUser>>();
-
-
+// 🔐 Identity + roles
 builder.Services.AddDefaultIdentity<ApplicationUser>(options => options.SignIn.RequireConfirmedAccount = false)
     .AddRoles<IdentityRole>()
     .AddEntityFrameworkStores<ApplicationDbContext>();
 
+builder.Services.AddScoped<UserManager<ApplicationUser>>();
+builder.Services.AddScoped<SignInManager<ApplicationUser>>();
 
-builder.Services.AddControllersWithViews();
-builder.Services.AddRazorPages();
-
+// 📦 Cloudinary servis
 builder.Services.AddScoped<CloudinaryService>();
 
+// ✅ Varen način pridobivanja Cloudinary nastavitev
+var configSection = builder.Configuration.GetSection("Cloudinary");
+if (!configSection.Exists())
+{
+    throw new Exception("❌ Cloudinary settings are missing! Check environment variables or appsettings.json.");
+}
 
-var cloudinarySettings = builder.Configuration.GetSection("CloudinarySettings").Get<CloudinarySettings>();
-
-
+var cloudinarySettings = configSection.Get<CloudinarySettings>();
+if (cloudinarySettings == null || string.IsNullOrEmpty(cloudinarySettings.CloudName))
+{
+    throw new Exception("❌ Cloudinary configuration is invalid or incomplete!");
+}
 
 var cloudinary = new Cloudinary(new Account(
     cloudinarySettings.CloudName,
@@ -42,27 +48,32 @@ var cloudinary = new Cloudinary(new Account(
 
 builder.Services.AddSingleton(cloudinary);
 
+// 🌐 MVC
+builder.Services.AddControllersWithViews();
+builder.Services.AddRazorPages();
 
 var app = builder.Build();
 
+// 🛑 Global error handler
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");
 }
 
+// 📂 Static files, routing, auth
 app.UseStaticFiles();
 app.UseRouting();
-
 app.UseAuthentication();
 app.UseAuthorization();
 
+// 🗺️ Default route
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Map}/{action=Index}/{id?}");
 
 app.MapRazorPages();
 
-// Sejanje baze
+// 🌱 Inicializacija baze
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
@@ -70,13 +81,12 @@ using (var scope = app.Services.CreateScope())
     DbInitializer.Seed(context);
 }
 
-// Dodajanje admin uporabnika
+// 👑 Dodaj admin uporabnika, če še ne obstaja
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
     var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
     var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
-
 
     if (!await roleManager.RoleExistsAsync("Admin"))
     {
@@ -94,10 +104,9 @@ using (var scope = app.Services.CreateScope())
             EmailConfirmed = true
         };
 
-
         await userManager.CreateAsync(adminUser, "Admin123!");
         await userManager.AddToRoleAsync(adminUser, "Admin");
     }
-} 
+}
 
 app.Run();
