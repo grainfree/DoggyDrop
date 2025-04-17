@@ -1,17 +1,8 @@
 ﻿@model IEnumerable<DoggyDrop.Models.TrashBin>
 @using System.Text.Json
 
-@if (TempData["SuccessMessage"] != null)
-{
-    <div class="alert alert-success alert-dismissible fade show" role="alert">
-        @TempData["SuccessMessage"]
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Zapri"></button>
-    </div>
-}
-
 @{
-    ViewData["Title"] = "Zemljevid košev";
-
+    ViewData["Title"] = "Zemljevid";
     var json = JsonSerializer.Serialize(
         Model.Select(b => new
         {
@@ -25,22 +16,62 @@
     var binsJson = Html.Raw(json);
 }
 
-<h2 class="text-center mb-4">Zemljevid košev za pasje iztrebke</h2>
+<style>
+    #map {
+        height: 100vh;
+        width: 100%;
+    }
 
-<!-- Gumb za najbližji koš -->
-<div class="text-center mb-3">
-    <button onclick="findNearestTrashBin()" class="btn btn-primary btn-lg">📍 Najdi najbližji koš</button>
-</div>
+    .fab-main {
+        position: fixed;
+        bottom: 80px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 1000;
+        background-color: #425F57;
+        color: white;
+        border-radius: 25px;
+        padding: 14px 22px;
+        font-size: 16px;
+        border: none;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    }
+
+    .fab-secondary {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 1000;
+        width: 50px;
+        height: 50px;
+        background-color: #FFA447;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        font-size: 28px;
+        line-height: 50px;
+        text-align: center;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    }
+
+    @media (min-width: 768px) {
+        .fab-main
+
+    {
+        font-size: 18px;
+    }
+
+    }
+</style>
+
+<!-- Glavni gumb -->
+<button onclick="findNearestTrashBin()" class="fab-main">📍 Najdi najbližji koš</button>
+
+<!-- Sekundarni gumb -->
+<a href="/Map/Add" class="fab-secondary">＋</a>
 
 <!-- Zemljevid -->
-<div id="map" style="height: 500px; width: 100%;" class="mb-4"></div>
-
-<!-- Gumb za dodajanje -->
-<div class="text-center mb-5">
-    <a href="/Map/Add" class="btn btn-success btn-lg">
-        ➕ Dodaj nov koš
-    </a>
-</div>
+<div id="map"></div>
 
 @section Scripts {
     <script>
