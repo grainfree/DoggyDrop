@@ -20,7 +20,6 @@
 
 <h2 class="text-center mb-4">👤 Moj profil</h2>
 
-
 <div class="text-center mb-4">
     @if (!string.IsNullOrEmpty(Model.ProfileImageUrl))
     {
@@ -31,8 +30,8 @@
         <div class="rounded-circle bg-secondary d-inline-block" style="width: 120px; height: 120px;"></div>
     }
 
-    <form asp-action="UploadProfileImage" method="post" enctype="multipart/form-data" class="mt-2">
-        <div class="input-group">
+    <form asp-action="UploadProfileImage" method="post" enctype="multipart/form-data" class="mt-2 text-center">
+        <div class="input-group w-auto mx-auto">
             <input type="file" name="profileImage" class="form-control" accept="image/*" required />
             <button type="submit" class="btn btn-primary">Naloži</button>
         </div>
@@ -63,3 +62,11 @@
         <a class="btn btn-outline-success" href="#">👥 Povabi prijatelja</a>
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        document.querySelector('form')?.addEventListener('submit', function () {
+            console.log("✔️ Obrazec se pošilja");
+        });
+    </script>
+}
