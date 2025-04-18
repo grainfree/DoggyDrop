@@ -1,72 +1,84 @@
-﻿@using Microsoft.AspNetCore.Identity
-@model DoggyDrop.ViewModels.UserProfileViewModel
-
+﻿@model DoggyDrop.ViewModels.UserProfileViewModel
 @{
     ViewData["Title"] = "Moj profil";
 }
 
-@if (TempData["SuccessMessage"] != null)
-{
-    <div class="alert alert-success text-center mt-3">
-        @TempData["SuccessMessage"]
-    </div>
-}
-@if (TempData["ErrorMessage"] != null)
-{
-    <div class="alert alert-danger text-center mt-3">
-        @TempData["ErrorMessage"]
-    </div>
-}
+<style>
+    .profile-container {
+        max-width: 500px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #fefefe;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        margin-top: 20px;
+    }
 
-<h2 class="text-center mb-4">👤 Moj profil</h2>
+    .profile-pic {
+        width: 100px;
+        height: 100px;
+        object-fit: cover;
+        border-radius: 50%;
+        margin-bottom: 10px;
+    }
 
-<div class="text-center mb-4">
+    .badge {
+        display: inline-block;
+        margin: 4px;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 14px;
+        background-color: #FFA447;
+        color: white;
+    }
+
+    .btn-profile-link {
+        display: block;
+        width: 100%;
+        margin-top: 10px;
+        padding: 12px;
+        font-size: 16px;
+        background-color: #425F57;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        text-align: center;
+        text-decoration: none;
+    }
+
+        .btn-profile-link:hover {
+            background-color: #3a4e48;
+        }
+</style>
+
+<div class="profile-container text-center">
+    <h2>👤 Moj profil</h2>
+
     @if (!string.IsNullOrEmpty(Model.ProfileImageUrl))
     {
-        <img src="@Model.ProfileImageUrl" alt="Profilna slika" class="rounded-circle" style="width: 120px; height: 120px; object-fit: cover;" />
+        <img src="@Model.ProfileImageUrl" alt="Profilna slika" class="profile-pic" />
     }
     else
     {
-        <div class="rounded-circle bg-secondary d-inline-block" style="width: 120px; height: 120px;"></div>
+        <div class="profile-pic bg-secondary d-inline-block"></div>
     }
 
-    <form asp-action="UploadProfileImage" method="post" enctype="multipart/form-data" class="mt-2 text-center">
-        <div class="input-group w-auto mx-auto">
-            <input type="file" name="profileImage" class="form-control" accept="image/*" required />
-            <button type="submit" class="btn btn-primary">Naloži</button>
-        </div>
-    </form>
-</div>
+    <p class="fw-bold mb-1">@Model.Email</p>
+    <p class="mb-3">Dodanih košev: <strong>@Model.TotalBins</strong></p>
 
-<div class="card p-4 shadow-sm">
-    <p><strong>Email:</strong> @Model.Email</p>
-    <p><strong>Dodanih košev:</strong> @Model.TotalBins</p>
-
-    <h4 class="mt-4">🎖️ Značke</h4>
+    <h5 class="mt-4 mb-2">🎖️ Značke</h5>
     @if (Model.Badges.Any())
     {
-        <ul class="list-inline">
-            @foreach (var badge in Model.Badges)
-            {
-                <li class="list-inline-item badge bg-success me-2">@badge</li>
-            }
-        </ul>
+        @foreach (var badge in Model.Badges)
+        {
+            <span class="badge">@badge</span>
+        }
     }
     else
     {
         <p>Zaenkrat še nimaš značk.</p>
     }
 
-    <div class="mt-4">
-        <a class="btn btn-outline-primary me-2" asp-controller="Map" asp-action="MyBins">📍 Moje lokacije</a>
-        <a class="btn btn-outline-success" href="#">👥 Povabi prijatelja</a>
-    </div>
+    <a href="/Map/MyBins" class="btn-profile-link">📍 Moje lokacije</a>
+    <a href="#" class="btn-profile-link">👥 Povabi prijatelja</a>
 </div>
-
-@section Scripts {
-    <script>
-        document.querySelector('form')?.addEventListener('submit', function () {
-            console.log("✔️ Obrazec se pošilja");
-        });
-    </script>
-}

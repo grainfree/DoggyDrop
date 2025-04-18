@@ -1,65 +1,105 @@
 ﻿@model IEnumerable<DoggyDrop.Models.TrashBin>
-
 @{
     ViewData["Title"] = "Moji predlogi";
-
-    var count = (int)(ViewBag.BinCount ?? 0);
-    string badge = "";
-    if (count >= 10)
-    {
-        badge = "🥇 Zlata značka";
-    }
-    else if (count >= 5)
-    {
-        badge = "🥈 Srebrna značka";
-    }
-    else if (count >= 1)
-    {
-        badge = "🥉 Bronasta značka";
-    }
-}
 }
 
-<h2>📋 Moji predlogi</h2>
+<style>
+    .bin-card {
+        border-radius: 12px;
+        overflow: hidden;
+        background-color: #fefefe;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
 
-@if (!string.IsNullOrEmpty(badge))
-{
-    <p><strong>Tvoja značka:</strong> <span class="badge bg-primary">@badge</span></p>
-}
+    .bin-image {
+        height: 100%;
+        object-fit: cover;
+        border-right: 1px solid #ddd;
+    }
 
+    .badge-approved {
+        background-color: #4CAF50;
+        color: white;
+    }
+
+    .badge-pending {
+        background-color: #FFA447;
+        color: #333;
+    }
+
+    .bin-buttons .btn {
+        padding: 4px 10px;
+        font-size: 14px;
+    }
+
+    .fab-back {
+        position: fixed;
+        bottom: 20px;
+        left: 20px;
+        z-index: 1000;
+        width: 50px;
+        height: 50px;
+        background-color: #E25E3E;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        font-size: 24px;
+        line-height: 50px;
+        text-align: center;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        text-decoration: none;
+    }
+
+    media (min-width: 768px) {
+        .bin-buttons .btn
+
+    {
+        font-size: 16px;
+    }
+
+    }
+</style>
+
+<h2 class="text-center mb-4">📋 Moji predlogi</h2>
 
 @if (!Model.Any())
 {
-    <p>Nisi še dodal nobenega koša.</p>
+    <p class="text-center">Nisi še dodal nobenega koša.</p>
 }
 else
 {
-    <table class="table table-bordered table-striped">
-        <thead>
-            <tr>
-                <th>Ime</th>
-                <th>Datum</th>
-                <th>Status</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var bin in Model)
-            {
-                <tr>
-                    <td>@bin.Name</td>
-                    <td>@bin.DateAdded.ToLocalTime().ToString("dd.MM.yyyy")</td>
-                    <td>
-                        @if (bin.IsApproved)
-                        {
-                            <span class="badge bg-success">Odobreno</span>
-                        }
-                        else
-                        {
-                            <span class="badge bg-warning text-dark">V čakanju</span>
-                        }
-                    </td>
-                </tr>
-            }
-        </tbody>
-    </table>
+    <div class="container">
+        @foreach (var bin in Model)
+        {
+            <div class="card mb-3 bin-card">
+                <div class="row g-0">
+                    @if (!string.IsNullOrEmpty(bin.ImageUrl))
+                    {
+                        <div class="col-4">
+                            <img src="@bin.ImageUrl" class="img-fluid bin-image" alt="@bin.Name" />
+                        </div>
+                    }
+                    <div class="col">
+                        <div class="card-body">
+                            <h5 class="card-title mb-1">@bin.Name</h5>
+                            <p class="card-text text-muted mb-1"><small>Dodano: @bin.DateAdded.ToLocalTime().ToString("dd.MM.yyyy")</small></p>
+                            <span class="badge @(bin.IsApproved ? "badge-approved" : "badge-pending")">
+                                @(bin.IsApproved ? "Odobreno" : "V čakanju")
+                            </span>
+
+                            <div class="mt-2 d-flex justify-content-end bin-buttons">
+                                <a asp-action="Edit" asp-route-id="@bin.Id" class="btn btn-outline-primary btn-sm me-2">✏️ Uredi</a>
+                                <form asp-action="Delete" asp-route-id="@bin.Id" method="post" onsubmit="return confirm('Si prepričan, da želiš izbrisati ta koš?');">
+                                    <button type="submit" class="btn btn-outline-danger btn-sm">🗑️ Briši</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
 }
+
+<!-- Floating gumb za nazaj -->
+<a href="/Map/Index" class="fab-back" title="Nazaj na zemljevid">←</a>
