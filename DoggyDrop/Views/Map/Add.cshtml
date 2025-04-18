@@ -81,11 +81,22 @@
             <span asp-validation-for="Longitude" class="text-danger"></span>
         </div>
 
-        <div class="mb-3">
-            <label asp-for="ImageFile" class="form-label">Slika koša</label>
-            <input asp-for="ImageFile" type="file" class="form-control" accept="image/*" capture="environment" />
+        <div class="mb-3 text-center">
+            <label for="photoInput" class="form-label d-block fw-semibold mb-2">📷 Fotografiraj koš</label>
+
+            <label for="photoInput" class="btn btn-outline-primary w-100 py-3" style="border-radius: 12px;">
+                📸 Klikni za fotografijo ali izbiro slike
+            </label>
+
+            <input asp-for="ImageFile" id="photoInput" type="file"
+                   accept="image/*" capture="environment"
+                   class="d-none" />
+
+            <div class="form-text mt-2">Uporabi kamero ali naloži obstoječo fotografijo koša.</div>
             <span asp-validation-for="ImageFile" class="text-danger"></span>
         </div>
+
+
 
         <button type="submit" class="btn btn-submit">Shrani</button>
     </form>
