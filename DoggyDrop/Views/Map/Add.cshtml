@@ -1,58 +1,99 @@
 ﻿@model DoggyDrop.ViewModels.TrashBinViewModel
-
 @{
-    ViewData["Title"] = "Dodaj novo lokacijo";
+    ViewData["Title"] = "Dodaj nov koš";
 }
 
-<div class="container py-4">
-    <h2 class="text-center mb-4" style="color: #355E3B;">📍 Dodaj novo lokacijo</h2>
+<style>
+    .add-form-container {
+        max-width: 500px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #f5f5f5;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        margin-top: 20px;
+    }
 
-    <form asp-action="Add" method="post" enctype="multipart/form-data" class="needs-validation" novalidate>
+    .form-label {
+        font-weight: 600;
+    }
+
+    .btn-submit {
+        background-color: #425F57;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 10px 20px;
+        font-size: 16px;
+        width: 100%;
+    }
+
+        .btn-submit:hover {
+            background-color: #3b534d;
+        }
+
+    .fab-back {
+        position: fixed;
+        bottom: 20px;
+        left: 20px;
+        z-index: 1000;
+        width: 50px;
+        height: 50px;
+        background-color: #E25E3E;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        font-size: 24px;
+        line-height: 50px;
+        text-align: center;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    }
+
+    media (min-width: 768px) {
+        .btn-submit
+
+    {
+        font-size: 18px;
+    }
+
+    }
+</style>
+
+<div class="add-form-container">
+    <h2 class="text-center mb-4">➕ Dodaj nov koš</h2>
+
+    <form asp-action="Add" enctype="multipart/form-data" method="post">
         <div class="mb-3">
-            <label for="Name" class="form-label">Ime (neobvezno)</label>
-            <input asp-for="Name" class="form-control" placeholder="Npr. Park Tivoli" />
+            <label asp-for="Name" class="form-label">Ime lokacije</label>
+            <input asp-for="Name" class="form-control" placeholder="Npr. Park pri fontani" />
             <span asp-validation-for="Name" class="text-danger"></span>
         </div>
 
         <div class="mb-3">
-            <label class="form-label">Lokacija</label>
-            <div class="input-group">
-                <input asp-for="Latitude" class="form-control" placeholder="Lat" readonly />
-                <input asp-for="Longitude" class="form-control" placeholder="Lng" readonly />
-                <button type="button" class="btn btn-outline-secondary" onclick="getLocation()">📡 Uporabi GPS</button>
-            </div>
+            <label asp-for="Latitude" class="form-label">Zemljepisna širina (Latitude)</label>
+            <input asp-for="Latitude" class="form-control" placeholder="Npr. 46.055" />
             <span asp-validation-for="Latitude" class="text-danger"></span>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Longitude" class="form-label">Zemljepisna dolžina (Longitude)</label>
+            <input asp-for="Longitude" class="form-control" placeholder="Npr. 14.508" />
             <span asp-validation-for="Longitude" class="text-danger"></span>
         </div>
 
-        <div class="mb-3 text-center">
-            <label class="form-label d-block">Fotografija</label>
-            <div class="border rounded p-3" style="border: 2px dashed #ccc;">
-                <input type="file" name="ImageFile" accept="image/*" class="form-control" />
-            </div>
+        <div class="mb-3">
+            <label asp-for="ImageFile" class="form-label">Slika koša</label>
+            <input asp-for="ImageFile" type="file" class="form-control" accept="image/*" capture="environment" />
+            <span asp-validation-for="ImageFile" class="text-danger"></span>
         </div>
 
-        <div class="d-grid mt-4">
-            <button type="submit" class="btn" style="background-color: #FFA500; color: white; font-weight: bold;">
-                🐶 ODDAJ KOŠ
-            </button>
-        </div>
+        <button type="submit" class="btn btn-submit">Shrani</button>
     </form>
 </div>
 
+<!-- Gumb za nazaj -->
+<a href="/Map/Index" class="fab-back" title="Nazaj na zemljevid">←</a>
+
 @section Scripts {
-    <script>
-        function getLocation() {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(function (position) {
-                    document.getElementById("Latitude").value = position.coords.latitude;
-                    document.getElementById("Longitude").value = position.coords.longitude;
-                }, function () {
-                    alert("Napaka pri pridobivanju lokacije.");
-                });
-            } else {
-                alert("Vaš brskalnik ne podpira geolokacije.");
-            }
-        }
-    </script>
+    <partial name="_ValidationScriptsPartial" />
 }
