@@ -71,13 +71,13 @@
 
         <div class="mb-3">
             <label asp-for="Latitude" class="form-label">Zemljepisna širina (Latitude)</label>
-            <input asp-for="Latitude" class="form-control" placeholder="Npr. 46.055" />
+            <input asp-for="Latitude" class="form-control" id="latitudeInput" placeholder="Npr. 46.055" />
             <span asp-validation-for="Latitude" class="text-danger"></span>
         </div>
 
         <div class="mb-3">
             <label asp-for="Longitude" class="form-label">Zemljepisna dolžina (Longitude)</label>
-            <input asp-for="Longitude" class="form-control" placeholder="Npr. 14.508" />
+            <input asp-for="Longitude" class="form-control" id="longitudeInput" placeholder="Npr. 14.508" />
             <span asp-validation-for="Longitude" class="text-danger"></span>
         </div>
 
@@ -96,4 +96,19 @@
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+
+    <script>
+        window.onload = function () {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(function (position) {
+                    document.getElementById("latitudeInput").value = position.coords.latitude.toFixed(6);
+                    document.getElementById("longitudeInput").value = position.coords.longitude.toFixed(6);
+                }, function (error) {
+                    console.warn("⚠️ Geolokacija ni na voljo: ", error.message);
+                });
+            } else {
+                alert("Geolokacija ni podprta v tem brskalniku.");
+            }
+        };
+    </script>
 }
