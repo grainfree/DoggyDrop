@@ -50,7 +50,7 @@ namespace DoggyDrop.Controllers
                 ProfileImageUrl = user.ProfileImageUrl,
                 TotalBins = user.TrashBins?.Count ?? 0,
                 Badges = GetBadges(user.TrashBins?.Count ?? 0),
-                PhoneNumber = user.PhoneNumber
+                DisplayName = user.DisplayName
             };
 
             return View(model);
@@ -58,12 +58,12 @@ namespace DoggyDrop.Controllers
 
         [Authorize]
         [HttpPost]
-        public async Task<IActionResult> UpdateProfile(string PhoneNumber, IFormFile ProfileImage)
+        public async Task<IActionResult> UpdateProfile(string DisplayName, IFormFile ProfileImage)
         {
             var user = await _userManager.GetUserAsync(User);
             if (user == null) return NotFound();
 
-            user.PhoneNumber = PhoneNumber;
+            user.DisplayName = DisplayName;
 
             if (ProfileImage != null && ProfileImage.Length > 0)
             {

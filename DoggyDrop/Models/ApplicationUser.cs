@@ -7,6 +7,9 @@ namespace DoggyDrop.Models
     {
         public string? ProfileImageUrl { get; set; }
 
+        public string? DisplayName { get; set; }
+
+
         // Navigacijska lastnost za povezavo s koši (TrashBins)
         public ICollection<TrashBin>? TrashBins { get; set; }
     }
