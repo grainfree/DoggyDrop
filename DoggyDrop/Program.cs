@@ -72,6 +72,7 @@ app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Map}/{action=Index}/{id?}");
 
+
 app.MapRazorPages();
 
 // 🌱 Inicializacija baze
