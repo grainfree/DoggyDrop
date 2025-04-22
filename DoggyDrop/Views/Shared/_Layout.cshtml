@@ -39,15 +39,13 @@
                         @if (SignInManager.IsSignedIn(User))
                         {
                             <li class="nav-item">
-                                <a class="nav-link text-dark" asp-controller="Map" asp-action="MyBins">📋 Moji predlogi</a>
-                            </li>
-                            <li class="nav-item">
                                 <a class="nav-link text-dark" asp-controller="Home" asp-action="UserProfile">👤 Moj profil</a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link text-dark" asp-area="Identity" asp-page="/Account/Manage/Index">⚙️ Nastavitve profila</a>
+                                <a class="nav-link text-dark" asp-controller="Map" asp-action="MyBins">📋 Moji predlogi</a>
                             </li>
                         }
+
 
 
 

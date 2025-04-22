@@ -1,124 +1,90 @@
-﻿using System.Diagnostics;
-using Microsoft.AspNetCore.Mvc;
-using DoggyDrop.Models;
-using DoggyDrop.ViewModels;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
-using DoggyDrop.Data;
+﻿using DoggyDrop.Models;
 using DoggyDrop.Services;
-using CloudinaryDotNet.Actions;
-using CloudinaryDotNet;
+using DoggyDrop.ViewModels;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
-namespace DoggyDrop.Controllers;
-
-public class HomeController : Controller
+namespace DoggyDrop.Controllers
 {
-    private readonly ILogger<HomeController> _logger;
-    private readonly ApplicationDbContext _context;
-    private readonly UserManager<ApplicationUser> _userManager;
-    private readonly IWebHostEnvironment _environment;
-    private readonly CloudinaryService _cloudinaryService;
-
-    public HomeController(
-        ILogger<HomeController> logger,
-        ApplicationDbContext context,
-        UserManager<ApplicationUser> userManager,
-        IWebHostEnvironment environment,
-        CloudinaryService cloudinaryService)
+    public class HomeController : Controller
     {
-        _logger = logger;
-        _context = context;
-        _userManager = userManager;
-        _environment = environment;
-        _cloudinaryService = cloudinaryService;
-    }
+        private readonly ILogger<HomeController> _logger;
+        private readonly UserManager<ApplicationUser> _userManager;
+        private readonly ICloudinaryService _cloudinaryService;
 
-    public IActionResult Index()
-    {
-        return View();
-    }
-
-    public IActionResult Privacy()
-    {
-        return View();
-    }
-
-    [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
-    public IActionResult Error()
-    {
-        return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
-    }
-
-    public async Task<IActionResult> UserProfile()
-    {
-        if (!User.Identity.IsAuthenticated)
-            return RedirectToAction("Login", "Account", new { area = "Identity" });
-
-        var userId = _userManager.GetUserId(User);
-        var userEmail = User.Identity?.Name ?? "";
-
-        var totalBins = await _context.TrashBins
-            .Where(b => b.UserId == userId)
-            .CountAsync();
-
-        var badges = new List<string>();
-        if (totalBins >= 1)
-            badges.Add("🥇 Prvi koš");
-        if (totalBins >= 5)
-            badges.Add("🎯 Skupinski cilj");
-
-        var user = await _userManager.FindByIdAsync(userId);
-        var profileImageUrl = user?.ProfileImageUrl;
-
-        var viewModel = new UserProfileViewModel
+        public HomeController(
+            ILogger<HomeController> logger,
+            UserManager<ApplicationUser> userManager,
+            ICloudinaryService cloudinaryService)
         {
-            Email = userEmail,
-            TotalBins = totalBins,
-            Badges = badges,
-            ProfileImageUrl = profileImageUrl
-        };
-
-        return View("UserProfile", viewModel);
-    }
-
-    [HttpPost]
-    public async Task<IActionResult> UploadProfileImage(IFormFile profileImage, [FromServices] Cloudinary cloudinary)
-    {
-        if (profileImage != null && profileImage.Length > 0)
-        {
-            try
-            {
-                var userId = _userManager.GetUserId(User);
-                await using var stream = profileImage.OpenReadStream();
-
-                var uploadParams = new ImageUploadParams
-                {
-                    File = new FileDescription(profileImage.FileName, stream),
-                    Folder = "profile_pictures"
-                };
-
-                var uploadResult = await cloudinary.UploadAsync(uploadParams);
-
-                if (uploadResult.StatusCode == System.Net.HttpStatusCode.OK)
-                {
-                    var user = await _userManager.GetUserAsync(User);
-                    user.ProfileImageUrl = uploadResult.SecureUrl.ToString();
-                    await _userManager.UpdateAsync(user);
-                }
-                else
-                {
-                    TempData["Error"] = $"Napaka pri nalaganju slike: {uploadResult.Error?.Message}";
-                }
-            }
-            catch (Exception ex)
-            {
-                TempData["Error"] = $"Napaka pri nalaganju slike: {ex.Message}";
-            }
+            _logger = logger;
+            _userManager = userManager;
+            _cloudinaryService = cloudinaryService;
         }
 
-        return RedirectToAction("UserProfile");
+        public IActionResult Index()
+        {
+            return View();
+        }
+
+        public IActionResult Privacy()
+        {
+            return View();
+        }
+
+        [Authorize]
+        [HttpGet]
+        public async Task<IActionResult> UserProfile()
+        {
+            var user = await _userManager.Users
+                .Include(u => u.TrashBins)
+                .FirstOrDefaultAsync(u => u.UserName == User.Identity.Name);
+
+            if (user == null) return NotFound();
+
+            var model = new UserProfileViewModel
+            {
+                Email = user.Email,
+                ProfileImageUrl = user.ProfileImageUrl,
+                TotalBins = user.TrashBins?.Count ?? 0,
+                Badges = GetBadges(user.TrashBins?.Count ?? 0),
+                PhoneNumber = user.PhoneNumber
+            };
+
+            return View(model);
+        }
+
+        [Authorize]
+        [HttpPost]
+        public async Task<IActionResult> UpdateProfile(string PhoneNumber, IFormFile ProfileImage)
+        {
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null) return NotFound();
+
+            user.PhoneNumber = PhoneNumber;
+
+            if (ProfileImage != null && ProfileImage.Length > 0)
+            {
+                var imageUrl = await _cloudinaryService.UploadImageAsync(ProfileImage);
+                if (!string.IsNullOrEmpty(imageUrl))
+                {
+                    user.ProfileImageUrl = imageUrl;
+                }
+            }
+
+            await _userManager.UpdateAsync(user);
+            return RedirectToAction("UserProfile");
+        }
+
+        private List<string> GetBadges(int totalBins)
+        {
+            var badges = new List<string>();
+            if (totalBins >= 1) badges.Add("🐾 Prvi koš");
+            if (totalBins >= 5) badges.Add("🌟 Aktivni predlagatelj");
+            if (totalBins >= 10) badges.Add("🏆 Zbiratelj lokacij");
+            return badges;
+        }
     }
-
-
-
 }

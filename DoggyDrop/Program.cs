@@ -25,7 +25,8 @@ builder.Services.AddScoped<UserManager<ApplicationUser>>();
 builder.Services.AddScoped<SignInManager<ApplicationUser>>();
 
 // 📦 Cloudinary servis
-builder.Services.AddScoped<CloudinaryService>();
+builder.Services.AddScoped<ICloudinaryService, CloudinaryService>();
+
 
 // ✅ Varen način pridobivanja Cloudinary nastavitev
 var configSection = builder.Configuration.GetSection("Cloudinary");
