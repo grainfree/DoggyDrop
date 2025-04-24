@@ -1,8 +1,32 @@
 ﻿@{
-    ViewData["Title"] = "Home Page";
+    ViewData["Title"] = "Zemljevid";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
-</div>
+<div id="map" style="height: 100vh; width: 100%;"></div>
+
+@section Scripts {
+    <script>
+        function initMap() {
+            const map = new google.maps.Map(document.getElementById("map"), {
+                center: { lat: 46.05, lng: 14.5 },
+                zoom: 14,
+                styles: [
+                    { "elementType": "geometry", "stylers": [{ "color": "#f9f9f4" }] },
+                    { "elementType": "labels.text.fill", "stylers": [{ "color": "#4d4d4d" }] },
+                    { "elementType": "labels.text.stroke", "stylers": [{ "color": "#ffffff" }] },
+                    { "featureType": "poi", "elementType": "geometry", "stylers": [{ "color": "#e9ffe9" }] },
+                    { "featureType": "poi", "elementType": "labels.text", "stylers": [{ "visibility": "off" }] },
+                    { "featureType": "road", "elementType": "geometry", "stylers": [{ "color": "#ffffff" }] },
+                    { "featureType": "road", "elementType": "geometry.stroke", "stylers": [{ "color": "#90d192" }] },
+                    { "featureType": "water", "elementType": "geometry", "stylers": [{ "color": "#c6f1f1" }] },
+                    { "featureType": "transit", "stylers": [{ "visibility": "off" }] },
+                    { "featureType": "administrative", "stylers": [{ "visibility": "off" }] }
+                ]
+            });
+        }
+    </script>
+
+    <script async
+            src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC7BZuc_0STrDlrpQL6HF3mcQJW2HV4cDI&callback=initMap">
+    </script>
+}
