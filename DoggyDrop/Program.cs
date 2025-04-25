@@ -2,14 +2,14 @@ using DoggyDrop.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI;
-using Microsoft.Extensions.Configuration;
 using DoggyDrop.Models;
 using CloudinaryDotNet;
 using DoggyDrop.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Configuration.AddEnvironmentVariables(); // ✅ DODAJ TO VRSICO
+// ✅ omogoči branje iz environment variables
+builder.Configuration.AddEnvironmentVariables();
 
 // 🔍 Izpiši connection string za diagnostiko
 Console.WriteLine("📡 Connection string: " + builder.Configuration.GetConnectionString("DefaultConnection"));
@@ -29,37 +29,23 @@ builder.Services.AddScoped<SignInManager<ApplicationUser>>();
 // 📦 Cloudinary servis
 builder.Services.AddScoped<ICloudinaryService, CloudinaryService>();
 
+// ✅ Preberi okoljske spremenljivke neposredno
+var cloudName = builder.Configuration["Cloudinary__CloudName"];
+var apiKey = builder.Configuration["Cloudinary__ApiKey"];
+var apiSecret = builder.Configuration["Cloudinary__ApiSecret"];
 
-// ✅ Varen način pridobivanja Cloudinary nastavitev
-var cloudinarySettings = new CloudinarySettings
-{
-    CloudName = builder.Configuration["Cloudinary__CloudName"],
-    ApiKey = builder.Configuration["Cloudinary__ApiKey"],
-    ApiSecret = builder.Configuration["Cloudinary__ApiSecret"]
-};
-
-if (string.IsNullOrEmpty(cloudinarySettings.CloudName) ||
-    string.IsNullOrEmpty(cloudinarySettings.ApiKey) ||
-    string.IsNullOrEmpty(cloudinarySettings.ApiSecret))
+if (string.IsNullOrEmpty(cloudName) || string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(apiSecret))
 {
     throw new Exception("❌ Cloudinary environment variables are missing or invalid!");
 }
 
-
-
-// 🌩️ Dodatna diagnostika:
+// 🌩️ Diagnostika
 Console.WriteLine("🌩️ Cloudinary config check:");
-Console.WriteLine($"CloudName: {cloudinarySettings.CloudName}");
-Console.WriteLine($"ApiKey: {cloudinarySettings.ApiKey}");
-Console.WriteLine($"ApiSecret: {cloudinarySettings.ApiSecret}");
+Console.WriteLine($"CloudName: {cloudName}");
+Console.WriteLine($"ApiKey: {apiKey}");
+Console.WriteLine($"ApiSecret: {apiSecret}");
 
-var cloudinary = new Cloudinary(new Account(
-    cloudinarySettings.CloudName,
-    cloudinarySettings.ApiKey,
-    cloudinarySettings.ApiSecret
-));
-
-
+var cloudinary = new Cloudinary(new Account(cloudName, apiKey, apiSecret));
 builder.Services.AddSingleton(cloudinary);
 
 // 🌐 MVC
@@ -84,7 +70,6 @@ app.UseAuthorization();
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Map}/{action=Index}/{id?}");
-
 
 app.MapRazorPages();
 
