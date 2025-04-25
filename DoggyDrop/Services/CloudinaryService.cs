@@ -13,9 +13,10 @@ namespace DoggyDrop.Services
         public CloudinaryService(IConfiguration configuration)
         {
             var account = new Account(
-                configuration["Cloudinary:CloudName"],
-                configuration["Cloudinary:ApiKey"],
-                configuration["Cloudinary:ApiSecret"]);
+    configuration["Cloudinary__CloudName"],
+    configuration["Cloudinary__ApiKey"],
+    configuration["Cloudinary__ApiSecret"]);
+
 
             _cloudinary = new Cloudinary(account);
         }
