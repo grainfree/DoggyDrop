@@ -31,23 +31,32 @@ builder.Services.AddScoped<ICloudinaryService, CloudinaryService>();
 
 
 // ✅ Varen način pridobivanja Cloudinary nastavitev
-var configSection = builder.Configuration.GetSection("Cloudinary");
-if (!configSection.Exists())
+var cloudinarySettings = new CloudinarySettings
 {
-    throw new Exception("❌ Cloudinary settings are missing! Check environment variables or appsettings.json.");
+    CloudName = builder.Configuration["Cloudinary__CloudName"],
+    ApiKey = builder.Configuration["Cloudinary__ApiKey"],
+    ApiSecret = builder.Configuration["Cloudinary__ApiSecret"]
+};
+
+if (string.IsNullOrEmpty(cloudinarySettings.CloudName) ||
+    string.IsNullOrEmpty(cloudinarySettings.ApiKey) ||
+    string.IsNullOrEmpty(cloudinarySettings.ApiSecret))
+{
+    throw new Exception("❌ Cloudinary environment variables are missing or invalid!");
 }
 
-var cloudinarySettings = configSection.Get<CloudinarySettings>();
-if (cloudinarySettings == null || string.IsNullOrEmpty(cloudinarySettings.CloudName))
-{
-    throw new Exception("❌ Cloudinary configuration is invalid or incomplete!");
-}
+// 🌩️ Dodatna diagnostika:
+Console.WriteLine("🌩️ Cloudinary config check:");
+Console.WriteLine($"CloudName: {cloudinarySettings.CloudName}");
+Console.WriteLine($"ApiKey: {cloudinarySettings.ApiKey}");
+Console.WriteLine($"ApiSecret: {cloudinarySettings.ApiSecret}");
 
 var cloudinary = new Cloudinary(new Account(
     cloudinarySettings.CloudName,
     cloudinarySettings.ApiKey,
     cloudinarySettings.ApiSecret
 ));
+
 
 builder.Services.AddSingleton(cloudinary);
 
