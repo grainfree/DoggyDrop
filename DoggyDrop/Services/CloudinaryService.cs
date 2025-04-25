@@ -15,8 +15,14 @@ namespace DoggyDrop.Services
             var account = new Account(
     configuration["Cloudinary__CloudName"],
     configuration["Cloudinary__ApiKey"],
-    configuration["Cloudinary__ApiSecret"]);
+    configuration["Cloudinary__ApiSecret"]
+    );
 
+            // 🔍 Začasno dodani izpisi za preverjanje konfiguracije
+            Console.WriteLine("🌩️ Cloudinary config check:");
+            Console.WriteLine("CloudName: " + configuration["Cloudinary__CloudName"]);
+            Console.WriteLine("ApiKey: " + configuration["Cloudinary__ApiKey"]);
+            Console.WriteLine("ApiSecret: " + configuration["Cloudinary__ApiSecret"]);
 
             _cloudinary = new Cloudinary(account);
         }
