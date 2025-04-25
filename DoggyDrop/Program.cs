@@ -8,17 +8,14 @@ using DoggyDrop.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ✅ omogoči branje iz environment variables
-builder.Configuration.AddEnvironmentVariables();
-
-// 🔍 Izpiši connection string za diagnostiko
+// 🔍 Diagnostika povezave z bazo
 Console.WriteLine("📡 Connection string: " + builder.Configuration.GetConnectionString("DefaultConnection"));
 
-// 🔌 Database povezava
+// 🔌 Povezava z bazo
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// 🔐 Identity + roles
+// 🔐 Identity in vloge
 builder.Services.AddDefaultIdentity<ApplicationUser>(options => options.SignIn.RequireConfirmedAccount = false)
     .AddRoles<IdentityRole>()
     .AddEntityFrameworkStores<ApplicationDbContext>();
@@ -29,17 +26,17 @@ builder.Services.AddScoped<SignInManager<ApplicationUser>>();
 // 📦 Cloudinary servis
 builder.Services.AddScoped<ICloudinaryService, CloudinaryService>();
 
-// ✅ Preberi okoljske spremenljivke neposredno
-var cloudName = builder.Configuration["Cloudinary__CloudName"];
-var apiKey = builder.Configuration["Cloudinary__ApiKey"];
-var apiSecret = builder.Configuration["Cloudinary__ApiSecret"];
+// ✅ Preberi okoljske spremenljivke
+var cloudName = builder.Configuration["CLOUDINARY_CLOUD_NAME"];
+var apiKey = builder.Configuration["CLOUDINARY_API_KEY"];
+var apiSecret = builder.Configuration["CLOUDINARY_API_SECRET"];
 
 if (string.IsNullOrEmpty(cloudName) || string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(apiSecret))
 {
     throw new Exception("❌ Cloudinary environment variables are missing or invalid!");
 }
 
-// 🌩️ Diagnostika
+// 🌩️ Diagnostika Cloudinary nastavitev
 Console.WriteLine("🌩️ Cloudinary config check:");
 Console.WriteLine($"CloudName: {cloudName}");
 Console.WriteLine($"ApiKey: {apiKey}");
@@ -48,25 +45,24 @@ Console.WriteLine($"ApiSecret: {apiSecret}");
 var cloudinary = new Cloudinary(new Account(cloudName, apiKey, apiSecret));
 builder.Services.AddSingleton(cloudinary);
 
-// 🌐 MVC
+// 🌐 MVC + Razor Pages
 builder.Services.AddControllersWithViews();
 builder.Services.AddRazorPages();
 
 var app = builder.Build();
 
-// 🛑 Global error handler
+// 🛑 Globalni handler za napake
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");
 }
 
-// 📂 Static files, routing, auth
 app.UseStaticFiles();
 app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// 🗺️ Default route
+// 🗺️ Privzeta ruta
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Map}/{action=Index}/{id?}");
@@ -81,7 +77,7 @@ using (var scope = app.Services.CreateScope())
     DbInitializer.Seed(context);
 }
 
-// 👑 Dodaj admin uporabnika, če še ne obstaja
+// 👑 Ustvari admina, če še ne obstaja
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
