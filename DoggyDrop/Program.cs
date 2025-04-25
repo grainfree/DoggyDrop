@@ -9,6 +9,8 @@ using DoggyDrop.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Configuration.AddEnvironmentVariables(); // ✅ DODAJ TO VRSICO
+
 // 🔍 Izpiši connection string za diagnostiko
 Console.WriteLine("📡 Connection string: " + builder.Configuration.GetConnectionString("DefaultConnection"));
 
