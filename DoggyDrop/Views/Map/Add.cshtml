@@ -57,6 +57,13 @@
     }
 
     }
+
+    #preview {
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        margin-top: 10px;
+    }
+
 </style>
 
 <div class="add-form-container">
@@ -91,6 +98,20 @@
             <input asp-for="ImageFile" id="photoInput" type="file"
                    accept="image/*" capture="environment"
                    class="d-none" />
+           
+                   <img id="preview" src="#" class="img-fluid mt-2 d-none" alt="Predogled" style="max-height: 200px;" />
+
+            <script>
+                document.getElementById("photoInput").addEventListener("change", function (event) {
+                    const [file] = event.target.files;
+                    if (file) {
+                        const preview = document.getElementById("preview");
+                        preview.src = URL.createObjectURL(file);
+                        preview.classList.remove("d-none");
+                    }
+                });
+            </script>
+
 
             <div class="form-text mt-2">Uporabi kamero ali naloži obstoječo fotografijo koša.</div>
             <span asp-validation-for="ImageFile" class="text-danger"></span>

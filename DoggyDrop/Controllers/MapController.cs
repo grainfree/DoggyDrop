@@ -1,13 +1,13 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using DoggyDrop.Data;
 using DoggyDrop.Models;
-using System.Linq;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Http;
-using System.Globalization;
+using DoggyDrop.Services;
+using DoggyDrop.ViewModels;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
-
+using Microsoft.AspNetCore.Authorization;
+using System.Globalization;
 
 namespace DoggyDrop.Controllers
 {
@@ -16,28 +16,23 @@ namespace DoggyDrop.Controllers
         private readonly ApplicationDbContext _context;
         private readonly IWebHostEnvironment _environment;
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly ICloudinaryService _cloudinaryService;
 
-
-
-        public MapController(ApplicationDbContext context, IWebHostEnvironment environment, UserManager<ApplicationUser> userManager)
-
+        public MapController(ApplicationDbContext context,
+                             IWebHostEnvironment environment,
+                             UserManager<ApplicationUser> userManager,
+                             ICloudinaryService cloudinaryService)
         {
             _context = context;
             _environment = environment;
             _userManager = userManager;
+            _cloudinaryService = cloudinaryService;
         }
 
-        // =============================
-        // GET: Obrazec za dodajanje novega koša
-        // =============================
-        public IActionResult Add()
-        {
-            return View();
-        }
+        // Prikaz obrazca za dodajanje koša
+        public IActionResult Add() => View();
 
-        // =============================
-        // POST: Obdelava oddanega obrazca
-        // =============================
+        // Shrani novi koš
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Add(TrashBinViewModel model)
@@ -45,46 +40,33 @@ namespace DoggyDrop.Controllers
             if (!ModelState.IsValid)
                 return View(model);
 
-            string? imagePath = null;
+            string? imageUrl = null;
 
             if (model.ImageFile != null && model.ImageFile.Length > 0)
             {
-                var uploadsFolder = Path.Combine(_environment.WebRootPath, "uploads");
-                Directory.CreateDirectory(uploadsFolder);
+                imageUrl = await _cloudinaryService.UploadTrashBinImageAsync(model.ImageFile);
 
-                var uniqueFileName = Guid.NewGuid().ToString() + Path.GetExtension(model.ImageFile.FileName);
-                var filePath = Path.Combine(uploadsFolder, uniqueFileName);
-
-                using (var fileStream = new FileStream(filePath, FileMode.Create))
-                {
-                    await model.ImageFile.CopyToAsync(fileStream);
-                }
-
-                imagePath = "/uploads/" + uniqueFileName;
             }
 
             var newBin = new TrashBin
             {
                 Name = model.Name,
-                Latitude = double.Parse(model.Latitude, CultureInfo.InvariantCulture),
-                Longitude = double.Parse(model.Longitude, CultureInfo.InvariantCulture),
-                ImageUrl = imagePath,
+                Latitude = model.Latitude,
+                Longitude = model.Longitude,
+                ImageUrl = imageUrl,
                 DateAdded = DateTime.UtcNow,
                 IsApproved = User.IsInRole("Admin"),
-                UserId = User?.Identity?.IsAuthenticated == true ? _userManager.GetUserId(User) : null
+                UserId = _userManager.GetUserId(User)
             };
 
             _context.TrashBins.Add(newBin);
             await _context.SaveChangesAsync();
 
             TempData["SuccessMessage"] = "Koš je bil uspešno dodan!";
-
             return RedirectToAction("Index");
         }
 
-        // =============================
-        // Prikaz zemljevida z markerji
-        // =============================
+        // Glavna stran z zemljevidom
         public IActionResult Index()
         {
             var bins = _context.TrashBins
@@ -94,24 +76,23 @@ namespace DoggyDrop.Controllers
             return View(bins);
         }
 
-        // =============================
-        // Pregled neodobrenih košev
-        // =============================
+        // Seznam neodobrenih predlogov
+        [Authorize(Roles = "Admin")]
         public IActionResult Manage()
         {
             var pendingBins = _context.TrashBins
                 .Where(b => !b.IsApproved)
+                .OrderByDescending(b => b.DateAdded)
                 .ToList();
 
             return View(pendingBins);
         }
 
-        // =============================
-        // Potrdi koš
-        // =============================
+        // Odobri predlog
+        [Authorize(Roles = "Admin")]
         public IActionResult Approve(int id)
         {
-            var bin = _context.TrashBins.FirstOrDefault(b => b.Id == id);
+            var bin = _context.TrashBins.Find(id);
             if (bin != null)
             {
                 bin.IsApproved = true;
@@ -121,12 +102,11 @@ namespace DoggyDrop.Controllers
             return RedirectToAction("Manage");
         }
 
-        // =============================
-        // Zavrni ali izbriši koš
-        // =============================
+        // Izbriši predlog
+        [Authorize(Roles = "Admin")]
         public IActionResult Reject(int id)
         {
-            var bin = _context.TrashBins.FirstOrDefault(b => b.Id == id);
+            var bin = _context.TrashBins.Find(id);
             if (bin != null)
             {
                 _context.TrashBins.Remove(bin);
@@ -135,83 +115,56 @@ namespace DoggyDrop.Controllers
 
             return RedirectToAction("Manage");
         }
-        // =============================
-        // Vrni vse odobrene koše v JSON formatu za iskanje najbližjega
-        // =============================
-        [HttpGet]
-        public IActionResult FindNearest()
-        {
-            var bins = _context.TrashBins
-                .Where(t => t.IsApproved)
-                .Select(b => new
-                {
-                    b.Name,
-                    b.Latitude,
-                    b.Longitude
-                })
-                .ToList();
 
-            return Json(bins);
-        }
-        [HttpGet]
-        public IActionResult GetNearestBin(double latitude, double longitude)
-        {
-            var nearestBin = _context.TrashBins
-                .Where(b => b.IsApproved)
-                .OrderBy(b =>
-                    Math.Pow(b.Latitude - latitude, 2) + Math.Pow(b.Longitude - longitude, 2)
-                )
-                .FirstOrDefault();
-
-            if (nearestBin == null)
-                return NotFound();
-
-            return Json(new
-            {
-                nearestBin.Name,
-                nearestBin.Latitude,
-                nearestBin.Longitude,
-                nearestBin.ImageUrl
-            });
-        }
-        [HttpGet]
-        public IActionResult MySubmissions()
-        {
-            if (!User.Identity.IsAuthenticated)
-            {
-                return RedirectToAction("Login", "Account", new { area = "Identity" });
-            }
-
-            var userId = _userManager.GetUserId(User);
-
-            var myBins = _context.TrashBins
-                .Where(b => b.UserId == userId)
-                .OrderByDescending(b => b.DateAdded)
-                .ToList();
-
-            return View(myBins);
-        }
-
-        [HttpGet]
+        // Vsi predlogi trenutnega uporabnika
+        [Authorize]
         public async Task<IActionResult> MyBins()
         {
-            if (!User.Identity.IsAuthenticated)
-                return RedirectToAction("Index");
-
             var userId = _userManager.GetUserId(User);
-
             var myBins = await _context.TrashBins
                 .Where(b => b.UserId == userId)
                 .ToListAsync();
 
             ViewBag.BinCount = myBins.Count;
-
             return View(myBins);
         }
 
+        // API: Najdi najbližji koš
+        [HttpGet]
+        public IActionResult GetNearestBin(double latitude, double longitude)
+        {
+            var nearest = _context.TrashBins
+                .Where(b => b.IsApproved)
+                .OrderBy(b => Math.Pow(b.Latitude - latitude, 2) + Math.Pow(b.Longitude - longitude, 2))
+                .FirstOrDefault();
 
+            if (nearest == null) return NotFound();
 
+            return Json(new
+            {
+                nearest.Name,
+                nearest.Latitude,
+                nearest.Longitude,
+                nearest.ImageUrl
+            });
+        }
+
+        // API: Vsi odobreni koši
+        [HttpGet]
+        public IActionResult FindNearest()
+        {
+            var bins = _context.TrashBins
+                .Where(b => b.IsApproved)
+                .Select(b => new
+                {
+                    b.Name,
+                    b.Latitude,
+                    b.Longitude,
+                    b.ImageUrl
+                })
+                .ToList();
+
+            return Json(bins);
+        }
     }
 }
-
-
