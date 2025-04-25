@@ -25,5 +25,13 @@ namespace DoggyDrop.Models
 
         [ForeignKey("UserId")]
         public ApplicationUser? User { get; set; }
+
+        [NotMapped]
+        public string? FullImageUrl => 
+            string.IsNullOrEmpty(ImageUrl)
+    ? null
+    : (ImageUrl.StartsWith("http") 
+            ? ImageUrl : $"https://doggydrop.onrender.com{ImageUrl}");
+
     }
 }

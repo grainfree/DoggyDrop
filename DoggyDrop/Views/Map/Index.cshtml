@@ -4,15 +4,16 @@
 @{
     ViewData["Title"] = "Zemljevid";
     var json = JsonSerializer.Serialize(
-        Model.Select(b => new
-        {
-            name = b.Name,
-            latitude = b.Latitude,
-            longitude = b.Longitude,
-            date = b.DateAdded.ToString("dd.MM.yyyy"),
-            image = b.ImageUrl
-        })
-    );
+    Model.Select(b => new
+    {
+        name = b.Name,
+        latitude = b.Latitude,
+        longitude = b.Longitude,
+        date = b.DateAdded.ToString("dd.MM.yyyy"),
+        image = b.FullImageUrl
+    })
+        );
+
     var binsJson = Html.Raw(json);
 }
 
