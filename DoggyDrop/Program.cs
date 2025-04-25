@@ -38,12 +38,11 @@ var cloudinarySettings = new CloudinarySettings
     ApiSecret = builder.Configuration["Cloudinary__ApiSecret"]
 };
 
-if (string.IsNullOrEmpty(cloudinarySettings.CloudName) ||
-    string.IsNullOrEmpty(cloudinarySettings.ApiKey) ||
-    string.IsNullOrEmpty(cloudinarySettings.ApiSecret))
+if (string.IsNullOrEmpty(cloudinarySettings.CloudName))
 {
     throw new Exception("❌ Cloudinary environment variables are missing or invalid!");
 }
+
 
 // 🌩️ Dodatna diagnostika:
 Console.WriteLine("🌩️ Cloudinary config check:");
