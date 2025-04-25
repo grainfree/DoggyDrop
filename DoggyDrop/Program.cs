@@ -27,9 +27,10 @@ builder.Services.AddScoped<SignInManager<ApplicationUser>>();
 builder.Services.AddScoped<ICloudinaryService, CloudinaryService>();
 
 // ✅ Preberi okoljske spremenljivke
-var cloudName = builder.Configuration["CLOUDINARY_CLOUD_NAME"];
-var apiKey = builder.Configuration["CLOUDINARY_API_KEY"];
-var apiSecret = builder.Configuration["CLOUDINARY_API_SECRET"];
+var cloudName = builder.Configuration["Cloudinary__CloudName"];
+var apiKey = builder.Configuration["Cloudinary__ApiKey"];
+var apiSecret = builder.Configuration["Cloudinary__ApiSecret"];
+
 
 if (string.IsNullOrEmpty(cloudName) || string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(apiSecret))
 {
