@@ -1,7 +1,6 @@
 using DoggyDrop.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Identity.UI;
 using DoggyDrop.Models;
 using CloudinaryDotNet;
 using DoggyDrop.Services;
@@ -26,9 +25,6 @@ builder.Services.AddDefaultIdentity<ApplicationUser>(options => options.SignIn.R
 builder.Services.AddScoped<UserManager<ApplicationUser>>();
 builder.Services.AddScoped<SignInManager<ApplicationUser>>();
 
-// 📦 Cloudinary servis
-builder.Services.AddScoped<ICloudinaryService, CloudinaryService>();
-
 // ✅ Preberi okoljske spremenljivke neposredno
 var cloudName = builder.Configuration["CLOUDINARY_CLOUD_NAME"];
 var apiKey = builder.Configuration["CLOUDINARY_API_KEY"];
@@ -45,8 +41,12 @@ Console.WriteLine($"CloudName: {cloudName}");
 Console.WriteLine($"ApiKey: {apiKey}");
 Console.WriteLine($"ApiSecret: {apiSecret}");
 
+// ✅ Najprej registriraj Cloudinary
 var cloudinary = new Cloudinary(new Account(cloudName, apiKey, apiSecret));
 builder.Services.AddSingleton(cloudinary);
+
+// 📦 Potem registriraj CloudinaryService
+builder.Services.AddScoped<ICloudinaryService, CloudinaryService>();
 
 // 🌐 MVC
 builder.Services.AddControllersWithViews();

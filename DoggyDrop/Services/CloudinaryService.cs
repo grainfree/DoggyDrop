@@ -14,7 +14,6 @@ namespace DoggyDrop.Services
             _cloudinary = cloudinary;
         }
 
-        // ✅ Nalaganje profilnih slik
         public async Task<string> UploadImageAsync(IFormFile file)
         {
             if (file == null || file.Length == 0)
@@ -32,7 +31,6 @@ namespace DoggyDrop.Services
             return uploadResult.SecureUrl.ToString();
         }
 
-        // ✅ Nalaganje slik za koše
         public async Task<string> UploadTrashBinImageAsync(IFormFile file)
         {
             if (file == null || file.Length == 0)
