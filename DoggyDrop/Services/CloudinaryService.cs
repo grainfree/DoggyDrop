@@ -1,6 +1,5 @@
 ﻿using CloudinaryDotNet;
 using CloudinaryDotNet.Actions;
-using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Http;
 using System.Threading.Tasks;
 
@@ -10,21 +9,9 @@ namespace DoggyDrop.Services
     {
         private readonly Cloudinary _cloudinary;
 
-        public CloudinaryService(IConfiguration configuration)
+        public CloudinaryService(Cloudinary cloudinary)
         {
-            var account = new Account(
-    configuration["Cloudinary__CloudName"],
-    configuration["Cloudinary__ApiKey"],
-    configuration["Cloudinary__ApiSecret"]
-    );
-
-            // 🔍 Začasno dodani izpisi za preverjanje konfiguracije
-            Console.WriteLine("🌩️ Cloudinary config check:");
-            Console.WriteLine("CloudName: " + configuration["Cloudinary__CloudName"]);
-            Console.WriteLine("ApiKey: " + configuration["Cloudinary__ApiKey"]);
-            Console.WriteLine("ApiSecret: " + configuration["Cloudinary__ApiSecret"]);
-
-            _cloudinary = new Cloudinary(account);
+            _cloudinary = cloudinary;
         }
 
         // ✅ Nalaganje profilnih slik
