@@ -10,10 +10,10 @@ var builder = WebApplication.CreateBuilder(args);
 // ✅ omogoči branje iz environment variables
 builder.Configuration.AddEnvironmentVariables();
 
-// 🔍 Izpiši connection string za diagnostiko
+// 🔍 Izpiši povezavo do baze za preverjanje
 Console.WriteLine("📡 Connection string: " + builder.Configuration.GetConnectionString("DefaultConnection"));
 
-// 🔌 Database povezava
+// 🔌 Povezava na bazo
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
@@ -25,32 +25,29 @@ builder.Services.AddDefaultIdentity<ApplicationUser>(options => options.SignIn.R
 builder.Services.AddScoped<UserManager<ApplicationUser>>();
 builder.Services.AddScoped<SignInManager<ApplicationUser>>();
 
-// ✅ Preberi okoljske spremenljivke neposredno
+// ✅ Pravilno branje Cloudinary nastavitev
 var cloudName = builder.Configuration["CLOUDINARY_CLOUD_NAME"];
 var apiKey = builder.Configuration["CLOUDINARY_API_KEY"];
 var apiSecret = builder.Configuration["CLOUDINARY_API_SECRET"];
 
-if (string.IsNullOrEmpty(cloudName) || string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(apiSecret))
+// 🌩️ Izpis diagnostike
+Console.WriteLine("🌩️ Cloudinary nastavitve:");
+Console.WriteLine($"CLOUDINARY_CLOUD_NAME: {cloudName}");
+Console.WriteLine($"CLOUDINARY_API_KEY: {apiKey}");
+Console.WriteLine($"CLOUDINARY_API_SECRET: {apiSecret}");
+
+// ✅ Če ni nastavljeno, failaj
+if (string.IsNullOrWhiteSpace(cloudName) || string.IsNullOrWhiteSpace(apiKey) || string.IsNullOrWhiteSpace(apiSecret))
 {
     throw new Exception("❌ Cloudinary environment variables are missing or invalid!");
 }
 
-// 🌩️ Diagnostika
-Console.WriteLine("🌩️ Cloudinary config check:");
-Console.WriteLine($"CloudName: {cloudName}");
-Console.WriteLine($"ApiKey: {apiKey}");
-Console.WriteLine($"ApiSecret: {apiSecret}");
-
-// ✅ Najprej registriraj Cloudinary
+// ✅ Registriraj Cloudinary
 var cloudinary = new Cloudinary(new Account(cloudName, apiKey, apiSecret));
 builder.Services.AddSingleton(cloudinary);
 
-// 📦 Potem pravilno registriraj CloudinaryService
-builder.Services.AddScoped<ICloudinaryService>(provider =>
-{
-    var cloudinary = provider.GetRequiredService<Cloudinary>();
-    return new CloudinaryService(cloudinary);
-});
+// 📦 Registriraj CloudinaryService
+builder.Services.AddScoped<ICloudinaryService, CloudinaryService>();
 
 // 🌐 MVC
 builder.Services.AddControllersWithViews();
@@ -58,7 +55,7 @@ builder.Services.AddRazorPages();
 
 var app = builder.Build();
 
-// 🛑 Global error handler
+// 🛑 Globalni error handler
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");
@@ -85,7 +82,7 @@ using (var scope = app.Services.CreateScope())
     DbInitializer.Seed(context);
 }
 
-// 👑 Dodaj admin uporabnika, če še ne obstaja
+// 👑 Admin uporabnik
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
