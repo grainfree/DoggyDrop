@@ -45,8 +45,12 @@ Console.WriteLine($"ApiSecret: {apiSecret}");
 var cloudinary = new Cloudinary(new Account(cloudName, apiKey, apiSecret));
 builder.Services.AddSingleton(cloudinary);
 
-// 📦 Potem registriraj CloudinaryService
-builder.Services.AddScoped<ICloudinaryService, CloudinaryService>();
+// 📦 Potem pravilno registriraj CloudinaryService
+builder.Services.AddScoped<ICloudinaryService>(provider =>
+{
+    var cloudinary = provider.GetRequiredService<Cloudinary>();
+    return new CloudinaryService(cloudinary);
+});
 
 // 🌐 MVC
 builder.Services.AddControllersWithViews();

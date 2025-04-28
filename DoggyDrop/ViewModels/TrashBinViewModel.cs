@@ -6,18 +6,15 @@ namespace DoggyDrop.ViewModels
     public class TrashBinViewModel
     {
         [Required(ErrorMessage = "Ime koša je obvezno.")]
-        [Display(Name = "Ime")]
-        public string? Name { get; set; }
+        public string Name { get; set; }
 
-        [Required]
-        [Display(Name = "Zemljepisna širina")]
+        [Required(ErrorMessage = "Zahtevana je širina (Latitude).")]
         public double Latitude { get; set; }
 
-        [Required]
-        [Display(Name = "Zemljepisna dolžina")]
+        [Required(ErrorMessage = "Zahtevana je dolžina (Longitude).")]
         public double Longitude { get; set; }
 
-        [Display(Name = "Fotografija")]
-        public IFormFile? ImageFile { get; set; }
+        // ✅ Za nalaganje slike
+        public IFormFile ImageFile { get; set; }
     }
 }
