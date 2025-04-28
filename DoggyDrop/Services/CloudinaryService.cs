@@ -29,7 +29,20 @@ namespace DoggyDrop.Services
             };
 
             var uploadResult = await _cloudinary.UploadAsync(uploadParams);
-            return uploadResult.SecureUrl?.ToString();
+
+            // 🌩️ Diagnostika za preverjanje
+            Console.WriteLine("🌩️ Rezultat nalaganja (profilna slika):");
+            Console.WriteLine($"StatusCode: {uploadResult.StatusCode}");
+            Console.WriteLine($"PublicId: {uploadResult.PublicId}");
+            Console.WriteLine($"SecureUrl: {uploadResult.SecureUrl}");
+
+            if (uploadResult.StatusCode == System.Net.HttpStatusCode.OK)
+            {
+                return uploadResult.SecureUrl?.ToString();
+            }
+
+            Console.WriteLine("❌ Upload profilne slike na Cloudinary NI uspel!");
+            return null;
         }
 
         // ✅ Nalaganje slike koša
@@ -43,18 +56,24 @@ namespace DoggyDrop.Services
             var uploadParams = new ImageUploadParams
             {
                 File = new FileDescription(file.FileName, stream),
-                Folder = "doggydrop-trashbins"
+                Folder = "doggydrop-trashbins" // ✅ mapa za slike košev
             };
 
             var uploadResult = await _cloudinary.UploadAsync(uploadParams);
 
             // 🌩️ Diagnostika za preverjanje
-            Console.WriteLine("🌩️ Rezultat nalaganja:");
+            Console.WriteLine("🌩️ Rezultat nalaganja (slika koša):");
+            Console.WriteLine($"StatusCode: {uploadResult.StatusCode}");
             Console.WriteLine($"PublicId: {uploadResult.PublicId}");
             Console.WriteLine($"SecureUrl: {uploadResult.SecureUrl}");
 
-            return uploadResult.SecureUrl?.ToString();
-        }
+            if (uploadResult.StatusCode == System.Net.HttpStatusCode.OK)
+            {
+                return uploadResult.SecureUrl?.ToString();
+            }
 
+            Console.WriteLine("❌ Upload slike koša na Cloudinary NI uspel!");
+            return null;
+        }
     }
 }

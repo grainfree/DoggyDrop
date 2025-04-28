@@ -1,0 +1,22 @@
+﻿@{
+    ViewData["Title"] = "Test nalaganja na Cloudinary";
+}
+
+<h2>📷 Test nalaganja slike na Cloudinary</h2>
+
+@if (ViewBag.Message != null)
+{
+    <div class="alert alert-info">@ViewBag.Message</div>
+
+    @if (ViewBag.ImageUrl != null)
+    {
+        <img src="@ViewBag.ImageUrl" class="img-fluid" style="max-width:300px;" />
+    }
+}
+
+<form asp-action="Upload" method="post" enctype="multipart/form-data">
+    <div class="mb-3">
+        <input type="file" name="file" class="form-control" />
+    </div>
+    <button type="submit" class="btn btn-primary">Naloži sliko</button>
+</form>
