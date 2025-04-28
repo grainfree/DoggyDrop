@@ -1,0 +1,11 @@
+﻿@{
+    ViewData["Title"] = "Test Cloudinary Settings";
+}
+
+<h2>🌩️ Test povezave s Cloudinary (nastavitve)</h2>
+
+<div style="background-color: #f5f5f5; padding: 20px; border-radius: 8px; margin-top: 20px;">
+    <p><strong>Cloud Name:</strong> @ViewBag.CloudName</p>
+    <p><strong>API Key:</strong> @ViewBag.ApiKey</p>
+    <p><strong>API Secret:</strong> @(ViewBag.ApiSecret != null ? "✅ Prebrano" : "❌ Manjka")</p>
+</div>

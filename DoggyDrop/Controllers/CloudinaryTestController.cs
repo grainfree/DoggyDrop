@@ -44,5 +44,20 @@ namespace DoggyDrop.Controllers
 
             return View();
         }
+
+        [HttpGet]
+        public IActionResult Settings()
+        {
+            var cloudName = Environment.GetEnvironmentVariable("CLOUDINARY_CLOUD_NAME");
+            var apiKey = Environment.GetEnvironmentVariable("CLOUDINARY_API_KEY");
+            var apiSecret = Environment.GetEnvironmentVariable("CLOUDINARY_API_SECRET");
+
+            ViewBag.CloudName = cloudName;
+            ViewBag.ApiKey = apiKey;
+            ViewBag.ApiSecret = apiSecret;
+
+            return View();
+        }
+
     }
 }
