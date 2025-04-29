@@ -89,9 +89,8 @@ else
 
                             <div class="mt-2 d-flex justify-content-end bin-buttons">
                                 <a asp-action="Edit" asp-route-id="@bin.Id" class="btn btn-outline-primary btn-sm me-2">✏️ Uredi</a>
-                                <form asp-action="Delete" asp-route-id="@bin.Id" method="post" onsubmit="return confirm('Si prepričan, da želiš izbrisati ta koš?');">
-                                    <button type="submit" class="btn btn-outline-danger btn-sm">🗑️ Briši</button>
-                                </form>
+                                <a asp-action="Reject" asp-route-id="@bin.Id" asp-route-returnTo="mybins" class="btn btn-outline-danger btn-sm"
+                                   onclick="return confirm('Si prepričan, da želiš izbrisati ta koš?');">🗑️ Briši</a>
                             </div>
                         </div>
                     </div>

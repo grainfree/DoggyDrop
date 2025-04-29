@@ -100,9 +100,9 @@ namespace DoggyDrop.Controllers
             return RedirectToAction("Manage");
         }
 
-        // ❌ Zavrni predlog
-        [Authorize(Roles = "Admin")]
-        public IActionResult Reject(int id)
+        // ❌ Zavrni ali izbriši predlog z dinamičnim redirectom
+        [Authorize]
+        public IActionResult Reject(int id, string? returnTo)
         {
             var bin = _context.TrashBins.Find(id);
             if (bin != null)
@@ -111,10 +111,13 @@ namespace DoggyDrop.Controllers
                 _context.SaveChanges();
             }
 
+            if (!string.IsNullOrEmpty(returnTo) && returnTo.ToLower() == "mybins")
+                return RedirectToAction("MyBins");
+
             return RedirectToAction("Manage");
         }
 
-        // 🔥 Trajno izbriši koš (ročno brisanje)
+        // 🔥 Admin ročno brisanje
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Delete(int id)
         {
