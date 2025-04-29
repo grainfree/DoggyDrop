@@ -56,7 +56,7 @@ namespace DoggyDrop.Services
         {
             if (file == null || file.Length == 0)
             {
-                Console.WriteLine("⚠️ Napaka: datoteka je prazna ali ni bila poslana (slika koša).");
+                Console.WriteLine("⚠️ Napaka: datoteka je prazna ali ni bila poslana.");
                 return null;
             }
 
@@ -64,13 +64,13 @@ namespace DoggyDrop.Services
 
             var uploadParams = new ImageUploadParams
             {
-                File = new FileDescription(file.FileName, stream),
-                Folder = "doggydrop-trashbins" // 📁 mapa za slike košev
+                File = new FileDescription(file.FileName, stream)
+                // 🚫 NE dodajaj Folder tukaj
             };
 
             var uploadResult = await _cloudinary.UploadAsync(uploadParams);
 
-            // 🌩️ Diagnostika rezultata
+            // Diagnostika rezultata
             Console.WriteLine("🌩️ Rezultat nalaganja (slika koša):");
             Console.WriteLine($"StatusCode: {uploadResult.StatusCode}");
             Console.WriteLine($"PublicId: {uploadResult.PublicId}");
@@ -87,5 +87,6 @@ namespace DoggyDrop.Services
                 return null;
             }
         }
+
     }
 }
