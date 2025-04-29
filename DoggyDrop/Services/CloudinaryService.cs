@@ -2,6 +2,7 @@
 using CloudinaryDotNet.Actions;
 using Microsoft.AspNetCore.Http;
 using System.Threading.Tasks;
+using System;
 
 namespace DoggyDrop.Services
 {
@@ -19,7 +20,7 @@ namespace DoggyDrop.Services
         {
             if (file == null || file.Length == 0)
             {
-                Console.WriteLine("⚠️ Napaka: datoteka je prazna ali ni bila poslana (profilna slika).");
+                Console.WriteLine("⚠️ Profilna slika: prazna datoteka.");
                 return null;
             }
 
@@ -28,27 +29,20 @@ namespace DoggyDrop.Services
             var uploadParams = new ImageUploadParams
             {
                 File = new FileDescription(file.FileName, stream),
-                Folder = "doggydrop-profile-images" // 📁 mapa za profilne slike
+                Folder = "doggydrop-profile-images",
+                UseFilename = true,
+                UniqueFilename = true,
+                Overwrite = false
             };
 
             var uploadResult = await _cloudinary.UploadAsync(uploadParams);
 
-            // 🌩️ Diagnostika rezultata
             Console.WriteLine("🌩️ Rezultat nalaganja (profilna slika):");
             Console.WriteLine($"StatusCode: {uploadResult.StatusCode}");
-            Console.WriteLine($"PublicId: {uploadResult.PublicId}");
             Console.WriteLine($"SecureUrl: {uploadResult.SecureUrl}");
             Console.WriteLine($"Error: {uploadResult.Error?.Message}");
 
-            if (uploadResult.StatusCode == System.Net.HttpStatusCode.OK && uploadResult.SecureUrl != null)
-            {
-                return uploadResult.SecureUrl.ToString();
-            }
-            else
-            {
-                Console.WriteLine("❌ Upload profilne slike na Cloudinary NI uspel!");
-                return null;
-            }
+            return uploadResult.SecureUrl?.ToString();
         }
 
         // ✅ Nalaganje slike koša
@@ -56,7 +50,7 @@ namespace DoggyDrop.Services
         {
             if (file == null || file.Length == 0)
             {
-                Console.WriteLine("⚠️ Napaka: datoteka je prazna ali ni bila poslana.");
+                Console.WriteLine("⚠️ Slika koša: prazna datoteka.");
                 return null;
             }
 
@@ -64,29 +58,21 @@ namespace DoggyDrop.Services
 
             var uploadParams = new ImageUploadParams
             {
-                File = new FileDescription(file.FileName, stream)
-                // 🚫 NE dodajaj Folder tukaj
+                File = new FileDescription(file.FileName, stream),
+                Folder = "doggydrop-trashbins",
+                UseFilename = true,
+                UniqueFilename = true,
+                Overwrite = false
             };
 
             var uploadResult = await _cloudinary.UploadAsync(uploadParams);
 
-            // Diagnostika rezultata
             Console.WriteLine("🌩️ Rezultat nalaganja (slika koša):");
             Console.WriteLine($"StatusCode: {uploadResult.StatusCode}");
-            Console.WriteLine($"PublicId: {uploadResult.PublicId}");
             Console.WriteLine($"SecureUrl: {uploadResult.SecureUrl}");
             Console.WriteLine($"Error: {uploadResult.Error?.Message}");
 
-            if (uploadResult.StatusCode == System.Net.HttpStatusCode.OK && uploadResult.SecureUrl != null)
-            {
-                return uploadResult.SecureUrl.ToString();
-            }
-            else
-            {
-                Console.WriteLine("❌ Upload slike koša na Cloudinary NI uspel!");
-                return null;
-            }
+            return uploadResult.SecureUrl?.ToString();
         }
-
     }
 }
