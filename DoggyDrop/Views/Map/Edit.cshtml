@@ -1,0 +1,97 @@
+﻿@model DoggyDrop.ViewModels.TrashBinViewModel
+@{
+    ViewData["Title"] = "Uredi koš";
+}
+
+<style>
+    .edit-form-container {
+        max-width: 500px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #f5f5f5;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        margin-top: 20px;
+    }
+
+    .form-label {
+        font-weight: 600;
+    }
+
+    .btn-submit {
+        background-color: #425F57;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 10px 20px;
+        font-size: 16px;
+        width: 100%;
+    }
+
+        .btn-submit:hover {
+            background-color: #3b534d;
+        }
+
+    #preview {
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        margin-top: 10px;
+    }
+</style>
+
+<div class="edit-form-container">
+    <h2 class="text-center mb-4">✏️ Uredi koš</h2>
+
+    <form asp-action="Edit" enctype="multipart/form-data" method="post">
+        <input type="hidden" asp-for="Id" />
+
+        <div class="mb-3">
+            <label asp-for="Name" class="form-label">Ime lokacije</label>
+            <input asp-for="Name" class="form-control" />
+            <span asp-validation-for="Name" class="text-danger"></span>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Latitude" class="form-label">Zemljepisna širina</label>
+            <input asp-for="Latitude" class="form-control" />
+            <span asp-validation-for="Latitude" class="text-danger"></span>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Longitude" class="form-label">Zemljepisna dolžina</label>
+            <input asp-for="Longitude" class="form-control" />
+            <span asp-validation-for="Longitude" class="text-danger"></span>
+        </div>
+
+        <div class="mb-3 text-center">
+            <label for="photoInput" class="form-label d-block fw-semibold mb-2">📷 Naloži novo fotografijo (neobvezno)</label>
+
+            <label for="photoInput" class="btn btn-outline-primary w-100 py-3" style="border-radius: 12px;">
+                📸 Klikni za izbiro slike
+            </label>
+
+            <input asp-for="ImageFile" id="photoInput" type="file" accept="image/*" class="d-none" />
+            <img id="preview" src="#" class="img-fluid mt-2 d-none" alt="Predogled" style="max-height: 200px;" />
+
+            <div class="form-text mt-2">Če ne naložiš slike, bo obstoječa slika ostala nespremenjena.</div>
+            <span asp-validation-for="ImageFile" class="text-danger"></span>
+        </div>
+
+        <button type="submit" class="btn btn-submit">Shrani spremembe</button>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+
+    <script>
+        document.getElementById("photoInput").addEventListener("change", function (event) {
+            const [file] = event.target.files;
+            if (file) {
+                const preview = document.getElementById("preview");
+                preview.src = URL.createObjectURL(file);
+                preview.classList.remove("d-none");
+            }
+        });
+    </script>
+}

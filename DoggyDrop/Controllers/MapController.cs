@@ -45,7 +45,6 @@ namespace DoggyDrop.Controllers
             if (model.ImageFile != null && model.ImageFile.Length > 0)
             {
                 imageUrl = await _cloudinaryService.UploadTrashBinImageAsync(model.ImageFile);
-
             }
 
             var newBin = new TrashBin
@@ -165,6 +164,57 @@ namespace DoggyDrop.Controllers
                 .ToList();
 
             return Json(bins);
+        }
+
+        // 🆕 NOVO: Prikaz obrazca za urejanje koša
+        [Authorize(Roles = "Admin")]
+        [HttpGet]
+        public async Task<IActionResult> Edit(int id)
+        {
+            var bin = await _context.TrashBins.FindAsync(id);
+            if (bin == null)
+                return NotFound();
+
+            var model = new TrashBinViewModel
+            {
+                Id = bin.Id,
+                Name = bin.Name,
+                Latitude = bin.Latitude,
+                Longitude = bin.Longitude
+            };
+
+            return View(model);
+        }
+
+        // 🆕 NOVO: Shrani spremembe koša
+        [Authorize(Roles = "Admin")]
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Edit(TrashBinViewModel model)
+        {
+            if (!ModelState.IsValid)
+                return View(model);
+
+            var bin = await _context.TrashBins.FindAsync(model.Id);
+            if (bin == null)
+                return NotFound();
+
+            bin.Name = model.Name;
+            bin.Latitude = model.Latitude;
+            bin.Longitude = model.Longitude;
+
+            if (model.ImageFile != null && model.ImageFile.Length > 0)
+            {
+                var imageUrl = await _cloudinaryService.UploadTrashBinImageAsync(model.ImageFile);
+                if (!string.IsNullOrEmpty(imageUrl))
+                {
+                    bin.ImageUrl = imageUrl;
+                }
+            }
+
+            await _context.SaveChangesAsync();
+            TempData["SuccessMessage"] = "Koš uspešno posodobljen!";
+            return RedirectToAction("Manage");
         }
     }
 }

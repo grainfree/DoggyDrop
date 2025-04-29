@@ -5,6 +5,8 @@ namespace DoggyDrop.ViewModels
 {
     public class TrashBinViewModel
     {
+        public int Id { get; set; }
+
         [Required(ErrorMessage = "Ime koša je obvezno.")]
         public string Name { get; set; }
 
