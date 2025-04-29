@@ -41,6 +41,11 @@ else
                         <a href="/Map/Edit/@bin.Id" class="btn btn-warning btn-sm me-2">✏️ Uredi</a>
                         <a href="/Map/Approve/@bin.Id" class="btn btn-success btn-sm me-2">✅ Potrdi</a>
                         <a href="/Map/Reject/@bin.Id" class="btn btn-danger btn-sm">🗑️ Zavrni</a>
+                        <a href="/Map/Delete/@bin.Id" class="btn btn-danger btn-sm"
+                           onclick="return confirm('❗ Ali si prepričan, da želiš izbrisati ta koš?');">
+                            🗑️ Izbriši
+                        </a>
+
                     </td>
                 </tr>
             }

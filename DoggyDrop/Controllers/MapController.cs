@@ -7,7 +7,6 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authorization;
-using System.Globalization;
 
 namespace DoggyDrop.Controllers
 {
@@ -29,10 +28,10 @@ namespace DoggyDrop.Controllers
             _cloudinaryService = cloudinaryService;
         }
 
-        // Prikaz obrazca za dodajanje koša
+        // 📍 Prikaz obrazca za dodajanje koša
         public IActionResult Add() => View();
 
-        // Shrani novi koš
+        // 📍 Shrani novi koš
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Add(TrashBinViewModel model)
@@ -65,7 +64,7 @@ namespace DoggyDrop.Controllers
             return RedirectToAction("Index");
         }
 
-        // Glavna stran z zemljevidom
+        // 🗺️ Glavna stran z zemljevidom
         public IActionResult Index()
         {
             var bins = _context.TrashBins
@@ -75,7 +74,7 @@ namespace DoggyDrop.Controllers
             return View(bins);
         }
 
-        // Seznam neodobrenih predlogov
+        // ✅ Upravljanje - prikaz neodobrenih predlogov
         [Authorize(Roles = "Admin")]
         public IActionResult Manage()
         {
@@ -87,7 +86,7 @@ namespace DoggyDrop.Controllers
             return View(pendingBins);
         }
 
-        // Odobri predlog
+        // ✅ Potrdi predlog
         [Authorize(Roles = "Admin")]
         public IActionResult Approve(int id)
         {
@@ -101,7 +100,7 @@ namespace DoggyDrop.Controllers
             return RedirectToAction("Manage");
         }
 
-        // Izbriši predlog
+        // ❌ Zavrni predlog
         [Authorize(Roles = "Admin")]
         public IActionResult Reject(int id)
         {
@@ -115,7 +114,22 @@ namespace DoggyDrop.Controllers
             return RedirectToAction("Manage");
         }
 
-        // Vsi predlogi trenutnega uporabnika
+        // 🔥 Trajno izbriši koš (ročno brisanje)
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> Delete(int id)
+        {
+            var bin = await _context.TrashBins.FindAsync(id);
+            if (bin == null)
+                return NotFound();
+
+            _context.TrashBins.Remove(bin);
+            await _context.SaveChangesAsync();
+
+            TempData["SuccessMessage"] = "Koš je bil uspešno izbrisan!";
+            return RedirectToAction("Manage");
+        }
+
+        // 👤 Moji predlogi
         [Authorize]
         public async Task<IActionResult> MyBins()
         {
@@ -128,7 +142,7 @@ namespace DoggyDrop.Controllers
             return View(myBins);
         }
 
-        // API: Najdi najbližji koš
+        // 📍 API: Najdi najbližji koš
         [HttpGet]
         public IActionResult GetNearestBin(double latitude, double longitude)
         {
@@ -148,7 +162,7 @@ namespace DoggyDrop.Controllers
             });
         }
 
-        // API: Vsi odobreni koši
+        // 📍 API: Vsi odobreni koši
         [HttpGet]
         public IActionResult FindNearest()
         {
@@ -166,7 +180,7 @@ namespace DoggyDrop.Controllers
             return Json(bins);
         }
 
-        // 🆕 NOVO: Prikaz obrazca za urejanje koša
+        // ✏️ Prikaz obrazca za urejanje koša
         [Authorize(Roles = "Admin")]
         [HttpGet]
         public async Task<IActionResult> Edit(int id)
@@ -186,7 +200,7 @@ namespace DoggyDrop.Controllers
             return View(model);
         }
 
-        // 🆕 NOVO: Shrani spremembe koša
+        // ✏️ Shrani spremembe koša
         [Authorize(Roles = "Admin")]
         [HttpPost]
         [ValidateAntiForgeryToken]
