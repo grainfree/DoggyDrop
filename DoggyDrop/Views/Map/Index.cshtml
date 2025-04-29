@@ -4,16 +4,15 @@
 @{
     ViewData["Title"] = "Zemljevid";
     var json = JsonSerializer.Serialize(
-    Model.Select(b => new
-    {
-        name = b.Name,
-        latitude = b.Latitude,
-        longitude = b.Longitude,
-        date = b.DateAdded.ToString("dd.MM.yyyy"),
-        image = b.FullImageUrl
-    })
-        );
-
+        Model.Select(b => new
+        {
+            name = b.Name,
+            latitude = b.Latitude,
+            longitude = b.Longitude,
+            date = b.DateAdded.ToString("dd.MM.yyyy"),
+            image = b.FullImageUrl
+        })
+    );
     var binsJson = Html.Raw(json);
 }
 
@@ -25,7 +24,6 @@
 
     .fab-main {
         position: fixed;
-        bottom: 80px;
         left: 50%;
         transform: translateX(-50%);
         z-index: 1000;
@@ -36,6 +34,16 @@
         font-size: 16px;
         border: none;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    }
+
+    /* 🔄 Gumb za osvežitev */
+    .fab-refresh {
+        bottom: 140px;
+    }
+
+    /* 📍 Gumb za iskanje */
+    .fab-find {
+        bottom: 80px;
     }
 
     .fab-secondary {
@@ -52,26 +60,30 @@
         font-size: 28px;
         line-height: 50px;
         text-align: center;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
     }
 
-    /* 📱 Dodatna velikost za večje zaslone */
-    media (min-width: 768px) {
+    /* Dodatno za večje zaslone */
+    @media (min-width: 768px) {
         .fab-main
 
     {
         font-size: 18px;
     }
-        }
+
+    }
 </style>
 
-<!-- Glavni gumb: Najdi najbližji koš -->
-<button onclick="findNearestTrashBin()" class="fab-main">📍 Najdi najbližji koš</button>
+<!-- 🔄 Gumb za osvežitev poti -->
+<button onclick="refreshRoute()" class="fab-main fab-refresh">🔄 Osveži pot</button>
 
-<!-- Sekundarni gumb: Dodaj koš -->
+<!-- 📍 Gumb za najdi najbližji koš -->
+<button onclick="findNearestTrashBin()" class="fab-main fab-find">📍 Najdi najbližji koš</button>
+
+<!-- ➕ Gumb za dodajanje novega koša -->
 <a href="/Map/Add" class="fab-secondary">＋</a>
 
-<!-- Zemljevid -->
+<!-- 🌍 Zemljevid -->
 <div id="map"></div>
 
 @section Scripts {
@@ -94,7 +106,8 @@
                 const marker = new google.maps.Marker({
                     position: { lat: bin.latitude, lng: bin.longitude },
                     map: map,
-                    title: bin.name
+                    title: bin.name,
+                    animation: google.maps.Animation.DROP // 🎯 animacija pri prikazu
                 });
 
                 const infoContent = `
@@ -147,8 +160,12 @@
                     }
                 }, () => alert("Napaka pri pridobivanju lokacije."));
             } else {
-                alert("Geolokacija ni podprta.");
+                alert("Geolokacija ni podprta v tvojem brskalniku.");
             }
+        }
+
+        function refreshRoute() {
+            findNearestTrashBin();
         }
     </script>
 
