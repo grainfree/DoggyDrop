@@ -3,6 +3,7 @@
 
 @{
     ViewData["Title"] = "Zemljevid";
+
     var json = JsonSerializer.Serialize(
         Model.Select(b => new
         {
@@ -22,8 +23,26 @@
         width: 100%;
     }
 
+    .fab-refresh {
+        position: fixed;
+        bottom: 20px;
+        left: 20px;
+        z-index: 1000;
+        width: 50px;
+        height: 50px;
+        background-color: #FFA447;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        font-size: 28px;
+        line-height: 50px;
+        text-align: center;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    }
+
     .fab-main {
         position: fixed;
+        bottom: 80px;
         left: 50%;
         transform: translateX(-50%);
         z-index: 1000;
@@ -33,15 +52,7 @@
         padding: 14px 22px;
         font-size: 16px;
         border: none;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-    }
-
-    .fab-refresh {
-        bottom: 140px;
-    }
-
-    .fab-find {
-        bottom: 80px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
     }
 
     .fab-secondary {
@@ -72,10 +83,10 @@
 </style>
 
 <!-- 🔄 Gumb za osvežitev poti -->
-<button onclick="refreshRoute()" class="fab-main fab-refresh">🔄 Osveži pot</button>
+<button onclick="refreshRoute()" class="fab-refresh">🔄</button>
 
-<!-- 📍 Gumb za najdi najbližji koš -->
-<button onclick="findNearestTrashBin()" class="fab-main fab-find">📍 Najdi najbližji koš</button>
+<!-- 📍 Gumb za najbližji koš -->
+<button onclick="findNearestTrashBin()" class="fab-main">📍</button>
 
 <!-- ➕ Gumb za dodajanje novega koša -->
 <a href="/Map/Add" class="fab-secondary">＋</a>
@@ -92,6 +103,49 @@
             directionsService = new google.maps.DirectionsService();
             directionsRenderer = new google.maps.DirectionsRenderer();
 
+            // Poskusi centrirati na uporabnika
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(position => {
+                    const userLocation = {
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude
+                    };
+
+                    map = new google.maps.Map(document.getElementById("map"), {
+                        center: userLocation,
+                        zoom: 16,
+                        styles: [
+                            { elementType: "geometry", stylers: [{ color: "#f5f5f5" }] },
+                            { elementType: "labels.icon", stylers: [{ visibility: "off" }] },
+                            { elementType: "labels.text.fill", stylers: [{ color: "#616161" }] },
+                            { elementType: "labels.text.stroke", stylers: [{ color: "#f5f5f5" }] },
+                            { featureType: "administrative.land_parcel", elementType: "labels.text.fill", stylers: [{ color: "#bdbdbd" }] },
+                            { featureType: "poi", elementType: "geometry", stylers: [{ color: "#eeeeee" }] },
+                            { featureType: "poi", elementType: "labels.text.fill", stylers: [{ color: "#757575" }] },
+                            { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#d6e9c6" }] },
+                            { featureType: "poi.park", elementType: "labels.text.fill", stylers: [{ color: "#388e3c" }] },
+                            { featureType: "road", elementType: "geometry", stylers: [{ color: "#ffffff" }] },
+                            { featureType: "road.arterial", elementType: "labels.text.fill", stylers: [{ color: "#757575" }] },
+                            { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#dadada" }] },
+                            { featureType: "transit.line", elementType: "geometry", stylers: [{ color: "#e5e5e5" }] },
+                            { featureType: "transit.station", elementType: "geometry", stylers: [{ color: "#eeeeee" }] },
+                            { featureType: "water", elementType: "geometry", stylers: [{ color: "#c9e6ff" }] },
+                            { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#0097a7" }] }
+                        ]
+                    });
+
+                    directionsRenderer.setMap(map);
+                    placeBinsOnMap();
+                }, error => {
+                    // Če ni geolokacije, default center na Maribor
+                    initializeDefaultMap();
+                });
+            } else {
+                initializeDefaultMap();
+            }
+        };
+
+        function initializeDefaultMap() {
             map = new google.maps.Map(document.getElementById("map"), {
                 center: { lat: 46.5547, lng: 15.6459 },
                 zoom: 14,
@@ -116,22 +170,10 @@
             });
 
             directionsRenderer.setMap(map);
+            placeBinsOnMap();
+        }
 
-            // 🔥 Center na uporabnika, če možno
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(position => {
-                    const userLocation = {
-                        lat: position.coords.latitude,
-                        lng: position.coords.longitude
-                    };
-                    map.setCenter(userLocation);
-                }, error => {
-                    console.warn("⚠️ Napaka pri pridobivanju lokacije:", error.message);
-                });
-            } else {
-                console.warn("⚠️ Geolokacija ni podprta v tvojem brskalniku.");
-            }
-
+        function placeBinsOnMap() {
             bins.forEach(bin => {
                 const marker = new google.maps.Marker({
                     position: { lat: bin.latitude, lng: bin.longitude },
@@ -151,7 +193,7 @@
                 const infoWindow = new google.maps.InfoWindow({ content: infoContent });
                 marker.addListener("click", () => infoWindow.open(map, marker));
             });
-        };
+        }
 
         function findNearestTrashBin() {
             if (navigator.geolocation) {
