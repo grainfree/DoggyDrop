@@ -42,7 +42,9 @@
         <div class="alert alert-success text-center">@TempData["SuccessMessage"]</div>
     }
 
-    <form asp-action="Add" enctype="multipart/form-data">
+    <form asp-action="Add" enctype="multipart/form-data" method="post" id="addBinForm">
+        <div asp-validation-summary="ModelOnly" class="text-danger mb-3 small"></div>
+
         <div class="mb-3">
             <label asp-for="Name" class="form-label">Ime lokacije</label>
             <input asp-for="Name" class="form-control" />
@@ -99,8 +101,12 @@
             });
         }
 
-        document.querySelector("form").addEventListener("submit", function () {
-            document.getElementById("loadingOverlay").style.display = "flex";
+        document.addEventListener("DOMContentLoaded", function () {
+            const form = document.getElementById("addBinForm");
+
+            form.addEventListener("submit", function () {
+                document.getElementById("loadingOverlay").style.display = "flex";
+            });
         });
     </script>
 
