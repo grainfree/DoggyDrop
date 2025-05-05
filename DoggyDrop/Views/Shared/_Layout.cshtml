@@ -2,8 +2,12 @@
 @inject SignInManager<ApplicationUser> SignInManager
 @inject UserManager<ApplicationUser> UserManager
 
+@{
+    var userName = User.Identity?.Name;
+}
+
 <!DOCTYPE html>
-<html lang="en">
+<html lang="sl">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -11,45 +15,23 @@
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/DoggyDrop.styles.css" asp-append-version="true" />
-    <style>
-        .navbar-brand img {
-            height: 36px;
-        }
-
-        .profile-img {
-            width: 36px;
-            height: 36px;
-            object-fit: cover;
-            border-radius: 50%;
-            border: 2px solid #ccc;
-        }
-
-        .nav-avatar {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-            .nav-avatar span {
-                font-weight: 500;
-                font-size: 14px;
-            }
-    </style>
 </head>
 <body>
     <header>
-        <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom shadow-sm">
+        <nav class="navbar navbar-expand-sm navbar-light bg-white border-bottom shadow-sm">
             <div class="container-fluid">
-                <a class="navbar-brand" asp-area="" asp-controller="Map" asp-action="Index">
-                    <img src="~/images/logo_transparent.png" alt="DoggyDrop" />
+                <a class="navbar-brand d-flex align-items-center" asp-area="" asp-controller="Map" asp-action="Index">
+                    <img src="~/images/logo_transparent.png" alt="DoggyDrop logo" style="height: 36px;" class="me-2" />
+                    <span class="fw-bold text-dark">DoggyDrop</span>
                 </a>
 
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar"
+                        aria-controls="mainNavbar" aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
                 </button>
 
-                <div class="collapse navbar-collapse" id="navbarNav">
-                    <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                <div class="collapse navbar-collapse" id="mainNavbar">
+                    <ul class="navbar-nav me-auto mb-2 mb-sm-0">
                         @if (SignInManager.IsSignedIn(User))
                         {
                             <li class="nav-item">
@@ -71,15 +53,10 @@
                     <div class="d-flex align-items-center">
                         @if (SignInManager.IsSignedIn(User))
                         {
-                            var user = await UserManager.GetUserAsync(User);
-                            <div class="nav-avatar me-3">
-                                @if (!string.IsNullOrEmpty(user?.ProfileImageUrl))
-                                {
-                                    <img src="@user.ProfileImageUrl" alt="Profilna" class="profile-img" />
-                                }
-                                <span>@user.DisplayName ?? user.UserName</span>
-                            </div>
-                            <form asp-area="Identity" asp-page="/Account/Logout" method="post">
+                            <span class="navbar-text me-3">
+                                Pozdravljen, @userName!
+                            </span>
+                            <form class="d-inline" asp-area="Identity" asp-page="/Account/Logout" method="post" id="logoutForm">
                                 <button type="submit" class="btn btn-outline-danger btn-sm">Odjava</button>
                             </form>
                         }
@@ -100,9 +77,9 @@
         </main>
     </div>
 
-    <footer class="border-top footer text-muted mt-4">
+    <footer class="border-top footer text-muted mt-3">
         <div class="container text-center">
-            &copy; 2025 - DoggyDrop - <a asp-area="" asp-controller="Home" asp-action="Privacy">Zasebnost</a>
+            &copy; 2025 - DoggyDrop | <a asp-area="" asp-controller="Home" asp-action="Privacy">Zasebnost</a>
         </div>
     </footer>
 
