@@ -71,9 +71,26 @@
         box-shadow: 0 4px 6px rgba(0,0,0,0.3);
     }
 
-    #directionsPanel {
+    #directionsSteps {
+        position: fixed;
+        bottom: 150px;
+        left: 10px;
+        right: 10px;
+        max-height: 200px;
+        overflow-y: auto;
+        background: white;
         padding: 10px;
-        font-size: 16px;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        font-size: 14px;
+        z-index: 1001;
+        display: none;
+    }
+
+    .step {
+        margin-bottom: 8px;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 6px;
     }
 </style>
 
@@ -86,11 +103,11 @@
 <!-- ➕ Gumb za dodajanje novega koša -->
 <a href="/Map/Add" class="fab-secondary">＋</a>
 
+<!-- 🧭 Navodila za pot -->
+<div id="directionsSteps"></div>
+
 <!-- 🌍 Zemljevid -->
 <div id="map"></div>
-
-<!-- 📋 Navodila za hojo -->
-<div id="directionsPanel"></div>
 
 @section Scripts {
     <script>
@@ -131,7 +148,6 @@
             });
 
             directionsRenderer.setMap(map);
-            directionsRenderer.setPanel(document.getElementById("directionsPanel"));
 
             bins.forEach(bin => {
                 const marker = new google.maps.Marker({
@@ -187,11 +203,19 @@
                             if (status === google.maps.DirectionsStatus.OK) {
                                 directionsRenderer.setDirections(result);
 
-                                const leg = result.routes[0].legs[0];
-                                const duration = leg.duration.text;
-                                const distance = leg.distance.text;
+                                // 📋 Prikaz korakov poti
+                                const stepsContainer = document.getElementById("directionsSteps");
+                                stepsContainer.innerHTML = "";
+                                const steps = result.routes[0].legs[0].steps;
 
-                                alert(`⏱️ Čas hoje: ${duration}\n📏 Razdalja: ${distance}`);
+                                steps.forEach((step, index) => {
+                                    const div = document.createElement("div");
+                                    div.className = "step";
+                                    div.innerHTML = `${index + 1}. ${step.instructions}`;
+                                    stepsContainer.appendChild(div);
+                                });
+
+                                stepsContainer.style.display = "block";
                             } else {
                                 alert("Napaka pri iskanju poti: " + status);
                             }
