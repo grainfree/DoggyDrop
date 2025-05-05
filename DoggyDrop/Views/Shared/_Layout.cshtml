@@ -2,12 +2,8 @@
 @inject SignInManager<ApplicationUser> SignInManager
 @inject UserManager<ApplicationUser> UserManager
 
-@{
-    var userName = User.Identity?.Name;
-}
-
 <!DOCTYPE html>
-<html lang="sl">
+<html lang="en">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -18,46 +14,49 @@
 </head>
 <body>
     <header>
-        <nav class="navbar navbar-expand-sm navbar-light bg-white border-bottom shadow-sm">
+        <nav class="navbar navbar-expand-sm navbar-light bg-white border-bottom shadow-sm px-3">
             <div class="container-fluid">
-                <a class="navbar-brand d-flex align-items-center" asp-area="" asp-controller="Map" asp-action="Index">
-                    <img src="~/images/logo_transparent.png" alt="DoggyDrop logo" style="height: 36px;" class="me-2" />
-                    <span class="fw-bold text-dark">DoggyDrop</span>
+                <!-- ✅ Logotip namesto teksta -->
+                <a class="navbar-brand" asp-area="" asp-controller="Map" asp-action="Index">
+                    <img src="~/images/logo_transparent.png" alt="DoggyDrop" style="height: 40px;" />
                 </a>
 
+                <!-- Hamburger gumb -->
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar"
                         aria-controls="mainNavbar" aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
                 </button>
 
+                <!-- Navigacija -->
                 <div class="collapse navbar-collapse" id="mainNavbar">
-                    <ul class="navbar-nav me-auto mb-2 mb-sm-0">
+                    <ul class="navbar-nav me-auto">
                         @if (SignInManager.IsSignedIn(User))
                         {
                             <li class="nav-item">
-                                <a class="nav-link" asp-controller="Map" asp-action="MyBins">📋 Moji predlogi</a>
+                                <a class="nav-link text-dark" asp-controller="Map" asp-action="MyBins">📋 Moji predlogi</a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link" asp-controller="Home" asp-action="UserProfile">👤 Moj profil</a>
+                                <a class="nav-link text-dark" asp-controller="Home" asp-action="UserProfile">👤 Moj profil</a>
                             </li>
                         }
 
                         @if (User.Identity.IsAuthenticated && User.IsInRole("Admin"))
                         {
                             <li class="nav-item">
-                                <a class="nav-link" asp-controller="Map" asp-action="Manage">🛠 Upravljanje predlogov</a>
+                                <a class="nav-link text-dark" asp-controller="Map" asp-action="Manage">🛠 Upravljanje predlogov</a>
                             </li>
                         }
                     </ul>
 
+                    <!-- Prijava / Odjava -->
                     <div class="d-flex align-items-center">
                         @if (SignInManager.IsSignedIn(User))
                         {
-                            <span class="navbar-text me-3">
-                                Pozdravljen, @userName!
+                            <span class="navbar-text me-2">
+                                Pozdravljen, @UserManager.GetUserName(User)!
                             </span>
                             <form class="d-inline" asp-area="Identity" asp-page="/Account/Logout" method="post" id="logoutForm">
-                                <button type="submit" class="btn btn-outline-danger btn-sm">Odjava</button>
+                                <button type="submit" class="btn btn-outline-secondary btn-sm">Odjava</button>
                             </form>
                         }
                         else
@@ -71,15 +70,15 @@
         </nav>
     </header>
 
-    <div class="container-fluid">
+    <div class="container">
         <main role="main" class="pb-3">
             @RenderBody()
         </main>
     </div>
 
-    <footer class="border-top footer text-muted mt-3">
-        <div class="container text-center">
-            &copy; 2025 - DoggyDrop | <a asp-area="" asp-controller="Home" asp-action="Privacy">Zasebnost</a>
+    <footer class="border-top footer text-muted">
+        <div class="container">
+            &copy; 2025 - DoggyDrop - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
         </div>
     </footer>
 

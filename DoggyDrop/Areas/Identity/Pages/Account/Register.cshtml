@@ -7,7 +7,8 @@
 <div class="container d-flex align-items-center justify-content-center min-vh-100 bg-light">
     <div class="card shadow-lg p-4 rounded-4" style="max-width: 400px; width: 100%;">
         <div class="text-center mb-3">
-            <img src="https://img.icons8.com/ios-filled/50/4CAF50/pet-commands-train.png" alt="paw" class="mb-2" />
+            <!-- 🔄 Logotip aplikacije -->
+            <img src="~/images/logo_transparent.png" alt="DoggyDrop" style="height: 60px;" asp-append-version="true" class="mb-2" />
             <h2 class="h4 text-success">Registracija</h2>
         </div>
 
@@ -26,7 +27,7 @@
                 <span asp-validation-for="Input.Password" class="text-danger small"></span>
             </div>
 
-            <div class="mb-4">
+            <div class="mb-3">
                 <label asp-for="Input.ConfirmPassword" class="form-label">Potrdi geslo</label>
                 <input asp-for="Input.ConfirmPassword" class="form-control rounded-3" />
                 <span asp-validation-for="Input.ConfirmPassword" class="text-danger small"></span>
@@ -39,7 +40,7 @@
 
         <p class="mt-3 text-center small">
             Imaš že račun?
-            <a asp-page="./Login" class="text-decoration-none text-warning fw-bold">Prijava</a>
+            <a asp-page="./Login" class="text-decoration-none text-primary fw-bold">Prijavi se</a>
         </p>
     </div>
 </div>
