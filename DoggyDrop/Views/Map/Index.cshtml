@@ -127,12 +127,17 @@
             directionsRenderer.setPanel(document.getElementById("directionsPanel"));
 
             bins.forEach(bin => {
-                const marker = new google.maps.Marker({
-                    position: { lat: bin.latitude, lng: bin.longitude },
-                    map: map,
-                    title: bin.name,
-                    animation: google.maps.Animation.DROP
-                });
+                        const marker = new google.maps.Marker({
+            position: { lat: bin.latitude, lng: bin.longitude },
+            map: map,
+            title: bin.name,
+            animation: google.maps.Animation.DROP,
+            icon: {
+                url: '/images/transparet_marker.png', // ali pot do markerja na tvoji domeni npr. https://doggydrop.app/images/...
+                scaledSize: new google.maps.Size(40, 50) // prilagodi velikost po potrebi
+            }
+        });
+
 
                 const infoContent = `
                     <div style="max-width: 200px;">
