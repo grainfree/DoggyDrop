@@ -1,8 +1,6 @@
-﻿  @using Microsoft.AspNetCore.Identity
-                    @inject SignInManager<ApplicationUser> SignInManager
+﻿@using Microsoft.AspNetCore.Identity
+@inject SignInManager<ApplicationUser> SignInManager
 @inject UserManager<ApplicationUser> UserManager
-
-
 
 <!DOCTYPE html>
 <html lang="en">
@@ -13,51 +11,76 @@
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/DoggyDrop.styles.css" asp-append-version="true" />
+    <style>
+        .navbar-brand img {
+            height: 36px;
+        }
+
+        .profile-img {
+            width: 36px;
+            height: 36px;
+            object-fit: cover;
+            border-radius: 50%;
+            border: 2px solid #ccc;
+        }
+
+        .nav-avatar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+            .nav-avatar span {
+                font-weight: 500;
+                font-size: 14px;
+            }
+    </style>
 </head>
 <body>
     <header>
-        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
+        <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom shadow-sm">
             <div class="container-fluid">
-                <a class="navbar-brand" asp-area="" asp-controller="Map" asp-action="Index">DoggyDrop</a>
+                <a class="navbar-brand" asp-area="" asp-controller="Map" asp-action="Index">
+                    <img src="~/images/logo_transparent.png" alt="DoggyDrop" />
+                </a>
 
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
-                        aria-expanded="false" aria-label="Toggle navigation">
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                     <span class="navbar-toggler-icon"></span>
                 </button>
-                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
 
-                  
-
-                    
-                    <ul class="navbar-nav flex-grow-1">
+                <div class="collapse navbar-collapse" id="navbarNav">
+                    <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                         @if (SignInManager.IsSignedIn(User))
                         {
                             <li class="nav-item">
-                                <a class="nav-link text-dark" asp-controller="Map" asp-action="MyBins">📋 Moji predlogi</a>
+                                <a class="nav-link" asp-controller="Map" asp-action="MyBins">📋 Moji predlogi</a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link text-dark" asp-controller="Home" asp-action="UserProfile">👤 Moj profil</a>
+                                <a class="nav-link" asp-controller="Home" asp-action="UserProfile">👤 Moj profil</a>
                             </li>
                         }
 
                         @if (User.Identity.IsAuthenticated && User.IsInRole("Admin"))
                         {
                             <li class="nav-item">
-                                <a class="nav-link text-dark" asp-controller="Map" asp-action="Manage">🛠 Upravljanje predlogov</a>
+                                <a class="nav-link" asp-controller="Map" asp-action="Manage">🛠 Upravljanje predlogov</a>
                             </li>
                         }
                     </ul>
 
-
-                    <div class="d-flex">
+                    <div class="d-flex align-items-center">
                         @if (SignInManager.IsSignedIn(User))
                         {
-
-                            <span class="navbar-text me-2">
-                                Pozdravljen, @UserManager.GetUserName(User)!
-                            </span>
-                            <form class="d-inline" asp-area="Identity" asp-page="/Account/Logout" method="post" id="logoutForm">
-                                <button type="submit" class="btn btn-outline-secondary btn-sm">Odjava</button>
+                            var user = await UserManager.GetUserAsync(User);
+                            <div class="nav-avatar me-3">
+                                @if (!string.IsNullOrEmpty(user?.ProfileImageUrl))
+                                {
+                                    <img src="@user.ProfileImageUrl" alt="Profilna" class="profile-img" />
+                                }
+                                <span>@user.DisplayName ?? user.UserName</span>
+                            </div>
+                            <form asp-area="Identity" asp-page="/Account/Logout" method="post">
+                                <button type="submit" class="btn btn-outline-danger btn-sm">Odjava</button>
                             </form>
                         }
                         else
@@ -66,23 +89,23 @@
                             <a class="btn btn-outline-success btn-sm" asp-area="Identity" asp-page="/Account/Register">Registracija</a>
                         }
                     </div>
-
-
                 </div>
             </div>
         </nav>
     </header>
-    <div class="container">
+
+    <div class="container-fluid">
         <main role="main" class="pb-3">
             @RenderBody()
         </main>
     </div>
 
-    <footer class="border-top footer text-muted">
-        <div class="container">
-            &copy; 2025 - DoggyDrop - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+    <footer class="border-top footer text-muted mt-4">
+        <div class="container text-center">
+            &copy; 2025 - DoggyDrop - <a asp-area="" asp-controller="Home" asp-action="Privacy">Zasebnost</a>
         </div>
     </footer>
+
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
