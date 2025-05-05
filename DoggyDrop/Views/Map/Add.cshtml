@@ -4,143 +4,107 @@
 }
 
 <style>
-    .add-form-container {
-        max-width: 500px;
-        margin: 0 auto;
-        padding: 20px;
-        background-color: #f5f5f5;
-        border-radius: 12px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        margin-top: 20px;
-    }
-
-    .form-label {
-        font-weight: 600;
-    }
-
-    .btn-submit {
-        background-color: #425F57;
-        color: white;
-        border: none;
-        border-radius: 8px;
-        padding: 10px 20px;
-        font-size: 16px;
+    #map {
+        height: 300px;
         width: 100%;
+        margin-bottom: 20px;
     }
 
-        .btn-submit:hover {
-            background-color: #3b534d;
-        }
+    .form-container {
+        max-width: 600px;
+        margin: 0 auto;
+    }
 
-    .fab-back {
+    #loadingOverlay {
+        display: none;
         position: fixed;
-        bottom: 20px;
-        left: 20px;
-        z-index: 1000;
-        width: 50px;
-        height: 50px;
-        background-color: #E25E3E;
-        color: white;
-        border: none;
-        border-radius: 50%;
-        font-size: 24px;
-        line-height: 50px;
-        text-align: center;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255, 255, 255, 0.85);
+        z-index: 9999;
+        align-items: center;
+        justify-content: center;
     }
 
-    media (min-width: 768px) {
-        .btn-submit
-
-    {
-        font-size: 18px;
+    .spinner-border {
+        width: 3rem;
+        height: 3rem;
     }
-
-    }
-
-    #preview {
-        border-radius: 8px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-        margin-top: 10px;
-    }
-
 </style>
 
-<div class="add-form-container">
+<div class="form-container">
     <h2 class="text-center mb-4">➕ Dodaj nov koš</h2>
 
-    <form asp-action="Add" enctype="multipart/form-data" method="post">
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success text-center">@TempData["SuccessMessage"]</div>
+    }
+
+    <form asp-action="Add" enctype="multipart/form-data">
         <div class="mb-3">
             <label asp-for="Name" class="form-label">Ime lokacije</label>
-            <input asp-for="Name" class="form-control" placeholder="Npr. Park pri fontani" />
-            <span asp-validation-for="Name" class="text-danger"></span>
+            <input asp-for="Name" class="form-control" />
+            <span asp-validation-for="Name" class="text-danger small"></span>
         </div>
+
+        <div id="map"></div>
+
+        <input type="hidden" asp-for="Latitude" id="Latitude" />
+        <input type="hidden" asp-for="Longitude" id="Longitude" />
 
         <div class="mb-3">
-            <label asp-for="Latitude" class="form-label">Zemljepisna širina (Latitude)</label>
-            <input asp-for="Latitude" class="form-control" id="latitudeInput" placeholder="Npr. 46.055" />
-            <span asp-validation-for="Latitude" class="text-danger"></span>
+            <label asp-for="ImageFile" class="form-label">Fotografija koša</label>
+            <input asp-for="ImageFile" class="form-control" type="file" accept="image/*" capture="environment" />
+            <span asp-validation-for="ImageFile" class="text-danger small"></span>
         </div>
 
-        <div class="mb-3">
-            <label asp-for="Longitude" class="form-label">Zemljepisna dolžina (Longitude)</label>
-            <input asp-for="Longitude" class="form-control" id="longitudeInput" placeholder="Npr. 14.508" />
-            <span asp-validation-for="Longitude" class="text-danger"></span>
-        </div>
-
-        <div class="mb-3 text-center">
-            <label for="photoInput" class="form-label d-block fw-semibold mb-2">📷 Fotografiraj koš</label>
-
-            <label for="photoInput" class="btn btn-outline-primary w-100 py-3" style="border-radius: 12px;">
-                📸 Klikni za fotografijo ali izbiro slike
-            </label>
-
-            <input asp-for="ImageFile" id="photoInput" type="file"
-                   accept="image/*" capture="environment"
-                   class="d-none" />
-           
-                   <img id="preview" src="#" class="img-fluid mt-2 d-none" alt="Predogled" style="max-height: 200px;" />
-
-            <script>
-                document.getElementById("photoInput").addEventListener("change", function (event) {
-                    const [file] = event.target.files;
-                    if (file) {
-                        const preview = document.getElementById("preview");
-                        preview.src = URL.createObjectURL(file);
-                        preview.classList.remove("d-none");
-                    }
-                });
-            </script>
-
-
-            <div class="form-text mt-2">Uporabi kamero ali naloži obstoječo fotografijo koša.</div>
-            <span asp-validation-for="ImageFile" class="text-danger"></span>
-        </div>
-
-
-
-        <button type="submit" class="btn btn-submit">Shrani</button>
+        <button type="submit" class="btn btn-success w-100 rounded-pill">📍 Dodaj koš</button>
     </form>
 </div>
 
-<!-- Gumb za nazaj -->
-<a href="/Map/Index" class="fab-back" title="Nazaj na zemljevid">←</a>
+<!-- Overlay spinner -->
+<div id="loadingOverlay" class="d-flex">
+    <div class="spinner-border text-success" role="status">
+        <span class="visually-hidden">Nalagam...</span>
+    </div>
+</div>
 
 @section Scripts {
-    <partial name="_ValidationScriptsPartial" />
-
     <script>
-        window.onload = function () {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(function (position) {
-                    document.getElementById("latitudeInput").value = position.coords.latitude.toFixed(6);
-                    document.getElementById("longitudeInput").value = position.coords.longitude.toFixed(6);
-                }, function (error) {
-                    console.warn("⚠️ Geolokacija ni na voljo: ", error.message);
+        let map;
+
+        function initMap() {
+            map = new google.maps.Map(document.getElementById("map"), {
+                center: { lat: 46.5547, lng: 15.6459 },
+                zoom: 15
+            });
+
+            let marker;
+
+            map.addListener("click", function (e) {
+                const lat = e.latLng.lat();
+                const lng = e.latLng.lng();
+
+                document.getElementById("Latitude").value = lat;
+                document.getElementById("Longitude").value = lng;
+
+                if (marker) marker.setMap(null);
+
+                marker = new google.maps.Marker({
+                    position: e.latLng,
+                    map: map
                 });
-            } else {
-                alert("Geolokacija ni podprta v tem brskalniku.");
-            }
-        };
+            });
+        }
+
+        document.querySelector("form").addEventListener("submit", function () {
+            document.getElementById("loadingOverlay").style.display = "flex";
+        });
+    </script>
+
+    <script async
+            src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC7BZuc_0STrDlrpQL6HF3mcQJW2HV4cDI&callback=initMap">
     </script>
 }

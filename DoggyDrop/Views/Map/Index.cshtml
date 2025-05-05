@@ -16,6 +16,14 @@
     var binsJson = Html.Raw(json);
 }
 
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show m-3" role="alert" style="z-index: 1050; position: absolute; top: 0; left: 0; right: 0;">
+        <strong>✅</strong> @TempData["SuccessMessage"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Zapri"></button>
+    </div>
+}
+
 <style>
     #map {
         height: 100vh;
