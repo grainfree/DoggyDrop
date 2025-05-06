@@ -50,9 +50,9 @@
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
-
     <script>
         let map;
+        let marker;
 
         function initMap() {
             map = new google.maps.Map(document.getElementById("map"), {
@@ -60,7 +60,24 @@
                 zoom: 15
             });
 
-            let marker;
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(function (position) {
+                    const userLocation = {
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude
+                    };
+
+                    map.setCenter(userLocation);
+
+                    marker = new google.maps.Marker({
+                        position: userLocation,
+                        map: map
+                    });
+
+                    document.getElementById("Latitude").value = userLocation.lat;
+                    document.getElementById("Longitude").value = userLocation.lng;
+                });
+            }
 
             map.addListener("click", function (e) {
                 const lat = e.latLng.lat();
@@ -83,3 +100,4 @@
             src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC7BZuc_0STrDlrpQL6HF3mcQJW2HV4cDI&callback=initMap">
     </script>
 }
+
