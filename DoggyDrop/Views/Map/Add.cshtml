@@ -110,17 +110,17 @@
 
         document.addEventListener("DOMContentLoaded", function () {
             const form = document.querySelector("form");
+            const overlay = document.getElementById("loadingOverlay");
 
             form.addEventListener("submit", function (e) {
+                // ⚠️ Ročna validacija
                 if (!form.checkValidity()) {
-                    e.preventDefault(); // ✋ Prepreči oddajo, če obrazec ni veljaven
-                    e.stopPropagation();
-                    form.classList.add("was-validated");
+                    // Če obrazec ni veljaven, ne prikažemo spinnerja
                     return;
                 }
 
-                // ✅ Če je obrazec veljaven, prikaži spinner
-                document.getElementById("loadingOverlay").style.display = "flex";
+                // Če je obrazec veljaven, prikažemo spinner
+                overlay.style.display = "flex";
             });
         });
     </script>
@@ -129,5 +129,6 @@
             src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC7BZuc_0STrDlrpQL6HF3mcQJW2HV4cDI&callback=initMap">
     </script>
 }
+
 
 
