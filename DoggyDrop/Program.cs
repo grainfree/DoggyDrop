@@ -4,6 +4,8 @@ using Microsoft.AspNetCore.Identity;
 using DoggyDrop.Models;
 using CloudinaryDotNet;
 using DoggyDrop.Services;
+using Microsoft.AspNetCore.Authentication.Google;
+
 
 var builder = WebApplication.CreateBuilder(args);
 

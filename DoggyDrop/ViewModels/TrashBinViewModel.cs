@@ -8,7 +8,7 @@ namespace DoggyDrop.ViewModels
         public int Id { get; set; }
 
         [Required(ErrorMessage = "Ime koša je obvezno.")]
-        public string Name { get; set; }
+        public string Name { get; set; } = default!;
 
         [Required(ErrorMessage = "Zahtevana je širina (Latitude).")]
         public double Latitude { get; set; }
@@ -16,7 +16,6 @@ namespace DoggyDrop.ViewModels
         [Required(ErrorMessage = "Zahtevana je dolžina (Longitude).")]
         public double Longitude { get; set; }
 
-        [Required(ErrorMessage = "Fotografija je obvezna.")]
-        public IFormFile ImageFile { get; set; }
+        public IFormFile? ImageFile { get; set; }
     }
 }
