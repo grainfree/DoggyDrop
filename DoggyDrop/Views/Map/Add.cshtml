@@ -112,13 +112,16 @@
             const form = document.querySelector("form");
 
             form.addEventListener("submit", function (e) {
-                if (!form.checkValidity()) {
-                    e.preventDefault(); // ustavi oddajo če so polja prazna
-                    form.classList.add("was-validated");
-                    return;
-                }
+                // Prevent immediate submission
+                e.preventDefault();
 
-                document.getElementById("loadingOverlay").style.display = "flex";
+                // Check form validity manually
+                if (form.checkValidity()) {
+                    document.getElementById("loadingOverlay").style.display = "flex";
+                    form.submit(); // Now safely submit
+                } else {
+                    form.classList.add("was-validated");
+                }
             });
         });
     </script>
@@ -138,3 +141,4 @@
             src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC7BZuc_0STrDlrpQL6HF3mcQJW2HV4cDI&callback=initMap">
     </script>
 }
+
