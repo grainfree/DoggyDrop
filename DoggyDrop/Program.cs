@@ -49,6 +49,23 @@ builder.Services.AddSingleton(cloudinary);
 // 📦 Registriraj CloudinaryService
 builder.Services.AddScoped<ICloudinaryService, CloudinaryService>();
 
+// ✅ Dodaj Google OAuth
+var googleClientId = builder.Configuration["GOOGLE_CLIENT_ID"];
+var googleClientSecret = builder.Configuration["GOOGLE_CLIENT_SECRET"];
+
+
+if (string.IsNullOrWhiteSpace(googleClientId) || string.IsNullOrWhiteSpace(googleClientSecret))
+{
+    throw new Exception("❌ Google OAuth credentials are missing in appsettings.json!");
+}
+
+builder.Services.AddAuthentication()
+    .AddGoogle(options =>
+    {
+        options.ClientId = googleClientId;
+        options.ClientSecret = googleClientSecret;
+    });
+
 // 🌐 MVC
 builder.Services.AddControllersWithViews();
 builder.Services.AddRazorPages();
