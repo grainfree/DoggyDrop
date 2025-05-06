@@ -42,8 +42,15 @@
         <div class="alert alert-success text-center">@TempData["SuccessMessage"]</div>
     }
 
-    <form asp-action="Add" enctype="multipart/form-data" method="post" id="addBinForm">
-        <div asp-validation-summary="ModelOnly" class="text-danger mb-3 small"></div>
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div class="alert alert-danger">
+            <strong>Napaka:</strong> Nekatera polja so neveljavna. Prosimo preveri vnos.
+        </div>
+    }
+
+    <form asp-action="Add" asp-antiforgery="true" enctype="multipart/form-data">
+        @Html.AntiForgeryToken()
 
         <div class="mb-3">
             <label asp-for="Name" class="form-label">Ime lokacije</label>
@@ -74,6 +81,8 @@
 </div>
 
 @section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+
     <script>
         let map;
 
@@ -101,12 +110,13 @@
             });
         }
 
-        document.addEventListener("DOMContentLoaded", function () {
-            const form = document.getElementById("addBinForm");
+        document.querySelector("form").addEventListener("submit", function () {
+            document.getElementById("loadingOverlay").style.display = "flex";
 
-            form.addEventListener("submit", function () {
-                document.getElementById("loadingOverlay").style.display = "flex";
-            });
+            setTimeout(() => {
+                document.getElementById("loadingOverlay").style.display = "none";
+                alert("Dodajanje je trajalo predolgo. Preveri povezavo ali poskusi znova.");
+            }, 15000);
         });
     </script>
 
