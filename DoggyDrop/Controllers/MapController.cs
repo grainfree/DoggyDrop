@@ -231,7 +231,7 @@ namespace DoggyDrop.Controllers
             }
 
             await _context.SaveChangesAsync();
-            TempData["SuccessMessage"] = "Koš uspešno posodobljen!";
+            TempData["SuccessMessage"] = "Hvala za vaš prispevek! Vaš koš je bil uspešno dodan. Administrator ga bo kmalu pregledal. 🐾";
             return RedirectToAction("Manage");
         }
 

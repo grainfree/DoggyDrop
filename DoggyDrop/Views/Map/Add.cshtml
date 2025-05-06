@@ -27,6 +27,13 @@
     <form asp-action="Add" enctype="multipart/form-data" novalidate>
         <div asp-validation-summary="All" class="text-danger small mb-3"></div>
 
+        <div class="mb-3">
+            <label asp-for="Name" class="form-label">Ime lokacije</label>
+            <input asp-for="Name" class="form-control" placeholder="Npr. park ob drevoredu" />
+            <span asp-validation-for="Name" class="text-danger small"></span>
+        </div>
+
+
         <div class="mb-3 text-center">
             <label for="ImageFile" class="btn btn-success w-100 py-3" style="border-radius: 12px;">
                 📷 Posnami fotografijo koša

@@ -97,6 +97,14 @@
 <!-- 🌍 Zemljevid -->
 <div id="map"></div>
 
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success text-center mt-3">
+        @TempData["SuccessMessage"]
+    </div>
+}
+
+
 <!-- 📋 Navodila -->
 <div id="directionsPanel"></div>
 
