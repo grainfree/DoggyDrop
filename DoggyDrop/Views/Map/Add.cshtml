@@ -14,24 +14,6 @@
         max-width: 600px;
         margin: 0 auto;
     }
-
-    #loadingOverlay {
-        display: none;
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(255, 255, 255, 0.85);
-        z-index: 9999;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .spinner-border {
-        width: 3rem;
-        height: 3rem;
-    }
 </style>
 
 <div class="form-container">
@@ -42,10 +24,8 @@
         <div class="alert alert-success text-center">@TempData["SuccessMessage"]</div>
     }
 
-    <form asp-action="Add" method="post" enctype="multipart/form-data">
-        @Html.AntiForgeryToken()
-
-        <div asp-validation-summary="ModelOnly" class="text-danger small mb-2"></div>
+    <form asp-action="Add" enctype="multipart/form-data" novalidate>
+        <div asp-validation-summary="All" class="text-danger small mb-3"></div>
 
         <div class="mb-3">
             <label asp-for="Name" class="form-label">Ime lokacije</label>
@@ -60,7 +40,7 @@
 
         <div class="mb-3">
             <label asp-for="ImageFile" class="form-label">Fotografija koša</label>
-            <input asp-for="ImageFile" type="file" accept="image/*" capture="environment" class="form-control" />
+            <input asp-for="ImageFile" class="form-control" type="file" accept="image/*" capture="environment" />
             <span asp-validation-for="ImageFile" class="text-danger small"></span>
         </div>
 
@@ -68,18 +48,11 @@
     </form>
 </div>
 
-<!-- Spinner overlay -->
-<div id="loadingOverlay" class="d-flex">
-    <div class="spinner-border text-success" role="status">
-        <span class="visually-hidden">Nalagam...</span>
-    </div>
-</div>
-
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
 
     <script>
-        let map, marker;
+        let map;
 
         function initMap() {
             map = new google.maps.Map(document.getElementById("map"), {
@@ -87,24 +60,7 @@
                 zoom: 15
             });
 
-            // Geolokacija uporabnika
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(function (position) {
-                    const userLatLng = {
-                        lat: position.coords.latitude,
-                        lng: position.coords.longitude
-                    };
-
-                    map.setCenter(userLatLng);
-                    marker = new google.maps.Marker({
-                        position: userLatLng,
-                        map: map
-                    });
-
-                    document.getElementById("Latitude").value = userLatLng.lat;
-                    document.getElementById("Longitude").value = userLatLng.lng;
-                });
-            }
+            let marker;
 
             map.addListener("click", function (e) {
                 const lat = e.latLng.lat();
@@ -114,26 +70,13 @@
                 document.getElementById("Longitude").value = lng;
 
                 if (marker) marker.setMap(null);
+
                 marker = new google.maps.Marker({
                     position: e.latLng,
                     map: map
                 });
             });
         }
-
-        // Pokaži spinner samo če je obrazec veljaven
-        document.addEventListener("DOMContentLoaded", function () {
-            const form = document.querySelector("form");
-
-            form.addEventListener("submit", function (e) {
-                if (!form.checkValidity()) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                } else {
-                    document.getElementById("loadingOverlay").style.display = "flex";
-                }
-            });
-        });
     </script>
 
     <script async
