@@ -1,4 +1,4 @@
-﻿@model DoggyDrop.ViewModels.TrashBinViewModel
+﻿@model DoggyDrop.ViewModels.TrashBinEditViewModel
 @{
     ViewData["Title"] = "Uredi koš";
 }
@@ -36,6 +36,12 @@
         border-radius: 8px;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
         margin-top: 10px;
+        max-height: 200px;
+    }
+
+    .current-image {
+        max-height: 200px;
+        margin-bottom: 10px;
     }
 </style>
 
@@ -63,21 +69,29 @@
             <span asp-validation-for="Longitude" class="text-danger"></span>
         </div>
 
+        @if (!string.IsNullOrEmpty(Model.CurrentImageUrl))
+        {
+            <div class="mb-3 text-center">
+                <label class="form-label d-block fw-semibold">📷 Trenutna slika</label>
+                <img src="@Model.CurrentImageUrl" alt="Trenutna slika" class="img-fluid current-image" />
+            </div>
+        }
+
         <div class="mb-3 text-center">
-            <label for="photoInput" class="form-label d-block fw-semibold mb-2">📷 Naloži novo fotografijo (neobvezno)</label>
+            <label for="photoInput" class="form-label d-block fw-semibold mb-2">🔄 Zamenjaj sliko (neobvezno)</label>
 
             <label for="photoInput" class="btn btn-outline-primary w-100 py-3" style="border-radius: 12px;">
-                📸 Klikni za izbiro slike
+                📸 Klikni za izbiro nove slike
             </label>
 
             <input asp-for="ImageFile" id="photoInput" type="file" accept="image/*" class="d-none" />
-            <img id="preview" src="#" class="img-fluid mt-2 d-none" alt="Predogled" style="max-height: 200px;" />
+            <img id="preview" src="#" class="img-fluid mt-2 d-none" alt="Predogled" />
 
-            <div class="form-text mt-2">Če ne naložiš slike, bo obstoječa slika ostala nespremenjena.</div>
+            <div class="form-text mt-2">Če ne naložiš slike, bo obstoječa ostala.</div>
             <span asp-validation-for="ImageFile" class="text-danger"></span>
         </div>
 
-        <button type="submit" class="btn btn-submit">Shrani spremembe</button>
+        <button type="submit" class="btn btn-submit">💾 Shrani spremembe</button>
     </form>
 </div>
 

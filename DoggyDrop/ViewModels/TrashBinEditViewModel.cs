@@ -7,18 +7,20 @@ namespace DoggyDrop.ViewModels
     {
         public int Id { get; set; }
 
-        [Required]
-        [StringLength(100)]
+        [Required(ErrorMessage = "Ime koša je obvezno.")]
+        [StringLength(100, ErrorMessage = "Ime ne sme presegati 100 znakov.")]
         public string Name { get; set; }
 
-        [Required]
+        [Required(ErrorMessage = "Zahtevana je širina (Latitude).")]
         public double Latitude { get; set; }
 
-        [Required]
+        [Required(ErrorMessage = "Zahtevana je dolžina (Longitude).")]
         public double Longitude { get; set; }
 
-        public string? CurrentImageUrl { get; set; } // 👉 obstoječa slika za prikaz
+        // 📷 Obstoječa slika, prikazana v obrazcu
+        public string? CurrentImageUrl { get; set; }
 
-        public IFormFile? ImageFile { get; set; } // 👉 nova slika, če jo uporabnik želi zamenjati
+        // 📤 Nova slika (če želi zamenjati)
+        public IFormFile? ImageFile { get; set; }
     }
 }

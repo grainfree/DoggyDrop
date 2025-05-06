@@ -192,12 +192,13 @@ namespace DoggyDrop.Controllers
             if (bin == null)
                 return NotFound();
 
-            var model = new TrashBinViewModel
+            var model = new TrashBinEditViewModel
             {
                 Id = bin.Id,
                 Name = bin.Name,
                 Latitude = bin.Latitude,
-                Longitude = bin.Longitude
+                Longitude = bin.Longitude,
+                CurrentImageUrl = bin.ImageUrl
             };
 
             return View(model);
@@ -207,7 +208,7 @@ namespace DoggyDrop.Controllers
         [Authorize(Roles = "Admin")]
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(TrashBinViewModel model)
+        public async Task<IActionResult> Edit(TrashBinEditViewModel model)
         {
             if (!ModelState.IsValid)
                 return View(model);
@@ -233,5 +234,6 @@ namespace DoggyDrop.Controllers
             TempData["SuccessMessage"] = "Koš uspešno posodobljen!";
             return RedirectToAction("Manage");
         }
+
     }
 }
