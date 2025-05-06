@@ -14,33 +14,20 @@
         max-width: 600px;
         margin: 0 auto;
     }
-
-    #loadingOverlay {
-        display: none;
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(255, 255, 255, 0.85);
-        z-index: 9999;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .spinner-border {
-        width: 3rem;
-        height: 3rem;
-    }
 </style>
 
 <div class="form-container">
     <h2 class="text-center mb-4">➕ Dodaj nov koš</h2>
 
-    <form asp-action="Add" enctype="multipart/form-data">
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success text-center">@TempData["SuccessMessage"]</div>
+    }
+
+    <form asp-action="Add" enctype="multipart/form-data" method="post">
         <div class="mb-3">
             <label asp-for="Name" class="form-label">Ime lokacije</label>
-            <input asp-for="Name" class="form-control" required />
+            <input asp-for="Name" class="form-control" />
             <span asp-validation-for="Name" class="text-danger small"></span>
         </div>
 
@@ -51,7 +38,7 @@
 
         <div class="mb-3">
             <label asp-for="ImageFile" class="form-label">Fotografija koša</label>
-            <input asp-for="ImageFile" class="form-control" type="file" accept="image/*" capture="environment" required />
+            <input asp-for="ImageFile" class="form-control" type="file" accept="image/*" capture="environment" />
             <span asp-validation-for="ImageFile" class="text-danger small"></span>
         </div>
 
@@ -59,33 +46,12 @@
     </form>
 </div>
 
-<!-- Overlay spinner -->
-<div id="loadingOverlay" class="d-flex">
-    <div class="spinner-border text-success" role="status">
-        <span class="visually-hidden">Nalagam...</span>
-    </div>
-</div>
-
-<!-- Toast obvestilo -->
-<div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1100;">
-    <div id="successToast" class="toast align-items-center text-bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
-        <div class="d-flex">
-            <div class="toast-body">
-                ✅ Koš je bil uspešno dodan!
-            </div>
-            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Zapri"></button>
-        </div>
-    </div>
-</div>
-
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
 
     <script>
-        let map;
-
         function initMap() {
-            map = new google.maps.Map(document.getElementById("map"), {
+            const map = new google.maps.Map(document.getElementById("map"), {
                 center: { lat: 46.5547, lng: 15.6459 },
                 zoom: 15
             });
@@ -107,28 +73,9 @@
                 });
             });
         }
-
-        document.addEventListener("DOMContentLoaded", function () {
-            const form = document.querySelector("form");
-            const overlay = document.getElementById("loadingOverlay");
-
-            form.addEventListener("submit", function (e) {
-                // ⚠️ Ročna validacija
-                if (!form.checkValidity()) {
-                    // Če obrazec ni veljaven, ne prikažemo spinnerja
-                    return;
-                }
-
-                // Če je obrazec veljaven, prikažemo spinner
-                overlay.style.display = "flex";
-            });
-        });
     </script>
 
     <script async
             src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC7BZuc_0STrDlrpQL6HF3mcQJW2HV4cDI&callback=initMap">
     </script>
 }
-
-
-
