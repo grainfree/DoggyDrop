@@ -37,24 +37,10 @@
 <div class="form-container">
     <h2 class="text-center mb-4">➕ Dodaj nov koš</h2>
 
-    @if (TempData["SuccessMessage"] != null)
-    {
-        <div class="alert alert-success text-center">@TempData["SuccessMessage"]</div>
-    }
-
-    @if (!ViewData.ModelState.IsValid)
-    {
-        <div class="alert alert-danger">
-            <strong>Napaka:</strong> Nekatera polja so neveljavna. Prosimo preveri vnos.
-        </div>
-    }
-
-    <form asp-action="Add" asp-antiforgery="true" enctype="multipart/form-data">
-        @Html.AntiForgeryToken()
-
+    <form asp-action="Add" enctype="multipart/form-data">
         <div class="mb-3">
             <label asp-for="Name" class="form-label">Ime lokacije</label>
-            <input asp-for="Name" class="form-control" />
+            <input asp-for="Name" class="form-control" required />
             <span asp-validation-for="Name" class="text-danger small"></span>
         </div>
 
@@ -65,7 +51,7 @@
 
         <div class="mb-3">
             <label asp-for="ImageFile" class="form-label">Fotografija koša</label>
-            <input asp-for="ImageFile" class="form-control" type="file" accept="image/*" capture="environment" />
+            <input asp-for="ImageFile" class="form-control" type="file" accept="image/*" capture="environment" required />
             <span asp-validation-for="ImageFile" class="text-danger small"></span>
         </div>
 
@@ -77,6 +63,18 @@
 <div id="loadingOverlay" class="d-flex">
     <div class="spinner-border text-success" role="status">
         <span class="visually-hidden">Nalagam...</span>
+    </div>
+</div>
+
+<!-- Toast obvestilo -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1100;">
+    <div id="successToast" class="toast align-items-center text-bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="d-flex">
+            <div class="toast-body">
+                ✅ Koš je bil uspešno dodan!
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Zapri"></button>
+        </div>
     </div>
 </div>
 
@@ -114,8 +112,9 @@
             const form = document.querySelector("form");
 
             form.addEventListener("submit", function (e) {
-                // ročna preverba veljavnosti (validacija)
                 if (!form.checkValidity()) {
+                    e.preventDefault(); // ustavi oddajo če so polja prazna
+                    form.classList.add("was-validated");
                     return;
                 }
 
@@ -124,8 +123,18 @@
         });
     </script>
 
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <script>
+            document.addEventListener("DOMContentLoaded", function () {
+                const toastEl = document.getElementById("successToast");
+                const toast = new bootstrap.Toast(toastEl);
+                toast.show();
+            });
+        </script>
+    }
+
     <script async
             src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC7BZuc_0STrDlrpQL6HF3mcQJW2HV4cDI&callback=initMap">
     </script>
 }
-
