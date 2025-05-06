@@ -112,33 +112,22 @@
             const form = document.querySelector("form");
 
             form.addEventListener("submit", function (e) {
-                // Prevent immediate submission
-                e.preventDefault();
-
-                // Check form validity manually
-                if (form.checkValidity()) {
-                    document.getElementById("loadingOverlay").style.display = "flex";
-                    form.submit(); // Now safely submit
-                } else {
+                if (!form.checkValidity()) {
+                    e.preventDefault(); // ✋ Prepreči oddajo, če obrazec ni veljaven
+                    e.stopPropagation();
                     form.classList.add("was-validated");
+                    return;
                 }
+
+                // ✅ Če je obrazec veljaven, prikaži spinner
+                document.getElementById("loadingOverlay").style.display = "flex";
             });
         });
     </script>
-
-    @if (TempData["SuccessMessage"] != null)
-    {
-        <script>
-            document.addEventListener("DOMContentLoaded", function () {
-                const toastEl = document.getElementById("successToast");
-                const toast = new bootstrap.Toast(toastEl);
-                toast.show();
-            });
-        </script>
-    }
 
     <script async
             src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC7BZuc_0STrDlrpQL6HF3mcQJW2HV4cDI&callback=initMap">
     </script>
 }
+
 

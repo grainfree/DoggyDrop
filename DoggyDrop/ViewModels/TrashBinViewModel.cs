@@ -16,7 +16,7 @@ namespace DoggyDrop.ViewModels
         [Required(ErrorMessage = "Zahtevana je dolžina (Longitude).")]
         public double Longitude { get; set; }
 
-        // ✅ Za nalaganje slike
+        [Required(ErrorMessage = "Fotografija je obvezna.")]
         public IFormFile ImageFile { get; set; }
     }
 }
