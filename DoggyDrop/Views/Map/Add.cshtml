@@ -110,13 +110,17 @@
             });
         }
 
-        document.querySelector("form").addEventListener("submit", function () {
-            document.getElementById("loadingOverlay").style.display = "flex";
+        document.addEventListener("DOMContentLoaded", function () {
+            const form = document.querySelector("form");
 
-            setTimeout(() => {
-                document.getElementById("loadingOverlay").style.display = "none";
-                alert("Dodajanje je trajalo predolgo. Preveri povezavo ali poskusi znova.");
-            }, 15000);
+            form.addEventListener("submit", function (e) {
+                // ročna preverba veljavnosti (validacija)
+                if (!form.checkValidity()) {
+                    return;
+                }
+
+                document.getElementById("loadingOverlay").style.display = "flex";
+            });
         });
     </script>
 
@@ -124,3 +128,4 @@
             src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC7BZuc_0STrDlrpQL6HF3mcQJW2HV4cDI&callback=initMap">
     </script>
 }
+
