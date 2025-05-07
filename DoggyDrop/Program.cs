@@ -75,7 +75,9 @@ builder.Services.AddAuthentication()
     {
         options.ClientId = googleClientId;
         options.ClientSecret = googleClientSecret;
+        options.CallbackPath = new PathString("/signin-google"); // ✅ obvezno!
     });
+
 
 // 🌐 MVC
 builder.Services.AddControllersWithViews();
