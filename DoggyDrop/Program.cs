@@ -5,9 +5,18 @@ using DoggyDrop.Models;
 using CloudinaryDotNet;
 using DoggyDrop.Services;
 using Microsoft.AspNetCore.Authentication.Google;
+using Microsoft.AspNetCore.Http;
+
 
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.Configure<CookiePolicyOptions>(options =>
+{
+    options.MinimumSameSitePolicy = SameSiteMode.Lax;
+    options.Secure = CookieSecurePolicy.Always;
+});
+
 
 // ✅ omogoči branje iz environment variables
 builder.Configuration.AddEnvironmentVariables();
@@ -41,7 +50,7 @@ Console.WriteLine($"CLOUDINARY_API_SECRET: {apiSecret}");
 // ✅ Če ni nastavljeno, failaj
 if (string.IsNullOrWhiteSpace(cloudName) || string.IsNullOrWhiteSpace(apiKey) || string.IsNullOrWhiteSpace(apiSecret))
 {
-    throw new Exception("❌ Google OAuth credentials are missing in environment variables!");
+    throw new Exception("❌ Cloudinary environment variables are missing or invalid!");
 }
 
 // ✅ Registriraj Cloudinary
@@ -83,6 +92,7 @@ if (!app.Environment.IsDevelopment())
 // 📂 Static files, routing, auth
 app.UseStaticFiles();
 app.UseRouting();
+app.UseCookiePolicy();
 app.UseAuthentication();
 app.UseAuthorization();
 
