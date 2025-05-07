@@ -41,7 +41,7 @@ Console.WriteLine($"CLOUDINARY_API_SECRET: {apiSecret}");
 // ✅ Če ni nastavljeno, failaj
 if (string.IsNullOrWhiteSpace(cloudName) || string.IsNullOrWhiteSpace(apiKey) || string.IsNullOrWhiteSpace(apiSecret))
 {
-    throw new Exception("❌ Cloudinary environment variables are missing or invalid!");
+    throw new Exception("❌ Google OAuth credentials are missing in environment variables!");
 }
 
 // ✅ Registriraj Cloudinary
