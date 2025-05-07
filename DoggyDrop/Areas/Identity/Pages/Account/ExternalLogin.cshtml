@@ -1,0 +1,35 @@
+﻿@page
+@model ExternalLoginModel
+@{
+    ViewData["Title"] = "Registracija";
+}
+
+<div class="container d-flex align-items-center justify-content-center min-vh-100 bg-light">
+    <div class="card shadow-lg p-4 rounded-4" style="max-width: 400px; width: 100%;">
+        <div class="text-center mb-3">
+            <img src="~/images/logo_transparent.png" alt="DoggyDrop" style="height: 60px;" asp-append-version="true" class="mb-2" />
+            <h2 class="h4 text-success">Poveži Google račun</h2>
+        </div>
+
+        <form asp-page="./ExternalLogin" asp-route-returnUrl="@Model.ReturnUrl" method="post" class="form">
+            <div asp-validation-summary="All" class="text-danger small"></div>
+
+            <p class="text-center text-muted small mb-3">
+                Uspešno si se prijavil z <strong>Google</strong> računom.
+                Prosimo, potrdi svoj email in klikni <strong>Registriraj</strong>, da dokončaš prijavo.
+            </p>
+
+            <div class="mb-3">
+                <label asp-for="Input.Email" class="form-label">Email naslov</label>
+                <input asp-for="Input.Email" class="form-control rounded-3" />
+                <span asp-validation-for="Input.Email" class="text-danger small"></span>
+            </div>
+
+            <button type="submit" class="btn btn-success w-100 rounded-pill fw-semibold">Registriraj</button>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
