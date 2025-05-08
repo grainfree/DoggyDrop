@@ -22,38 +22,48 @@
         width: 100%;
     }
 
-    .fab-button {
+    .fab-main {
         position: fixed;
+        bottom: 80px;
+        left: 50%;
+        transform: translateX(-50%);
         z-index: 1000;
-        background-color: transparent;
+        background: none;
         border: none;
     }
 
-        .fab-button img {
-            width: 75px;
-            height: 75px;
-            transition: transform 0.2s ease-in-out;
+        .fab-main img {
+            width: 72px;
+            height: 72px;
         }
 
-            .fab-button img:hover {
-                transform: scale(1.1);
-            }
-
     .fab-refresh {
+        position: fixed;
         bottom: 20px;
         left: 20px;
+        z-index: 1000;
+        background: none;
+        border: none;
     }
 
-    .fab-add {
+        .fab-refresh img {
+            width: 72px;
+            height: 72px;
+        }
+
+    .fab-secondary {
+        position: fixed;
         bottom: 20px;
         right: 20px;
+        z-index: 1000;
+        background: none;
+        border: none;
     }
 
-    .fab-main {
-        bottom: 100px;
-        left: 50%;
-        transform: translateX(-50%);
-    }
+        .fab-secondary img {
+            width: 72px;
+            height: 72px;
+        }
 
     #directionsPanel {
         padding: 10px;
@@ -62,17 +72,17 @@
 </style>
 
 <!-- 🔄 Osveži pot -->
-<button onclick="refreshRoute()" class="fab-button fab-refresh">
+<button onclick="refreshRoute()" class="fab-refresh">
     <img src="/images/restart_hires.png" alt="Osveži lokacijo" />
 </button>
 
-<!-- 📍 Najdi najbližji koš -->
-<button onclick="findNearestTrashBin()" class="fab-button fab-main">
+<!-- 🔍 Najdi najbližji koš -->
+<button onclick="findNearestTrashBin()" class="fab-main">
     <img src="/images/search_hires.png" alt="Najdi najbližji koš" />
 </button>
 
 <!-- ➕ Dodaj koš -->
-<a href="/Map/Add" class="fab-button fab-add">
+<a href="/Map/Add" class="fab-secondary">
     <img src="/images/plus_hires.png" alt="Dodaj koš" />
 </a>
 
@@ -115,28 +125,28 @@
 
             directionsRenderer.setMap(map);
 
+            // Samodejno centriranje na uporabnika
             if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(position => {
-                    const userLocation = {
-                        lat: position.coords.latitude,
-                        lng: position.coords.longitude
-                    };
+                navigator.geolocation.getCurrentPosition(
+                    position => {
+                        const userLocation = {
+                            lat: position.coords.latitude,
+                            lng: position.coords.longitude
+                        };
+                        map.setCenter(userLocation);
 
-                    map.setCenter(userLocation);
-                    userMarker = new google.maps.Marker({
-                        position: userLocation,
-                        map: map,
-                        icon: {
-                            path: google.maps.SymbolPath.CIRCLE,
-                            scale: 8,
-                            fillColor: '#00796B',
-                            fillOpacity: 1,
-                            strokeWeight: 2,
-                            strokeColor: 'white'
-                        },
-                        title: "Tvoja lokacija"
-                    });
-                });
+                        userMarker = new google.maps.Marker({
+                            position: userLocation,
+                            map: map,
+                            title: "Tvoja lokacija",
+                            icon: {
+                                url: "/images/jack russel terrier.png",
+                                scaledSize: new google.maps.Size(50, 50)
+                            }
+                        });
+                    },
+                    () => console.warn("Ni mogoče pridobiti lokacije.")
+                );
             }
 
             bins.forEach(bin => {
@@ -158,6 +168,7 @@
                         ${bin.image ? `<img src="${bin.image}" alt="Koš" style="width:100%; margin-top:5px;">` : ""}
                     </div>
                 `;
+
                 const infoWindow = new google.maps.InfoWindow({ content: infoContent });
                 marker.addListener("click", () => infoWindow.open(map, marker));
             });
@@ -177,15 +188,11 @@
                         userMarker = new google.maps.Marker({
                             position: userLocation,
                             map: map,
+                            title: "Tvoja lokacija",
                             icon: {
-                                path: google.maps.SymbolPath.CIRCLE,
-                                scale: 8,
-                                fillColor: '#00796B',
-                                fillOpacity: 1,
-                                strokeWeight: 2,
-                                strokeColor: 'white'
-                            },
-                            title: "Tvoja lokacija"
+                                url: "/images/jack russel terrier.png",
+                                scaledSize: new google.maps.Size(50, 50)
+                            }
                         });
                     }
 
