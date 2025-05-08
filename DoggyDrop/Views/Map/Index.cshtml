@@ -49,35 +49,35 @@
         position: fixed;
         bottom: 20px;
         left: 20px;
-        width: 50px;
-        height: 50px;
-        background-color: #E25E3E;
-        color: white;
+        width: 60px;
+        height: 60px;
+        background-color: transparent;
         border: none;
-        border-radius: 50%;
-        font-size: 24px;
-        line-height: 50px;
-        text-align: center;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         z-index: 1000;
+        padding: 5px;
     }
+
+        .fab-refresh img {
+            width: 100%;
+            height: 100%;
+        }
 
     .fab-secondary {
         position: fixed;
         bottom: 20px;
         right: 20px;
         z-index: 1000;
-        width: 50px;
-        height: 50px;
-        background-color: #FFA447;
-        color: white;
+        width: 60px;
+        height: 60px;
+        background-color: transparent;
         border: none;
-        border-radius: 50%;
-        font-size: 28px;
-        line-height: 50px;
-        text-align: center;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        padding: 5px;
     }
+
+        .fab-secondary img {
+            width: 100%;
+            height: 100%;
+        }
 
     #directionsPanel {
         padding: 10px;
@@ -86,24 +86,20 @@
 </style>
 
 <!-- 🔄 Osveži pot -->
-<button onclick="refreshRoute()" class="fab-refresh">🔄</button>
+<button onclick="refreshRoute()" class="fab-refresh">
+    <img src="~/images/restart_hires.png" alt="Osveži" />
+</button>
 
 <!-- 📍 Najdi najbližji koš -->
 <button onclick="findNearestTrashBin()" class="fab-main">📍 Najdi najbližji koš</button>
 
 <!-- ➕ Dodaj koš -->
-<a href="/Map/Add" class="fab-secondary">＋</a>
+<a href="/Map/Add" class="fab-secondary">
+    <img src="~/images/plus_hires.png" alt="Dodaj koš" />
+</a>
 
 <!-- 🌍 Zemljevid -->
 <div id="map"></div>
-
-@if (TempData["SuccessMessage"] != null)
-{
-    <div class="alert alert-success text-center mt-3">
-        @TempData["SuccessMessage"]
-    </div>
-}
-
 
 <!-- 📋 Navodila -->
 <div id="directionsPanel"></div>
@@ -140,20 +136,44 @@
             });
 
             directionsRenderer.setMap(map);
-            directionsRenderer.setPanel(document.getElementById("directionsPanel"));
+
+            // 🔄 Postavi uporabnikovo lokacijo že ob nalaganju
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(position => {
+                    const userLocation = {
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude
+                    };
+
+                    map.setCenter(userLocation);
+
+                    userMarker = new google.maps.Marker({
+                        position: userLocation,
+                        map: map,
+                        icon: {
+                            path: google.maps.SymbolPath.CIRCLE,
+                            scale: 8,
+                            fillColor: '#00796B',
+                            fillOpacity: 1,
+                            strokeWeight: 2,
+                            strokeColor: 'white'
+                        },
+                        title: "Tvoja lokacija"
+                    });
+                });
+            }
 
             bins.forEach(bin => {
-                        const marker = new google.maps.Marker({
-            position: { lat: bin.latitude, lng: bin.longitude },
-            map: map,
-            title: bin.name,
-            animation: google.maps.Animation.DROP,
-            icon: {
-                url: '/images/transparet_marker.png', // ali pot do markerja na tvoji domeni npr. https://doggydrop.app/images/...
-                scaledSize: new google.maps.Size(40, 50) // prilagodi velikost po potrebi
-            }
-        });
-
+                const marker = new google.maps.Marker({
+                    position: { lat: bin.latitude, lng: bin.longitude },
+                    map: map,
+                    title: bin.name,
+                    animation: google.maps.Animation.DROP,
+                    icon: {
+                        url: '/images/transparet_marker.png',
+                        scaledSize: new google.maps.Size(40, 50)
+                    }
+                });
 
                 const infoContent = `
                     <div style="max-width: 200px;">
@@ -176,7 +196,6 @@
                         lng: position.coords.longitude
                     };
 
-                    // 🔄 Uporabnikov marker
                     if (userMarker) {
                         userMarker.setPosition(userLocation);
                     } else {
@@ -219,7 +238,6 @@
                         directionsService.route(request, (result, status) => {
                             if (status === google.maps.DirectionsStatus.OK) {
                                 directionsRenderer.setDirections(result);
-
                                 const leg = result.routes[0].legs[0];
                                 const duration = leg.duration.text;
                                 const distance = leg.distance.text;
