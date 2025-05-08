@@ -30,12 +30,17 @@
         z-index: 1000;
         background: none;
         border: none;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        border-radius: 50%;
+        padding: 0;
     }
 
         .fab-main img {
             width: 72px;
             height: 72px;
+            border-radius: 50%;
         }
+
 
     .fab-refresh {
         position: fixed;
@@ -78,8 +83,9 @@
 
 <!-- 📍 Najdi najbližji koš -->
 <button onclick="findNearestTrashBin()" class="fab-main">
-    📍 Najdi najbližji koš
+    <img src="/images/search_hires.png" alt="Najdi najbližji koš" />
 </button>
+
 
 <!-- ➕ Dodaj koš -->
 <a href="/Map/Add" class="fab-secondary">
