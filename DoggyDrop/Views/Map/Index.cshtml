@@ -76,9 +76,9 @@
     <img src="/images/restart_hires.png" alt="Osveži lokacijo" />
 </button>
 
-<!-- 🔍 Najdi najbližji koš -->
+<!-- 📍 Najdi najbližji koš -->
 <button onclick="findNearestTrashBin()" class="fab-main">
-    <img src="/images/search_hires.png" alt="Najdi najbližji koš" />
+    📍 Najdi najbližji koš
 </button>
 
 <!-- ➕ Dodaj koš -->
@@ -91,6 +91,7 @@
 
 <!-- 📋 Navodila -->
 <div id="directionsPanel"></div>
+
 
 @section Scripts {
     <script>
@@ -125,30 +126,7 @@
 
             directionsRenderer.setMap(map);
 
-            // Samodejno centriranje na uporabnika
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    position => {
-                        const userLocation = {
-                            lat: position.coords.latitude,
-                            lng: position.coords.longitude
-                        };
-                        map.setCenter(userLocation);
-
-                        userMarker = new google.maps.Marker({
-                            position: userLocation,
-                            map: map,
-                            title: "Tvoja lokacija",
-                            icon: {
-                                url: "/images/jack russel terrier.png",
-                                scaledSize: new google.maps.Size(50, 50)
-                            }
-                        });
-                    },
-                    () => console.warn("Ni mogoče pridobiti lokacije.")
-                );
-            }
-
+            // ➕ Markerji za koše
             bins.forEach(bin => {
                 const marker = new google.maps.Marker({
                     position: { lat: bin.latitude, lng: bin.longitude },
@@ -176,12 +154,13 @@
 
         function findNearestTrashBin() {
             if (navigator.geolocation) {
-                navigator.geolocation.watchPosition(position => {
+                navigator.geolocation.getCurrentPosition(position => {
                     const userLocation = {
                         lat: position.coords.latitude,
                         lng: position.coords.longitude
                     };
 
+                    // ➤ Dodaj ali posodobi marker za uporabnika
                     if (userMarker) {
                         userMarker.setPosition(userLocation);
                     } else {
@@ -195,6 +174,8 @@
                             }
                         });
                     }
+
+                    map.setCenter(userLocation);
 
                     let nearestBin = null;
                     let shortestDistance = Infinity;
@@ -253,3 +234,4 @@
             src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC7BZuc_0STrDlrpQL6HF3mcQJW2HV4cDI&callback=initMap">
     </script>
 }
+
