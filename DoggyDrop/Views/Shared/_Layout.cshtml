@@ -8,10 +8,32 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - DoggyDrop</title>
+
+    <!-- 📱 PWA podpora -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#425F57" />
+
+    <!-- 📲 Apple naprave -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="DoggyDrop" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/images/icon-180.png" />
+
+    <!-- 💎 Android Chrome -->
+    <meta name="mobile-web-app-capable" content="yes" />
+
+    <!-- 🔒 Dodatna varnost -->
+    <meta name="referrer" content="no-referrer-when-downgrade" />
+
+    <!-- 🎨 CSS -->
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/DoggyDrop.styles.css" asp-append-version="true" />
 </head>
+
+
+
+
 <body>
     <header>
         <nav class="navbar navbar-expand-sm navbar-light bg-white border-bottom shadow-sm px-3">
