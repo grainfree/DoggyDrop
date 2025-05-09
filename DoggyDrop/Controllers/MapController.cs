@@ -68,11 +68,13 @@ namespace DoggyDrop.Controllers
         public IActionResult Index()
         {
             var bins = _context.TrashBins
+                .Include(b => b.User)
                 .Where(b => b.IsApproved)
                 .ToList();
 
             return View(bins);
         }
+
 
         // ✅ Upravljanje - prikaz neodobrenih predlogov
         [Authorize(Roles = "Admin")]
