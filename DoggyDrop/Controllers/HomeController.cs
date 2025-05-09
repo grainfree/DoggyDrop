@@ -86,5 +86,10 @@ namespace DoggyDrop.Controllers
             if (totalBins >= 10) badges.Add("🏆 Zbiratelj lokacij");
             return badges;
         }
+        public IActionResult PwaHelp()
+        {
+            return View();
+        }
+
     }
 }
