@@ -24,32 +24,38 @@
         width: 100%;
     }
 
+    .fab-main,
+    .fab-refresh,
+    .fab-secondary {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    }
+
+        .fab-main:hover,
+        .fab-refresh:hover,
+        .fab-secondary:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+            cursor: pointer;
+        }
+
     .fab-main {
         position: fixed;
         bottom: 80px;
         left: 50%;
         transform: translateX(-50%);
         z-index: 1000;
-        background-color: #4CAF50; /* zelena podlaga */
+        background: none;
         border: none;
-        box-shadow: 0 6px 10px rgba(0, 0, 0, 0.3); /* 3D učinek */
         border-radius: 12px;
-        padding: 10px 20px;
-        transition: transform 0.2s;
+        padding: 0;
     }
 
-        .fab-main:hover {
-            transform: translateX(-50%) scale(1.05);
-        }
-
         .fab-main img {
-            height: 36px;
+            height: 60px;
             width: auto;
-            vertical-align: middle;
+            border-radius: 12px;
         }
-
-
-
 
     .fab-refresh {
         position: fixed;
@@ -58,11 +64,14 @@
         z-index: 1000;
         background: none;
         border: none;
+        border-radius: 12px;
+        padding: 0;
     }
 
         .fab-refresh img {
-            width: 72px;
-            height: 72px;
+            height: 60px;
+            width: auto;
+            border-radius: 12px;
         }
 
     .fab-secondary {
@@ -72,7 +81,6 @@
         z-index: 1000;
         background: none;
         border: none;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         border-radius: 12px;
         padding: 0;
     }
@@ -83,21 +91,22 @@
             border-radius: 12px;
         }
 
-
     #directionsPanel {
         padding: 10px;
         font-size: 16px;
     }
 </style>
 
+
 <!-- 🔄 Osveži pot -->
 <button onclick="refreshRoute()" class="fab-refresh">
-    <img src="/images/restart_hires.png" alt="Osveži lokacijo" />
+    <img src="/images/restart_button.png" alt="Osveži lokacijo" />
 </button>
+
 
 <!-- 📍 Najdi najbližji koš -->
 <button onclick="findNearestTrashBin()" class="fab-main">
-    <img src="/images/gumb.png" alt="Poišči najbližji koš" /> <span class="ms-2 text-white fw-semibold">Najdi koš</span>
+    <img src="/images/gumb.png" alt="" />
 </button>
 
 
