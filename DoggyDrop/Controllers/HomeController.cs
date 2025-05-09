@@ -34,6 +34,16 @@ namespace DoggyDrop.Controllers
             return View();
         }
 
+        public IActionResult About()
+        {
+            return View();
+        }
+
+        public IActionResult Help()
+        {
+            return View();
+        }
+
         [Authorize]
         [HttpGet]
         public async Task<IActionResult> UserProfile()
