@@ -6,6 +6,7 @@ using CloudinaryDotNet;
 using DoggyDrop.Services;
 using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity.UI.Services;
 
 
 
@@ -78,6 +79,9 @@ builder.Services.AddAuthentication()
         options.CallbackPath = new PathString("/signin-google"); // ✅ obvezno!
     });
 
+// 📧 Nastavitve za pošiljanje e-mailov
+builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
+builder.Services.AddTransient<IEmailSender, EmailSender>();
 
 // 🌐 MVC
 builder.Services.AddControllersWithViews();

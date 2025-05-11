@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity.UI.Services;
 
 namespace DoggyDrop.Controllers
 {
@@ -16,16 +17,21 @@ namespace DoggyDrop.Controllers
         private readonly IWebHostEnvironment _environment;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly ICloudinaryService _cloudinaryService;
+        private readonly IEmailSender _emailSender;
+
 
         public MapController(ApplicationDbContext context,
                              IWebHostEnvironment environment,
                              UserManager<ApplicationUser> userManager,
-                             ICloudinaryService cloudinaryService)
+                             ICloudinaryService cloudinaryService,
+                             IEmailSender emailSender)
         {
             _context = context;
             _environment = environment;
             _userManager = userManager;
             _cloudinaryService = cloudinaryService;
+            _emailSender = emailSender;
+
         }
 
         // 📍 Prikaz obrazca za dodajanje koša

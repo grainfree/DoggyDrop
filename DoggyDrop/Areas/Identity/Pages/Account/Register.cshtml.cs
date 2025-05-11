@@ -1,4 +1,4 @@
-// Licensed to the .NET Foundation under one or more agreements.
+﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 #nullable disable
 
@@ -137,6 +137,10 @@ namespace DoggyDrop.Areas.Identity.Pages.Account
                     await _emailSender.SendEmailAsync(Input.Email, "Confirm your email",
                         $"Please confirm your account by <a href='{HtmlEncoder.Default.Encode(callbackUrl)}'>clicking here</a>.");
 
+                    // 🔔 Obvestilo adminu
+                    await _emailSender.SendEmailAsync("admin@doggydrop.app", "🆕 Nov uporabnik",
+                        $"Nov uporabnik se je registriral z e-pošto: {Input.Email}");
+
                     if (_userManager.Options.SignIn.RequireConfirmedAccount)
                     {
                         return RedirectToPage("RegisterConfirmation", new { email = Input.Email, returnUrl = returnUrl });
@@ -147,14 +151,10 @@ namespace DoggyDrop.Areas.Identity.Pages.Account
                         return LocalRedirect(returnUrl);
                     }
                 }
-                foreach (var error in result.Errors)
-                {
-                    ModelState.AddModelError(string.Empty, error.Description);
-                }
-            }
 
-            // If we got this far, something failed, redisplay form
-            return Page();
+
+                // If we got this far, something failed, redisplay form
+                return Page();
         }
 
         private ApplicationUser CreateUser()
