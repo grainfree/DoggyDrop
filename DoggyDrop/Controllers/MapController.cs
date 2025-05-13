@@ -1,4 +1,4 @@
-﻿ using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using DoggyDrop.Data;
 using DoggyDrop.Models;
 using DoggyDrop.Services;
@@ -19,7 +19,6 @@ namespace DoggyDrop.Controllers
         private readonly ICloudinaryService _cloudinaryService;
         private readonly IEmailSender _emailSender;
 
-
         public MapController(ApplicationDbContext context,
                              IWebHostEnvironment environment,
                              UserManager<ApplicationUser> userManager,
@@ -31,7 +30,6 @@ namespace DoggyDrop.Controllers
             _userManager = userManager;
             _cloudinaryService = cloudinaryService;
             _emailSender = emailSender;
-
         }
 
         // 📍 Prikaz obrazca za dodajanje koša
@@ -81,12 +79,12 @@ namespace DoggyDrop.Controllers
             return View(bins);
         }
 
-
         // ✅ Upravljanje - prikaz neodobrenih predlogov
         [Authorize(Roles = "Admin")]
         public IActionResult Manage()
         {
             var pendingBins = _context.TrashBins
+                .Include(b => b.User) // ✅ vključimo uporabnika
                 .Where(b => !b.IsApproved)
                 .OrderByDescending(b => b.DateAdded)
                 .ToList();
@@ -242,6 +240,5 @@ namespace DoggyDrop.Controllers
             TempData["SuccessMessage"] = "Hvala za vaš prispevek! Vaš koš je bil uspešno dodan. Administrator ga bo kmalu pregledal. 🐾";
             return RedirectToAction("Manage");
         }
-
     }
 }
