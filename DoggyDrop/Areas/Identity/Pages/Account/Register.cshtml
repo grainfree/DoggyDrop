@@ -33,6 +33,14 @@
                 <span asp-validation-for="Input.ConfirmPassword" class="text-danger small"></span>
             </div>
 
+            <div class="form-check mb-3">
+                <input asp-for="Input.AcceptTerms" class="form-check-input" />
+                <label class="form-check-label" asp-for="Input.AcceptTerms">
+                    Strinjam se s <a href="/Home/Terms" target="_blank">pogoji uporabe</a>
+                </label>
+                <span asp-validation-for="Input.AcceptTerms" class="text-danger small"></span>
+            </div>
+
             <button type="submit" class="btn btn-success w-100 rounded-pill fw-semibold">
                 Registriraj se
             </button>
@@ -44,3 +52,7 @@
         </p>
     </div>
 </div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

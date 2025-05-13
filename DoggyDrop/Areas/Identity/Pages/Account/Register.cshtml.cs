@@ -70,7 +70,12 @@ namespace DoggyDrop.Areas.Identity.Pages.Account
             [Display(Name = "Potrdi geslo")]
             [Compare("Password", ErrorMessage = "Gesli se ne ujemata.")]
             public string ConfirmPassword { get; set; }
+
+            [Required(ErrorMessage = "Za registracijo se morate strinjati s pogoji uporabe.")]
+            [Display(Name = "Strinjam se s pogoji uporabe")]
+            public bool AcceptTerms { get; set; }
         }
+
 
         public async Task OnGetAsync(string returnUrl = null)
         {
