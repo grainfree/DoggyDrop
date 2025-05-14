@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity.UI.Services;
 
 namespace DoggyDrop.Controllers
 {
@@ -13,15 +14,18 @@ namespace DoggyDrop.Controllers
         private readonly ILogger<HomeController> _logger;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly ICloudinaryService _cloudinaryService;
+        private readonly IEmailSender _emailSender;
 
         public HomeController(
             ILogger<HomeController> logger,
             UserManager<ApplicationUser> userManager,
-            ICloudinaryService cloudinaryService)
+            ICloudinaryService cloudinaryService,
+            IEmailSender emailSender)
         {
             _logger = logger;
             _userManager = userManager;
             _cloudinaryService = cloudinaryService;
+            _emailSender = emailSender;
         }
 
         public IActionResult Index()
@@ -40,6 +44,16 @@ namespace DoggyDrop.Controllers
         }
 
         public IActionResult Help()
+        {
+            return View();
+        }
+
+        public IActionResult PwaHelp()
+        {
+            return View();
+        }
+
+        public IActionResult Terms()
         {
             return View();
         }
@@ -96,15 +110,18 @@ namespace DoggyDrop.Controllers
             if (totalBins >= 10) badges.Add("🏆 Zbiratelj lokacij");
             return badges;
         }
-        public IActionResult PwaHelp()
-        {
-            return View();
-        }
 
-        public IActionResult Terms()
+        // ✅ Testno pošiljanje e-pošte
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> TestEmail()
         {
-            return View();
+            var testEmail = "tvojemail@gmail.com"; // 🔁 zamenjaj z lastnim naslovom za test
+            await _emailSender.SendEmailAsync(
+                testEmail,
+                "✅ Testno sporočilo iz DoggyDrop",
+                "To je testni email, poslan iz aplikacije DoggyDrop.<br><br>Če ga vidiš, potem pošiljanje deluje. 🐶");
+
+            return Content($"Testni e-mail poslan na {testEmail}");
         }
     }
 }
-
