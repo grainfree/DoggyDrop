@@ -99,6 +99,13 @@
 
 
 <!-- 🔄 Osveži pot -->
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success text-center position-fixed top-0 start-50 translate-middle-x mt-3 z-3" style="max-width: 500px;">
+        @TempData["SuccessMessage"]
+    </div>
+}
+
 <button onclick="refreshRoute()" class="fab-refresh">
     <img src="/images/restart_hires.png" alt="Osveži lokacijo" />
 </button>

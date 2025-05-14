@@ -33,7 +33,6 @@
             <span asp-validation-for="Name" class="text-danger small"></span>
         </div>
 
-
         <div class="mb-3 text-center">
             <label for="ImageFile" class="btn btn-success w-100 py-3" style="border-radius: 12px;">
                 📷 Posnami fotografijo koša
@@ -48,15 +47,15 @@
         <input type="hidden" asp-for="Latitude" id="Latitude" />
         <input type="hidden" asp-for="Longitude" id="Longitude" />
 
-        @* Klasični upload zakomentiran
-        <div class="mb-3">
-            <label asp-for="ImageFile" class="form-label">Fotografija koša</label>
-            <input asp-for="ImageFile" class="form-control" type="file" accept="image/*" capture="environment" />
-            <span asp-validation-for="ImageFile" class="text-danger small"></span>
-        </div>
-        *@
-
         <button type="submit" class="btn btn-success w-100 rounded-pill">📍 Dodaj koš</button>
+
+        <!-- 🔄 indikator nalaganja -->
+        <div id="loading" class="text-center mt-4" style="display: none;">
+            <div class="spinner-border text-success" role="status">
+                <span class="visually-hidden">Nalagam...</span>
+            </div>
+            <p class="mt-2">Koš se dodaja, prosimo počakajte...</p>
+        </div>
     </form>
 </div>
 
@@ -118,6 +117,11 @@
                     preview.src = URL.createObjectURL(file);
                     preview.classList.remove("d-none");
                 }
+            });
+
+            // 🟢 Prikaži spinner ob oddaji obrazca
+            document.querySelector('form').addEventListener('submit', function () {
+                document.getElementById('loading').style.display = 'block';
             });
         });
     </script>
