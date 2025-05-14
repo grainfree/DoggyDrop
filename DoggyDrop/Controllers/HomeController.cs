@@ -115,7 +115,7 @@ namespace DoggyDrop.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> TestEmail()
         {
-            var testEmail = "tvojemail@gmail.com"; // 🔁 zamenjaj z lastnim naslovom za test
+            var testEmail = "admin@doggydrop.app"; // 🔁 zamenjaj z lastnim naslovom za test
             await _emailSender.SendEmailAsync(
                 testEmail,
                 "✅ Testno sporočilo iz DoggyDrop",
