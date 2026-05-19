@@ -19,6 +19,7 @@ namespace DoggyDrop.Controllers
         private readonly ApplicationDbContext _context;
         private readonly IGamificationService _gamificationService;
         private readonly ISeasonalEventService _seasonalEventService;
+        private readonly ILocalLeaderboardService _localLeaderboardService;
 
         public HomeController(
             ILogger<HomeController> logger,
@@ -27,7 +28,8 @@ namespace DoggyDrop.Controllers
             IEmailSender emailSender,
             ApplicationDbContext context,
             IGamificationService gamificationService,
-            ISeasonalEventService seasonalEventService)
+            ISeasonalEventService seasonalEventService,
+            ILocalLeaderboardService localLeaderboardService)
         {
             _logger = logger;
             _userManager = userManager;
@@ -36,6 +38,7 @@ namespace DoggyDrop.Controllers
             _context = context;
             _gamificationService = gamificationService;
             _seasonalEventService = seasonalEventService;
+            _localLeaderboardService = localLeaderboardService;
         }
 
         public IActionResult Index()
@@ -162,6 +165,7 @@ namespace DoggyDrop.Controllers
                 : recentWalks
                 .Where(w => w.StartedAt >= weekStart)
                 .ToList();
+            var localLeaderboards = await _localLeaderboardService.BuildAsync("maribor");
 
             var model = new CommunityViewModel
             {
@@ -223,6 +227,7 @@ namespace DoggyDrop.Controllers
                     .OrderByDescending(item => item.WeeklyDistanceKm)
                     .Take(5)
                     .ToList(),
+                LocalLeaderboards = MapLocalLeaderboards(localLeaderboards),
                 PhotoFeed = photoFeed,
                 BinPhotoGallery = binPhotoGallery,
                 WalksThisWeek = visibleWeeklyWalks.Count,
@@ -398,6 +403,33 @@ namespace DoggyDrop.Controllers
                 BuildAchievement("Bin helper", "Dodaj prvi pasji kos.", totalBins, 1, suffix: "kosev"),
                 BuildAchievement("Bin hero", "Dodaj 10 pasjih kosev.", totalBins, 10, suffix: "kosev")
             ];
+        }
+
+        private static LocalLeaderboardViewModel MapLocalLeaderboards(LocalLeaderboardBoard board)
+        {
+            return new LocalLeaderboardViewModel
+            {
+                CityKey = board.CityKey,
+                CityName = board.CityName,
+                MostDistance = MapLeaderboardEntries(board.MostDistance),
+                MostDiscoveries = MapLeaderboardEntries(board.MostDiscoveries),
+                MostHelpful = MapLeaderboardEntries(board.MostHelpful),
+                BestPhotos = MapLeaderboardEntries(board.BestPhotos),
+                TopDogsThisWeek = MapLeaderboardEntries(board.TopDogsThisWeek)
+            };
+        }
+
+        private static IReadOnlyList<LocalLeaderboardEntryViewModel> MapLeaderboardEntries(IReadOnlyList<LocalLeaderboardEntry> entries)
+        {
+            return entries.Select(entry => new LocalLeaderboardEntryViewModel
+            {
+                Rank = entry.Rank,
+                Label = entry.Label,
+                SubLabel = entry.SubLabel,
+                ImageUrl = entry.ImageUrl,
+                ScoreText = entry.ScoreText,
+                DogId = entry.DogId
+            }).ToList();
         }
 
         private static AchievementItem BuildAchievement(string name, string description, double current, double target, string suffix)

@@ -8,6 +8,8 @@ namespace DoggyDrop.ViewModels
 
         public IReadOnlyList<CommunityLeaderboardItem> WeeklyLeaders { get; set; } = [];
 
+        public LocalLeaderboardViewModel LocalLeaderboards { get; set; } = new();
+
         public IReadOnlyList<CommunityPhotoFeedItem> PhotoFeed { get; set; } = [];
 
         public IReadOnlyList<CommunityBinPhotoItem> BinPhotoGallery { get; set; } = [];
@@ -17,6 +19,38 @@ namespace DoggyDrop.ViewModels
         public double KilometersThisWeek { get; set; }
 
         public int ActiveDogsThisWeek { get; set; }
+    }
+
+    public class LocalLeaderboardViewModel
+    {
+        public string CityKey { get; set; } = "maribor";
+
+        public string CityName { get; set; } = "Maribor";
+
+        public IReadOnlyList<LocalLeaderboardEntryViewModel> MostDistance { get; set; } = [];
+
+        public IReadOnlyList<LocalLeaderboardEntryViewModel> MostDiscoveries { get; set; } = [];
+
+        public IReadOnlyList<LocalLeaderboardEntryViewModel> MostHelpful { get; set; } = [];
+
+        public IReadOnlyList<LocalLeaderboardEntryViewModel> BestPhotos { get; set; } = [];
+
+        public IReadOnlyList<LocalLeaderboardEntryViewModel> TopDogsThisWeek { get; set; } = [];
+    }
+
+    public class LocalLeaderboardEntryViewModel
+    {
+        public int Rank { get; set; }
+
+        public string Label { get; set; } = string.Empty;
+
+        public string? SubLabel { get; set; }
+
+        public string? ImageUrl { get; set; }
+
+        public string ScoreText { get; set; } = string.Empty;
+
+        public int? DogId { get; set; }
     }
 
     public class CommunityWalkItem

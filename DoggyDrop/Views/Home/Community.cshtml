@@ -31,6 +31,70 @@
         </article>
     </div>
 
+    <section class="community-section community-local-board">
+        <div class="community-section__header">
+            <h2>Lokalne lestvice</h2>
+            <span>@Model.LocalLeaderboards.CityName</span>
+        </div>
+        <div class="community-local-grid">
+            <article>
+                <h3>Most distance</h3>
+                @foreach (var entry in Model.LocalLeaderboards.MostDistance)
+                {
+                    <div class="community-local-entry">
+                        <strong>@entry.Rank</strong>
+                        <span>@entry.Label <small>@entry.SubLabel</small></span>
+                        <em>@entry.ScoreText</em>
+                    </div>
+                }
+            </article>
+            <article>
+                <h3>Most discoveries</h3>
+                @foreach (var entry in Model.LocalLeaderboards.MostDiscoveries)
+                {
+                    <div class="community-local-entry">
+                        <strong>@entry.Rank</strong>
+                        <span>@entry.Label <small>@entry.SubLabel</small></span>
+                        <em>@entry.ScoreText</em>
+                    </div>
+                }
+            </article>
+            <article>
+                <h3>Most helpful</h3>
+                @foreach (var entry in Model.LocalLeaderboards.MostHelpful)
+                {
+                    <div class="community-local-entry">
+                        <strong>@entry.Rank</strong>
+                        <span>@entry.Label <small>@entry.SubLabel</small></span>
+                        <em>@entry.ScoreText</em>
+                    </div>
+                }
+            </article>
+            <article>
+                <h3>Best photos</h3>
+                @foreach (var entry in Model.LocalLeaderboards.BestPhotos)
+                {
+                    <div class="community-local-entry">
+                        <strong>@entry.Rank</strong>
+                        <span>@entry.Label <small>@entry.SubLabel</small></span>
+                        <em>@entry.ScoreText</em>
+                    </div>
+                }
+            </article>
+            <article>
+                <h3>Top dog this week</h3>
+                @foreach (var entry in Model.LocalLeaderboards.TopDogsThisWeek)
+                {
+                    <a class="community-local-entry" asp-controller="Dogs" asp-action="Details" asp-route-id="@entry.DogId">
+                        <strong>@entry.Rank</strong>
+                        <span>@entry.Label <small>@entry.SubLabel</small></span>
+                        <em>@entry.ScoreText</em>
+                    </a>
+                }
+            </article>
+        </div>
+    </section>
+
     <section class="community-section">
         <div class="community-section__header">
             <h2>Tedenska lestvica</h2>
@@ -424,6 +488,77 @@
         padding: 12px;
     }
 
+    .community-local-grid {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 12px;
+    }
+
+    .community-local-grid article {
+        display: grid;
+        align-content: start;
+        gap: 8px;
+        min-width: 0;
+        padding: 12px;
+        border: 1px solid rgba(31, 45, 41, 0.08);
+        border-radius: 8px;
+        background: #ffffff;
+    }
+
+    .community-local-grid h3 {
+        margin: 0 0 4px;
+        color: #1f2d29;
+        font-size: 0.9rem;
+        font-weight: 950;
+    }
+
+    .community-local-entry {
+        display: grid;
+        grid-template-columns: 24px 1fr;
+        gap: 8px;
+        align-items: start;
+        color: inherit;
+        text-decoration: none;
+    }
+
+    .community-local-entry > strong {
+        display: grid;
+        width: 24px;
+        aspect-ratio: 1;
+        place-items: center;
+        border-radius: 999px;
+        background: #eef7ed;
+        color: #2f6d5f;
+        font-size: 0.78rem;
+        font-weight: 950;
+    }
+
+    .community-local-entry span,
+    .community-local-entry small,
+    .community-local-entry em {
+        display: block;
+        min-width: 0;
+    }
+
+    .community-local-entry span {
+        color: #1f2d29;
+        font-size: 0.84rem;
+        font-weight: 900;
+    }
+
+    .community-local-entry small,
+    .community-local-entry em {
+        color: #65716d;
+        font-size: 0.76rem;
+        font-weight: 800;
+    }
+
+    .community-local-entry em {
+        grid-column: 2;
+        color: #2f6d5f;
+        font-style: normal;
+    }
+
     .community-leader,
     .community-feed-card {
         color: inherit;
@@ -562,6 +697,7 @@
 
         .community-leader,
         .community-feed-card,
+        .community-local-grid,
         .community-photo-feed,
         .community-bin-gallery {
             grid-template-columns: 1fr;
