@@ -1065,6 +1065,28 @@
         font-weight: 800;
     }
 
+    .map-heatmap-range {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 6px;
+        margin-top: 8px;
+    }
+
+    .map-heatmap-range button {
+        min-height: 34px;
+        border: 1px solid rgba(47, 109, 95, 0.14);
+        border-radius: 8px;
+        background: #ffffff;
+        color: #2f6d5f;
+        font-size: 0.78rem;
+        font-weight: 900;
+    }
+
+    .map-heatmap-range button.is-active {
+        background: #2f6d5f;
+        color: #ffffff;
+    }
+
     .map-location-warning {
         margin-top: 10px;
         padding: 10px;
@@ -1113,6 +1135,123 @@
         border-radius: 999px;
         background: #2f9f6f;
         box-shadow: 0 0 0 6px rgba(47, 159, 111, 0.12);
+    }
+
+    .map-community-heat {
+        position: fixed;
+        right: 18px;
+        bottom: calc(92px + env(safe-area-inset-bottom));
+        z-index: 980;
+        width: min(330px, calc(100vw - 36px));
+        padding: 14px;
+        border: 1px solid rgba(31, 45, 41, 0.10);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.94);
+        box-shadow: 0 16px 34px rgba(31, 45, 41, 0.16);
+        backdrop-filter: blur(14px);
+    }
+
+    .map-community-heat[hidden] {
+        display: none;
+    }
+
+    .map-community-heat__head,
+    .map-community-heat__stats {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+    }
+
+    .map-community-heat__head strong {
+        color: #1f2d29;
+        font-weight: 950;
+    }
+
+    .map-community-heat__head span,
+    .map-community-heat__stats span {
+        color: #65716d;
+        font-size: 0.78rem;
+        font-weight: 850;
+    }
+
+    .map-community-heat__stats {
+        margin-top: 10px;
+        align-items: stretch;
+    }
+
+    .map-community-heat__stats span {
+        flex: 1;
+        padding: 8px;
+        border-radius: 8px;
+        background: #eef7ed;
+        text-align: center;
+    }
+
+    .map-community-heat__stats b {
+        display: block;
+        color: #2f6d5f;
+        font-size: 1rem;
+        font-weight: 950;
+    }
+
+    .map-community-heat__events {
+        display: grid;
+        gap: 8px;
+        margin-top: 10px;
+    }
+
+    .map-community-heat__events p,
+    .map-community-event {
+        margin: 0;
+        color: #65716d;
+        font-size: 0.82rem;
+        font-weight: 800;
+        line-height: 1.32;
+    }
+
+    .map-community-event {
+        padding: 8px;
+        border: 1px solid rgba(47, 109, 95, 0.10);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.78);
+    }
+
+    .map-community-event strong {
+        display: block;
+        color: #1f2d29;
+        font-weight: 950;
+    }
+
+    .map-heat-marker {
+        display: grid;
+        place-items: center;
+        width: 100%;
+        height: 100%;
+        border-radius: 999px;
+        color: #ffffff;
+        font-size: 0.72rem;
+        font-weight: 950;
+        box-shadow: 0 0 0 8px rgba(239, 143, 66, 0.16), 0 0 28px rgba(239, 143, 66, 0.48);
+    }
+
+    .map-heat-marker--active {
+        background: #e05b43;
+        box-shadow: 0 0 0 8px rgba(224, 91, 67, 0.18), 0 0 30px rgba(224, 91, 67, 0.54);
+    }
+
+    .map-heat-marker--park {
+        background: #ef8f42;
+    }
+
+    .map-heat-marker--route {
+        background: #2f6d5f;
+        box-shadow: 0 0 0 8px rgba(47, 109, 95, 0.16), 0 0 26px rgba(47, 109, 95, 0.44);
+    }
+
+    .map-heat-marker--dog {
+        background: #6c5ce7;
+        box-shadow: 0 0 0 8px rgba(108, 92, 231, 0.14), 0 0 24px rgba(108, 92, 231, 0.38);
     }
 
     .map-quick-intro {
@@ -1171,6 +1310,17 @@
             max-width: calc(100vw - 24px);
             padding: 9px 12px;
             font-size: 0.78rem;
+        }
+
+        .map-community-heat {
+            right: 8px;
+            bottom: calc(84px + env(safe-area-inset-bottom));
+            width: min(300px, calc(100vw - 16px));
+            padding: 10px;
+        }
+
+        .map-community-heat__stats {
+            gap: 6px;
         }
 
         .map-filter-panel {
@@ -1588,6 +1738,15 @@ else if (needsDogOnboarding)
         <span>Dog friendly</span>
         <input id="showCafes" type="checkbox" checked />
     </label>
+    <label class="map-filter-row">
+        <span>Community heat</span>
+        <input id="showCommunity" type="checkbox" checked />
+    </label>
+    <div class="map-heatmap-range" aria-label="Community heatmap obdobje">
+        <button type="button" class="is-active" data-heatmap-range="today">Today</button>
+        <button type="button" data-heatmap-range="week">Week</button>
+        <button type="button" data-heatmap-range="evening">Evening</button>
+    </div>
     <div id="mapLocationWarning" class="map-location-warning" hidden>
         Lokacija na telefonu zahteva HTTPS povezavo. Zemljevid in rocne akcije se vedno delujejo.
     </div>
@@ -1617,6 +1776,21 @@ else if (needsDogOnboarding)
     <strong>@Model.Count()</strong>
     <span>pasjih košev na zemljevidu</span>
 </div>
+
+<aside id="communityHeatPanel" class="map-community-heat">
+    <div class="map-community-heat__head">
+        <strong>Community heat</strong>
+        <span id="communityHeatRange">Today</span>
+    </div>
+    <div class="map-community-heat__stats">
+        <span><b id="communityActiveWalkers">0</b> active</span>
+        <span><b id="communityPopularParks">0</b> parks</span>
+        <span><b id="communityTrendingRoutes">0</b> routes</span>
+    </div>
+    <div id="communityEvents" class="map-community-heat__events">
+        <p>Ko se nabere aktivnost, bodo tukaj zasijale popularne lokacije.</p>
+    </div>
+</aside>
 
 <aside id="explorePanel" class="map-explore-panel" hidden>
     <div class="map-explore-panel__header">
@@ -1696,6 +1870,8 @@ else if (needsDogOnboarding)
         let parkLayer;
         let waterLayer;
         let cafeLayer;
+        let communityLayer;
+        let communityHeatRange = "today";
         let exploreFilter = "all";
         let userLocation = null;
         let activeBinId = null;
@@ -1707,6 +1883,12 @@ else if (needsDogOnboarding)
         const mapNotificationPreviewItems = document.getElementById("mapNotificationPreviewItems");
         const nearbyDogsList = document.getElementById("nearbyDogsList");
         const nearbyDogsCount = document.getElementById("nearbyDogsCount");
+        const communityHeatPanel = document.getElementById("communityHeatPanel");
+        const communityHeatRangeLabel = document.getElementById("communityHeatRange");
+        const communityActiveWalkers = document.getElementById("communityActiveWalkers");
+        const communityPopularParks = document.getElementById("communityPopularParks");
+        const communityTrendingRoutes = document.getElementById("communityTrendingRoutes");
+        const communityEvents = document.getElementById("communityEvents");
 
         const placeGroups = {
             parks: [
@@ -1833,10 +2015,12 @@ else if (needsDogOnboarding)
             waterLayer = buildPlaceLayer(placeGroups.water);
             cafeLayer = buildPlaceLayer(placeGroups.cafes);
             dogLayer = L.layerGroup();
+            communityLayer = L.layerGroup().addTo(map);
             parkLayer.addTo(map);
             waterLayer.addTo(map);
             cafeLayer.addTo(map);
             loadNearbyDogs();
+            loadCommunityHeatmap();
 
             if (bins.length > 0) {
                 const bounds = L.latLngBounds(bins.map(bin => [bin.latitude, bin.longitude]));
@@ -1868,6 +2052,7 @@ else if (needsDogOnboarding)
             wireLayerToggle("showWater", waterLayer);
             wireLayerToggle("showCafes", cafeLayer);
             wireLayerToggle("showDogs", dogLayer);
+            wireLayerToggle("showCommunity", communityLayer, communityHeatPanel);
             document.getElementById("filterToggle").addEventListener("click", openFilterPanel);
             document.getElementById("filterClose").addEventListener("click", closeFilterPanel);
             document.getElementById("exploreToggle").addEventListener("click", openExplorePanel);
@@ -1879,6 +2064,14 @@ else if (needsDogOnboarding)
                     document.querySelectorAll("[data-explore-filter]").forEach(item => item.classList.remove("is-active"));
                     button.classList.add("is-active");
                     renderExploreList();
+                });
+            });
+            document.querySelectorAll("[data-heatmap-range]").forEach(button => {
+                button.addEventListener("click", () => {
+                    communityHeatRange = button.dataset.heatmapRange || "today";
+                    document.querySelectorAll("[data-heatmap-range]").forEach(item => item.classList.remove("is-active"));
+                    button.classList.add("is-active");
+                    loadCommunityHeatmap();
                 });
             });
             document.getElementById("parkCountLabel").textContent = `(${placeGroups.parks.length})`;
@@ -2083,12 +2276,18 @@ else if (needsDogOnboarding)
             }
         }
 
-        function wireLayerToggle(inputId, layer) {
+        function wireLayerToggle(inputId, layer, panel) {
             document.getElementById(inputId).addEventListener("change", function (event) {
                 if (event.target.checked) {
                     layer.addTo(map);
+                    if (panel) {
+                        panel.hidden = false;
+                    }
                 } else {
                     layer.remove();
+                    if (panel) {
+                        panel.hidden = true;
+                    }
                 }
                 saveMapSetting(inputId, event.target.checked);
             });
@@ -2100,6 +2299,7 @@ else if (needsDogOnboarding)
             applyLayerSetting("showWater", waterLayer, true);
             applyLayerSetting("showCafes", cafeLayer, true);
             applyLayerSetting("showDogs", dogLayer, false);
+            applyLayerSetting("showCommunity", communityLayer, true, communityHeatPanel);
         }
 
         async function loadNearbyDogs() {
@@ -2129,18 +2329,109 @@ else if (needsDogOnboarding)
             }
         }
 
-        function applyLayerSetting(inputId, layer, fallback) {
+        function applyLayerSetting(inputId, layer, fallback, panel) {
             const enabled = getMapSetting(inputId, fallback);
             document.getElementById(inputId).checked = enabled;
             if (enabled) {
                 layer.addTo(map);
+                if (panel) {
+                    panel.hidden = false;
+                }
             } else {
                 layer.remove();
+                if (panel) {
+                    panel.hidden = true;
+                }
             }
         }
 
         function applyCheckboxSetting(inputId, fallback) {
             document.getElementById(inputId).checked = getMapSetting(inputId, fallback);
+        }
+
+        async function loadCommunityHeatmap() {
+            if (!communityLayer) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/community-map/heatmap?range=${encodeURIComponent(communityHeatRange)}`, {
+                    headers: { "X-Requested-With": "XMLHttpRequest" }
+                });
+
+                if (!response.ok) {
+                    return;
+                }
+
+                const data = await response.json();
+                renderCommunityHeatmap(data);
+            } catch {
+            }
+        }
+
+        function renderCommunityHeatmap(data) {
+            communityLayer.clearLayers();
+            const hotspots = Array.isArray(data.hotspots) ? data.hotspots : [];
+
+            hotspots.forEach(hotspot => {
+                const type = hotspot.type || "route";
+                const count = Number(hotspot.count || 0);
+                const intensity = Math.max(0.25, Math.min(1, Number(hotspot.intensity || 0.4)));
+                const size = Math.round(34 + intensity * 28);
+                const icon = L.divIcon({
+                    className: "",
+                    html: `<span class="map-heat-marker map-heat-marker--${escapeAttribute(type)}">${count > 1 ? count : ""}</span>`,
+                    iconSize: [size, size],
+                    iconAnchor: [size / 2, size / 2],
+                    popupAnchor: [0, -size / 2]
+                });
+
+                L.marker([hotspot.latitude, hotspot.longitude], { icon })
+                    .addTo(communityLayer)
+                    .bindPopup(`
+                        <div class="bin-popup">
+                            <div class="bin-popup__title">${escapeHtml(hotspot.title || "Community hotspot")}</div>
+                            <div class="bin-popup__meta">${escapeHtml(hotspot.subtitle || "")}</div>
+                        </div>
+                    `);
+
+                L.circle([hotspot.latitude, hotspot.longitude], {
+                    radius: 120 + intensity * 360,
+                    color: getHeatColor(type),
+                    fillColor: getHeatColor(type),
+                    fillOpacity: 0.10 + intensity * 0.12,
+                    opacity: 0.16,
+                    weight: 1
+                }).addTo(communityLayer);
+            });
+
+            communityHeatRangeLabel.textContent = getHeatRangeLabel(data.range || communityHeatRange);
+            communityActiveWalkers.textContent = Number(data.activeWalkers || 0).toString();
+            communityPopularParks.textContent = Number(data.popularParks || 0).toString();
+            communityTrendingRoutes.textContent = Number(data.trendingRoutes || 0).toString();
+
+            const events = Array.isArray(data.events) ? data.events : [];
+            communityEvents.innerHTML = events.length
+                ? events.map(item => `
+                    <div class="map-community-event">
+                        <strong>${escapeHtml(item.title || "DoggyDrop")}</strong>
+                        <span>${escapeHtml(item.subtitle || "")}</span>
+                    </div>
+                `).join("")
+                : `<p>Danes je se mirno. Prvi sprehod bo prizgal heatmap.</p>`;
+        }
+
+        function getHeatColor(type) {
+            if (type === "active") return "#e05b43";
+            if (type === "park") return "#ef8f42";
+            if (type === "dog") return "#6c5ce7";
+            return "#2f6d5f";
+        }
+
+        function getHeatRangeLabel(range) {
+            if (range === "week") return "This week";
+            if (range === "evening") return "Evening";
+            return "Today";
         }
 
         function getMapSetting(key, fallback) {
