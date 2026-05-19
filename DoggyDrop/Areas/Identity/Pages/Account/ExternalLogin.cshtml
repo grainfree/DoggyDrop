@@ -16,7 +16,7 @@
             <p>Večinoma DoggyDrop račun ustvari samodejno. Če manjka email, ga potrdi tukaj in nadaljuj.</p>
         </div>
 
-        <form asp-page="./ExternalLogin" asp-route-returnUrl="@Model.ReturnUrl" method="post" class="auth-form">
+        <form asp-page="./ExternalLogin" asp-page-handler="Confirmation" asp-route-returnUrl="@Model.ReturnUrl" method="post" class="auth-form">
             <div asp-validation-summary="All" class="text-danger small"></div>
 
             <div class="auth-field">

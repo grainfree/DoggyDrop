@@ -71,6 +71,8 @@ namespace DoggyDrop.Services
                 InputStream = stream,
                 ContentType = ResolveContentType(file.ContentType, extension),
                 AutoCloseStream = false,
+                DisableDefaultChecksumValidation = true,
+                DisablePayloadSigning = true,
                 Headers =
                 {
                     CacheControl = "public, max-age=31536000, immutable"

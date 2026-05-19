@@ -37,6 +37,8 @@
                 <span class="form-check-label">Zapomni si me</span>
             </label>
 
+            <a class="auth-forgot" asp-page="./ForgotPassword">Pozabljeno geslo?</a>
+
             <button type="submit" class="btn btn-success auth-submit">Prijavi se</button>
         </form>
 
@@ -88,6 +90,15 @@
     .auth-brand img {
         height: 48px;
         width: auto;
+    }
+
+    .auth-forgot {
+        display: inline-flex;
+        margin-top: -4px;
+        color: #2f6d5f;
+        font-size: 0.86rem;
+        font-weight: 850;
+        text-decoration: none;
     }
 
     .auth-hero span {

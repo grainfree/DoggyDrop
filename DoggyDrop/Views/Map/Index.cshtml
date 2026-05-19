@@ -1189,11 +1189,11 @@
         }
 
         .map-action-stack {
-            left: auto;
+            left: 8px;
             right: 8px;
             bottom: 86px;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            width: min(248px, calc(100vw - 16px));
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            width: auto;
         }
 
         .map-action-button {
@@ -1206,12 +1206,7 @@
         }
 
         .map-action-button--primary {
-            grid-column: 1 / -1;
-            grid-template-columns: 34px minmax(0, 1fr);
-            justify-items: start;
-            padding: 10px 12px;
-            font-size: 0.82rem;
-            text-align: left;
+            order: 4;
         }
 
         .map-action-button__icon {
