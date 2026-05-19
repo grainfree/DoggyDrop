@@ -41,10 +41,40 @@ namespace DoggyDrop.Models
         public ApplicationUser? User { get; set; }
 
         [NotMapped]
-        public string? FullImageUrl =>
-            string.IsNullOrEmpty(ImageUrl)
-                ? null
-                : ImageUrl;
+        public string? FullImageUrl
+        {
+            get
+            {
+                if (string.IsNullOrWhiteSpace(ImageUrl))
+                {
+                    return null;
+                }
+
+                var value = ImageUrl.Trim().Replace('\\', '/');
+
+                if (value.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                    value.StartsWith("https://", StringComparison.OrdinalIgnoreCase) ||
+                    value.StartsWith("/", StringComparison.Ordinal))
+                {
+                    return value;
+                }
+
+                const string wwwrootMarker = "wwwroot/";
+                var wwwrootIndex = value.IndexOf(wwwrootMarker, StringComparison.OrdinalIgnoreCase);
+                if (wwwrootIndex >= 0)
+                {
+                    value = value[(wwwrootIndex + wwwrootMarker.Length)..];
+                }
+
+                if (value.StartsWith("uploads/", StringComparison.OrdinalIgnoreCase) ||
+                    value.StartsWith("images/", StringComparison.OrdinalIgnoreCase))
+                {
+                    return "/" + value.TrimStart('/');
+                }
+
+                return "/uploads/trashbins/" + value.TrimStart('/');
+            }
+        }
 
     }
 }

@@ -21,6 +21,9 @@ namespace DoggyDrop.Controllers.Api
             var bins = await _context.TrashBins
                 .Include(bin => bin.User)
                 .Where(bin => bin.IsApproved)
+                .ToListAsync();
+
+            var binItems = bins
                 .Select(bin => new
                 {
                     bin.Id,
@@ -36,15 +39,15 @@ namespace DoggyDrop.Controllers.Api
                     bin.MissingReports,
                     bin.UsefulVotes
                 })
-                .ToListAsync();
+                .ToList();
 
             if (!latitude.HasValue || !longitude.HasValue)
             {
-                return Ok(bins.Take(100));
+                return Ok(binItems.Take(100));
             }
 
             var safeRadiusKm = Math.Clamp(radiusKm, 0.5, 50);
-            var nearby = bins
+            var nearby = binItems
                 .Select(bin => new
                 {
                     bin.Id,

@@ -63,6 +63,7 @@ namespace DoggyDrop.Controllers
             return View();
         }
 
+        [Authorize]
         public async Task<IActionResult> Community()
         {
             var userId = _userManager.GetUserId(User);
@@ -127,20 +128,22 @@ namespace DoggyDrop.Controllers
                 .Take(12)
                 .ToList();
 
-            var binPhotoGallery = await _context.TrashBins
+            var binPhotoGallery = (await _context.TrashBins
                 .Include(bin => bin.User)
                 .Where(bin => bin.IsApproved && !string.IsNullOrWhiteSpace(bin.ImageUrl))
                 .OrderByDescending(bin => bin.DateAdded)
                 .Take(12)
+                .ToListAsync())
                 .Select(bin => new CommunityBinPhotoItem
                 {
                     BinId = bin.Id,
                     BinName = bin.Name,
-                    ImageUrl = bin.ImageUrl!,
+                    ImageUrl = bin.FullImageUrl!,
                     ContributorName = GetDisplayName(bin.User),
                     DateAdded = bin.DateAdded
                 })
-                .ToListAsync();
+                .Where(bin => !string.IsNullOrWhiteSpace(bin.ImageUrl))
+                .ToList();
 
             var weeklyWalks = await _context.Walks
                 .Include(w => w.Dog)

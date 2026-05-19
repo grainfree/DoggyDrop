@@ -280,7 +280,7 @@ namespace DoggyDrop.Controllers
                 nearest.Name,
                 nearest.Latitude,
                 nearest.Longitude,
-                nearest.ImageUrl,
+                ImageUrl = nearest.FullImageUrl,
                 ReliabilityScore = GetBinReliabilityScore(nearest)
             });
         }
@@ -310,7 +310,7 @@ namespace DoggyDrop.Controllers
                 best.Bin.Name,
                 best.Bin.Latitude,
                 best.Bin.Longitude,
-                best.Bin.ImageUrl,
+                ImageUrl = best.Bin.FullImageUrl,
                 best.DistanceMeters,
                 best.ReliabilityScore
             });
@@ -322,12 +322,13 @@ namespace DoggyDrop.Controllers
         {
             var bins = _context.TrashBins
                 .Where(b => b.IsApproved)
+                .ToList()
                 .Select(b => new
                 {
                     b.Name,
                     b.Latitude,
                     b.Longitude,
-                    b.ImageUrl
+                    ImageUrl = b.FullImageUrl
                 })
                 .ToList();
 
@@ -401,7 +402,7 @@ namespace DoggyDrop.Controllers
                 Name = bin.Name,
                 Latitude = bin.Latitude,
                 Longitude = bin.Longitude,
-                CurrentImageUrl = bin.ImageUrl
+                CurrentImageUrl = bin.FullImageUrl
             };
 
             return View(model);

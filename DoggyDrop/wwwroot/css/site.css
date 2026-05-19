@@ -177,6 +177,7 @@ body {
   left: 8px;
   height: auto;
   max-height: min(82vh, 720px);
+  z-index: 2200;
   border: 1px solid var(--dd-border);
   border-radius: 26px 26px 18px 18px;
   background: rgba(255, 255, 255, 0.98);
@@ -806,9 +807,9 @@ body {
 
   .app-menu-sheet {
     right: 6px;
-    bottom: 6px;
+    bottom: calc(84px + env(safe-area-inset-bottom));
     left: 6px;
-    max-height: min(84vh, 680px);
+    max-height: min(78vh, 680px);
   }
 
   .app-menu-grid {
