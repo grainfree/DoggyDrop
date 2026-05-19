@@ -13,7 +13,9 @@ namespace DoggyDrop.Services
             ".jpeg",
             ".png",
             ".webp",
-            ".gif"
+            ".gif",
+            ".heic",
+            ".heif"
         };
 
         private readonly IAmazonS3 _s3Client;
@@ -75,8 +77,22 @@ namespace DoggyDrop.Services
                 }
             };
 
-            await _s3Client.PutObjectAsync(request);
-            return BuildPublicUrl(key);
+            try
+            {
+                await _s3Client.PutObjectAsync(request);
+                return BuildPublicUrl(key);
+            }
+            catch (AmazonS3Exception exception)
+            {
+                _logger.LogError(
+                    exception,
+                    "Cloudflare R2 upload failed for bucket {BucketName}, key {Key}. Status: {StatusCode}, ErrorCode: {ErrorCode}",
+                    _settings.BucketName,
+                    key,
+                    exception.StatusCode,
+                    exception.ErrorCode);
+                return null;
+            }
         }
 
         private static string BuildObjectKey(string folderName, string extension)
@@ -104,6 +120,8 @@ namespace DoggyDrop.Services
                 ".png" => "image/png",
                 ".webp" => "image/webp",
                 ".gif" => "image/gif",
+                ".heic" => "image/heic",
+                ".heif" => "image/heif",
                 _ => "application/octet-stream"
             };
         }

@@ -164,6 +164,11 @@ namespace DoggyDrop.Controllers
             if (model.Photo != null && model.Photo.Length > 0)
             {
                 photoUrl = await _cloudinaryService.UploadImageAsync(model.Photo);
+                if (string.IsNullOrWhiteSpace(photoUrl))
+                {
+                    ModelState.AddModelError(nameof(model.Photo), "Fotografije ni bilo mogoce shraniti. Poskusi z JPG, PNG, WEBP ali HEIC sliko.");
+                    return View(model);
+                }
             }
 
             var dog = new Dog

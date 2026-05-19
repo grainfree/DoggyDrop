@@ -130,7 +130,7 @@ namespace DoggyDrop.Services
             }
 
             var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-            var allowedExtensions = new HashSet<string> { ".jpg", ".jpeg", ".png", ".webp", ".gif" };
+            var allowedExtensions = new HashSet<string> { ".jpg", ".jpeg", ".png", ".webp", ".gif", ".heic", ".heif" };
             if (!allowedExtensions.Contains(extension))
             {
                 _logger.LogWarning("Unsupported image extension {Extension}.", extension);
