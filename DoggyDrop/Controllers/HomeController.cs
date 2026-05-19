@@ -17,19 +17,22 @@ namespace DoggyDrop.Controllers
         private readonly ICloudinaryService _cloudinaryService;
         private readonly IEmailSender _emailSender;
         private readonly ApplicationDbContext _context;
+        private readonly IGamificationService _gamificationService;
 
         public HomeController(
             ILogger<HomeController> logger,
             UserManager<ApplicationUser> userManager,
             ICloudinaryService cloudinaryService,
             IEmailSender emailSender,
-            ApplicationDbContext context)
+            ApplicationDbContext context,
+            IGamificationService gamificationService)
         {
             _logger = logger;
             _userManager = userManager;
             _cloudinaryService = cloudinaryService;
             _emailSender = emailSender;
             _context = context;
+            _gamificationService = gamificationService;
         }
 
         public IActionResult Index()
@@ -277,6 +280,8 @@ namespace DoggyDrop.Controllers
             var totalWalkDuration = TimeSpan.FromTicks(completedWalks
                 .Where(w => w.EndedAt.HasValue)
                 .Sum(w => (w.EndedAt!.Value - w.StartedAt).Ticks));
+            var gamificationProfile = await _gamificationService.EnsureProfileAsync(user.Id);
+            var levelInfo = _gamificationService.CalculateLevelInfo(gamificationProfile.TotalXp);
 
             var model = new UserProfileViewModel
             {
@@ -292,7 +297,19 @@ namespace DoggyDrop.Controllers
                 TotalDistanceKm = totalDistanceKm,
                 TotalWalkDuration = totalWalkDuration,
                 Dogs = dogSummaries,
-                ActivityInsights = ActivityInsightsBuilder.Build(completedWalks)
+                ActivityInsights = ActivityInsightsBuilder.Build(completedWalks),
+                Gamification = new GamificationProfileViewModel
+                {
+                    TotalXp = levelInfo.TotalXp,
+                    Level = levelInfo.Level,
+                    Title = levelInfo.Title,
+                    ProgressPercent = levelInfo.ProgressPercent,
+                    XpIntoLevel = levelInfo.XpIntoLevel,
+                    XpForNextLevel = levelInfo.XpForNextLevel,
+                    XpRemaining = levelInfo.XpRemaining,
+                    CurrentStreakDays = gamificationProfile.CurrentStreakDays,
+                    LongestStreakDays = gamificationProfile.LongestStreakDays
+                }
             };
 
             return View(model);

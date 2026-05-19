@@ -27,6 +27,29 @@ namespace DoggyDrop.ViewModels
         public IReadOnlyList<ProfileDogSummary> Dogs { get; set; } = [];
 
         public ActivityInsightsViewModel ActivityInsights { get; set; } = new();
+
+        public GamificationProfileViewModel Gamification { get; set; } = new();
+    }
+
+    public class GamificationProfileViewModel
+    {
+        public int TotalXp { get; set; }
+
+        public int Level { get; set; } = 1;
+
+        public string Title { get; set; } = "Puppy";
+
+        public int ProgressPercent { get; set; }
+
+        public int XpIntoLevel { get; set; }
+
+        public int XpForNextLevel { get; set; } = 1;
+
+        public int XpRemaining { get; set; }
+
+        public int CurrentStreakDays { get; set; }
+
+        public int LongestStreakDays { get; set; }
     }
 
     public class ProfileDogSummary

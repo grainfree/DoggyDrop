@@ -37,6 +37,23 @@
         </div>
     </header>
 
+    <article class="profile-panel profile-xp">
+        <div class="profile-xp__top">
+            <div>
+                <span>Level @Model.Gamification.Level</span>
+                <strong>@Model.Gamification.Title</strong>
+            </div>
+            <em>@Model.Gamification.TotalXp XP</em>
+        </div>
+        <div class="profile-achievement__bar">
+            <span style="width: @Model.Gamification.ProgressPercent%"></span>
+        </div>
+        <div class="profile-xp__meta">
+            <span>@Model.Gamification.XpRemaining XP do naslednjega levela</span>
+            <span>@Model.Gamification.CurrentStreakDays dni streak</span>
+        </div>
+    </article>
+
     <div class="profile-stats">
         <article>
             <strong>@Model.TotalDistanceKm.ToString("0.0") km</strong>
@@ -315,6 +332,45 @@
         background: #ffffff;
         color: #9b3b2f;
         border-color: rgba(155, 59, 47, 0.18);
+    }
+
+    .profile-xp {
+        margin-top: 14px;
+        background: linear-gradient(135deg, #ffffff 0%, #f3faf5 58%, #fff4e6 100%);
+    }
+
+    .profile-xp__top,
+    .profile-xp__meta {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+    }
+
+    .profile-xp__top span,
+    .profile-xp__meta {
+        color: #65716d;
+        font-size: 0.84rem;
+        font-weight: 850;
+    }
+
+    .profile-xp__top strong {
+        display: block;
+        color: #17322c;
+        font-size: 1.45rem;
+        font-weight: 950;
+        line-height: 1.1;
+    }
+
+    .profile-xp__top em {
+        color: #2f6d5f;
+        font-style: normal;
+        font-weight: 950;
+    }
+
+    .profile-xp__meta {
+        margin-top: 8px;
+        flex-wrap: wrap;
     }
 
     .profile-stats {

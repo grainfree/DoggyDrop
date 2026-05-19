@@ -38,5 +38,9 @@ namespace DoggyDrop.Models
         public ICollection<PlannedWalk>? PlannedWalks { get; set; }
 
         public ICollection<WalkStopCompletion>? WalkStopCompletions { get; set; }
+
+        public UserGamificationProfile? GamificationProfile { get; set; }
+
+        public ICollection<UserXpEvent>? XpEvents { get; set; }
     }
 }

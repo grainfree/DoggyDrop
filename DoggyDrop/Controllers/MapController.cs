@@ -19,13 +19,15 @@ namespace DoggyDrop.Controllers
         private readonly ICloudinaryService _cloudinaryService;
         private readonly IEmailSender _emailSender;
         private readonly INotificationService _notificationService;
+        private readonly IGamificationService _gamificationService;
 
         public MapController(ApplicationDbContext context,
                              IWebHostEnvironment environment,
                              UserManager<ApplicationUser> userManager,
                              ICloudinaryService cloudinaryService,
                              IEmailSender emailSender,
-                             INotificationService notificationService)
+                             INotificationService notificationService,
+                             IGamificationService gamificationService)
         {
             _context = context;
             _environment = environment;
@@ -33,6 +35,7 @@ namespace DoggyDrop.Controllers
             _cloudinaryService = cloudinaryService;
             _emailSender = emailSender;
             _notificationService = notificationService;
+            _gamificationService = gamificationService;
         }
 
         // 📍 Prikaz obrazca za dodajanje koša
@@ -67,6 +70,13 @@ namespace DoggyDrop.Controllers
             _context.TrashBins.Add(newBin);
             await _context.SaveChangesAsync();
             await NotifyBinContributionAchievementsAsync(newBin.UserId);
+            await _gamificationService.AwardXpAsync(
+                newBin.UserId,
+                GamificationConstants.AddedTrashBin,
+                GamificationConstants.AddedTrashBinXp,
+                nameof(TrashBin),
+                newBin.Id.ToString(),
+                "Dodan nov kos");
 
             if (newBin.IsApproved)
             {
@@ -90,6 +100,7 @@ namespace DoggyDrop.Controllers
             if (User.Identity?.IsAuthenticated == true)
             {
                 var userId = _userManager.GetUserId(User);
+                await _gamificationService.AwardDailyLoginAsync(userId);
                 var myDogs = await _context.Dogs
                     .Where(dog => dog.OwnerId == userId)
                     .OrderBy(dog => dog.Name)
@@ -165,6 +176,13 @@ namespace DoggyDrop.Controllers
 
                 await _context.SaveChangesAsync();
                 await NotifyParkAchievementsAsync(userId);
+                await _gamificationService.AwardXpAsync(
+                    userId,
+                    GamificationConstants.VisitNewPark,
+                    GamificationConstants.VisitNewParkXp,
+                    nameof(DogParkVisit),
+                    $"{dog.Id}:{input.PlaceKey}",
+                    "Obiskan nov park");
             }
 
             var visitCount = await _context.DogParkVisits
@@ -211,6 +229,13 @@ namespace DoggyDrop.Controllers
                         $"{bin.Name} je zdaj viden na DoggyDrop zemljevidu.",
                         Url.Action(nameof(MyBins), "Map"),
                         withinHours: 24 * 14);
+                    await _gamificationService.AwardXpAsync(
+                        bin.UserId,
+                        GamificationConstants.ApprovedTrashBin,
+                        GamificationConstants.ApprovedTrashBinXp,
+                        nameof(TrashBin),
+                        bin.Id.ToString(),
+                        "Kos je bil odobren");
                 }
 
                 await NotifyNearbyUsersAboutApprovedBinAsync(bin, bin.UserId);
@@ -372,6 +397,16 @@ namespace DoggyDrop.Controllers
             }
 
             await _context.SaveChangesAsync();
+            if (string.Equals(action, "useful", StringComparison.OrdinalIgnoreCase))
+            {
+                await _gamificationService.AwardXpAsync(
+                    _userManager.GetUserId(User),
+                    GamificationConstants.HelpfulVote,
+                    GamificationConstants.HelpfulVoteXp,
+                    nameof(TrashBin),
+                    $"{bin.Id}:useful",
+                    "Koristen glas za kos");
+            }
 
             return Json(new
             {

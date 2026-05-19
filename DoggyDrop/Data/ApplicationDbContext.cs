@@ -47,6 +47,10 @@ namespace DoggyDrop.Data
 
         public DbSet<WalkPhotoReaction> WalkPhotoReactions { get; set; }
 
+        public DbSet<UserGamificationProfile> UserGamificationProfiles { get; set; }
+
+        public DbSet<UserXpEvent> UserXpEvents { get; set; }
+
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
@@ -210,6 +214,28 @@ namespace DoggyDrop.Data
             builder.Entity<WalkStopCompletion>()
                 .HasIndex(completion => new { completion.WalkId, completion.PlannedWalkStopId })
                 .IsUnique();
+
+            builder.Entity<UserGamificationProfile>()
+                .HasOne(profile => profile.User)
+                .WithOne(user => user.GamificationProfile)
+                .HasForeignKey<UserGamificationProfile>(profile => profile.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<UserGamificationProfile>()
+                .HasIndex(profile => profile.UserId)
+                .IsUnique();
+
+            builder.Entity<UserXpEvent>()
+                .HasOne(xpEvent => xpEvent.User)
+                .WithMany(user => user.XpEvents)
+                .HasForeignKey(xpEvent => xpEvent.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<UserXpEvent>()
+                .HasIndex(xpEvent => new { xpEvent.UserId, xpEvent.OccurredAt });
+
+            builder.Entity<UserXpEvent>()
+                .HasIndex(xpEvent => new { xpEvent.UserId, xpEvent.ActivityType, xpEvent.ReferenceType, xpEvent.ReferenceId });
         }
     }
 }

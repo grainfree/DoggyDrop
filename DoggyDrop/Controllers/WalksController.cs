@@ -18,17 +18,20 @@ namespace DoggyDrop.Controllers
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly INotificationService _notificationService;
         private readonly ICloudinaryService _cloudinaryService;
+        private readonly IGamificationService _gamificationService;
 
         public WalksController(
             ApplicationDbContext context,
             UserManager<ApplicationUser> userManager,
             INotificationService notificationService,
-            ICloudinaryService cloudinaryService)
+            ICloudinaryService cloudinaryService,
+            IGamificationService gamificationService)
         {
             _context = context;
             _userManager = userManager;
             _notificationService = notificationService;
             _cloudinaryService = cloudinaryService;
+            _gamificationService = gamificationService;
         }
 
         [HttpGet]
@@ -380,6 +383,13 @@ namespace DoggyDrop.Controllers
 
             _context.PlannedWalks.Add(plan);
             await _context.SaveChangesAsync();
+            await _gamificationService.AwardXpAsync(
+                userId,
+                GamificationConstants.CreateRoute,
+                GamificationConstants.CreateRouteXp,
+                nameof(PlannedWalk),
+                plan.Id.ToString(),
+                "Nova pot");
 
             TempData["SuccessMessage"] = "Plan sprehoda je shranjen.";
             return RedirectToAction(nameof(Planner), new
@@ -523,7 +533,7 @@ namespace DoggyDrop.Controllers
                 }
             }
 
-            _context.WalkPhotos.Add(new WalkPhoto
+            var walkPhoto = new WalkPhoto
             {
                 WalkId = walk.Id,
                 UserId = userId,
@@ -531,9 +541,18 @@ namespace DoggyDrop.Controllers
                 Caption = TrimToLength(caption, 120),
                 CreatedAt = DateTime.UtcNow,
                 PlannedWalkStopId = plannedWalkStopId
-            });
+            };
 
+            _context.WalkPhotos.Add(walkPhoto);
             await _context.SaveChangesAsync();
+            await _gamificationService.AwardXpAsync(
+                userId,
+                GamificationConstants.UploadPhoto,
+                GamificationConstants.UploadPhotoXp,
+                nameof(WalkPhoto),
+                walkPhoto.Id.ToString(),
+                "Nalozena fotografija");
+
             TempData["SuccessMessage"] = "Fotografija sprehoda je dodana.";
             return RedirectToPhotoSource(walk);
         }
@@ -875,6 +894,14 @@ namespace DoggyDrop.Controllers
             if (completedNow)
             {
                 await NotifyWalkAchievementsAsync(userId!, walk.DistanceMeters / 1000);
+                var distanceXp = (int)Math.Floor(walk.DistanceMeters / 1000d) * GamificationConstants.WalkDistanceXpPerKm;
+                await _gamificationService.AwardXpAsync(
+                    userId,
+                    GamificationConstants.WalkDistance,
+                    distanceXp,
+                    nameof(Walk),
+                    walk.Id.ToString(),
+                    "Zakljucen sprehod");
             }
 
             TempData["SuccessMessage"] = "Sprehod je shranjen.";
