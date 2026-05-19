@@ -1,3 +1,5 @@
+using Amazon.Runtime;
+using Amazon.S3;
 using CloudinaryDotNet;
 using DoggyDrop.Data;
 using DoggyDrop.Models;
@@ -35,11 +37,51 @@ builder.Services.AddDefaultIdentity<ApplicationUser>(options => options.SignIn.R
     .AddRoles<IdentityRole>()
     .AddEntityFrameworkStores<ApplicationDbContext>();
 
+var r2Settings = new CloudflareR2Settings
+{
+    AccountId = GetConfiguredValue(builder.Configuration, "CloudflareR2:AccountId", "CloudflareR2__AccountId", "R2_ACCOUNT_ID", "CLOUDFLARE_R2_ACCOUNT_ID") ?? string.Empty,
+    AccessKeyId = GetConfiguredValue(builder.Configuration, "CloudflareR2:AccessKeyId", "CloudflareR2__AccessKeyId", "R2_ACCESS_KEY_ID", "CLOUDFLARE_R2_ACCESS_KEY_ID") ?? string.Empty,
+    SecretAccessKey = GetConfiguredValue(builder.Configuration, "CloudflareR2:SecretAccessKey", "CloudflareR2__SecretAccessKey", "R2_SECRET_ACCESS_KEY", "CLOUDFLARE_R2_SECRET_ACCESS_KEY") ?? string.Empty,
+    BucketName = GetConfiguredValue(builder.Configuration, "CloudflareR2:BucketName", "CloudflareR2__BucketName", "R2_BUCKET_NAME", "R2_BUCKET", "CLOUDFLARE_R2_BUCKET_NAME") ?? string.Empty,
+    PublicBaseUrl = GetConfiguredValue(builder.Configuration, "CloudflareR2:PublicBaseUrl", "CloudflareR2__PublicBaseUrl", "R2_PUBLIC_BASE_URL", "CLOUDFLARE_R2_PUBLIC_BASE_URL") ?? string.Empty,
+    Endpoint = GetConfiguredValue(builder.Configuration, "CloudflareR2:Endpoint", "CloudflareR2__Endpoint", "R2_ENDPOINT", "CLOUDFLARE_R2_ENDPOINT")
+};
+
 var cloudName = GetConfiguredValue(builder.Configuration, "Cloudinary:CloudName", "CLOUDINARY_CLOUD_NAME");
 var apiKey = GetConfiguredValue(builder.Configuration, "Cloudinary:ApiKey", "CLOUDINARY_API_KEY");
 var apiSecret = GetConfiguredValue(builder.Configuration, "Cloudinary:ApiSecret", "CLOUDINARY_API_SECRET");
 
-if (!string.IsNullOrWhiteSpace(cloudName) &&
+if (r2Settings.IsConfigured)
+{
+    var endpoint = string.IsNullOrWhiteSpace(r2Settings.Endpoint)
+        ? $"https://{r2Settings.AccountId}.r2.cloudflarestorage.com"
+        : r2Settings.Endpoint;
+
+    builder.Services.Configure<CloudflareR2Settings>(options =>
+    {
+        options.AccountId = r2Settings.AccountId;
+        options.AccessKeyId = r2Settings.AccessKeyId;
+        options.SecretAccessKey = r2Settings.SecretAccessKey;
+        options.BucketName = r2Settings.BucketName;
+        options.PublicBaseUrl = r2Settings.PublicBaseUrl;
+        options.Endpoint = endpoint;
+    });
+    builder.Services.AddSingleton<IAmazonS3>(_ =>
+    {
+        var credentials = new BasicAWSCredentials(r2Settings.AccessKeyId, r2Settings.SecretAccessKey);
+        var config = new AmazonS3Config
+        {
+            ServiceURL = endpoint,
+            ForcePathStyle = true,
+            AuthenticationRegion = "auto"
+        };
+
+        return new AmazonS3Client(credentials, config);
+    });
+    builder.Services.AddScoped<ICloudinaryService, CloudflareR2StorageService>();
+    Console.WriteLine("Cloudflare R2 storage is configured. New image uploads will use R2.");
+}
+else if (!string.IsNullOrWhiteSpace(cloudName) &&
     !string.IsNullOrWhiteSpace(apiKey) &&
     !string.IsNullOrWhiteSpace(apiSecret))
 {

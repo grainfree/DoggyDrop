@@ -8,6 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="AWSSDK.S3" Version="3.7.414.2" />
     <PackageReference Include="CloudinaryDotNet" Version="1.27.5" />
     <PackageReference Include="MailKit" Version="4.12.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.Google" Version="8.0.5" />
