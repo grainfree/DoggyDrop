@@ -33,6 +33,36 @@ namespace DoggyDrop.ViewModels
         public IReadOnlyList<SeasonalEventViewModel> SeasonalEvents { get; set; } = [];
 
         public string SeasonalMapTheme { get; set; } = "default";
+
+        public MapStampCollectionViewModel MapStamps { get; set; } = new();
+    }
+
+    public class MapStampCollectionViewModel
+    {
+        public int TotalStamps { get; set; }
+
+        public int CommonCount { get; set; }
+
+        public int RareCount { get; set; }
+
+        public int EpicCount { get; set; }
+
+        public int LegendaryCount { get; set; }
+
+        public IReadOnlyList<MapStampViewModel> Stamps { get; set; } = [];
+    }
+
+    public class MapStampViewModel
+    {
+        public string Name { get; set; } = string.Empty;
+
+        public string? Area { get; set; }
+
+        public string Rarity { get; set; } = "Common";
+
+        public int VisitCount { get; set; }
+
+        public DateTime LastCollectedAt { get; set; }
     }
 
     public class SeasonalEventViewModel

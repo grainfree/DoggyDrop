@@ -20,6 +20,7 @@ namespace DoggyDrop.Controllers
         private readonly IGamificationService _gamificationService;
         private readonly ISeasonalEventService _seasonalEventService;
         private readonly ILocalLeaderboardService _localLeaderboardService;
+        private readonly IMapStampService _mapStampService;
 
         public HomeController(
             ILogger<HomeController> logger,
@@ -29,7 +30,8 @@ namespace DoggyDrop.Controllers
             ApplicationDbContext context,
             IGamificationService gamificationService,
             ISeasonalEventService seasonalEventService,
-            ILocalLeaderboardService localLeaderboardService)
+            ILocalLeaderboardService localLeaderboardService,
+            IMapStampService mapStampService)
         {
             _logger = logger;
             _userManager = userManager;
@@ -39,6 +41,7 @@ namespace DoggyDrop.Controllers
             _gamificationService = gamificationService;
             _seasonalEventService = seasonalEventService;
             _localLeaderboardService = localLeaderboardService;
+            _mapStampService = mapStampService;
         }
 
         public IActionResult Index()
@@ -271,6 +274,7 @@ namespace DoggyDrop.Controllers
             var parkVisits = await _context.DogParkVisits
                 .Where(visit => visit.UserId == user.Id)
                 .ToListAsync();
+            var stampCollection = _mapStampService.BuildCollection(parkVisits);
 
             var dogSummaries = dogs
                 .Select(dog =>
@@ -328,6 +332,22 @@ namespace DoggyDrop.Controllers
                         IsComplete = item.IsComplete
                     })
                     .ToList(),
+                MapStamps = new MapStampCollectionViewModel
+                {
+                    TotalStamps = stampCollection.TotalStamps,
+                    CommonCount = stampCollection.CommonCount,
+                    RareCount = stampCollection.RareCount,
+                    EpicCount = stampCollection.EpicCount,
+                    LegendaryCount = stampCollection.LegendaryCount,
+                    Stamps = stampCollection.Stamps.Take(8).Select(stamp => new MapStampViewModel
+                    {
+                        Name = stamp.Name,
+                        Area = stamp.Area,
+                        Rarity = stamp.Rarity,
+                        VisitCount = stamp.VisitCount,
+                        LastCollectedAt = stamp.LastCollectedAt
+                    }).ToList()
+                },
                 Gamification = new GamificationProfileViewModel
                 {
                     TotalXp = levelInfo.TotalXp,

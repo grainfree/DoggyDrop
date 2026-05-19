@@ -100,6 +100,41 @@
         }
     </article>
 
+    <article class="profile-panel profile-stamps">
+        <div class="profile-panel__header">
+            <h2>Map stamps</h2>
+            <span>@Model.MapStamps.TotalStamps collected</span>
+        </div>
+
+        <div class="profile-stamp-summary">
+            <span><strong>@Model.MapStamps.CommonCount</strong> Common</span>
+            <span><strong>@Model.MapStamps.RareCount</strong> Rare</span>
+            <span><strong>@Model.MapStamps.EpicCount</strong> Epic</span>
+            <span><strong>@Model.MapStamps.LegendaryCount</strong> Legendary</span>
+        </div>
+
+        @if (Model.MapStamps.Stamps.Count == 0)
+        {
+            <p class="profile-muted">Zabelezi prvi obisk parka in DoggyDrop bo odklenil prvi stamp v tvojem albumu.</p>
+        }
+        else
+        {
+            <div class="profile-stamp-book">
+                @foreach (var stamp in Model.MapStamps.Stamps)
+                {
+                    <div class="profile-stamp profile-stamp--@stamp.Rarity.ToLowerInvariant()">
+                        <div class="profile-stamp__mark">@stamp.Name.Substring(0, 1).ToUpperInvariant()</div>
+                        <div>
+                            <strong>@stamp.Name</strong>
+                            <span>@(string.IsNullOrWhiteSpace(stamp.Area) ? "DoggyDrop location" : stamp.Area)</span>
+                            <em>@stamp.Rarity · @stamp.VisitCount x · @stamp.LastCollectedAt.ToLocalTime().ToString("dd.MM.")</em>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </article>
+
     <div class="profile-stats">
         <article>
             <strong>@Model.TotalDistanceKm.ToString("0.0") km</strong>
@@ -594,6 +629,100 @@
         margin: 8px 0 0;
     }
 
+    .profile-stamp-summary {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 8px;
+        margin-bottom: 12px;
+    }
+
+    .profile-stamp-summary span {
+        padding: 10px;
+        border: 1px solid rgba(47, 109, 95, 0.12);
+        border-radius: 8px;
+        background: #f7fbf8;
+        color: #65716d;
+        font-size: 0.78rem;
+        font-weight: 850;
+    }
+
+    .profile-stamp-summary strong {
+        display: block;
+        color: #1f2d29;
+        font-size: 1.15rem;
+        font-weight: 950;
+    }
+
+    .profile-stamp-book {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .profile-stamp {
+        display: grid;
+        grid-template-columns: 54px 1fr;
+        gap: 10px;
+        align-items: center;
+        min-width: 0;
+        padding: 10px;
+        border: 1px solid rgba(47, 109, 95, 0.12);
+        border-radius: 8px;
+        background: #ffffff;
+    }
+
+    .profile-stamp__mark {
+        display: grid;
+        width: 54px;
+        aspect-ratio: 1;
+        place-items: center;
+        border-radius: 999px;
+        background: #eef7ed;
+        color: #2f6d5f;
+        font-size: 1.35rem;
+        font-weight: 950;
+        box-shadow: inset 0 0 0 3px rgba(255,255,255,0.72);
+    }
+
+    .profile-stamp--rare .profile-stamp__mark {
+        background: #e9f2ff;
+        color: #2d65a3;
+    }
+
+    .profile-stamp--epic .profile-stamp__mark {
+        background: #f0e8ff;
+        color: #6c46b8;
+    }
+
+    .profile-stamp--legendary {
+        border-color: rgba(239, 143, 66, 0.34);
+        box-shadow: 0 12px 28px rgba(239, 143, 66, 0.13);
+    }
+
+    .profile-stamp--legendary .profile-stamp__mark {
+        background: linear-gradient(135deg, #fff48a, #ff9d3f);
+        color: #784011;
+    }
+
+    .profile-stamp strong,
+    .profile-stamp span,
+    .profile-stamp em {
+        display: block;
+        min-width: 0;
+    }
+
+    .profile-stamp strong {
+        font-weight: 950;
+    }
+
+    .profile-stamp span,
+    .profile-stamp em {
+        color: #65716d;
+        font-size: 0.8rem;
+        font-style: normal;
+        font-weight: 800;
+    }
+
     .profile-stats {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -860,7 +989,9 @@
             grid-template-columns: repeat(2, minmax(0, 1fr));
         }
 
-        .profile-achievements {
+        .profile-achievements,
+        .profile-stamp-summary,
+        .profile-stamp-book {
             grid-template-columns: 1fr;
         }
 
