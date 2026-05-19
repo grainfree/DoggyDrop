@@ -18,6 +18,7 @@ namespace DoggyDrop.Controllers
         private readonly IEmailSender _emailSender;
         private readonly ApplicationDbContext _context;
         private readonly IGamificationService _gamificationService;
+        private readonly ISeasonalEventService _seasonalEventService;
 
         public HomeController(
             ILogger<HomeController> logger,
@@ -25,7 +26,8 @@ namespace DoggyDrop.Controllers
             ICloudinaryService cloudinaryService,
             IEmailSender emailSender,
             ApplicationDbContext context,
-            IGamificationService gamificationService)
+            IGamificationService gamificationService,
+            ISeasonalEventService seasonalEventService)
         {
             _logger = logger;
             _userManager = userManager;
@@ -33,6 +35,7 @@ namespace DoggyDrop.Controllers
             _emailSender = emailSender;
             _context = context;
             _gamificationService = gamificationService;
+            _seasonalEventService = seasonalEventService;
         }
 
         public IActionResult Index()
@@ -255,8 +258,13 @@ namespace DoggyDrop.Controllers
                 .ToListAsync();
 
             var completedWalks = await _context.Walks
+                .Include(w => w.PlannedWalk)
+                    .ThenInclude(plan => plan!.Stops)
                 .Where(w => w.OwnerId == user.Id && w.Status == "Completed")
                 .OrderByDescending(w => w.StartedAt)
+                .ToListAsync();
+            var parkVisits = await _context.DogParkVisits
+                .Where(visit => visit.UserId == user.Id)
                 .ToListAsync();
 
             var dogSummaries = dogs
@@ -299,6 +307,22 @@ namespace DoggyDrop.Controllers
                 TotalWalkDuration = totalWalkDuration,
                 Dogs = dogSummaries,
                 ActivityInsights = ActivityInsightsBuilder.Build(completedWalks),
+                SeasonalMapTheme = _seasonalEventService.GetCurrentMapTheme(),
+                SeasonalEvents = _seasonalEventService
+                    .BuildProgress(completedWalks, parkVisits)
+                    .Select(item => new SeasonalEventViewModel
+                    {
+                        Name = item.Name,
+                        Description = item.Description,
+                        RewardName = item.RewardName,
+                        Theme = item.Theme,
+                        EndsOn = item.EndsOn,
+                        Current = item.Current,
+                        Target = item.Target,
+                        ProgressPercent = item.ProgressPercent,
+                        IsComplete = item.IsComplete
+                    })
+                    .ToList(),
                 Gamification = new GamificationProfileViewModel
                 {
                     TotalXp = levelInfo.TotalXp,

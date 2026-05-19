@@ -29,6 +29,31 @@ namespace DoggyDrop.ViewModels
         public ActivityInsightsViewModel ActivityInsights { get; set; } = new();
 
         public GamificationProfileViewModel Gamification { get; set; } = new();
+
+        public IReadOnlyList<SeasonalEventViewModel> SeasonalEvents { get; set; } = [];
+
+        public string SeasonalMapTheme { get; set; } = "default";
+    }
+
+    public class SeasonalEventViewModel
+    {
+        public string Name { get; set; } = string.Empty;
+
+        public string Description { get; set; } = string.Empty;
+
+        public string RewardName { get; set; } = string.Empty;
+
+        public string Theme { get; set; } = string.Empty;
+
+        public DateOnly EndsOn { get; set; }
+
+        public int Current { get; set; }
+
+        public int Target { get; set; }
+
+        public int ProgressPercent { get; set; }
+
+        public bool IsComplete { get; set; }
     }
 
     public class GamificationProfileViewModel

@@ -130,6 +130,7 @@ builder.Services.AddTransient<IEmailSender, EmailSender>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IGamificationService, GamificationService>();
 builder.Services.AddScoped<IDogProgressionService, DogProgressionService>();
+builder.Services.AddScoped<ISeasonalEventService, SeasonalEventService>();
 
 builder.Services.AddControllersWithViews();
 builder.Services.AddRazorPages();
