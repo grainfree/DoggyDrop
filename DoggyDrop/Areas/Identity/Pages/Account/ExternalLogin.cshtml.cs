@@ -38,6 +38,22 @@ public class ExternalLoginModel : PageModel
         public string Email { get; set; } = string.Empty;
     }
 
+    public IActionResult OnPostAsync(string provider, string? returnUrl = null)
+    {
+        returnUrl ??= Url.Content("~/");
+
+        if (string.IsNullOrWhiteSpace(provider))
+        {
+            ErrorMessage = "Izberi ponudnika za zunanjo prijavo.";
+            return RedirectToPage("./Login", new { ReturnUrl = returnUrl });
+        }
+
+        var redirectUrl = Url.Page("./ExternalLogin", pageHandler: "Callback", values: new { returnUrl });
+        var properties = _signInManager.ConfigureExternalAuthenticationProperties(provider, redirectUrl);
+
+        return new ChallengeResult(provider, properties);
+    }
+
     public async Task<IActionResult> OnGetCallbackAsync(string? returnUrl = null, string? remoteError = null)
     {
         returnUrl ??= Url.Content("~/");
