@@ -11,7 +11,7 @@
 
 <section class="app-page profile-page">
     <header class="profile-hero">
-        <div class="profile-hero__avatar">
+        <div class="profile-hero__avatar profile-hero__avatar--@Model.Gamification.AvatarFlameTier">
             @if (!string.IsNullOrWhiteSpace(Model.ProfileImageUrl))
             {
                 <img src="@Model.ProfileImageUrl" alt="@displayName" />
@@ -50,7 +50,20 @@
         </div>
         <div class="profile-xp__meta">
             <span>@Model.Gamification.XpRemaining XP do naslednjega levela</span>
-            <span>@Model.Gamification.CurrentStreakDays dni streak</span>
+            <span>@Model.Gamification.CurrentStreakDays dni daily streak</span>
+        </div>
+        <div class="profile-streak-grid">
+            @foreach (var streak in Model.Gamification.Streaks)
+            {
+                <div class="profile-streak profile-streak--@streak.FlameTier">
+                    <span class="profile-streak__flame" aria-hidden="true"></span>
+                    <div>
+                        <strong>@streak.CurrentDays dni</strong>
+                        <span>@streak.Label</span>
+                    </div>
+                    <em>@streak.LongestDays best</em>
+                </div>
+            }
         </div>
     </article>
 
@@ -273,6 +286,33 @@
         aspect-ratio: 1;
         border-radius: 8px;
         font-size: 2.4rem;
+        position: relative;
+        isolation: isolate;
+    }
+
+    .profile-hero__avatar::before {
+        content: "";
+        position: absolute;
+        inset: -8px;
+        z-index: -1;
+        border-radius: 12px;
+        opacity: 0;
+        background: linear-gradient(135deg, #ffca5c, #ef6f3b);
+    }
+
+    .profile-hero__avatar--small::before {
+        opacity: 0.62;
+    }
+
+    .profile-hero__avatar--glowing::before {
+        opacity: 0.78;
+        box-shadow: 0 0 28px rgba(239, 111, 59, 0.45);
+    }
+
+    .profile-hero__avatar--legendary::before {
+        opacity: 0.92;
+        background: linear-gradient(135deg, #fff48a, #ff9d3f 48%, #dd342d);
+        box-shadow: 0 0 34px rgba(239, 111, 59, 0.56);
     }
 
     .profile-hero__avatar img,
@@ -371,6 +411,74 @@
     .profile-xp__meta {
         margin-top: 8px;
         flex-wrap: wrap;
+    }
+
+    .profile-streak-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 14px;
+    }
+
+    .profile-streak {
+        display: grid;
+        grid-template-columns: 30px 1fr auto;
+        gap: 8px;
+        align-items: center;
+        min-width: 0;
+        padding: 10px;
+        border: 1px solid rgba(47, 109, 95, 0.12);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.72);
+    }
+
+    .profile-streak__flame {
+        width: 22px;
+        height: 28px;
+        border-radius: 65% 65% 65% 10%;
+        background: #d7ddd9;
+        transform: rotate(45deg);
+    }
+
+    .profile-streak--small .profile-streak__flame {
+        background: linear-gradient(135deg, #ffbf4c, #ef6f3b);
+    }
+
+    .profile-streak--glowing {
+        box-shadow: 0 0 0 1px rgba(239, 143, 66, 0.20), 0 10px 24px rgba(239, 143, 66, 0.18);
+    }
+
+    .profile-streak--glowing .profile-streak__flame {
+        background: linear-gradient(135deg, #ffe26b, #ff8b36 55%, #e24631);
+    }
+
+    .profile-streak--legendary {
+        border-color: rgba(239, 143, 66, 0.42);
+        background: linear-gradient(135deg, rgba(255, 250, 230, 0.96), rgba(255, 239, 212, 0.92));
+        box-shadow: 0 0 0 1px rgba(239, 143, 66, 0.22), 0 14px 30px rgba(239, 143, 66, 0.22);
+    }
+
+    .profile-streak--legendary .profile-streak__flame {
+        background: linear-gradient(135deg, #fff48a, #ff9d3f 46%, #dd342d);
+    }
+
+    .profile-streak strong,
+    .profile-streak span,
+    .profile-streak em {
+        display: block;
+        min-width: 0;
+    }
+
+    .profile-streak strong {
+        font-weight: 950;
+    }
+
+    .profile-streak span,
+    .profile-streak em {
+        color: #65716d;
+        font-size: 0.78rem;
+        font-style: normal;
+        font-weight: 800;
     }
 
     .profile-stats {
@@ -626,7 +734,8 @@
         .profile-hero,
         .profile-dog,
         .profile-bin-summary,
-        .profile-goal-grid {
+        .profile-goal-grid,
+        .profile-streak-grid {
             grid-template-columns: 1fr;
         }
 

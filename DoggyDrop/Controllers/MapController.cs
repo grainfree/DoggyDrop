@@ -77,6 +77,7 @@ namespace DoggyDrop.Controllers
                 nameof(TrashBin),
                 newBin.Id.ToString(),
                 "Dodan nov kos");
+            await _gamificationService.RecordStreakActivityAsync(newBin.UserId, GamificationStreakConstants.Contribution);
 
             if (newBin.IsApproved)
             {
@@ -183,6 +184,7 @@ namespace DoggyDrop.Controllers
                     nameof(DogParkVisit),
                     $"{dog.Id}:{input.PlaceKey}",
                     "Obiskan nov park");
+                await _gamificationService.RecordStreakActivityAsync(userId, GamificationStreakConstants.Explorer);
             }
 
             var visitCount = await _context.DogParkVisits
@@ -406,6 +408,7 @@ namespace DoggyDrop.Controllers
                     nameof(TrashBin),
                     $"{bin.Id}:useful",
                     "Koristen glas za kos");
+                await _gamificationService.RecordStreakActivityAsync(_userManager.GetUserId(User), GamificationStreakConstants.Contribution);
             }
 
             return Json(new

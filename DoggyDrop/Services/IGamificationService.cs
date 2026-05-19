@@ -16,6 +16,10 @@ namespace DoggyDrop.Services
 
         Task<UserXpEvent?> AwardDailyLoginAsync(string? userId);
 
+        Task<UserStreak?> RecordStreakActivityAsync(string? userId, string streakType, DateOnly? activityDate = null);
+
+        Task<IReadOnlyList<GamificationStreakInfo>> GetStreaksAsync(string userId);
+
         Task<GamificationLevelInfo> GetLevelInfoAsync(string userId);
 
         GamificationLevelInfo CalculateLevelInfo(int totalXp);

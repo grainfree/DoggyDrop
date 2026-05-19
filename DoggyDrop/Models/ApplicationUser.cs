@@ -42,5 +42,7 @@ namespace DoggyDrop.Models
         public UserGamificationProfile? GamificationProfile { get; set; }
 
         public ICollection<UserXpEvent>? XpEvents { get; set; }
+
+        public ICollection<UserStreak>? Streaks { get; set; }
     }
 }

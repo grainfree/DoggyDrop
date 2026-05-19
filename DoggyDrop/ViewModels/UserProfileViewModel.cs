@@ -50,6 +50,25 @@ namespace DoggyDrop.ViewModels
         public int CurrentStreakDays { get; set; }
 
         public int LongestStreakDays { get; set; }
+
+        public IReadOnlyList<GamificationStreakViewModel> Streaks { get; set; } = [];
+
+        public string AvatarFlameTier { get; set; } = "none";
+    }
+
+    public class GamificationStreakViewModel
+    {
+        public string StreakType { get; set; } = string.Empty;
+
+        public string Label { get; set; } = string.Empty;
+
+        public int CurrentDays { get; set; }
+
+        public int LongestDays { get; set; }
+
+        public int FreezeCredits { get; set; }
+
+        public string FlameTier { get; set; } = "none";
     }
 
     public class ProfileDogSummary

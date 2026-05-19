@@ -390,6 +390,7 @@ namespace DoggyDrop.Controllers
                 nameof(PlannedWalk),
                 plan.Id.ToString(),
                 "Nova pot");
+            await _gamificationService.RecordStreakActivityAsync(userId, GamificationStreakConstants.Explorer);
 
             TempData["SuccessMessage"] = "Plan sprehoda je shranjen.";
             return RedirectToAction(nameof(Planner), new
@@ -552,6 +553,7 @@ namespace DoggyDrop.Controllers
                 nameof(WalkPhoto),
                 walkPhoto.Id.ToString(),
                 "Nalozena fotografija");
+            await _gamificationService.RecordStreakActivityAsync(userId, GamificationStreakConstants.Contribution);
 
             TempData["SuccessMessage"] = "Fotografija sprehoda je dodana.";
             return RedirectToPhotoSource(walk);
@@ -902,6 +904,7 @@ namespace DoggyDrop.Controllers
                     nameof(Walk),
                     walk.Id.ToString(),
                     "Zakljucen sprehod");
+                await _gamificationService.RecordStreakActivityAsync(userId, GamificationStreakConstants.Walk);
             }
 
             TempData["SuccessMessage"] = "Sprehod je shranjen.";

@@ -51,6 +51,8 @@ namespace DoggyDrop.Data
 
         public DbSet<UserXpEvent> UserXpEvents { get; set; }
 
+        public DbSet<UserStreak> UserStreaks { get; set; }
+
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
@@ -236,6 +238,16 @@ namespace DoggyDrop.Data
 
             builder.Entity<UserXpEvent>()
                 .HasIndex(xpEvent => new { xpEvent.UserId, xpEvent.ActivityType, xpEvent.ReferenceType, xpEvent.ReferenceId });
+
+            builder.Entity<UserStreak>()
+                .HasOne(streak => streak.User)
+                .WithMany(user => user.Streaks)
+                .HasForeignKey(streak => streak.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<UserStreak>()
+                .HasIndex(streak => new { streak.UserId, streak.StreakType })
+                .IsUnique();
         }
     }
 }

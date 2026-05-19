@@ -282,6 +282,7 @@ namespace DoggyDrop.Controllers
                 .Sum(w => (w.EndedAt!.Value - w.StartedAt).Ticks));
             var gamificationProfile = await _gamificationService.EnsureProfileAsync(user.Id);
             var levelInfo = _gamificationService.CalculateLevelInfo(gamificationProfile.TotalXp);
+            var streaks = await _gamificationService.GetStreaksAsync(user.Id);
 
             var model = new UserProfileViewModel
             {
@@ -308,7 +309,17 @@ namespace DoggyDrop.Controllers
                     XpForNextLevel = levelInfo.XpForNextLevel,
                     XpRemaining = levelInfo.XpRemaining,
                     CurrentStreakDays = gamificationProfile.CurrentStreakDays,
-                    LongestStreakDays = gamificationProfile.LongestStreakDays
+                    LongestStreakDays = gamificationProfile.LongestStreakDays,
+                    AvatarFlameTier = GetStrongestFlameTier(streaks),
+                    Streaks = streaks.Select(streak => new GamificationStreakViewModel
+                    {
+                        StreakType = streak.StreakType,
+                        Label = streak.Label,
+                        CurrentDays = streak.CurrentDays,
+                        LongestDays = streak.LongestDays,
+                        FreezeCredits = streak.FreezeCredits,
+                        FlameTier = streak.FlameTier
+                    }).ToList()
                 }
             };
 
@@ -379,6 +390,25 @@ namespace DoggyDrop.Controllers
                 IsUnlocked = current >= target,
                 ProgressPercent = progressPercent,
                 ProgressText = $"{currentText} / {targetText} {suffix}"
+            };
+        }
+
+        private static string GetStrongestFlameTier(IEnumerable<GamificationStreakInfo> streaks)
+        {
+            return streaks
+                .Select(streak => streak.FlameTier)
+                .OrderByDescending(GetFlameTierRank)
+                .FirstOrDefault() ?? "none";
+        }
+
+        private static int GetFlameTierRank(string tier)
+        {
+            return tier switch
+            {
+                "legendary" => 3,
+                "glowing" => 2,
+                "small" => 1,
+                _ => 0
             };
         }
 
