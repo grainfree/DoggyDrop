@@ -1,0 +1,228 @@
+@model DoggyDrop.ViewModels.DogCreateViewModel
+
+@{
+    ViewData["Title"] = "Dodaj psa";
+}
+
+<section class="app-page dog-form-page">
+    <header class="app-page__header">
+        <span class="dog-form-page__eyebrow">DoggyDrop profil</span>
+        <h1 class="app-page__title">Dodaj svojega kužka</h1>
+        <p class="app-page__lead">
+            @if (Model.IsFirstDog)
+            {
+                <text>Najprej dodaj svojega pasjega sopotnika, da bo DoggyDrop lahko meril sprehode, zbiral značke in pripravljal boljše predloge poti.</text>
+            }
+            else
+            {
+                <text>Vsak kuža dobi svoj profil, svojo statistiko in svoje sprehode. Dodaj še enega člana pasje ekipe.</text>
+            }
+        </p>
+    </header>
+
+    @if (Model.IsFirstDog)
+    {
+        <section class="dog-onboarding-card">
+            <div class="dog-onboarding-card__icon">🐾</div>
+            <div>
+                <h2>Začni z osnovami, ostalo pa pride sproti</h2>
+                <p>Dovolj je ime in ena simpatična fotka. Če dodaš še pasmo, velikost in karakter, bo app znal pripraviti bolj osebne sprehode.</p>
+            </div>
+            <div class="dog-onboarding-card__chips" aria-label="Kaj je dobro dodati">
+                <span>Ime</span>
+                <span>Fotografija</span>
+                <span>Pasma</span>
+                <span>Velikost</span>
+                <span>Karakter</span>
+            </div>
+        </section>
+    }
+
+    <form asp-action="Create" method="post" enctype="multipart/form-data" class="dog-form">
+        <input asp-for="ReturnUrl" type="hidden" />
+        <input asp-for="IsFirstDog" type="hidden" />
+        <div asp-validation-summary="ModelOnly" class="text-danger small mb-3"></div>
+
+        <div class="mb-3">
+            <label asp-for="Name" class="form-label">Ime psa</label>
+            <input asp-for="Name" class="form-control" placeholder="Npr. Luna" />
+            <span asp-validation-for="Name" class="text-danger small"></span>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Breed" class="form-label">Pasma</label>
+            <input asp-for="Breed" class="form-control" placeholder="Npr. Jack Russell terier" />
+            <span asp-validation-for="Breed" class="text-danger small"></span>
+        </div>
+
+        <div class="dog-form__grid">
+            <div class="mb-3">
+                <label asp-for="AgeYears" class="form-label">Starost</label>
+                <input asp-for="AgeYears" type="number" min="0" max="30" class="form-control" placeholder="3" />
+                <span asp-validation-for="AgeYears" class="text-danger small"></span>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="Gender" class="form-label">Spol</label>
+                <select asp-for="Gender" class="form-select">
+                    <option value="">Izberi</option>
+                    <option>Samcek</option>
+                    <option>Samicka</option>
+                </select>
+                <span asp-validation-for="Gender" class="text-danger small"></span>
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Size" class="form-label">Velikost</label>
+            <select asp-for="Size" class="form-select">
+                <option value="">Izberi velikost</option>
+                <option>Majhen</option>
+                <option>Srednji</option>
+                <option>Velik</option>
+            </select>
+            <span asp-validation-for="Size" class="text-danger small"></span>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Character" class="form-label">Karakter</label>
+            <textarea asp-for="Character" class="form-control" rows="3" placeholder="Npr. igriv, radoveden, miren v parku"></textarea>
+            <span asp-validation-for="Character" class="text-danger small"></span>
+        </div>
+
+        <div class="mb-4">
+            <label asp-for="Photo" class="form-label">Fotografija</label>
+            <input asp-for="Photo" type="file" accept="image/*" class="form-control" />
+            <div class="form-text">Telefon fotko doda takoj, profil pa bo videti precej bolj živ.</div>
+            <span asp-validation-for="Photo" class="text-danger small"></span>
+        </div>
+
+        <div class="dog-form__actions">
+            @if (!string.IsNullOrWhiteSpace(Model.ReturnUrl))
+            {
+                <a class="btn btn-outline-secondary rounded-pill" href="@Model.ReturnUrl">Nazaj</a>
+            }
+            else
+            {
+                <a class="btn btn-outline-secondary rounded-pill" asp-controller="Dogs" asp-action="Index">Nazaj</a>
+            }
+            <button type="submit" class="btn btn-success rounded-pill fw-semibold">Shrani profil psa</button>
+        </div>
+    </form>
+</section>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
+
+<style>
+    .dog-form-page__eyebrow {
+        display: inline-block;
+        margin-bottom: 10px;
+        color: #ef8f42;
+        font-size: 0.78rem;
+        font-weight: 900;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+    }
+
+    .dog-onboarding-card {
+        display: grid;
+        gap: 12px;
+        align-items: start;
+        max-width: 640px;
+        margin-bottom: 16px;
+        padding: 16px 18px;
+        border: 1px solid rgba(47, 109, 95, 0.14);
+        border-radius: 18px;
+        background:
+            radial-gradient(circle at top right, rgba(239, 143, 66, 0.14), transparent 34%),
+            linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(245, 250, 247, 0.98));
+        box-shadow: 0 16px 38px rgba(31, 45, 41, 0.08);
+    }
+
+    .dog-onboarding-card__icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 16px;
+        background: rgba(47, 109, 95, 0.10);
+        display: grid;
+        place-items: center;
+        font-size: 1.4rem;
+    }
+
+    .dog-onboarding-card h2 {
+        margin: 0 0 6px;
+        font-size: 1.05rem;
+        font-weight: 900;
+        color: #1f2d29;
+    }
+
+    .dog-onboarding-card p {
+        margin: 0;
+        color: #5f6f68;
+        line-height: 1.55;
+    }
+
+    .dog-onboarding-card__chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .dog-onboarding-card__chips span {
+        display: inline-flex;
+        align-items: center;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: rgba(47, 109, 95, 0.10);
+        color: #2f6d5f;
+        font-size: 0.78rem;
+        font-weight: 800;
+    }
+
+    .dog-form {
+        max-width: 640px;
+        padding: 18px;
+        border: 1px solid rgba(31, 45, 41, 0.1);
+        border-radius: 8px;
+        background: #ffffff;
+        box-shadow: 0 12px 28px rgba(31, 45, 41, 0.08);
+    }
+
+    .dog-form__grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+    }
+
+    .dog-form__actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+    }
+
+    .dog-form__actions .btn {
+        min-width: 130px;
+    }
+
+    @@media (max-width: 575.98px) {
+        .dog-onboarding-card {
+            padding: 14px;
+            border-radius: 16px;
+        }
+
+        .dog-form__grid {
+            grid-template-columns: 1fr;
+            gap: 0;
+        }
+
+        .dog-form__actions {
+            flex-direction: column-reverse;
+        }
+
+        .dog-form__actions .btn {
+            width: 100%;
+        }
+    }
+</style>

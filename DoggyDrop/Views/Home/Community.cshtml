@@ -1,0 +1,576 @@
+@model DoggyDrop.ViewModels.CommunityViewModel
+
+@{
+    ViewData["Title"] = "Skupnost";
+}
+
+<section class="app-page community-page">
+    <header class="app-page__header community-hero">
+        <div>
+            <h1 class="app-page__title">Skupnost</h1>
+            <p class="app-page__lead">Nedavni sprehodi, aktivni psi in bolj živ DoggyDrop community feed.</p>
+        </div>
+        <div class="community-hero__actions">
+            <a class="btn btn-success rounded-pill fw-semibold" asp-controller="Playdates" asp-action="Index">Playdates</a>
+            <a class="btn btn-outline-secondary rounded-pill fw-semibold" asp-controller="Friends" asp-action="Index">Prijatelji</a>
+        </div>
+    </header>
+
+    <div class="community-stats">
+        <article>
+            <strong>@Model.KilometersThisWeek.ToString("0.0") km</strong>
+            <span>Ta teden</span>
+        </article>
+        <article>
+            <strong>@Model.WalksThisWeek</strong>
+            <span>Sprehodi</span>
+        </article>
+        <article>
+            <strong>@Model.ActiveDogsThisWeek</strong>
+            <span>Aktivni psi</span>
+        </article>
+    </div>
+
+    <section class="community-section">
+        <div class="community-section__header">
+            <h2>Tedenska lestvica</h2>
+            <span>Top psi</span>
+        </div>
+
+        @if (Model.WeeklyLeaders.Count == 0)
+        {
+            <p class="community-muted">Ko zaključiš prvi sprehod, se bo tukaj prikazala lestvica.</p>
+        }
+        else
+        {
+            <div class="community-leaderboard">
+                @for (var i = 0; i < Model.WeeklyLeaders.Count; i++)
+                {
+                    var leader = Model.WeeklyLeaders[i];
+                    <a class="community-leader" asp-controller="Dogs" asp-action="Details" asp-route-id="@leader.DogId">
+                        <strong>@(i + 1)</strong>
+                        <div class="community-avatar">
+                            @if (!string.IsNullOrWhiteSpace(leader.DogPhotoUrl))
+                            {
+                                <img src="@leader.DogPhotoUrl" alt="@leader.DogName" />
+                            }
+                            else
+                            {
+                                <span>@leader.DogName.Substring(0, 1).ToUpperInvariant()</span>
+                            }
+                        </div>
+                        <div>
+                            <span>@leader.DogName</span>
+                            <small>@leader.OwnerName · @leader.WalkCount sprehodov</small>
+                        </div>
+                        <em>@leader.WeeklyDistanceKm.ToString("0.0") km</em>
+                    </a>
+                }
+            </div>
+        }
+    </section>
+
+    <section class="community-section">
+        <div class="community-section__header">
+            <h2>Playdates</h2>
+            <span>Srečanja psov</span>
+        </div>
+        <article class="community-empty">
+            <h3>Povabi pse na sprehod</h3>
+            <p>Ustvari playdate povabilo z lokacijo, energijo in velikostjo psov. To je prvi korak proti dog meetup funkciji.</p>
+            <a class="btn btn-success rounded-pill fw-semibold" asp-controller="Playdates" asp-action="Index">Odpri playdates</a>
+        </article>
+    </section>
+
+    <section class="community-section">
+        <div class="community-section__header">
+            <h2>Feed prijateljev</h2>
+            <span>Prijatelji</span>
+        </div>
+
+        @if (Model.FriendsWalks.Count == 0)
+        {
+            <article class="community-empty">
+                <h3>Prijatelji se še niso oglasili</h3>
+                <p>Ko bodo prijatelji zaključevali sprehode, se bodo tukaj pojavili njihovi povzetki in fotke.</p>
+                <a class="btn btn-success rounded-pill fw-semibold" asp-controller="Friends" asp-action="Index">Odpri prijatelje</a>
+            </article>
+        }
+        else
+        {
+            <div class="community-feed">
+                @foreach (var walk in Model.FriendsWalks)
+                {
+                    <a class="community-feed-card community-feed-card--friend" asp-controller="Walks" asp-action="Details" asp-route-id="@walk.WalkId">
+                        <div class="community-avatar community-avatar--large">
+                            @if (!string.IsNullOrWhiteSpace(walk.DogPhotoUrl))
+                            {
+                                <img src="@walk.DogPhotoUrl" alt="@walk.DogName" />
+                            }
+                            else
+                            {
+                                <span>@walk.DogName.Substring(0, 1).ToUpperInvariant()</span>
+                            }
+                        </div>
+                        <div class="community-feed-card__body">
+                            <div class="community-feed-card__title">
+                                <strong>@walk.DogName</strong>
+                                <span>@walk.DistanceKm.ToString("0.0") km</span>
+                            </div>
+                            @if (!string.IsNullOrWhiteSpace(walk.CoverPhotoUrl))
+                            {
+                                <div class="community-feed-card__cover">
+                                    <img src="@walk.CoverPhotoUrl" alt="Fotografija sprehoda @walk.DogName" />
+                                </div>
+                            }
+                            <p>@walk.OwnerName je bil na sprehodu @walk.StartedAt.ToLocalTime().ToString("dd.MM. HH:mm").</p>
+                            <div class="community-feed-card__meta">
+                                <span>@walk.UsedBinsCount koši</span>
+                                <span>@walk.LikeCount tačk</span>
+                                <span>@walk.CommentCount komentarjev</span>
+                                <span>@walk.PhotoCount foto</span>
+                                <span>Odpri povzetek</span>
+                            </div>
+                        </div>
+                    </a>
+                }
+            </div>
+        }
+    </section>
+
+    <section class="community-section">
+        <div class="community-section__header">
+            <h2>Photo feed</h2>
+            <span>Sprehodi v slikah</span>
+        </div>
+
+        @if (Model.PhotoFeed.Count == 0)
+        {
+            <p class="community-muted">Ko bodo dodane prve walk photos, se bodo prikazale tukaj.</p>
+        }
+        else
+        {
+            <div class="community-photo-feed">
+                @foreach (var photo in Model.PhotoFeed)
+                {
+                    <a class="community-photo-card" asp-controller="Walks" asp-action="Details" asp-route-id="@photo.WalkId">
+                        <img src="@photo.ImageUrl" alt="Fotografija sprehoda @photo.DogName" />
+                        <div class="community-photo-card__overlay">
+                            <strong>@photo.DogName</strong>
+                            <span>@photo.OwnerName</span>
+                            @if (!string.IsNullOrWhiteSpace(photo.StopName))
+                            {
+                                <small>@photo.StopName</small>
+                            }
+                            <small>@(string.IsNullOrWhiteSpace(photo.Caption) ? photo.CreatedAt.ToLocalTime().ToString("dd.MM. HH:mm") : photo.Caption)</small>
+                            <form class="community-photo-card__reaction" asp-controller="Walks" asp-action="TogglePhotoReaction" asp-route-id="@photo.WalkId" asp-route-photoId="@photo.PhotoId" method="post">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+                                <button type="submit" class="@(photo.IsReactedByCurrentUser ? "is-liked" : string.Empty)">❤ @photo.ReactionCount</button>
+                            </form>
+                        </div>
+                    </a>
+                }
+            </div>
+        }
+    </section>
+
+    <section class="community-section">
+        <div class="community-section__header">
+            <h2>Bin gallery</h2>
+            <span>Pasji koši s fotkami</span>
+        </div>
+
+        @if (Model.BinPhotoGallery.Count == 0)
+        {
+            <p class="community-muted">Ko bodo odobreni koši s slikami, jih boš videl tukaj.</p>
+        }
+        else
+        {
+            <div class="community-bin-gallery">
+                @foreach (var bin in Model.BinPhotoGallery)
+                {
+                    <a class="community-bin-card" asp-controller="Map" asp-action="Index" asp-fragment="bin-@bin.BinId">
+                        <img src="@bin.ImageUrl" alt="@bin.BinName" />
+                        <div>
+                            <strong>@bin.BinName</strong>
+                            <span>@(string.IsNullOrWhiteSpace(bin.ContributorName) ? "DoggyDrop skupnost" : bin.ContributorName)</span>
+                        </div>
+                    </a>
+                }
+            </div>
+        }
+    </section>
+
+    <section class="community-section">
+        <div class="community-section__header">
+            <h2>Feed sprehodov</h2>
+            <span>Najnovejše</span>
+        </div>
+
+        @if (Model.RecentWalks.Count == 0)
+        {
+            <article class="community-empty">
+                <h3>Ni še objav</h3>
+                <p>Zaključi sprehod in DoggyDrop ga bo prikazal tukaj kot prvo aktivnost skupnosti.</p>
+                <a class="btn btn-success rounded-pill fw-semibold" asp-controller="Walks" asp-action="Index">Začni sprehod</a>
+            </article>
+        }
+        else
+        {
+            <div class="community-feed">
+                @foreach (var walk in Model.RecentWalks)
+                {
+                    <a class="community-feed-card" asp-controller="Walks" asp-action="Details" asp-route-id="@walk.WalkId">
+                        <div class="community-avatar community-avatar--large">
+                            @if (!string.IsNullOrWhiteSpace(walk.DogPhotoUrl))
+                            {
+                                <img src="@walk.DogPhotoUrl" alt="@walk.DogName" />
+                            }
+                            else
+                            {
+                                <span>@walk.DogName.Substring(0, 1).ToUpperInvariant()</span>
+                            }
+                        </div>
+                        <div class="community-feed-card__body">
+                            <div class="community-feed-card__title">
+                                <strong>@walk.DogName</strong>
+                                <span>@walk.DistanceKm.ToString("0.0") km</span>
+                            </div>
+                            @if (!string.IsNullOrWhiteSpace(walk.CoverPhotoUrl))
+                            {
+                                <div class="community-feed-card__cover">
+                                    <img src="@walk.CoverPhotoUrl" alt="Fotografija sprehoda @walk.DogName" />
+                                </div>
+                            }
+                            <p>@walk.OwnerName je zaključil sprehod @walk.StartedAt.ToLocalTime().ToString("dd.MM. HH:mm").</p>
+                            <div class="community-feed-card__meta">
+                                <span>@walk.UsedBinsCount koši</span>
+                                <span>@walk.LikeCount tačk</span>
+                                <span>@walk.CommentCount komentarjev</span>
+                                <span>@walk.PhotoCount foto</span>
+                                <span>Odpri povzetek</span>
+                            </div>
+                        </div>
+                    </a>
+                }
+            </div>
+        }
+    </section>
+</section>
+
+<style>
+    .community-stats {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+        margin-bottom: 14px;
+    }
+
+    .community-hero {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 16px;
+    }
+
+    .community-hero__actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .community-stats article,
+    .community-section,
+    .community-empty,
+    .community-feed-card {
+        border: 1px solid rgba(31, 45, 41, 0.08);
+        border-radius: 20px;
+        background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(249,252,247,0.96));
+        box-shadow: 0 18px 34px rgba(31, 45, 41, 0.08);
+    }
+
+    .community-stats article {
+        padding: 18px;
+    }
+
+    .community-stats strong,
+    .community-stats span {
+        display: block;
+    }
+
+    .community-stats strong {
+        font-size: 1.35rem;
+        font-weight: 950;
+    }
+
+    .community-stats span,
+    .community-muted,
+    .community-empty p {
+        color: #65716d;
+    }
+
+    .community-section {
+        margin-top: 14px;
+        padding: 20px;
+    }
+
+    .community-section__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 12px;
+    }
+
+    .community-section__header h2,
+    .community-empty h3 {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 950;
+    }
+
+    .community-section__header span {
+        color: #2f6d5f;
+        font-size: 0.82rem;
+        font-weight: 850;
+    }
+
+    .community-leaderboard,
+    .community-feed {
+        display: grid;
+        gap: 12px;
+    }
+
+    .community-photo-feed {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+    }
+
+    .community-photo-card,
+    .community-bin-card {
+        position: relative;
+        overflow: hidden;
+        border-radius: 18px;
+        color: inherit;
+        text-decoration: none;
+        min-height: 220px;
+    }
+
+    .community-photo-card img,
+    .community-bin-card img,
+    .community-feed-card__cover img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+
+    .community-photo-card__overlay {
+        position: absolute;
+        inset: auto 0 0 0;
+        display: grid;
+        gap: 4px;
+        padding: 14px 12px 12px;
+        background: linear-gradient(180deg, rgba(12, 25, 22, 0), rgba(12, 25, 22, 0.76));
+        color: #ffffff;
+    }
+
+    .community-photo-card__overlay strong,
+    .community-bin-card strong {
+        font-weight: 950;
+    }
+
+    .community-photo-card__overlay span,
+    .community-photo-card__overlay small,
+    .community-bin-card span {
+        opacity: 0.88;
+    }
+
+    .community-photo-card__reaction button {
+        min-height: 34px;
+        padding: 8px 12px;
+        border: 0;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.16);
+        color: #ffffff;
+        font-weight: 900;
+    }
+
+    .community-photo-card__reaction .is-liked {
+        background: #ffffff;
+        color: #2f6d5f;
+    }
+
+    .community-bin-gallery {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+    }
+
+    .community-bin-card {
+        display: grid;
+        grid-template-rows: 180px auto;
+        min-height: 0;
+        border: 1px solid rgba(31, 45, 41, 0.1);
+        background: #ffffff;
+        box-shadow: 0 14px 30px rgba(31, 45, 41, 0.08);
+    }
+
+    .community-bin-card div {
+        display: grid;
+        gap: 4px;
+        padding: 12px;
+    }
+
+    .community-leader,
+    .community-feed-card {
+        color: inherit;
+        text-decoration: none;
+    }
+
+    .community-leader {
+        display: grid;
+        grid-template-columns: 28px 48px 1fr auto;
+        gap: 12px;
+        align-items: center;
+    }
+
+    .community-leader > strong {
+        color: #2f6d5f;
+        font-size: 1.25rem;
+        font-weight: 950;
+    }
+
+    .community-leader span,
+    .community-leader small {
+        display: block;
+    }
+
+    .community-leader span {
+        font-weight: 900;
+    }
+
+    .community-leader small,
+    .community-feed-card p {
+        color: #65716d;
+    }
+
+    .community-leader em {
+        color: #2f6d5f;
+        font-style: normal;
+        font-weight: 950;
+    }
+
+    .community-avatar {
+        display: grid;
+        width: 48px;
+        aspect-ratio: 1;
+        place-items: center;
+        overflow: hidden;
+        border-radius: 16px;
+        background: linear-gradient(135deg, #e7f3e5, #fff3dd);
+        color: #2f6d5f;
+        font-size: 1.25rem;
+        font-weight: 950;
+    }
+
+    .community-avatar--large {
+        width: 68px;
+    }
+
+    .community-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .community-feed-card {
+        display: grid;
+        grid-template-columns: 68px 1fr;
+        gap: 14px;
+        padding: 14px;
+    }
+
+    .community-feed-card--friend {
+        background: linear-gradient(180deg, #ffffff, #f7fbf8);
+    }
+
+    .community-feed-card:hover,
+    .community-feed-card:focus,
+    .community-leader:hover,
+    .community-leader:focus {
+        color: #2f6d5f;
+    }
+
+    .community-feed-card__title,
+    .community-feed-card__meta {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+    }
+
+    .community-feed-card__cover {
+        margin: 8px 0 10px;
+        overflow: hidden;
+        border-radius: 16px;
+        aspect-ratio: 16 / 9;
+    }
+
+    .community-feed-card__title strong {
+        font-size: 1.05rem;
+        font-weight: 950;
+    }
+
+    .community-feed-card__title span,
+    .community-feed-card__meta span {
+        color: #2f6d5f;
+        font-weight: 850;
+    }
+
+    .community-feed-card p {
+        margin: 4px 0 10px;
+    }
+
+    .community-feed-card__meta {
+        font-size: 0.84rem;
+    }
+
+    .community-empty {
+        padding: 22px;
+    }
+
+    .community-empty p {
+        margin: 8px 0 14px;
+    }
+
+    @@media (max-width: 575.98px) {
+        .community-stats {
+            grid-template-columns: 1fr;
+        }
+
+        .community-hero,
+        .community-hero__actions,
+        .community-section__header,
+        .community-feed-card__title,
+        .community-feed-card__meta {
+            align-items: stretch;
+            flex-direction: column;
+        }
+
+        .community-leader,
+        .community-feed-card,
+        .community-photo-feed,
+        .community-bin-gallery {
+            grid-template-columns: 1fr;
+        }
+
+        .community-avatar,
+        .community-avatar--large {
+            width: 100%;
+            max-width: 120px;
+        }
+    }
+</style>

@@ -20,6 +20,20 @@ namespace DoggyDrop.Models
 
         public bool IsApproved { get; set; } = false;
 
+        public int UsedCount { get; set; }
+
+        public int FullReports { get; set; }
+
+        public int MissingReports { get; set; }
+
+        public int UsefulVotes { get; set; }
+
+        public int NotUsefulVotes { get; set; }
+
+        public DateTime? LastUsedAt { get; set; }
+
+        public DateTime? LastReportedAt { get; set; }
+
         // Povezava na uporabnika
         public string? UserId { get; set; }
 
@@ -27,11 +41,10 @@ namespace DoggyDrop.Models
         public ApplicationUser? User { get; set; }
 
         [NotMapped]
-        public string? FullImageUrl => 
+        public string? FullImageUrl =>
             string.IsNullOrEmpty(ImageUrl)
-    ? null
-    : (ImageUrl.StartsWith("http") 
-            ? ImageUrl : $"https://doggydrop.onrender.com{ImageUrl}");
+                ? null
+                : ImageUrl;
 
     }
 }

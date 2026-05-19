@@ -1,0 +1,1304 @@
+@model DoggyDrop.Models.Walk
+@using System.Text.Json
+
+@{
+    ViewData["Title"] = "Aktiven sprehod";
+    var points = (Model.Points ?? Array.Empty<DoggyDrop.Models.WalkPoint>())
+        .OrderBy(point => point.RecordedAt)
+        .Select(point => new
+        {
+            latitude = point.Latitude,
+            longitude = point.Longitude,
+            recordedAt = point.RecordedAt.ToString("O")
+        });
+    var plannedRoutePoints = (Model.PlannedWalk?.RoutePoints ?? Array.Empty<DoggyDrop.Models.PlannedWalkRoutePoint>())
+        .OrderBy(point => point.Order)
+        .Select(point => new
+        {
+            latitude = point.Latitude,
+            longitude = point.Longitude
+        });
+    var plannedStops = (Model.PlannedWalk?.Stops ?? Array.Empty<DoggyDrop.Models.PlannedWalkStop>())
+        .OrderBy(stop => stop.Order)
+        .Select(stop => new
+        {
+            stop.Id,
+            stop.Name,
+            stop.Type,
+            stop.Label,
+            stop.Reason,
+            stop.Latitude,
+            stop.Longitude
+        });
+    var completedStopIds = (Model.StopCompletions ?? Array.Empty<DoggyDrop.Models.WalkStopCompletion>())
+        .Select(completion => completion.PlannedWalkStopId)
+        .Distinct()
+        .ToList();
+    var completedStopCount = completedStopIds.Count;
+    var plannedStopCount = Model.PlannedWalk?.Stops?.Count ?? 0;
+    var walkPhotos = (Model.Photos ?? Array.Empty<DoggyDrop.Models.WalkPhoto>())
+        .OrderByDescending(photo => photo.CreatedAt)
+        .ToList();
+    var pointsJson = Html.Raw(JsonSerializer.Serialize(points));
+    var plannedRoutePointsJson = Html.Raw(JsonSerializer.Serialize(plannedRoutePoints));
+    var plannedStopsJson = Html.Raw(JsonSerializer.Serialize(plannedStops));
+    var completedStopIdsJson = Html.Raw(JsonSerializer.Serialize(completedStopIds));
+}
+
+@section Styles {
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIINfQXh6ULpR5txR9wra5I3BcVsTPY1p3A="
+          crossorigin="" />
+}
+
+<section class="app-page active-walk-page">
+    <header class="active-walk-hero">
+        <span>Aktiven sprehod</span>
+        <h1>@Model.Dog?.Name</h1>
+        <p>Zacetek: @Model.StartedAt.ToLocalTime().ToString("HH:mm")</p>
+        @if (Model.PlannedWalk != null)
+        {
+            <p>Plan: @Model.PlannedWalk.Title - ~@Model.PlannedWalk.EstimatedMinutes min</p>
+        }
+    </header>
+
+    <div class="active-walk-metrics">
+        <article>
+            <strong id="duration">00:00</strong>
+            <span>Trajanje</span>
+        </article>
+        <article>
+            <strong id="distance">@((Model.DistanceMeters / 1000).ToString("0.00")) km</strong>
+            <span>Razdalja</span>
+        </article>
+        <article>
+            <strong id="pointCount">@((Model.Points?.Count ?? 0).ToString())</strong>
+            <span>GPS tocke</span>
+        </article>
+    </div>
+
+    @if (Model.PlannedWalk?.Stops?.Count > 0)
+    {
+        <article class="active-walk-plan-card">
+            <div class="active-walk-plan-card__header">
+                <h2>Planirani postanki</h2>
+                <span id="plannedStopProgress">@completedStopCount / @plannedStopCount opravljenih</span>
+            </div>
+            <div class="active-walk-stop-list">
+                @foreach (var stop in Model.PlannedWalk.Stops.OrderBy(stop => stop.Order))
+                {
+                    var isCompleted = completedStopIds.Contains(stop.Id);
+                    <label class="@(isCompleted ? "is-completed" : string.Empty)">
+                        <input type="checkbox" data-stop-id="@stop.Id" @(isCompleted ? "checked" : null) />
+                        <span>
+                            <strong>@stop.Name</strong>
+                            <small>@stop.Label - @stop.Reason</small>
+                        </span>
+                    </label>
+                }
+            </div>
+        </article>
+    }
+
+    <article class="active-walk-map-card">
+        <div class="active-walk-map-card__header">
+            <div>
+                <h2>GPS pot</h2>
+                <p id="gpsStatus">GPS se ni zagnan.</p>
+            </div>
+            <button type="button" id="trackingToggle" class="btn btn-success rounded-pill fw-semibold">Start GPS</button>
+        </div>
+        <div id="gpsSecurityWarning" class="gps-security-warning" hidden>
+            GPS na telefonu deluje samo prek HTTPS povezave. Lokalni LAN naslov na http:// ne more zahtevati dovoljenja za lokacijo.
+        </div>
+        <div id="walkMap"></div>
+    </article>
+
+    <article class="active-walk-media-card">
+        <div class="active-walk-media-card__header">
+            <div>
+                <h2>Walk photos</h2>
+                <p>Dodaj fotko ze med sprehodom in jo uporabi kasneje v share cardu.</p>
+            </div>
+            <span>@walkPhotos.Count fotografij</span>
+        </div>
+
+        <form asp-controller="Walks" asp-action="AddPhoto" asp-route-id="@Model.Id" method="post" enctype="multipart/form-data" class="active-walk-photo-upload">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="plannedWalkStopId" id="photoStopId" />
+            <input type="file" name="photo" accept="image/*" capture="environment" required />
+            <input type="text" name="caption" id="photoCaptionInput" maxlength="120" placeholder="Kratek opis fotke" />
+            <button type="submit">Dodaj foto</button>
+        </form>
+        <p class="active-walk-photo-hint" id="photoStopHint">Fotko lahko dodas tudi direktno na marker postanka.</p>
+
+        @if (walkPhotos.Count > 0)
+        {
+            <div class="active-walk-photo-strip">
+                @foreach (var photo in walkPhotos.Take(6))
+                {
+                    <figure class="active-walk-photo-item">
+                        <img src="@photo.ImageUrl" alt="Fotografija sprehoda @Model.Dog?.Name" />
+                        @if (!string.IsNullOrWhiteSpace(photo.Caption))
+                        {
+                            <figcaption>@photo.Caption</figcaption>
+                        }
+                    </figure>
+                }
+            </div>
+        }
+    </article>
+
+    @if (Model.PlannedWalk?.Stops?.Count > 0)
+    {
+        <article class="active-walk-next-stop-card" id="nextStopCard">
+            <div class="active-walk-next-stop-card__header">
+                <div>
+                    <h2>Naslednji postanek</h2>
+                    <p id="nextStopMeta">DoggyDrop spremlja najblizji neopravljeni postanek.</p>
+                </div>
+                <span id="nextStopDistance">-</span>
+            </div>
+            <div class="active-walk-next-stop-card__body">
+                <div>
+                    <strong id="nextStopName">Vsi postanki so opravljeni.</strong>
+                    <small id="nextStopReason">Ko odkljukas naslednji postanek, se tukaj pokaze novi predlog.</small>
+                </div>
+                <button type="button" id="completeNextStopButton" class="btn btn-success rounded-pill fw-semibold" disabled>Oznaci</button>
+            </div>
+        </article>
+
+        <article class="active-walk-proximity-card" id="proximityCard">
+            <div class="active-walk-proximity-card__header">
+                <div>
+                    <h2>Bližina postanka</h2>
+                    <p id="proximityStatus">Ko se približas planiranemu postanku, te DoggyDrop opozori.</p>
+                </div>
+                <span id="proximityMode">Auto</span>
+            </div>
+            <div class="active-walk-proximity-card__body">
+                <label>
+                    <input type="checkbox" id="autoCompleteStopsToggle" checked />
+                    <span>Samodejno označi postanek, ko sem dovolj blizu</span>
+                </label>
+                <label>
+                    <input type="checkbox" id="vibrateOnStopToggle" checked />
+                    <span>Nežna vibracija pri bližini koša ali postanka</span>
+                </label>
+            </div>
+        </article>
+    }
+
+    <form asp-controller="Walks" asp-action="Finish" asp-route-id="@Model.Id" method="post" class="active-walk-finish-card">
+        <h2>Zakljuci sprehod</h2>
+        <p>Ce GPS trenutno ne deluje, lahko razdaljo vneses rocno.</p>
+
+        <div class="active-walk-finish-card__grid">
+            <div>
+                <label for="manualDistanceKm" class="form-label">Razdalja v km</label>
+                <input id="manualDistanceKm" name="manualDistanceKm" class="form-control" inputmode="decimal" placeholder="npr. 2.4" />
+            </div>
+            <div>
+                <label for="usedBinsCount" class="form-label">Uporabljeni kosi</label>
+                <input id="usedBinsCount" name="usedBinsCount" type="number" min="0" max="50" class="form-control" placeholder="0" />
+            </div>
+        </div>
+
+        <div class="active-walk-actions">
+            <a class="btn btn-outline-secondary rounded-pill" asp-controller="Walks" asp-action="Index">Nazaj</a>
+            <button type="submit" class="btn btn-success rounded-pill fw-semibold">Shrani sprehod</button>
+        </div>
+    </form>
+</section>
+
+@section Scripts {
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+            crossorigin=""></script>
+
+    <script>
+        const walkId = @Model.Id;
+        const startedAt = new Date("@Model.StartedAt.ToString("O")");
+        const initialPoints = @pointsJson;
+        const plannedRoutePoints = @plannedRoutePointsJson;
+        const plannedStops = @plannedStopsJson;
+        const completedStopIds = new Set(@completedStopIdsJson);
+        const durationElement = document.getElementById("duration");
+        const distanceElement = document.getElementById("distance");
+        const pointCountElement = document.getElementById("pointCount");
+        const gpsStatusElement = document.getElementById("gpsStatus");
+        const trackingToggle = document.getElementById("trackingToggle");
+        const gpsSecurityWarning = document.getElementById("gpsSecurityWarning");
+        const plannedStopProgressElement = document.getElementById("plannedStopProgress");
+        const nextStopNameElement = document.getElementById("nextStopName");
+        const nextStopReasonElement = document.getElementById("nextStopReason");
+        const nextStopMetaElement = document.getElementById("nextStopMeta");
+        const nextStopDistanceElement = document.getElementById("nextStopDistance");
+        const completeNextStopButton = document.getElementById("completeNextStopButton");
+        const photoStopIdInput = document.getElementById("photoStopId");
+        const photoCaptionInput = document.getElementById("photoCaptionInput");
+        const photoStopHint = document.getElementById("photoStopHint");
+        const proximityStatusElement = document.getElementById("proximityStatus");
+        const proximityModeElement = document.getElementById("proximityMode");
+        const autoCompleteStopsToggle = document.getElementById("autoCompleteStopsToggle");
+        const vibrateOnStopToggle = document.getElementById("vibrateOnStopToggle");
+        const autoCompletePreferenceKey = "doggydrop.walk.autoCompleteStops";
+        const vibratePreferenceKey = "doggydrop.walk.vibrateOnStop";
+        const autoCompleteRadiusMeters = 28;
+        const approachRadiusMeters = 60;
+
+        let map;
+        let routeLine;
+        let plannedRouteLine;
+        let userMarker;
+        let plannedStopMarkers = [];
+        let checklistCheckboxes = [];
+        let currentPosition = routePoints.length > 0 ? routePoints[routePoints.length - 1] : null;
+        let currentNextStopId = null;
+        let watchId = null;
+        let isTracking = false;
+        let isSending = false;
+        let distanceMeters = @Model.DistanceMeters.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        let routePoints = initialPoints.map(point => [point.latitude, point.longitude]);
+        let lastApproachStopId = null;
+        let lastCompletedByProximityStopId = null;
+
+        document.addEventListener("DOMContentLoaded", function () {
+            initTimer();
+            initMap();
+            wireStopChecklist();
+            wireProximityControls();
+            updateNextStopCard();
+            validateGpsEnvironment();
+            trackingToggle.addEventListener("click", toggleTracking);
+            completeNextStopButton?.addEventListener("click", async function () {
+                if (currentNextStopId) {
+                    await toggleStopState(currentNextStopId, true);
+                }
+            });
+        });
+
+        function validateGpsEnvironment() {
+            if (window.isSecureContext) {
+                return;
+            }
+
+            gpsStatusElement.textContent = "GPS zahteva HTTPS povezavo.";
+            gpsSecurityWarning.hidden = false;
+            if (proximityStatusElement) {
+                proximityStatusElement.textContent = "Za živo bližinsko opozarjanje telefon potrebuje GPS dovoljenje.";
+            }
+        }
+
+        function wireProximityControls() {
+            if (!autoCompleteStopsToggle || !vibrateOnStopToggle) {
+                return;
+            }
+
+            const storedAutoComplete = localStorage.getItem(autoCompletePreferenceKey);
+            const storedVibrate = localStorage.getItem(vibratePreferenceKey);
+
+            autoCompleteStopsToggle.checked = storedAutoComplete === null ? true : storedAutoComplete === "true";
+            vibrateOnStopToggle.checked = storedVibrate === null ? true : storedVibrate === "true";
+            updateProximityModeLabel();
+
+            autoCompleteStopsToggle.addEventListener("change", function () {
+                localStorage.setItem(autoCompletePreferenceKey, autoCompleteStopsToggle.checked ? "true" : "false");
+                updateProximityModeLabel();
+            });
+
+            vibrateOnStopToggle.addEventListener("change", function () {
+                localStorage.setItem(vibratePreferenceKey, vibrateOnStopToggle.checked ? "true" : "false");
+                updateProximityModeLabel();
+            });
+        }
+
+        function updateProximityModeLabel() {
+            if (!proximityModeElement) {
+                return;
+            }
+
+            const autoLabel = autoCompleteStopsToggle?.checked ? "Auto" : "Manual";
+            const vibrateLabel = vibrateOnStopToggle?.checked ? " + vibracija" : "";
+            proximityModeElement.textContent = `${autoLabel}${vibrateLabel}`;
+        }
+
+        function initTimer() {
+            updateDuration();
+            setInterval(updateDuration, 1000);
+        }
+
+        function updateDuration() {
+            const diffSeconds = Math.max(0, Math.floor((Date.now() - startedAt.getTime()) / 1000));
+            const hours = Math.floor(diffSeconds / 3600);
+            const minutes = Math.floor((diffSeconds % 3600) / 60);
+            const seconds = diffSeconds % 60;
+
+            if (hours > 0) {
+                durationElement.textContent = `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+            } else {
+                durationElement.textContent = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+            }
+        }
+
+        function initMap() {
+            const plannedPoints = plannedRoutePoints.map(point => [point.latitude, point.longitude]);
+            const fallback = routePoints.length > 0
+                ? routePoints[routePoints.length - 1]
+                : plannedPoints.length > 0
+                    ? plannedPoints[0]
+                    : [46.5547, 15.6459];
+            map = L.map("walkMap").setView(fallback, routePoints.length > 0 ? 17 : 14);
+
+            L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+                maxZoom: 19,
+                attribution: "&copy; OpenStreetMap"
+            }).addTo(map);
+
+            if (plannedPoints.length > 1) {
+                plannedRouteLine = L.polyline(plannedPoints, {
+                    color: "#e18d32",
+                    weight: 5,
+                    opacity: 0.62,
+                    dashArray: "10 10"
+                }).addTo(map);
+
+                plannedStops.forEach(stop => {
+                    const lat = stop.latitude ?? stop.Latitude;
+                    const lng = stop.longitude ?? stop.Longitude;
+                    const stopId = Number(stop.id ?? stop.Id);
+                    const marker = L.marker([lat, lng], { icon: createPlannedStopIcon(stop.type ?? stop.Type, stopId) })
+                        .addTo(map)
+                        .bindPopup(buildStopPopup(stop));
+                    marker.stopId = stopId;
+                    marker.on("popupopen", function () {
+                        wirePopupAction(stopId);
+                    });
+                    plannedStopMarkers.push(marker);
+                });
+            }
+
+            routeLine = L.polyline(routePoints, { color: "#2f6d5f", weight: 6, opacity: 0.9 }).addTo(map);
+
+            if (routePoints.length > 0) {
+                userMarker = L.marker(routePoints[routePoints.length - 1]).addTo(map);
+                map.fitBounds(routeLine.getBounds().pad(0.2), { maxZoom: 17 });
+            } else if (plannedRouteLine) {
+                map.fitBounds(plannedRouteLine.getBounds().pad(0.2), { maxZoom: 16 });
+            }
+        }
+
+        function createPlannedStopIcon(type) {
+            const labels = {
+                start: "S",
+                finish: "C",
+                bin: "B",
+                park: "P",
+                water: "W",
+                cafe: "C",
+                shop: "T"
+            };
+
+            return L.divIcon({
+                className: "",
+                html: `<span class="active-planned-marker active-planned-marker--${escapeHtml(type || "stop")}">${labels[type] || "*"}</span>`,
+                iconSize: [34, 34],
+                iconAnchor: [17, 17],
+                popupAnchor: [0, -16]
+            });
+        }
+
+        function toggleTracking() {
+            if (isTracking) {
+                stopTracking();
+            } else {
+                startTracking();
+            }
+        }
+
+        function startTracking() {
+            if (!window.isSecureContext) {
+                gpsStatusElement.textContent = "Brskalnik ne dovoli GPS-a na tej povezavi.";
+                gpsSecurityWarning.hidden = false;
+                return;
+            }
+
+            if (!navigator.geolocation) {
+                gpsStatusElement.textContent = "Ta brskalnik ne podpira GPS sledenja.";
+                return;
+            }
+
+            watchId = navigator.geolocation.watchPosition(handlePosition, handleGpsError, {
+                enableHighAccuracy: true,
+                maximumAge: 0,
+                timeout: 12000
+            });
+
+            isTracking = true;
+            trackingToggle.textContent = "Pause";
+            trackingToggle.classList.remove("btn-success");
+            trackingToggle.classList.add("btn-warning");
+            gpsStatusElement.textContent = "GPS sledenje tece.";
+        }
+
+        function stopTracking() {
+            if (watchId !== null) {
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+            }
+
+            isTracking = false;
+            trackingToggle.textContent = "Resume";
+            trackingToggle.classList.remove("btn-warning");
+            trackingToggle.classList.add("btn-success");
+            gpsStatusElement.textContent = "GPS sledenje je pavzirano.";
+        }
+
+        async function handlePosition(position) {
+            if (isSending) {
+                return;
+            }
+
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            const accuracy = Math.round(position.coords.accuracy);
+
+            isSending = true;
+
+            try {
+                const response = await fetch(`/Walks/AddPoint/${walkId}`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    credentials: "same-origin",
+                    body: JSON.stringify({
+                        latitude: lat,
+                        longitude: lng,
+                        recordedAt: new Date(position.timestamp).toISOString()
+                    })
+                });
+
+                if (!response.ok) {
+                    gpsStatusElement.textContent = "GPS tocka ni bila shranjena.";
+                    return;
+                }
+
+                const data = await response.json();
+                distanceMeters = data.distanceMeters;
+                routePoints.push([lat, lng]);
+                pointCountElement.textContent = data.pointCount;
+                distanceElement.textContent = `${(distanceMeters / 1000).toFixed(2)} km`;
+                gpsStatusElement.textContent = `Zadnja tocnost: ${accuracy} m`;
+                updateRoute(lat, lng);
+            } finally {
+                isSending = false;
+            }
+        }
+
+        function updateRoute(lat, lng) {
+            routeLine.setLatLngs(routePoints);
+
+            if (userMarker) {
+                userMarker.setLatLng([lat, lng]);
+            } else {
+                userMarker = L.marker([lat, lng]).addTo(map);
+            }
+
+            currentPosition = [lat, lng];
+            updateNextStopCard();
+            evaluateStopProximity();
+            map.setView([lat, lng], Math.max(map.getZoom(), 17));
+        }
+
+        function handleGpsError(error) {
+            gpsStatusElement.textContent = error.message || "GPS lokacije ni bilo mogoce pridobiti.";
+        }
+
+        function wireStopChecklist() {
+            checklistCheckboxes = Array.from(document.querySelectorAll(".active-walk-stop-list input[type='checkbox'][data-stop-id]"));
+            if (checklistCheckboxes.length === 0) {
+                return;
+            }
+
+            updateStopProgress(checklistCheckboxes.length);
+            syncStopMarkers();
+
+            checklistCheckboxes.forEach(checkbox => {
+                checkbox.addEventListener("change", async function () {
+                    const stopId = Number(checkbox.dataset.stopId);
+                    const shouldComplete = checkbox.checked;
+                    await toggleStopState(stopId, shouldComplete);
+                });
+            });
+        }
+
+        async function toggleStopState(stopId, shouldComplete) {
+            const checkbox = checklistCheckboxes.find(item => Number(item.dataset.stopId) === stopId);
+            const label = checkbox?.closest("label");
+
+            if (checkbox) {
+                checkbox.disabled = true;
+            }
+
+            try {
+                const response = await fetch(`/Walks/ToggleStop?id=${walkId}&stopId=${stopId}`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    credentials: "same-origin",
+                    body: JSON.stringify({ completed: shouldComplete })
+                });
+
+                if (!response.ok) {
+                    throw new Error("Toggle failed");
+                }
+
+                const data = await response.json();
+
+                if (data.completed) {
+                    completedStopIds.add(stopId);
+                } else {
+                    completedStopIds.delete(stopId);
+                }
+
+                if (checkbox) {
+                    checkbox.checked = !!data.completed;
+                }
+
+                if (label) {
+                    label.classList.toggle("is-completed", !!data.completed);
+                }
+
+                updateStopProgress(data.totalCount || checklistCheckboxes.length, data.completedCount);
+                syncStopMarkers();
+                updateNextStopCard();
+                return data;
+            } catch {
+                if (checkbox) {
+                    checkbox.checked = !shouldComplete;
+                }
+
+                return null;
+            } finally {
+                if (checkbox) {
+                    checkbox.disabled = false;
+                }
+            }
+        }
+
+        function updateStopProgress(totalCount, completedCount) {
+            if (!plannedStopProgressElement) {
+                return;
+            }
+
+            const completed = typeof completedCount === "number" ? completedCount : completedStopIds.size;
+            plannedStopProgressElement.textContent = `${completed} / ${totalCount} opravljenih`;
+        }
+
+        function buildStopPopup(stop) {
+            const stopId = Number(stop.id ?? stop.Id);
+            const isCompleted = completedStopIds.has(stopId);
+            const actionLabel = isCompleted ? "Oznaci kot neopravljeno" : "Oznaci kot opravljeno";
+            return `
+                <div class="active-stop-popup">
+                    <strong>${escapeHtml(stop.name ?? stop.Name)}</strong>
+                    <small>${escapeHtml(stop.label ?? stop.Label)}</small>
+                    <p>${escapeHtml(stop.reason ?? stop.Reason)}</p>
+                    <button type="button" class="active-stop-popup__button" data-popup-stop-id="${stopId}" data-next-state="${(!isCompleted).toString()}">${actionLabel}</button>
+                    <button type="button" class="active-stop-popup__button active-stop-popup__button--secondary" data-photo-stop-id="${stopId}" data-photo-stop-name="${escapeHtml(stop.name ?? stop.Name)}">Dodaj foto sem</button>
+                </div>
+            `;
+        }
+
+        function wirePopupAction(stopId) {
+            const button = document.querySelector(`.active-stop-popup__button[data-popup-stop-id="${stopId}"]`);
+            if (!button || button.dataset.bound === "true") {
+                return;
+            }
+
+            button.dataset.bound = "true";
+            button.addEventListener("click", async function () {
+                const nextState = button.dataset.nextState === "true";
+                const result = await toggleStopState(stopId, nextState);
+                if (result) {
+                    const marker = plannedStopMarkers.find(item => item.stopId === stopId);
+                    const stop = plannedStops.find(item => Number(item.id ?? item.Id) === stopId);
+                    if (marker && stop) {
+                        marker.setPopupContent(buildStopPopup(stop));
+                        wirePopupAction(stopId);
+                    }
+                }
+            });
+
+            const photoButton = document.querySelector(`.active-stop-popup__button[data-photo-stop-id="${stopId}"]`);
+            if (photoButton && photoButton.dataset.bound !== "true") {
+                photoButton.dataset.bound = "true";
+                photoButton.addEventListener("click", function () {
+                    const stopName = photoButton.dataset.photoStopName || "postanek";
+                    if (photoStopIdInput) {
+                        photoStopIdInput.value = String(stopId);
+                    }
+
+                    if (photoCaptionInput && !photoCaptionInput.value) {
+                        photoCaptionInput.value = `Foto pri postanku ${stopName}`;
+                    }
+
+                    if (photoStopHint) {
+                        photoStopHint.textContent = `Fotografija bo povezana s postankom: ${stopName}.`;
+                    }
+
+                    photoCaptionInput?.focus();
+                    map.closePopup();
+                });
+            }
+        }
+
+        function syncStopMarkers() {
+            plannedStopMarkers.forEach(marker => {
+                const iconElement = marker.getElement()?.querySelector(".active-planned-marker");
+                const isCompleted = completedStopIds.has(marker.stopId);
+                if (iconElement) {
+                    iconElement.classList.toggle("is-completed", isCompleted);
+                }
+            });
+        }
+
+        function updateNextStopCard() {
+            if (!nextStopNameElement || !nextStopReasonElement || !nextStopMetaElement || !nextStopDistanceElement || !completeNextStopButton) {
+                return;
+            }
+
+            const remainingStops = plannedStops.filter(stop => !completedStopIds.has(Number(stop.id ?? stop.Id)));
+            if (remainingStops.length === 0) {
+                currentNextStopId = null;
+                nextStopNameElement.textContent = "Vsi postanki so opravljeni.";
+                nextStopReasonElement.textContent = "Planirana pot je v celoti pokrita.";
+                nextStopMetaElement.textContent = "Odlicno. Lahko nadaljujes ali zakljucis sprehod.";
+                nextStopDistanceElement.textContent = "Done";
+                completeNextStopButton.disabled = true;
+                return;
+            }
+
+            let nextStop = remainingStops[0];
+            let distanceToStopMeters = null;
+
+            if (currentPosition) {
+                nextStop = remainingStops
+                    .map(stop => {
+                        const distance = getDistanceMeters(currentPosition[0], currentPosition[1], stop.latitude ?? stop.Latitude, stop.longitude ?? stop.Longitude);
+                        return { stop, distance };
+                    })
+                    .sort((a, b) => a.distance - b.distance)[0];
+
+                distanceToStopMeters = nextStop.distance;
+                nextStop = nextStop.stop;
+            }
+
+            currentNextStopId = Number(nextStop.id ?? nextStop.Id);
+            nextStopNameElement.textContent = nextStop.name ?? nextStop.Name;
+            nextStopReasonElement.textContent = `${nextStop.label ?? nextStop.Label} - ${nextStop.reason ?? nextStop.Reason}`;
+            nextStopMetaElement.textContent = currentPosition
+                ? "Najblizji neopravljeni postanek glede na tvojo trenutno lokacijo."
+                : "GPS se se ni zagnal, zato je prikazan naslednji postanek iz plana.";
+            nextStopDistanceElement.textContent = distanceToStopMeters == null ? "Plan" : formatDistance(distanceToStopMeters);
+            completeNextStopButton.disabled = false;
+        }
+
+        async function evaluateStopProximity() {
+            if (!currentPosition || !proximityStatusElement) {
+                return;
+            }
+
+            const remainingStops = plannedStops
+                .filter(stop => !completedStopIds.has(Number(stop.id ?? stop.Id)))
+                .map(stop => ({
+                    stop,
+                    stopId: Number(stop.id ?? stop.Id),
+                    type: (stop.type ?? stop.Type ?? "").toLowerCase(),
+                    distance: getDistanceMeters(
+                        currentPosition[0],
+                        currentPosition[1],
+                        stop.latitude ?? stop.Latitude,
+                        stop.longitude ?? stop.Longitude)
+                }))
+                .sort((a, b) => a.distance - b.distance);
+
+            if (remainingStops.length === 0) {
+                proximityStatusElement.textContent = "Vsi planirani postanki so že označeni.";
+                return;
+            }
+
+            const nearest = remainingStops[0];
+            const nearestName = nearest.stop.name ?? nearest.stop.Name;
+
+            if (nearest.distance <= approachRadiusMeters && lastApproachStopId !== nearest.stopId) {
+                lastApproachStopId = nearest.stopId;
+                proximityStatusElement.textContent = `Blizu si postanka ${nearestName} (${formatDistance(nearest.distance)}).`;
+                if (vibrateOnStopToggle?.checked && navigator.vibrate) {
+                    navigator.vibrate([120, 80, 120]);
+                }
+            } else if (nearest.distance > approachRadiusMeters && lastApproachStopId === nearest.stopId) {
+                lastApproachStopId = null;
+                proximityStatusElement.textContent = `Naslednji postanek: ${nearestName} (${formatDistance(nearest.distance)}).`;
+            } else if (nearest.distance > approachRadiusMeters) {
+                proximityStatusElement.textContent = `Naslednji postanek: ${nearestName} (${formatDistance(nearest.distance)}).`;
+            }
+
+            const isAutoCompletable = nearest.type === "bin" || nearest.type === "park" || nearest.type === "water" || nearest.type === "cafe";
+            if (autoCompleteStopsToggle?.checked &&
+                isAutoCompletable &&
+                nearest.distance <= autoCompleteRadiusMeters &&
+                lastCompletedByProximityStopId !== nearest.stopId) {
+                lastCompletedByProximityStopId = nearest.stopId;
+                const result = await toggleStopState(nearest.stopId, true);
+                if (result) {
+                    proximityStatusElement.textContent = `Postanek ${nearestName} je samodejno označen.`;
+                    if (vibrateOnStopToggle?.checked && navigator.vibrate) {
+                        navigator.vibrate([160, 60, 160, 60, 160]);
+                    }
+                }
+            } else if (nearest.distance > autoCompleteRadiusMeters && lastCompletedByProximityStopId === nearest.stopId) {
+                lastCompletedByProximityStopId = null;
+            }
+        }
+
+        function formatDistance(distanceMetersValue) {
+            if (distanceMetersValue < 1000) {
+                return `${Math.round(distanceMetersValue)} m`;
+            }
+
+            return `${(distanceMetersValue / 1000).toFixed(2)} km`;
+        }
+
+        function getDistanceMeters(lat1, lng1, lat2, lng2) {
+            const earthRadius = 6371000;
+            const dLat = toRadians(lat2 - lat1);
+            const dLng = toRadians(lng2 - lng1);
+            const a =
+                Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
+                Math.sin(dLng / 2) * Math.sin(dLng / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return earthRadius * c;
+        }
+
+        function toRadians(value) {
+            return value * (Math.PI / 180);
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? "")
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;")
+                .replaceAll('"', "&quot;")
+                .replaceAll("'", "&#039;");
+        }
+    </script>
+}
+
+<style>
+    .active-walk-hero,
+    .active-walk-metrics article,
+    .active-walk-plan-card,
+    .active-walk-map-card,
+    .active-walk-finish-card {
+        border: 1px solid rgba(31, 45, 41, 0.1);
+        border-radius: 8px;
+        background: #ffffff;
+        box-shadow: 0 12px 28px rgba(31, 45, 41, 0.08);
+    }
+
+    .active-walk-hero {
+        padding: 22px;
+        background: linear-gradient(135deg, #2f6d5f, #e18d32);
+        color: #ffffff;
+    }
+
+    .active-walk-hero span {
+        font-size: 0.78rem;
+        font-weight: 900;
+        opacity: 0.85;
+        text-transform: uppercase;
+    }
+
+    .active-walk-hero h1 {
+        margin: 4px 0;
+        font-size: clamp(2rem, 8vw, 3.2rem);
+        font-weight: 950;
+        line-height: 1;
+    }
+
+    .active-walk-hero p {
+        margin: 0;
+        opacity: 0.9;
+    }
+
+    .active-walk-metrics {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        margin: 14px 0;
+    }
+
+    .active-walk-metrics article {
+        padding: 16px;
+    }
+
+    .active-walk-metrics strong,
+    .active-walk-metrics span {
+        display: block;
+    }
+
+    .active-walk-metrics strong {
+        font-size: 1.45rem;
+        font-weight: 950;
+    }
+
+    .active-walk-metrics span {
+        color: #65716d;
+        font-weight: 750;
+    }
+
+    .active-walk-map-card {
+        padding: 14px;
+    }
+
+    .active-walk-media-card {
+        margin-top: 14px;
+        padding: 14px;
+        border: 1px solid rgba(31, 45, 41, 0.1);
+        border-radius: 8px;
+        background: #ffffff;
+        box-shadow: 0 12px 28px rgba(31, 45, 41, 0.08);
+    }
+
+    .active-walk-media-card__header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 12px;
+    }
+
+    .active-walk-media-card__header h2 {
+        margin: 0;
+        color: #21342f;
+        font-size: 1.05rem;
+        font-weight: 950;
+    }
+
+    .active-walk-media-card__header p {
+        margin: 4px 0 0;
+        color: #65716d;
+    }
+
+    .active-walk-media-card__header span {
+        color: #2f6d5f;
+        font-size: 0.82rem;
+        font-weight: 900;
+        white-space: nowrap;
+    }
+
+    .active-walk-photo-upload {
+        display: grid;
+        grid-template-columns: 1.1fr 1fr auto;
+        gap: 10px;
+        margin-bottom: 12px;
+    }
+
+    .active-walk-photo-upload input,
+    .active-walk-photo-upload button {
+        min-height: 42px;
+        padding: 10px 12px;
+        border: 1px solid rgba(31, 45, 41, 0.12);
+        border-radius: 8px;
+    }
+
+    .active-walk-photo-upload button {
+        background: #2f6d5f;
+        color: #ffffff;
+        font-weight: 900;
+    }
+
+    .active-walk-photo-strip {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .active-walk-photo-item {
+        margin: 0;
+        overflow: hidden;
+        border: 1px solid rgba(31, 45, 41, 0.08);
+        border-radius: 8px;
+        background: #f8faf7;
+    }
+
+    .active-walk-photo-item img {
+        display: block;
+        width: 100%;
+        aspect-ratio: 4 / 5;
+        object-fit: cover;
+    }
+
+    .active-walk-photo-item figcaption {
+        padding: 8px 10px 10px;
+        color: #21342f;
+        font-size: 0.82rem;
+        font-weight: 750;
+    }
+
+    .active-walk-plan-card {
+        margin-bottom: 14px;
+        padding: 14px;
+    }
+
+    .active-walk-plan-card__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 10px;
+    }
+
+    .active-walk-plan-card__header h2 {
+        margin: 0;
+        font-size: 1.05rem;
+        font-weight: 950;
+    }
+
+    .active-walk-plan-card__header span {
+        color: #2f6d5f;
+        font-size: 0.82rem;
+        font-weight: 900;
+    }
+
+    .active-walk-stop-list {
+        display: grid;
+        gap: 8px;
+    }
+
+    .active-walk-stop-list label {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: 10px;
+        align-items: start;
+        padding: 10px;
+        border: 1px solid rgba(31, 45, 41, 0.08);
+        border-radius: 8px;
+        background: #f8faf7;
+    }
+
+    .active-walk-stop-list label.is-completed {
+        background: #eef6ef;
+        border-color: rgba(47, 109, 95, 0.22);
+    }
+
+    .active-walk-stop-list input {
+        width: 18px;
+        height: 18px;
+        margin-top: 2px;
+        accent-color: #2f6d5f;
+    }
+
+    .active-walk-stop-list strong,
+    .active-walk-stop-list small {
+        display: block;
+    }
+
+    .active-walk-stop-list strong {
+        color: #21342f;
+        font-weight: 950;
+    }
+
+    .active-walk-stop-list small {
+        color: #65716d;
+        font-size: 0.84rem;
+        font-weight: 750;
+        line-height: 1.35;
+    }
+
+    .active-walk-stop-list label.is-completed strong,
+    .active-walk-stop-list label.is-completed small {
+        color: #2f6d5f;
+    }
+
+    .active-walk-finish-card {
+        margin-top: 14px;
+        padding: 18px;
+    }
+
+    .active-walk-next-stop-card {
+        margin-top: 14px;
+        padding: 14px;
+        border: 1px solid rgba(31, 45, 41, 0.1);
+        border-radius: 8px;
+        background: linear-gradient(180deg, #f7fbf8, #ffffff);
+        box-shadow: 0 12px 28px rgba(31, 45, 41, 0.08);
+    }
+
+    .active-walk-next-stop-card__header,
+    .active-walk-next-stop-card__body {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+    }
+
+    .active-walk-next-stop-card__header {
+        margin-bottom: 10px;
+    }
+
+    .active-walk-next-stop-card__header h2,
+    .active-walk-next-stop-card__body strong,
+    .active-stop-popup strong {
+        margin: 0;
+        color: #21342f;
+        font-weight: 950;
+    }
+
+    .active-walk-next-stop-card__header h2 {
+        font-size: 1.05rem;
+    }
+
+    .active-walk-next-stop-card__header p,
+    .active-walk-next-stop-card__body small,
+    .active-stop-popup small,
+    .active-stop-popup p {
+        margin: 0;
+        color: #65716d;
+    }
+
+    .active-walk-next-stop-card__header span {
+        color: #2f6d5f;
+        font-size: 0.96rem;
+        font-weight: 950;
+        white-space: nowrap;
+    }
+
+    .active-walk-proximity-card {
+        margin-top: 14px;
+        padding: 14px;
+        border: 1px solid rgba(31, 45, 41, 0.1);
+        border-radius: 8px;
+        background: #ffffff;
+        box-shadow: 0 12px 28px rgba(31, 45, 41, 0.08);
+    }
+
+    .active-walk-proximity-card__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 12px;
+    }
+
+    .active-walk-proximity-card__header h2 {
+        margin: 0;
+        color: #21342f;
+        font-size: 1.05rem;
+        font-weight: 950;
+    }
+
+    .active-walk-proximity-card__header p {
+        margin: 4px 0 0;
+        color: #65716d;
+    }
+
+    .active-walk-proximity-card__header span {
+        color: #2f6d5f;
+        font-size: 0.96rem;
+        font-weight: 950;
+        white-space: nowrap;
+    }
+
+    .active-walk-proximity-card__body {
+        display: grid;
+        gap: 10px;
+    }
+
+    .active-walk-proximity-card__body label {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        align-items: center;
+        gap: 10px;
+        padding: 10px;
+        border: 1px solid rgba(31, 45, 41, 0.08);
+        border-radius: 8px;
+        background: #f8faf7;
+        color: #21342f;
+        font-weight: 750;
+    }
+
+    .active-walk-proximity-card__body input {
+        width: 18px;
+        height: 18px;
+        accent-color: #2f6d5f;
+    }
+
+    .active-stop-popup {
+        display: grid;
+        gap: 4px;
+        min-width: 180px;
+    }
+
+    .active-stop-popup p {
+        font-size: 0.82rem;
+        line-height: 1.4;
+    }
+
+    .active-stop-popup__button {
+        margin-top: 6px;
+        min-height: 36px;
+        border: 0;
+        border-radius: 999px;
+        background: #2f6d5f;
+        color: #ffffff;
+        font-weight: 850;
+    }
+
+    .active-stop-popup__button--secondary {
+        background: #eef7ed;
+        color: #2f6d5f;
+        border: 1px solid rgba(47, 109, 95, 0.18);
+    }
+
+    .active-walk-photo-hint {
+        margin: 0 0 12px;
+        color: #65716d;
+        font-size: 0.84rem;
+        font-weight: 750;
+    }
+
+    .active-walk-finish-card h2 {
+        margin: 0 0 6px;
+        font-size: 1.1rem;
+        font-weight: 900;
+    }
+
+    .active-walk-finish-card p {
+        margin: 0 0 14px;
+        color: #65716d;
+    }
+
+    .active-walk-finish-card__grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+    }
+
+    .active-walk-map-card__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 12px;
+    }
+
+    .active-walk-map-card__header h2 {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 900;
+    }
+
+    .active-walk-map-card__header p {
+        margin: 4px 0 0;
+        color: #65716d;
+    }
+
+    .gps-security-warning {
+        margin-bottom: 12px;
+        padding: 10px 12px;
+        border-radius: 8px;
+        background: #fff4df;
+        color: #8c5c12;
+        font-size: 0.9rem;
+        font-weight: 750;
+    }
+
+    #walkMap {
+        height: 420px;
+        width: 100%;
+        overflow: hidden;
+        border-radius: 8px;
+    }
+
+    .active-planned-marker {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 34px;
+        height: 34px;
+        border: 2px solid #ffffff;
+        border-radius: 999px;
+        color: #ffffff;
+        font-size: 0.86rem;
+        font-weight: 950;
+        box-shadow: 0 10px 18px rgba(31, 45, 41, 0.22);
+    }
+
+    .active-planned-marker--start,
+    .active-planned-marker--finish {
+        background: #2f6d5f;
+    }
+
+    .active-planned-marker--bin {
+        background: #5b7cfa;
+    }
+
+    .active-planned-marker--park {
+        background: #41a35b;
+    }
+
+    .active-planned-marker--water {
+        background: #1fa9d6;
+    }
+
+    .active-planned-marker--cafe,
+    .active-planned-marker--shop {
+        background: #e18d32;
+    }
+
+    .active-planned-marker.is-completed {
+        background: #2f6d5f;
+        transform: scale(0.92);
+        opacity: 0.86;
+    }
+
+    .active-walk-actions {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        margin-top: 16px;
+    }
+
+    @@media (max-width: 575.98px) {
+        .active-walk-metrics,
+        .active-walk-finish-card__grid {
+            grid-template-columns: 1fr;
+        }
+
+        .active-walk-map-card__header,
+        .active-walk-media-card__header,
+        .active-walk-plan-card__header,
+        .active-walk-next-stop-card__header,
+        .active-walk-proximity-card__header,
+        .active-walk-next-stop-card__body,
+        .active-walk-actions {
+            align-items: stretch;
+            flex-direction: column;
+        }
+
+        #walkMap {
+            height: 360px;
+        }
+
+        .active-walk-photo-upload,
+        .active-walk-photo-strip {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>

@@ -1,0 +1,1029 @@
+@model DoggyDrop.ViewModels.WalksIndexViewModel
+
+@{
+    ViewData["Title"] = "Sprehodi";
+}
+
+<section class="app-page walks-page">
+    <header class="app-page__header walks-hero">
+        <div>
+            <h1 class="app-page__title">Sprehodi</h1>
+            <p class="app-page__lead">Začni sprehod, spremljaj tedensko aktivnost in hitro izberi naslednjo pot.</p>
+        </div>
+        <div class="walks-hero__actions">
+            <a class="btn btn-success rounded-pill fw-semibold" asp-controller="Walks" asp-action="Planner">Planer poti</a>
+            <a class="btn btn-outline-secondary rounded-pill" asp-controller="Walks" asp-action="Suggestions">Predlogi poti</a>
+        </div>
+    </header>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success">@TempData["SuccessMessage"]</div>
+    }
+
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-warning">@TempData["ErrorMessage"]</div>
+    }
+
+    <div class="walk-stat-row">
+        <article>
+            <strong>@Model.TotalDistanceKm.ToString("0.0") km</strong>
+            <span>Skupaj</span>
+        </article>
+        <article>
+            <strong>@Model.WalksThisWeek</strong>
+            <span>Ta teden</span>
+        </article>
+        <article>
+            <strong>@Model.CompletedWalkCount</strong>
+            <span>Zaključeni</span>
+        </article>
+        <article>
+            <strong>@Model.AverageDistanceKm.ToString("0.0") km</strong>
+            <span>Povprečje</span>
+        </article>
+        <article>
+            <strong>@Model.LongestWalkKm.ToString("0.0") km</strong>
+            <span>Najdaljši</span>
+        </article>
+        <article>
+            <strong>@Model.UsedBinsCount</strong>
+            <span>Koši</span>
+        </article>
+    </div>
+
+    <section class="walk-week-card">
+        <div class="walk-section-header">
+            <h2>Teden</h2>
+            <span>@Model.WalksThisWeek sprehodov</span>
+        </div>
+        <div class="walk-week-chart">
+            @foreach (var day in Model.WeeklyStats)
+            {
+                <div class="walk-week-day">
+                    <div class="walk-week-day__bar">
+                        <span style="height: @Math.Max(day.IntensityPercent, day.WalkCount > 0 ? 12 : 4)%"></span>
+                    </div>
+                    <strong>@day.DayLabel</strong>
+                    <small>@day.DistanceKm.ToString("0.0") km</small>
+                </div>
+            }
+        </div>
+    </section>
+
+    <section class="walk-insights-card">
+        <div class="walk-section-header">
+            <h2>Cilji in streak</h2>
+            <span>@Model.ActivityInsights.CurrentStreakDays dni zdaj, rekord @Model.ActivityInsights.LongestStreakDays</span>
+        </div>
+        <div class="walk-goal-grid">
+            <article>
+                <strong>Teden</strong>
+                <span>@Model.ActivityInsights.WeeklyDistanceKm.ToString("0.0") / @Model.ActivityInsights.WeeklyGoalKm.ToString("0") km</span>
+                <div><span style="width: @Model.ActivityInsights.WeeklyGoalPercent%"></span></div>
+            </article>
+            <article>
+                <strong>Mesec</strong>
+                <span>@Model.ActivityInsights.MonthlyDistanceKm.ToString("0.0") / @Model.ActivityInsights.MonthlyGoalKm.ToString("0") km</span>
+                <div><span style="width: @Model.ActivityInsights.MonthlyGoalPercent%"></span></div>
+            </article>
+            <article>
+                <strong>@Model.ActivityInsights.NextMilestoneName</strong>
+                <span>@Model.ActivityInsights.NextMilestoneProgress</span>
+                <div><span style="width: @Model.ActivityInsights.NextMilestonePercent%"></span></div>
+            </article>
+        </div>
+    </section>
+
+    <section class="walk-achievements-card">
+        <div class="walk-section-header">
+            <h2>Achievements</h2>
+            <span>@Model.Achievements.Count(item => item.IsUnlocked) / @Model.Achievements.Count odklenjenih</span>
+        </div>
+        <div class="walk-achievement-grid">
+            @foreach (var achievement in Model.Achievements)
+            {
+                <article class="walk-achievement-item @(achievement.IsUnlocked ? "is-unlocked" : string.Empty)">
+                    <strong>@achievement.Name</strong>
+                    <p>@achievement.Description</p>
+                    <span>@achievement.ProgressText</span>
+                    <div><span style="width: @achievement.ProgressPercent%"></span></div>
+                </article>
+            }
+        </div>
+    </section>
+
+    <section class="walk-leaderboards-card">
+        <div class="walk-section-header">
+            <h2>Leaderboards</h2>
+            <span>@Model.Gamification.CurrentDailyStreak dni daily streak, rekord @Model.Gamification.LongestDailyStreak</span>
+        </div>
+        <div class="walk-leaderboard-grid">
+            <article>
+                <h3>Weekly km</h3>
+                <div class="walk-leaderboard-list">
+                    @foreach (var item in Model.Gamification.WeeklyDistanceLeaders)
+                    {
+                        <div class="walk-leaderboard-item">
+                            <div>
+                                <strong>@item.Name</strong>
+                                <span>@item.Subtitle</span>
+                            </div>
+                            <em>@item.ValueText</em>
+                        </div>
+                    }
+                </div>
+            </article>
+            <article>
+                <h3>Most active dogs</h3>
+                <div class="walk-leaderboard-list">
+                    @foreach (var item in Model.Gamification.MostActiveDogs)
+                    {
+                        <div class="walk-leaderboard-item">
+                            <div>
+                                <strong>@item.Name</strong>
+                                <span>@item.Subtitle</span>
+                            </div>
+                            <em>@item.ValueText</em>
+                        </div>
+                    }
+                </div>
+            </article>
+            <article>
+                <h3>Top contributors</h3>
+                <div class="walk-leaderboard-list">
+                    @foreach (var item in Model.Gamification.TopContributors)
+                    {
+                        <div class="walk-leaderboard-item">
+                            <div>
+                                <strong>@item.Name</strong>
+                                <span>@item.Subtitle</span>
+                            </div>
+                            <em>@item.ValueText</em>
+                        </div>
+                    }
+                </div>
+            </article>
+        </div>
+    </section>
+
+    @if (Model.Dogs.Count > 0)
+    {
+        <nav class="walk-dog-filter" aria-label="Filter sprehodov po psu">
+            <a class="@(Model.SelectedDogId == null ? "is-active" : "")"
+               asp-controller="Walks"
+               asp-action="Index">Vsi psi</a>
+            @foreach (var dog in Model.Dogs)
+            {
+                <a class="@(Model.SelectedDogId == dog.Id ? "is-active" : "")"
+                   asp-controller="Walks"
+                   asp-action="Index"
+                   asp-route-dogId="@dog.Id">@dog.Name</a>
+            }
+        </nav>
+    }
+
+    @if (Model.ActiveWalk != null)
+    {
+        <article class="walk-active-card">
+            <div>
+                <span class="walk-active-card__label">Aktiven sprehod</span>
+                <h2>@Model.ActiveWalk.Dog?.Name</h2>
+                <p>Začetek: @Model.ActiveWalk.StartedAt.ToLocalTime().ToString("HH:mm")</p>
+            </div>
+            <a class="btn btn-success rounded-pill fw-semibold"
+               asp-controller="Walks" asp-action="Active" asp-route-id="@Model.ActiveWalk.Id">Odpri</a>
+        </article>
+    }
+    else if (Model.Dogs.Count == 0)
+    {
+            <article class="walk-empty-state">
+                <h2>Najprej dodaj psa</h2>
+            <p>Sprehodi se povežejo s profilom psa, zato najprej ustvari vsaj en pasji profil.</p>
+            <a class="btn btn-success rounded-pill" asp-controller="Dogs" asp-action="Create">Dodaj psa</a>
+        </article>
+    }
+    else
+    {
+        <article class="walk-start-card">
+            <div class="walk-start-card__header">
+                <div>
+                    <h2>Start walk</h2>
+                    <p>Najprej izberi psa in dolžino. DoggyDrop ti takoj pripravi pot s koši, parkom, vodo in dog-friendly postanki.</p>
+                </div>
+                <span>Hitri plan</span>
+            </div>
+
+            <form class="walk-quick-plan" asp-controller="Walks" asp-action="Planner" method="get">
+                <div>
+                    <label for="quickDogId">Pes</label>
+                    <select id="quickDogId" name="dogId">
+                        @foreach (var dog in Model.Dogs)
+                        {
+                            <option value="@dog.Id">@dog.Name</option>
+                        }
+                    </select>
+                </div>
+                <div>
+                    <label for="quickDistance">Dolžina</label>
+                    <select id="quickDistance" name="distanceKm">
+                        <option value="1.5">1,5 km</option>
+                        <option value="2.5">2,5 km</option>
+                        <option value="3.5" selected>3,5 km</option>
+                        <option value="5">5 km</option>
+                        <option value="7.5">7,5 km</option>
+                        <option value="10">10 km</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="quickArea">Območje</label>
+                    <select id="quickArea" name="area">
+                        <option value="maribor">Maribor</option>
+                        <option value="ljubljana">Ljubljana</option>
+                        <option value="koper">Koper / Obala</option>
+                        <option value="celje">Celje</option>
+                        <option value="kranj">Kranj</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="quickWalkStyle">Tip poti</label>
+                    <select id="quickWalkStyle" name="walkStyle">
+                        <option value="balanced" selected>Balanced</option>
+                        <option value="quick">Quick walk</option>
+                        <option value="park">Park walk</option>
+                        <option value="city">City walk</option>
+                        <option value="long">Long walk</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="quickDogEnergy">Energija</label>
+                    <select id="quickDogEnergy" name="dogEnergy">
+                        <option value="auto" selected>Auto</option>
+                        <option value="low">Mirna</option>
+                        <option value="high">Aktivna</option>
+                    </select>
+                </div>
+                <input type="hidden" name="includeBins" value="true" />
+                <input type="hidden" name="includePark" value="true" />
+                <input type="hidden" name="includeWater" value="true" />
+                <input type="hidden" name="includeDogFriendly" value="true" />
+                <button type="submit">Predlagaj pot</button>
+            </form>
+
+            @if (Model.QuickTemplates.Count > 0)
+            {
+                <div class="walk-quick-template-grid">
+                    @foreach (var template in Model.QuickTemplates)
+                    {
+                        <a class="walk-quick-template"
+                           asp-controller="Walks"
+                           asp-action="Planner"
+                           asp-route-dogId="@Model.Dogs.First().Id"
+                           asp-route-area="maribor"
+                           asp-route-distanceKm="@template.DistanceKm.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                           asp-route-walkStyle="@template.WalkStyle"
+                           asp-route-dogEnergy="auto"
+                           asp-route-includeBins="@template.IncludeBins"
+                           asp-route-includePark="@template.IncludePark"
+                           asp-route-includeWater="@template.IncludeWater"
+                           asp-route-includeDogFriendly="@template.IncludeDogFriendly">
+                            <strong>@template.Title</strong>
+                            <span>@template.Subtitle</span>
+                        </a>
+                    }
+                </div>
+            }
+
+            <form class="walk-direct-start" asp-controller="Walks" asp-action="Start" method="post">
+                <input type="hidden" name="dogId" id="directStartDogId" value="@Model.Dogs.First().Id" />
+                <button type="submit">Zacni brez plana</button>
+            </form>
+        </article>
+
+        @if (Model.RecentPlans.Count > 0)
+        {
+            <section class="walk-plans-card">
+                <div class="walk-section-header">
+                    <h2>Shranjeni plani</h2>
+                    <a asp-controller="Walks" asp-action="Planner">Nov plan</a>
+                </div>
+                <div class="walk-plan-list">
+                    @foreach (var plan in Model.RecentPlans)
+                    {
+                        <article class="walk-plan-item">
+                            <a asp-controller="Walks" asp-action="Plan" asp-route-id="@plan.Id">
+                                <strong>@plan.Title</strong>
+                                <span>@(plan.DogName ?? "Brez psa") · @plan.AreaName · @plan.TargetDistanceKm.ToString("0.#") km · ~@plan.EstimatedMinutes min</span>
+                            </a>
+                            @if (plan.UsedAt.HasValue)
+                            {
+                                <em>uporabljen</em>
+                            }
+                            else if (plan.DogId.HasValue)
+                            {
+                                <form asp-controller="Walks" asp-action="Start" method="post">
+                                    <input type="hidden" name="plannedWalkId" value="@plan.Id" />
+                                    <input type="hidden" name="dogId" value="@plan.DogId.Value" />
+                                    <button type="submit">Start</button>
+                                </form>
+                            }
+                            <form asp-controller="Walks" asp-action="DeletePlan" method="post">
+                                <input type="hidden" name="id" value="@plan.Id" />
+                                <button type="submit" class="walk-plan-item__delete">Izbrisi</button>
+                            </form>
+                        </article>
+                    }
+                </div>
+            </section>
+        }
+    }
+
+    <section class="walk-suggestions">
+        <div class="walk-section-header">
+            <h2>Predlogi poti</h2>
+            <a asp-controller="Walks" asp-action="Suggestions">Vsi predlogi</a>
+        </div>
+        <div class="walk-suggestion-grid">
+            @foreach (var suggestion in Model.Suggestions)
+            {
+                <article class="walk-suggestion-card">
+                    <span>@suggestion.Area</span>
+                    <h3>@suggestion.Title</h3>
+                    <p>@suggestion.Description</p>
+                    <div>
+                        <strong>@suggestion.DistanceKm.ToString("0.0") km</strong>
+                        <em>@suggestion.Difficulty</em>
+                    </div>
+                </article>
+            }
+        </div>
+    </section>
+
+    <section class="walk-history">
+        <h2>Zgodovina</h2>
+        @if (Model.RecentWalks.Count == 0)
+        {
+            <p class="walk-history__empty">Ni se zakljucenih sprehodov.</p>
+        }
+        else
+        {
+            <div class="walk-history__list">
+                @foreach (var walk in Model.RecentWalks)
+                {
+                    var plannedStopCount = walk.PlannedWalk?.Stops?.Count ?? 0;
+                    var completedStopCount = walk.StopCompletions?.Count ?? 0;
+                    var photoCount = walk.Photos?.Count ?? 0;
+                    <a class="walk-history__item" asp-controller="Walks" asp-action="Details" asp-route-id="@walk.Id">
+                        <div>
+                            <strong>@walk.Dog?.Name</strong>
+                            <span>@walk.StartedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</span>
+                            @if (plannedStopCount > 0)
+                            {
+                                <small>@completedStopCount / @plannedStopCount planiranih postankov</small>
+                            }
+                            @if (photoCount > 0)
+                            {
+                                <small>@photoCount walk photo@(photoCount == 1 ? string.Empty : "s")</small>
+                            }
+                        </div>
+                        <span>@(walk.DistanceMeters / 1000).ToString("0.0") km</span>
+                    </a>
+                }
+            </div>
+        }
+    </section>
+</section>
+
+@section Scripts {
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const quickDog = document.getElementById("quickDogId");
+            const directDog = document.getElementById("directStartDogId");
+
+            if (!quickDog || !directDog) {
+                return;
+            }
+
+            const syncDirectDog = () => {
+                directDog.value = quickDog.value;
+            };
+
+            quickDog.addEventListener("change", syncDirectDog);
+            syncDirectDog();
+        });
+    </script>
+}
+
+<style>
+    .walk-stat-row {
+        display: grid;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        gap: 12px;
+        margin-bottom: 14px;
+    }
+
+    .walk-stat-row article,
+    .walk-dog-filter,
+    .walk-week-card,
+    .walk-insights-card,
+    .walk-achievements-card,
+    .walk-leaderboards-card,
+    .walk-active-card,
+    .walk-start-card,
+    .walk-empty-state,
+    .walk-plans-card,
+    .walk-suggestions,
+    .walk-suggestion-card,
+    .walk-history {
+        border: 1px solid rgba(31, 45, 41, 0.08);
+        border-radius: 20px;
+        background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(249,252,247,0.96));
+        box-shadow: 0 18px 34px rgba(31, 45, 41, 0.08);
+    }
+
+    .walk-stat-row article {
+        padding: 18px;
+    }
+
+    .walk-stat-row strong,
+    .walk-stat-row span {
+        display: block;
+    }
+
+    .walk-stat-row strong {
+        color: #21342f;
+        font-size: 1.18rem;
+        font-weight: 900;
+    }
+
+    .walk-stat-row span {
+        color: #65716d;
+        font-weight: 750;
+    }
+
+    .walk-week-card,
+    .walk-insights-card,
+    .walk-achievements-card,
+    .walk-leaderboards-card,
+    .walk-start-card,
+    .walk-empty-state,
+    .walk-plans-card,
+    .walk-suggestions,
+    .walk-history {
+        margin-bottom: 14px;
+        padding: 18px;
+    }
+
+    .walk-section-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 12px;
+    }
+
+    .walk-section-header h2,
+    .walk-active-card h2,
+    .walk-start-card h2,
+    .walk-empty-state h2,
+    .walk-history h2,
+    .walk-suggestion-card h3 {
+        margin: 0;
+        font-size: 1.2rem;
+        font-weight: 900;
+    }
+
+    .walk-section-header span,
+    .walk-section-header a {
+        color: #2f6d5f;
+        font-size: 0.84rem;
+        font-weight: 850;
+        text-decoration: none;
+    }
+
+    .walk-week-chart {
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: 8px;
+        align-items: end;
+        min-height: 150px;
+    }
+
+    .walk-week-day {
+        display: grid;
+        gap: 6px;
+        min-width: 0;
+        text-align: center;
+    }
+
+    .walk-week-day__bar {
+        display: flex;
+        height: 96px;
+        align-items: end;
+        justify-content: center;
+        border-radius: 8px;
+        background: #f3f5f2;
+    }
+
+    .walk-week-day__bar span {
+        display: block;
+        width: 100%;
+        min-height: 4px;
+        border-radius: 8px;
+        background: #2f6d5f;
+    }
+
+    .walk-goal-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .walk-goal-grid article {
+        padding: 12px;
+        border: 1px solid rgba(31, 45, 41, 0.08);
+        border-radius: 8px;
+        background: #f8faf7;
+    }
+
+    .walk-goal-grid strong,
+    .walk-goal-grid span {
+        display: block;
+    }
+
+    .walk-goal-grid strong {
+        color: #1f2d29;
+        font-weight: 950;
+    }
+
+    .walk-goal-grid span {
+        color: #2f6d5f;
+        font-size: 0.8rem;
+        font-weight: 900;
+    }
+
+    .walk-goal-grid div {
+        overflow: hidden;
+        height: 8px;
+        margin-top: 10px;
+        border-radius: 999px;
+        background: rgba(47, 109, 95, 0.12);
+    }
+
+    .walk-goal-grid div span {
+        height: 100%;
+        border-radius: inherit;
+        background: #2f6d5f;
+    }
+
+    .walk-achievement-grid,
+    .walk-leaderboard-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+    }
+
+    .walk-achievement-item,
+    .walk-leaderboard-grid article {
+        padding: 14px;
+        border: 1px solid rgba(31, 45, 41, 0.08);
+        border-radius: 16px;
+        background: #fbfdfb;
+    }
+
+    .walk-achievement-item.is-unlocked {
+        background: #eef6ef;
+        border-color: rgba(47, 109, 95, 0.22);
+    }
+
+    .walk-achievement-item strong,
+    .walk-achievement-item span,
+    .walk-leaderboard-item strong,
+    .walk-leaderboard-item span,
+    .walk-leaderboard-item em {
+        display: block;
+    }
+
+    .walk-achievement-item strong,
+    .walk-leaderboard-grid h3,
+    .walk-leaderboard-item strong {
+        color: #21342f;
+        font-weight: 900;
+    }
+
+    .walk-achievement-item p,
+    .walk-leaderboard-item span {
+        margin: 6px 0;
+        color: #65716d;
+        font-size: 0.84rem;
+        font-weight: 750;
+    }
+
+    .walk-achievement-item div {
+        overflow: hidden;
+        height: 8px;
+        margin-top: 10px;
+        border-radius: 999px;
+        background: rgba(47, 109, 95, 0.12);
+    }
+
+    .walk-achievement-item div span {
+        height: 100%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, #2f6d5f, #e18d32);
+    }
+
+    .walk-leaderboard-list {
+        display: grid;
+        gap: 10px;
+    }
+
+    .walk-leaderboard-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding-top: 10px;
+        border-top: 1px solid rgba(31, 45, 41, 0.08);
+    }
+
+    .walk-leaderboard-item:first-child {
+        padding-top: 0;
+        border-top: 0;
+    }
+
+    .walk-leaderboard-item em {
+        color: #2f6d5f;
+        font-style: normal;
+        font-weight: 900;
+        white-space: nowrap;
+    }
+
+    .walk-week-day strong {
+        font-size: 0.78rem;
+        font-weight: 900;
+        text-transform: uppercase;
+    }
+
+    .walk-week-day small {
+        color: #65716d;
+        font-size: 0.72rem;
+        font-weight: 750;
+    }
+
+    .walk-active-card {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        margin-bottom: 14px;
+        padding: 18px;
+        background: linear-gradient(135deg, #ffffff, #eef7ed);
+        box-shadow: 0 20px 38px rgba(47, 109, 95, 0.10);
+    }
+
+    .walk-dog-filter {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 14px;
+        padding: 10px;
+        overflow-x: auto;
+    }
+
+    .walk-dog-filter a {
+        flex: 0 0 auto;
+        padding: 9px 13px;
+        border-radius: 999px;
+        background: #f2f5f1;
+        color: #5b6864;
+        font-size: 0.88rem;
+        font-weight: 850;
+        text-decoration: none;
+    }
+
+    .walk-dog-filter a.is-active,
+    .walk-dog-filter a:hover,
+    .walk-dog-filter a:focus {
+        background: #2f6d5f;
+        color: #ffffff;
+    }
+
+    .walk-active-card__label {
+        color: #2f6d5f;
+        font-size: 0.78rem;
+        font-weight: 900;
+        text-transform: uppercase;
+    }
+
+    .walk-active-card p,
+    .walk-start-card p,
+    .walk-empty-state p,
+    .walk-history__empty {
+        margin: 6px 0 0;
+        color: #65716d;
+    }
+
+    .walk-start-card__header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 14px;
+    }
+
+    .walk-start-card__header span {
+        display: inline-flex;
+        align-items: center;
+        min-height: 30px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: rgba(47, 109, 95, 0.10);
+        color: #2f6d5f;
+        font-size: 0.78rem;
+        font-weight: 900;
+        white-space: nowrap;
+    }
+
+    .walk-quick-plan {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .walk-quick-plan div {
+        display: grid;
+        gap: 6px;
+    }
+
+    .walk-quick-plan label {
+        color: #21342f;
+        font-size: 0.82rem;
+        font-weight: 900;
+    }
+
+    .walk-quick-plan select,
+    .walk-quick-plan button,
+    .walk-direct-start button {
+        min-height: 42px;
+        border-radius: 8px;
+        font-weight: 900;
+    }
+
+    .walk-quick-plan select {
+        border: 1px solid rgba(31, 45, 41, 0.14);
+        background: #ffffff;
+        color: #21342f;
+    }
+
+    .walk-quick-plan button {
+        grid-column: 1 / -1;
+        border: 0;
+        background: #2f6d5f;
+        color: #ffffff;
+    }
+
+    .walk-direct-start {
+        margin-top: 10px;
+    }
+
+    .walk-quick-template-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 10px;
+    }
+
+    .walk-quick-template {
+        display: grid;
+        gap: 4px;
+        padding: 12px;
+        border: 1px solid rgba(31, 45, 41, 0.08);
+        border-radius: 16px;
+        background: #f8faf7;
+        color: inherit;
+        text-decoration: none;
+    }
+
+    .walk-quick-template strong {
+        color: #1f2d29;
+        font-size: 0.86rem;
+        font-weight: 900;
+    }
+
+    .walk-quick-template span {
+        color: #65716d;
+        font-size: 0.76rem;
+        font-weight: 700;
+        line-height: 1.4;
+    }
+
+    .walk-direct-start button {
+        width: 100%;
+        border: 1px solid rgba(47, 109, 95, 0.18);
+        background: #eef7ed;
+        color: #2f6d5f;
+    }
+
+    .walk-plan-list {
+        display: grid;
+        gap: 10px;
+    }
+
+    .walk-plan-item {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 10px;
+        padding: 12px;
+        border: 1px solid rgba(31, 45, 41, 0.08);
+        border-radius: 16px;
+        background: #f8faf7;
+    }
+
+    .walk-plan-item a {
+        color: inherit;
+        text-decoration: none;
+    }
+
+    .walk-plan-item strong,
+    .walk-plan-item span {
+        display: block;
+    }
+
+    .walk-plan-item strong {
+        font-weight: 950;
+    }
+
+    .walk-plan-item span {
+        color: #65716d;
+        font-size: 0.86rem;
+        font-weight: 750;
+    }
+
+    .walk-plan-item button {
+        min-height: 36px;
+        padding: 8px 12px;
+        border: 0;
+        border-radius: 999px;
+        background: #2f6d5f;
+        color: #ffffff;
+        font-weight: 900;
+    }
+
+    .walk-plan-item__delete {
+        border: 1px solid rgba(31, 45, 41, 0.12) !important;
+        background: #ffffff !important;
+        color: #65716d !important;
+    }
+
+    .walk-plan-item em {
+        color: #2f6d5f;
+        font-size: 0.78rem;
+        font-style: normal;
+        font-weight: 900;
+    }
+
+    .walk-suggestion-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+    }
+
+    .walk-suggestion-card {
+        padding: 14px;
+    }
+
+    .walk-suggestion-card > span {
+        color: #2f6d5f;
+        font-size: 0.76rem;
+        font-weight: 900;
+        text-transform: uppercase;
+    }
+
+    .walk-suggestion-card h3 {
+        margin-top: 4px;
+        font-size: 1rem;
+    }
+
+    .walk-suggestion-card p {
+        margin: 8px 0 12px;
+        color: #65716d;
+        font-size: 0.9rem;
+        line-height: 1.35;
+    }
+
+    .walk-suggestion-card div {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+    }
+
+    .walk-suggestion-card strong,
+    .walk-suggestion-card em {
+        color: #2f6d5f;
+        font-style: normal;
+        font-weight: 900;
+    }
+
+    .walk-history__list {
+        display: grid;
+        gap: 10px;
+        margin-top: 12px;
+    }
+
+    .walk-history__item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px 0;
+        border-top: 1px solid rgba(31, 45, 41, 0.08);
+        color: inherit;
+        text-decoration: none;
+    }
+
+    .walk-history__item:first-child {
+        border-top: 0;
+    }
+
+    .walk-history__item:hover,
+    .walk-history__item:focus {
+        color: #2f6d5f;
+    }
+
+    .walk-history__item strong,
+    .walk-history__item span,
+    .walk-history__item small {
+        display: block;
+    }
+
+    .walk-history__item small {
+        margin-top: 2px;
+        color: #65716d;
+        font-size: 0.8rem;
+        font-weight: 750;
+    }
+
+    .walk-history__item div span {
+        color: #65716d;
+        font-size: 0.88rem;
+    }
+
+    @@media (max-width: 900px) {
+        .walk-stat-row {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .walk-achievement-grid,
+        .walk-leaderboard-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @@media (max-width: 575.98px) {
+        .walks-hero__actions {
+            display: grid;
+            gap: 8px;
+        }
+
+        .walk-stat-row {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .walk-active-card,
+        .walks-hero,
+        .walk-section-header,
+        .walk-start-card__header,
+        .walk-plan-item {
+            align-items: stretch;
+            flex-direction: column;
+        }
+
+        .walk-plan-item {
+            grid-template-columns: 1fr;
+        }
+
+        .walk-suggestion-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .walk-quick-plan {
+            grid-template-columns: 1fr;
+        }
+
+        .walk-goal-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .walk-achievement-grid,
+        .walk-leaderboard-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .walk-week-chart {
+            gap: 5px;
+        }
+    }
+</style>

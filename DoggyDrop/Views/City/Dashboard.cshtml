@@ -1,0 +1,331 @@
+@model DoggyDrop.ViewModels.CityDashboardViewModel
+
+@{
+    ViewData["Title"] = "Mestni dashboard";
+}
+
+<section class="app-page city-page">
+    <header class="city-hero">
+        <div>
+            <span>Smart city</span>
+            <h1>Mestni dashboard</h1>
+            <p>Pregled pasjih kosev, prijav, sprehodov in aktivnosti skupnosti. To je osnova za obcinski analiticni pogled.</p>
+        </div>
+        <a asp-controller="Map" asp-action="Index">Zemljevid</a>
+    </header>
+
+    <div class="city-stats">
+        <article>
+            <strong>@Model.ApprovedBins</strong>
+            <span>Odobreni kosi</span>
+        </article>
+        <article>
+            <strong>@Model.PendingBins</strong>
+            <span>V pregledu</span>
+        </article>
+        <article>
+            <strong>@Model.BinUses</strong>
+            <span>Uporabe kosev</span>
+        </article>
+        <article>
+            <strong>@Model.FullReports</strong>
+            <span>Polni kosi</span>
+        </article>
+        <article>
+            <strong>@Model.MissingReports</strong>
+            <span>Manjkajoci</span>
+        </article>
+        <article>
+            <strong>@Model.TotalWalkKm.ToString("0.0") km</strong>
+            <span>Sprehodi</span>
+        </article>
+        <article>
+            <strong>@Model.ActiveDogs</strong>
+            <span>Psi</span>
+        </article>
+        <article>
+            <strong>@Model.OpenPlaydates</strong>
+            <span>Playdates</span>
+        </article>
+    </div>
+
+    <section class="city-panel">
+        <div class="city-panel__header">
+            <h2>Tedenska aktivnost</h2>
+            <span>@Model.CompletedWalks zakljucenih sprehodov</span>
+        </div>
+        <div class="city-week-chart">
+            @foreach (var day in Model.WeeklyActivity)
+            {
+                <div class="city-week-day">
+                    <div class="city-week-day__bar">
+                        <span style="height: @Math.Max(day.IntensityPercent, day.WalkCount > 0 ? 12 : 4)%"></span>
+                    </div>
+                    <strong>@day.DayLabel</strong>
+                    <small>@day.DistanceKm.ToString("0.0") km</small>
+                </div>
+            }
+        </div>
+    </section>
+
+    <div class="city-grid">
+        <section class="city-panel">
+            <div class="city-panel__header">
+                <h2>Koši za pregled</h2>
+                <span>@Model.BinIssues.Count prioritet</span>
+            </div>
+
+            @if (Model.BinIssues.Count == 0)
+            {
+                <p class="city-muted">Trenutno ni prijav polnih ali manjkajocih kosev.</p>
+            }
+            else
+            {
+                <div class="city-list">
+                    @foreach (var issue in Model.BinIssues)
+                    {
+                        <article class="city-list-item is-warning">
+                            <div>
+                                <strong>@issue.Name</strong>
+                                <span>@issue.FullReports poln · @issue.MissingReports manjka</span>
+                            </div>
+                            <em>@(issue.LastReportedAt?.ToLocalTime().ToString("dd.MM. HH:mm") ?? "brez datuma")</em>
+                        </article>
+                    }
+                </div>
+            }
+        </section>
+
+        <section class="city-panel">
+            <div class="city-panel__header">
+                <h2>Najbolj uporabni koši</h2>
+                <span>Top lokacije</span>
+            </div>
+
+            @if (Model.TopBins.Count == 0)
+            {
+                <p class="city-muted">Ko bodo uporabniki oznacevali uporabo kosev, se bo tukaj prikazala lestvica.</p>
+            }
+            else
+            {
+                <div class="city-list">
+                    @foreach (var bin in Model.TopBins)
+                    {
+                        <article class="city-list-item">
+                            <div>
+                                <strong>@bin.Name</strong>
+                                <span>@bin.UsefulVotes koristnih glasov</span>
+                            </div>
+                            <em>@bin.UsedCount uporab</em>
+                        </article>
+                    }
+                </div>
+            }
+        </section>
+    </div>
+</section>
+
+<style>
+    .city-hero,
+    .city-stats article,
+    .city-panel {
+        border: 1px solid rgba(31, 45, 41, 0.1);
+        border-radius: 8px;
+        background: #ffffff;
+        box-shadow: 0 12px 28px rgba(31, 45, 41, 0.08);
+    }
+
+    .city-hero {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 22px;
+    }
+
+    .city-hero span {
+        color: #2f6d5f;
+        font-size: 0.78rem;
+        font-weight: 900;
+        text-transform: uppercase;
+    }
+
+    .city-hero h1 {
+        margin: 4px 0 8px;
+        font-size: clamp(2rem, 8vw, 3.2rem);
+        font-weight: 950;
+        line-height: 1;
+    }
+
+    .city-hero p,
+    .city-muted,
+    .city-list-item span,
+    .city-week-day small {
+        color: #65716d;
+    }
+
+    .city-hero p {
+        max-width: 660px;
+        margin: 0;
+    }
+
+    .city-hero a {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 42px;
+        padding: 10px 16px;
+        border-radius: 999px;
+        background: #2f6d5f;
+        color: #ffffff;
+        font-weight: 900;
+        text-decoration: none;
+    }
+
+    .city-stats {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        margin: 14px 0;
+    }
+
+    .city-stats article {
+        padding: 16px;
+    }
+
+    .city-stats strong,
+    .city-stats span {
+        display: block;
+    }
+
+    .city-stats strong {
+        color: #21342f;
+        font-size: 1.35rem;
+        font-weight: 950;
+    }
+
+    .city-stats span {
+        color: #65716d;
+        font-weight: 750;
+    }
+
+    .city-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+        margin-top: 14px;
+    }
+
+    .city-panel {
+        padding: 18px;
+    }
+
+    .city-panel__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 12px;
+    }
+
+    .city-panel__header h2 {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 950;
+    }
+
+    .city-panel__header span {
+        color: #2f6d5f;
+        font-size: 0.82rem;
+        font-weight: 850;
+    }
+
+    .city-week-chart {
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        gap: 8px;
+        align-items: end;
+        min-height: 150px;
+    }
+
+    .city-week-day {
+        display: grid;
+        gap: 6px;
+        text-align: center;
+    }
+
+    .city-week-day__bar {
+        display: flex;
+        height: 96px;
+        align-items: end;
+        justify-content: center;
+        border-radius: 8px;
+        background: #f3f5f2;
+    }
+
+    .city-week-day__bar span {
+        display: block;
+        width: 100%;
+        min-height: 4px;
+        border-radius: 8px;
+        background: #2f6d5f;
+    }
+
+    .city-week-day strong {
+        font-size: 0.78rem;
+        font-weight: 900;
+        text-transform: uppercase;
+    }
+
+    .city-list {
+        display: grid;
+        gap: 10px;
+    }
+
+    .city-list-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px;
+        border-radius: 8px;
+        background: #f8faf7;
+    }
+
+    .city-list-item.is-warning {
+        background: #fff4e5;
+    }
+
+    .city-list-item strong,
+    .city-list-item span {
+        display: block;
+    }
+
+    .city-list-item em {
+        color: #2f6d5f;
+        font-style: normal;
+        font-weight: 900;
+        text-align: right;
+    }
+
+    @@media (max-width: 800px) {
+        .city-stats,
+        .city-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    @@media (max-width: 575.98px) {
+        .city-hero,
+        .city-panel__header,
+        .city-list-item {
+            align-items: stretch;
+            flex-direction: column;
+        }
+
+        .city-stats,
+        .city-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>

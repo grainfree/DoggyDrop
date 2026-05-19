@@ -1,0 +1,393 @@
+@model DoggyDrop.ViewModels.FriendsViewModel
+
+@{
+    ViewData["Title"] = "Prijatelji";
+}
+
+<section class="app-page friends-page">
+    <header class="friends-hero">
+        <div>
+            <span>Social</span>
+            <h1>Prijatelji</h1>
+            <p>Povezi se z drugimi lastniki psov, spremljaj aktivnost prijateljev in pripravi teren za friends-only funkcije.</p>
+        </div>
+        <a asp-controller="Playdates" asp-action="Index">Playdates</a>
+    </header>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success">@TempData["SuccessMessage"]</div>
+    }
+
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-warning">@TempData["ErrorMessage"]</div>
+    }
+
+    <div class="friends-stats">
+        <article>
+            <strong>@Model.FriendCount</strong>
+            <span>Prijatelji</span>
+        </article>
+        <article>
+            <strong>@Model.IncomingCount</strong>
+            <span>Prosnje</span>
+        </article>
+        <article>
+            <strong>@Model.Friends.Sum(friend => friend.WeeklyDistanceKm).ToString("0.0") km</strong>
+            <span>Prijatelji ta teden</span>
+        </article>
+    </div>
+
+    @if (Model.IncomingRequests.Count > 0)
+    {
+        <section class="friends-panel">
+            <div class="friends-panel__header">
+                <h2>Prosnje</h2>
+                <span>@Model.IncomingRequests.Count novih</span>
+            </div>
+
+            <div class="friends-list">
+                @foreach (var request in Model.IncomingRequests)
+                {
+                    <article class="friend-row">
+                        <div class="friend-avatar">
+                            @if (!string.IsNullOrWhiteSpace(request.PhotoUrl))
+                            {
+                                <img src="@request.PhotoUrl" alt="@request.Name" />
+                            }
+                            else
+                            {
+                                <span>@request.Name.Substring(0, 1).ToUpperInvariant()</span>
+                            }
+                        </div>
+                        <div>
+                            <strong>@request.Name</strong>
+                            <small>Poslano @request.CreatedAt.ToLocalTime().ToString("dd.MM. HH:mm")</small>
+                        </div>
+                        <div class="friend-actions">
+                            <form asp-controller="Friends" asp-action="Accept" asp-route-id="@request.FriendshipId" method="post">
+                                <button type="submit">Sprejmi</button>
+                            </form>
+                            <form asp-controller="Friends" asp-action="Decline" asp-route-id="@request.FriendshipId" method="post">
+                                <button type="submit">Zavrni</button>
+                            </form>
+                        </div>
+                    </article>
+                }
+            </div>
+        </section>
+    }
+
+    <section class="friends-panel">
+        <div class="friends-panel__header">
+            <h2>Moji prijatelji</h2>
+            <span>@Model.Friends.Count povezav</span>
+        </div>
+
+        @if (Model.Friends.Count == 0)
+        {
+            <p class="friends-muted">Se ni prijateljev. Poslji prvo prosnjo iz predlogov spodaj.</p>
+        }
+        else
+        {
+            <div class="friends-list">
+                @foreach (var friend in Model.Friends)
+                {
+                    <article class="friend-row">
+                        <div class="friend-avatar">
+                            @if (!string.IsNullOrWhiteSpace(friend.PhotoUrl))
+                            {
+                                <img src="@friend.PhotoUrl" alt="@friend.Name" />
+                            }
+                            else
+                            {
+                                <span>@friend.Name.Substring(0, 1).ToUpperInvariant()</span>
+                            }
+                        </div>
+                        <div>
+                            <strong>@friend.Name</strong>
+                            <small>@friend.DogCount psov · @friend.WeeklyDistanceKm.ToString("0.0") km ta teden</small>
+                        </div>
+                        <form asp-controller="Friends" asp-action="Remove" method="post" asp-route-id="@friend.FriendshipId">
+                            <button type="submit">Odstrani</button>
+                        </form>
+                    </article>
+                }
+            </div>
+        }
+    </section>
+
+    @if (Model.OutgoingRequests.Count > 0)
+    {
+        <section class="friends-panel">
+            <div class="friends-panel__header">
+                <h2>Poslane prosnje</h2>
+                <span>@Model.OutgoingRequests.Count caka</span>
+            </div>
+            <div class="friends-chip-list">
+                @foreach (var request in Model.OutgoingRequests)
+                {
+                    <span>@request.Name</span>
+                }
+            </div>
+        </section>
+    }
+
+    <section class="friends-panel">
+        <div class="friends-panel__header">
+            <h2>Predlogi</h2>
+            <span>Aktivni uporabniki</span>
+        </div>
+
+        @if (Model.Suggestions.Count == 0)
+        {
+            <p class="friends-muted">Ko bo vec uporabnikov z dodanimi psi ali sprehodi, se bodo tukaj pojavili predlogi.</p>
+        }
+        else
+        {
+            <div class="friends-suggestions">
+                @foreach (var suggestion in Model.Suggestions)
+                {
+                    <article class="friend-suggestion">
+                        <div class="friend-avatar">
+                            @if (!string.IsNullOrWhiteSpace(suggestion.PhotoUrl))
+                            {
+                                <img src="@suggestion.PhotoUrl" alt="@suggestion.Name" />
+                            }
+                            else
+                            {
+                                <span>@suggestion.Name.Substring(0, 1).ToUpperInvariant()</span>
+                            }
+                        </div>
+                        <div>
+                            <strong>@suggestion.Name</strong>
+                            <small>@suggestion.DogCount psov · @suggestion.WeeklyDistanceKm.ToString("0.0") km ta teden</small>
+                        </div>
+                        <form asp-controller="Friends" asp-action="SendRequest" method="post">
+                            <input type="hidden" name="userId" value="@suggestion.UserId" />
+                            <button type="submit">Dodaj</button>
+                        </form>
+                    </article>
+                }
+            </div>
+        }
+    </section>
+</section>
+
+<style>
+    .friends-hero,
+    .friends-stats article,
+    .friends-panel,
+    .friend-row,
+    .friend-suggestion {
+        border: 1px solid rgba(31, 45, 41, 0.1);
+        border-radius: 8px;
+        background: #ffffff;
+        box-shadow: 0 12px 28px rgba(31, 45, 41, 0.08);
+    }
+
+    .friends-hero {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 22px;
+    }
+
+    .friends-hero span {
+        color: #2f6d5f;
+        font-size: 0.78rem;
+        font-weight: 900;
+        text-transform: uppercase;
+    }
+
+    .friends-hero h1 {
+        margin: 4px 0 8px;
+        font-size: clamp(2rem, 8vw, 3.2rem);
+        font-weight: 950;
+        line-height: 1;
+    }
+
+    .friends-hero p,
+    .friends-muted {
+        margin: 0;
+        color: #65716d;
+    }
+
+    .friends-hero a,
+    .friend-actions button,
+    .friend-row button,
+    .friend-suggestion button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 38px;
+        padding: 8px 14px;
+        border: 1px solid rgba(47, 109, 95, 0.18);
+        border-radius: 999px;
+        background: #2f6d5f;
+        color: #ffffff;
+        font-weight: 900;
+        text-decoration: none;
+    }
+
+    .friends-stats {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        margin: 14px 0;
+    }
+
+    .friends-stats article,
+    .friends-panel {
+        padding: 18px;
+    }
+
+    .friends-stats strong,
+    .friends-stats span {
+        display: block;
+    }
+
+    .friends-stats strong {
+        color: #1f2d29;
+        font-size: 1.35rem;
+        font-weight: 950;
+    }
+
+    .friends-stats span {
+        color: #65716d;
+        font-weight: 750;
+    }
+
+    .friends-panel {
+        margin-top: 14px;
+    }
+
+    .friends-panel__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 12px;
+    }
+
+    .friends-panel__header h2 {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 950;
+    }
+
+    .friends-panel__header span {
+        color: #2f6d5f;
+        font-size: 0.82rem;
+        font-weight: 850;
+    }
+
+    .friends-list,
+    .friends-suggestions {
+        display: grid;
+        gap: 10px;
+    }
+
+    .friend-row,
+    .friend-suggestion {
+        display: grid;
+        grid-template-columns: 56px 1fr auto;
+        gap: 12px;
+        align-items: center;
+        padding: 12px;
+        box-shadow: none;
+    }
+
+    .friend-avatar {
+        display: grid;
+        width: 56px;
+        aspect-ratio: 1;
+        place-items: center;
+        overflow: hidden;
+        border-radius: 8px;
+        background: linear-gradient(135deg, #e7f3e5, #fff3dd);
+        color: #2f6d5f;
+        font-size: 1.35rem;
+        font-weight: 950;
+    }
+
+    .friend-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .friend-row strong,
+    .friend-row small,
+    .friend-suggestion strong,
+    .friend-suggestion small {
+        display: block;
+    }
+
+    .friend-row strong,
+    .friend-suggestion strong {
+        color: #1f2d29;
+        font-weight: 950;
+    }
+
+    .friend-row small,
+    .friend-suggestion small {
+        color: #65716d;
+        font-weight: 750;
+    }
+
+    .friend-actions {
+        display: flex;
+        gap: 8px;
+    }
+
+    .friend-row button[disabled] {
+        background: #eef7ed;
+        color: #2f6d5f;
+        opacity: 1;
+    }
+
+    .friends-chip-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .friends-chip-list span {
+        padding: 7px 10px;
+        border-radius: 999px;
+        background: #eef7ed;
+        color: #2f6d5f;
+        font-size: 0.82rem;
+        font-weight: 900;
+    }
+
+    @@media (max-width: 575.98px) {
+        .friends-hero,
+        .friends-panel__header {
+            align-items: stretch;
+            flex-direction: column;
+        }
+
+        .friends-stats,
+        .friend-row,
+        .friend-suggestion {
+            grid-template-columns: 1fr;
+        }
+
+        .friend-avatar {
+            width: 100%;
+            max-width: 120px;
+        }
+
+        .friend-actions,
+        .friend-row form,
+        .friend-row button,
+        .friend-suggestion button,
+        .friends-hero a {
+            width: 100%;
+        }
+    }
+</style>

@@ -1,0 +1,1213 @@
+﻿@model DoggyDrop.Models.Walk
+@using Microsoft.AspNetCore.Identity
+@using System.Text.Json
+@inject UserManager<DoggyDrop.Models.ApplicationUser> UserManager
+
+@{
+    ViewData["Title"] = "Povzetek sprehoda";
+    var showFirstWalkCelebration = TempData["ShowFirstWalkCelebration"] as bool? == true;
+    var firstWalkDistanceKm = TempData["FirstWalkDistanceKm"] as string;
+    var currentUserId = UserManager.GetUserId(User);
+    var duration = Model.EndedAt.HasValue ? Model.EndedAt.Value - Model.StartedAt : TimeSpan.Zero;
+    var distanceKm = Model.DistanceMeters / 1000;
+    var paceMinutesPerKm = distanceKm > 0.01 ? duration.TotalMinutes / distanceKm : 0;
+    var pace = TimeSpan.FromMinutes(paceMinutesPerKm);
+    var paceText = paceMinutesPerKm > 0 ? $"{(int)pace.TotalMinutes:0}:{pace.Seconds:00} / km" : "-";
+    var shareText = showFirstWalkCelebration
+        ? $"{Model.Dog?.Name ?? "Pes"} je pravkar zaključil svoj prvi DoggyDrop sprehod. Skupaj sva prehodila {distanceKm:0.00} km."
+        : $"{Model.Dog?.Name ?? "Pes"} je prehodil {distanceKm:0.00} km v DoggyDrop.";
+    var shareTitle = showFirstWalkCelebration ? "Prvi DoggyDrop sprehod" : "DoggyDrop sprehod";
+    var detailsShareUrl = Url.Action("Details", "Walks", new { id = Model.Id }, Context.Request.Scheme);
+    var shareCardUrl = Url.Action("ShareCard", "Walks", new { id = Model.Id }, Context.Request.Scheme);
+    var facebookShareUrl = $"https://www.facebook.com/sharer/sharer.php?u={Uri.EscapeDataString(shareCardUrl ?? detailsShareUrl ?? string.Empty)}";
+    var reactions = Model.Reactions ?? Array.Empty<DoggyDrop.Models.WalkReaction>();
+    var comments = (Model.Comments ?? Array.Empty<DoggyDrop.Models.WalkComment>())
+        .Where(comment => !comment.IsDeleted)
+        .OrderByDescending(comment => comment.CreatedAt)
+        .ToList();
+    var walkPhotos = (Model.Photos ?? Array.Empty<DoggyDrop.Models.WalkPhoto>())
+        .OrderByDescending(photo => photo.CreatedAt)
+        .ToList();
+    var likedPhotoIds = walkPhotos
+        .Where(photo => !string.IsNullOrWhiteSpace(currentUserId) && (photo.Reactions?.Any(reaction => reaction.UserId == currentUserId) ?? false))
+        .Select(photo => photo.Id)
+        .ToHashSet();
+    var sharePhotos = walkPhotos.Take(3).ToList();
+    var isLikedByCurrentUser = !string.IsNullOrWhiteSpace(currentUserId)
+        && reactions.Any(reaction => reaction.UserId == currentUserId);
+    var points = (Model.Points ?? Array.Empty<DoggyDrop.Models.WalkPoint>())
+        .OrderBy(point => point.RecordedAt)
+        .Select(point => new
+        {
+            latitude = point.Latitude,
+            longitude = point.Longitude
+        });
+    var plannedStops = (Model.PlannedWalk?.Stops ?? Array.Empty<DoggyDrop.Models.PlannedWalkStop>())
+        .OrderBy(stop => stop.Order)
+        .ToList();
+    var completedStops = (Model.StopCompletions ?? Array.Empty<DoggyDrop.Models.WalkStopCompletion>())
+        .Where(completion => completion.PlannedWalkStop != null)
+        .OrderBy(completion => completion.PlannedWalkStop!.Order)
+        .ToList();
+    var completedStopIds = completedStops
+        .Select(completion => completion.PlannedWalkStopId)
+        .ToHashSet();
+    var pointsJson = Html.Raw(JsonSerializer.Serialize(points));
+}
+
+@section Styles {
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIINfQXh6ULpR5txR9wra5I3BcVsTPY1p3A="
+          crossorigin="" />
+    <style>
+        .first-walk-celebration {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 16px;
+            align-items: start;
+            margin-bottom: 18px;
+            padding: 18px;
+            border: 1px solid rgba(239, 143, 66, 0.18);
+            border-radius: 24px;
+            background:
+                radial-gradient(circle at top right, rgba(239, 143, 66, 0.16), transparent 32%),
+                linear-gradient(180deg, rgba(255, 251, 243, 0.98), rgba(255, 255, 255, 0.98));
+            box-shadow: 0 18px 40px rgba(31, 45, 41, 0.10);
+        }
+
+        .first-walk-celebration__badge {
+            width: 58px;
+            height: 58px;
+            border-radius: 18px;
+            display: grid;
+            place-items: center;
+            background: rgba(47, 109, 95, 0.12);
+            color: #ef8f42;
+            font-size: 1.5rem;
+        }
+
+        .first-walk-celebration__eyebrow {
+            display: inline-block;
+            margin-bottom: 8px;
+            color: #ef8f42;
+            font-size: 0.78rem;
+            font-weight: 900;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        .first-walk-celebration h2 {
+            margin: 0 0 8px;
+            color: #1f2d29;
+            font-size: 1.2rem;
+            font-weight: 900;
+        }
+
+        .first-walk-celebration p {
+            margin: 0;
+            color: #5d6d67;
+            line-height: 1.55;
+        }
+
+        .first-walk-celebration__actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+            margin-top: 14px;
+        }
+
+        .first-walk-celebration__pill {
+            display: inline-flex;
+            align-items: center;
+            padding: 7px 12px;
+            border-radius: 999px;
+            background: rgba(47, 109, 95, 0.10);
+            color: #2f6d5f;
+            font-size: 0.82rem;
+            font-weight: 900;
+        }
+
+        @@media (max-width: 575.98px) {
+            .first-walk-celebration {
+                grid-template-columns: 1fr;
+                padding: 14px;
+                border-radius: 18px;
+            }
+
+            .first-walk-celebration__actions {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .first-walk-celebration__actions .btn {
+                width: 100%;
+            }
+        }
+    </style>
+}
+
+<section class="app-page walk-summary-page">
+    <a class="walk-summary__back" asp-controller="Walks" asp-action="Index">Nazaj na sprehode</a>
+
+    @if (showFirstWalkCelebration)
+    {
+        <article class="first-walk-celebration">
+            <div class="first-walk-celebration__badge" aria-hidden="true">
+                <i class="bi bi-award-fill"></i>
+            </div>
+            <div class="first-walk-celebration__content">
+                <span class="first-walk-celebration__eyebrow">Prva značka odklenjena</span>
+                <h2>Prvi sprehod je za tabo</h2>
+                <p>
+                    @Model.Dog?.Name je uspešno zaključil svoj prvi DoggyDrop sprehod.
+                    @if (!string.IsNullOrWhiteSpace(firstWalkDistanceKm))
+                    {
+                        <text>Danes sta skupaj prehodila @firstWalkDistanceKm km.</text>
+                    }
+                </p>
+                <div class="first-walk-celebration__actions">
+                    <span class="first-walk-celebration__pill">First walk</span>
+                    <a class="btn btn-success rounded-pill fw-semibold" asp-controller="Walks" asp-action="Planner" asp-route-dogId="@Model.DogId">Na naslednji sprehod</a>
+                    <button type="button" class="btn btn-outline-secondary rounded-pill fw-semibold" data-share-walk-story>Deli dosežek</button>
+                    <a class="btn btn-outline-secondary rounded-pill fw-semibold" href="@facebookShareUrl" target="_blank" rel="noopener">Facebook</a>
+                </div>
+            </div>
+        </article>
+    }
+
+    <header class="walk-summary__hero">
+        <div>
+            <span>Povzetek sprehoda</span>
+            <h1>@Model.Dog?.Name</h1>
+            <p>@Model.StartedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</p>
+            @if (Model.PlannedWalk != null)
+            {
+                <p>Plan: @Model.PlannedWalk.Title</p>
+            }
+        </div>
+        <a class="btn btn-outline-light rounded-pill fw-semibold" asp-controller="Dogs" asp-action="Details" asp-route-id="@Model.DogId">Profil psa</a>
+    </header>
+
+    <div class="walk-summary__stats">
+        <article>
+            <strong>@((Model.DistanceMeters / 1000).ToString("0.00")) km</strong>
+            <span>Razdalja</span>
+        </article>
+        <article>
+            <strong>@duration.ToString(@"hh\:mm")</strong>
+            <span>Trajanje</span>
+        </article>
+        <article>
+            <strong>@((Model.Points?.Count ?? 0).ToString())</strong>
+            <span>GPS tocke</span>
+        </article>
+        <article>
+            <strong>@Model.UsedBinsCount</strong>
+            <span>Uporabljeni kosi</span>
+        </article>
+        <article>
+            <strong>@paceText</strong>
+            <span>Povprecni tempo</span>
+        </article>
+    </div>
+
+    @if (plannedStops.Count > 0)
+    {
+        <article class="walk-summary__plan-card">
+            <div class="walk-summary__map-header">
+                <h2>Planirani postanki</h2>
+                <span>@completedStops.Count / @plannedStops.Count opravljeno</span>
+            </div>
+            <div class="walk-summary__stop-list">
+                @foreach (var stop in plannedStops)
+                {
+                    var wasCompleted = completedStopIds.Contains(stop.Id);
+                    <div class="walk-summary__stop-item @(wasCompleted ? "is-completed" : string.Empty)">
+                        <div>
+                            <strong>@stop.Name</strong>
+                            <small>@stop.Label - @stop.Reason</small>
+                        </div>
+                        <span>@(wasCompleted ? "Opravljeno" : "Preskoceno")</span>
+                    </div>
+                }
+            </div>
+        </article>
+    }
+
+    <article class="walk-summary__map-card">
+        <div class="walk-summary__map-header">
+            <h2>Pot</h2>
+            @if ((Model.Points?.Count ?? 0) == 0)
+            {
+                <span>Brez GPS poti</span>
+            }
+            else
+            {
+                <span>Shranjena pot</span>
+            }
+        </div>
+        <div id="summaryMap"></div>
+    </article>
+
+    <article class="walk-share-card" id="walkShareCard">
+        <div class="walk-share-card__photos @(sharePhotos.Count switch { 0 => "is-empty", 1 => "is-single", 2 => "is-double", _ => "is-triple" })">
+            @if (sharePhotos.Count == 0 && !string.IsNullOrWhiteSpace(Model.Dog?.PhotoUrl))
+            {
+                <img src="@Model.Dog.PhotoUrl" alt="@Model.Dog?.Name" />
+            }
+            else
+            {
+                @foreach (var photo in sharePhotos)
+                {
+                    <img src="@photo.ImageUrl" alt="Share fotografija sprehoda @Model.Dog?.Name" />
+                }
+            }
+        </div>
+        <div class="walk-share-card__watermark">
+            <span class="walk-share-card__watermark-mark" aria-hidden="true">●</span>
+            <span>doggydrop.app</span>
+        </div>
+        <div class="walk-share-card__overlay"></div>
+        <div class="walk-share-card__content">
+            <div class="walk-share-card__brand">DoggyDrop</div>
+            <div class="walk-share-card__dog">@Model.Dog?.Name</div>
+            <div class="walk-share-card__metric">@distanceKm.ToString("0.00") km</div>
+            <div class="walk-share-card__grid">
+                <span>@duration.ToString(@"hh\:mm")</span>
+                <span>@Model.UsedBinsCount kosi</span>
+                <span>@Model.StartedAt.ToLocalTime().ToString("dd.MM.yyyy")</span>
+            </div>
+            <p>Generated by DoggyDrop</p>
+        </div>
+    </article>
+
+    <div class="walk-share-actions">
+        <button type="button" id="copyWalkShareText">Kopiraj tekst</button>
+        <a asp-controller="Walks" asp-action="ShareCard" asp-route-id="@Model.Id" target="_blank" rel="noopener">Odpri share card</a>
+        <a href="@facebookShareUrl" target="_blank" rel="noopener">Facebook</a>
+        <button type="button" id="shareWalkStory">Instagram / story</button>
+        <span id="walkShareFeedback"></span>
+    </div>
+
+    <article class="walk-media-card">
+        <div class="walk-summary__map-header">
+            <h2>Walk photos</h2>
+            <span>@walkPhotos.Count fotografij</span>
+        </div>
+
+        @if (currentUserId == Model.OwnerId)
+        {
+            <form asp-controller="Walks" asp-action="AddPhoto" asp-route-id="@Model.Id" method="post" enctype="multipart/form-data" class="walk-photo-upload">
+                @Html.AntiForgeryToken()
+                <input type="file" name="photo" accept="image/*" required />
+                <input type="text" name="caption" maxlength="120" placeholder="Kratek opis fotke" />
+                <button type="submit">Dodaj foto</button>
+            </form>
+        }
+
+        @if (walkPhotos.Count == 0)
+        {
+            <p class="walk-social-empty">Ta sprehod se nima dodanih fotografij.</p>
+        }
+        else
+        {
+            <div class="walk-photo-grid">
+                @foreach (var photo in walkPhotos)
+                {
+                    <figure class="walk-photo-item">
+                        <button type="button" class="walk-photo-item__open" data-gallery-index="@walkPhotos.IndexOf(photo)">
+                            <img src="@photo.ImageUrl" alt="Fotografija sprehoda @Model.Dog?.Name" />
+                        </button>
+                        <figcaption>
+                            <div>
+                                <span>@(string.IsNullOrWhiteSpace(photo.Caption) ? "DoggyDrop walk photo" : photo.Caption)</span>
+                                @if (photo.PlannedWalkStop != null)
+                                {
+                                    <small>@photo.PlannedWalkStop.Name</small>
+                                }
+                            </div>
+                            <div class="walk-photo-item__actions">
+                                <form asp-controller="Walks" asp-action="TogglePhotoReaction" asp-route-id="@Model.Id" asp-route-photoId="@photo.Id" method="post">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+                                    <button type="submit" class="@(likedPhotoIds.Contains(photo.Id) ? "is-liked" : string.Empty)">❤ @((photo.Reactions?.Count ?? 0))</button>
+                                </form>
+                                @if (currentUserId == Model.OwnerId)
+                                {
+                                    <form asp-controller="Walks" asp-action="DeletePhoto" asp-route-id="@Model.Id" asp-route-photoId="@photo.Id" method="post">
+                                        @Html.AntiForgeryToken()
+                                        <button type="submit">Odstrani</button>
+                                    </form>
+                                }
+                            </div>
+                        </figcaption>
+                    </figure>
+                }
+            </div>
+        }
+    </article>
+
+    @if (walkPhotos.Count > 0)
+    {
+        <div class="walk-photo-gallery" id="walkPhotoGallery" hidden>
+            <button type="button" class="walk-photo-gallery__close" id="closeWalkGallery">Zapri</button>
+            <button type="button" class="walk-photo-gallery__nav walk-photo-gallery__nav--prev" id="walkGalleryPrev">‹</button>
+            <div class="walk-photo-gallery__viewport">
+                @for (var i = 0; i < walkPhotos.Count; i++)
+                {
+                    var photo = walkPhotos[i];
+                    <figure class="walk-photo-gallery__slide @(i == 0 ? "is-active" : string.Empty)" data-gallery-slide="@i">
+                        <img src="@photo.ImageUrl" alt="Galerija sprehoda @Model.Dog?.Name" />
+                        <figcaption>
+                            <strong>@(string.IsNullOrWhiteSpace(photo.Caption) ? "DoggyDrop walk photo" : photo.Caption)</strong>
+                            <span>@photo.CreatedAt.ToLocalTime().ToString("dd.MM. HH:mm")</span>
+                        </figcaption>
+                    </figure>
+                }
+            </div>
+            <button type="button" class="walk-photo-gallery__nav walk-photo-gallery__nav--next" id="walkGalleryNext">›</button>
+        </div>
+    }
+
+    <article class="walk-social-card">
+        <div class="walk-social-card__header">
+            <div>
+                <h2>Odzivi</h2>
+                <p>@reactions.Count() tack · @comments.Count komentarjev</p>
+            </div>
+            <form asp-controller="Walks" asp-action="ToggleLike" asp-route-id="@Model.Id" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+                <button type="submit" class="walk-social-like @(isLikedByCurrentUser ? "is-liked" : "")">
+                    @(isLikedByCurrentUser ? "Tačka dana" : "Daj tačko")
+                </button>
+            </form>
+        </div>
+
+        <form class="walk-comment-form" asp-controller="Walks" asp-action="AddComment" asp-route-id="@Model.Id" method="post">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+            <label for="walkComment">Komentar</label>
+            <div>
+                <input id="walkComment" name="body" maxlength="240" placeholder="Napiši kratek komentar..." autocomplete="off" />
+                <button type="submit">Objavi</button>
+            </div>
+        </form>
+
+        @if (comments.Count == 0)
+        {
+            <p class="walk-social-empty">Ta sprehod se nima komentarjev.</p>
+        }
+        else
+        {
+            <div class="walk-comments">
+                @foreach (var comment in comments)
+                {
+                    <div class="walk-comment">
+                        <div>
+                            <strong>@(comment.User?.DisplayName ?? comment.User?.Email ?? "DoggyDrop uporabnik")</strong>
+                            <span>@comment.CreatedAt.ToLocalTime().ToString("dd.MM. HH:mm")</span>
+                        </div>
+                        <p>@comment.Body</p>
+                    </div>
+                }
+            </div>
+        }
+    </article>
+</section>
+
+@section Scripts {
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+            crossorigin=""></script>
+
+    <script>
+        const summaryPoints = @pointsJson;
+
+        document.addEventListener("DOMContentLoaded", function () {
+            const routePoints = summaryPoints.map(point => [point.latitude, point.longitude]);
+            const fallback = routePoints.length > 0 ? routePoints[0] : [46.5547, 15.6459];
+            const map = L.map("summaryMap").setView(fallback, routePoints.length > 0 ? 15 : 13);
+
+            L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+                maxZoom: 19,
+                attribution: "&copy; OpenStreetMap"
+            }).addTo(map);
+
+            if (routePoints.length > 0) {
+                const routeLine = L.polyline(routePoints, { color: "#2f6d5f", weight: 6, opacity: 0.9 }).addTo(map);
+                L.marker(routePoints[0]).addTo(map).bindPopup("Start");
+                L.marker(routePoints[routePoints.length - 1]).addTo(map).bindPopup("Cilj");
+                map.fitBounds(routeLine.getBounds().pad(0.2), { maxZoom: 17 });
+            }
+        });
+
+        document.getElementById("copyWalkShareText").addEventListener("click", async function () {
+            const feedback = document.getElementById("walkShareFeedback");
+            try {
+                await navigator.clipboard.writeText(@Html.Raw(JsonSerializer.Serialize(shareText)));
+                feedback.textContent = "Kopirano.";
+            } catch {
+                feedback.textContent = "Kopiranje ni uspelo.";
+            }
+        });
+
+        async function openWalkShare() {
+            const feedback = document.getElementById("walkShareFeedback");
+            const shareUrl = @Html.Raw(JsonSerializer.Serialize(shareCardUrl));
+            const detailsUrl = @Html.Raw(JsonSerializer.Serialize(detailsShareUrl));
+            const shareLabel = @Html.Raw(JsonSerializer.Serialize(shareText));
+            const shareTitle = @Html.Raw(JsonSerializer.Serialize(shareTitle));
+            try {
+                if (navigator.share) {
+                    await navigator.share({
+                        title: shareTitle,
+                        text: shareLabel,
+                        url: detailsUrl || shareUrl
+                    });
+                    feedback.textContent = "Share je odprt v telefonu.";
+                    return;
+                }
+
+                await navigator.clipboard.writeText(shareLabel);
+                window.open(shareUrl, "_blank", "noopener");
+                feedback.textContent = "Share card je odprt, opis pa kopiran za story objavo.";
+            } catch {
+                window.open(shareUrl, "_blank", "noopener");
+                feedback.textContent = "Share card je odprt za Instagram ali story objavo.";
+            }
+        }
+
+        document.getElementById("shareWalkStory")?.addEventListener("click", openWalkShare);
+        document.querySelectorAll("[data-share-walk-story]").forEach(button => {
+            button.addEventListener("click", openWalkShare);
+        });
+
+        const gallery = document.getElementById("walkPhotoGallery");
+        const slides = Array.from(document.querySelectorAll("[data-gallery-slide]"));
+        const openButtons = Array.from(document.querySelectorAll("[data-gallery-index]"));
+        const closeGalleryButton = document.getElementById("closeWalkGallery");
+        const prevGalleryButton = document.getElementById("walkGalleryPrev");
+        const nextGalleryButton = document.getElementById("walkGalleryNext");
+        let activeGalleryIndex = 0;
+        let touchStartX = null;
+
+        function showGallerySlide(index) {
+            if (!slides.length) {
+                return;
+            }
+
+            activeGalleryIndex = (index + slides.length) % slides.length;
+            slides.forEach((slide, slideIndex) => {
+                slide.classList.toggle("is-active", slideIndex === activeGalleryIndex);
+            });
+        }
+
+        function openGallery(index) {
+            if (!gallery) {
+                return;
+            }
+
+            gallery.hidden = false;
+            document.body.style.overflow = "hidden";
+            showGallerySlide(index);
+        }
+
+        function closeGallery() {
+            if (!gallery) {
+                return;
+            }
+
+            gallery.hidden = true;
+            document.body.style.overflow = "";
+        }
+
+        openButtons.forEach(button => {
+            button.addEventListener("click", function () {
+                openGallery(Number(button.dataset.galleryIndex || "0"));
+            });
+        });
+
+        closeGalleryButton?.addEventListener("click", closeGallery);
+        prevGalleryButton?.addEventListener("click", function () { showGallerySlide(activeGalleryIndex - 1); });
+        nextGalleryButton?.addEventListener("click", function () { showGallerySlide(activeGalleryIndex + 1); });
+
+        gallery?.addEventListener("click", function (event) {
+            if (event.target === gallery) {
+                closeGallery();
+            }
+        });
+
+        gallery?.addEventListener("touchstart", function (event) {
+            touchStartX = event.changedTouches[0].clientX;
+        }, { passive: true });
+
+        gallery?.addEventListener("touchend", function (event) {
+            if (touchStartX === null) {
+                return;
+            }
+
+            const deltaX = event.changedTouches[0].clientX - touchStartX;
+            touchStartX = null;
+
+            if (Math.abs(deltaX) < 40) {
+                return;
+            }
+
+            if (deltaX > 0) {
+                showGallerySlide(activeGalleryIndex - 1);
+            } else {
+                showGallerySlide(activeGalleryIndex + 1);
+            }
+        }, { passive: true });
+    </script>
+}
+
+<style>
+    .walk-summary__back {
+        display: inline-flex;
+        margin-bottom: 14px;
+        color: #2f6d5f;
+        font-weight: 800;
+        text-decoration: none;
+    }
+
+    .walk-summary__hero,
+    .walk-summary__stats article,
+    .walk-summary__map-card,
+    .walk-media-card {
+        border: 1px solid rgba(31, 45, 41, 0.1);
+        border-radius: 8px;
+        background: #ffffff;
+        box-shadow: 0 12px 28px rgba(31, 45, 41, 0.08);
+    }
+
+    .walk-summary__hero {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 22px;
+        background: linear-gradient(135deg, #2f6d5f, #e18d32);
+        color: #ffffff;
+    }
+
+    .walk-summary__hero span {
+        font-size: 0.78rem;
+        font-weight: 900;
+        opacity: 0.86;
+        text-transform: uppercase;
+    }
+
+    .walk-summary__hero h1 {
+        margin: 4px 0;
+        font-size: clamp(2rem, 8vw, 3.1rem);
+        font-weight: 950;
+        line-height: 1;
+    }
+
+    .walk-summary__hero p {
+        margin: 0;
+        opacity: 0.9;
+    }
+
+    .walk-summary__stats {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 12px;
+        margin: 14px 0;
+    }
+
+    .walk-summary__stats article {
+        padding: 16px;
+    }
+
+    .walk-summary__stats strong,
+    .walk-summary__stats span {
+        display: block;
+    }
+
+    .walk-summary__stats strong {
+        color: #21342f;
+        font-size: 1.45rem;
+        font-weight: 950;
+    }
+
+    .walk-summary__stats span {
+        color: #65716d;
+        font-weight: 750;
+    }
+
+    .walk-summary__map-card,
+    .walk-summary__plan-card,
+    .walk-share-card,
+    .walk-social-card {
+        padding: 14px;
+    }
+
+    .walk-summary__plan-card {
+        margin: 14px 0 0;
+        border: 1px solid rgba(31, 45, 41, 0.1);
+        border-radius: 8px;
+        background: #ffffff;
+        box-shadow: 0 12px 28px rgba(31, 45, 41, 0.08);
+    }
+
+    .walk-summary__stop-list {
+        display: grid;
+        gap: 8px;
+    }
+
+    .walk-summary__stop-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px;
+        border: 1px solid rgba(31, 45, 41, 0.08);
+        border-radius: 8px;
+        background: #fbfdfb;
+    }
+
+    .walk-summary__stop-item.is-completed {
+        background: #eef6ef;
+        border-color: rgba(47, 109, 95, 0.22);
+    }
+
+    .walk-summary__stop-item strong,
+    .walk-summary__stop-item small,
+    .walk-summary__stop-item span {
+        display: block;
+    }
+
+    .walk-summary__stop-item strong {
+        color: #21342f;
+        font-weight: 900;
+    }
+
+    .walk-summary__stop-item small {
+        color: #65716d;
+        font-size: 0.84rem;
+        font-weight: 750;
+    }
+
+    .walk-summary__stop-item span {
+        color: #2f6d5f;
+        font-size: 0.82rem;
+        font-weight: 850;
+        white-space: nowrap;
+    }
+
+    .walk-social-card {
+        margin-top: 14px;
+        border: 1px solid rgba(31, 45, 41, 0.1);
+        border-radius: 8px;
+        background: #ffffff;
+        box-shadow: 0 12px 28px rgba(31, 45, 41, 0.08);
+    }
+
+    .walk-social-card__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 14px;
+    }
+
+    .walk-social-card__header h2 {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 950;
+    }
+
+    .walk-social-card__header p,
+    .walk-social-empty {
+        margin: 4px 0 0;
+        color: #65716d;
+    }
+
+    .walk-social-like,
+    .walk-comment-form button {
+        min-height: 42px;
+        border: 0;
+        border-radius: 999px;
+        font-weight: 900;
+    }
+
+    .walk-social-like {
+        padding: 10px 16px;
+        background: #eef6ef;
+        color: #2f6d5f;
+    }
+
+    .walk-social-like.is-liked {
+        background: #2f6d5f;
+        color: #ffffff;
+    }
+
+    .walk-comment-form {
+        display: grid;
+        gap: 8px;
+        margin-bottom: 14px;
+    }
+
+    .walk-comment-form label {
+        color: #21342f;
+        font-weight: 850;
+    }
+
+    .walk-comment-form div {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 8px;
+    }
+
+    .walk-comment-form input {
+        min-height: 42px;
+        padding: 10px 12px;
+        border: 1px solid rgba(31, 45, 41, 0.14);
+        border-radius: 8px;
+    }
+
+    .walk-comment-form button {
+        padding: 10px 16px;
+        background: #2f6d5f;
+        color: #ffffff;
+    }
+
+    .walk-comments {
+        display: grid;
+        gap: 10px;
+    }
+
+    .walk-comment {
+        padding: 12px;
+        border: 1px solid rgba(31, 45, 41, 0.08);
+        border-radius: 8px;
+        background: #fbfdfb;
+    }
+
+    .walk-comment div {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 4px;
+    }
+
+    .walk-comment strong {
+        font-weight: 900;
+    }
+
+    .walk-comment span {
+        color: #65716d;
+        font-size: 0.82rem;
+        font-weight: 750;
+    }
+
+    .walk-comment p {
+        margin: 0;
+        color: #21342f;
+    }
+
+    .walk-summary__map-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 12px;
+    }
+
+    .walk-summary__map-header h2 {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 900;
+    }
+
+    .walk-summary__map-header span {
+        color: #2f6d5f;
+        font-size: 0.82rem;
+        font-weight: 850;
+    }
+
+    #summaryMap {
+        height: 360px;
+        width: 100%;
+        overflow: hidden;
+        border-radius: 8px;
+    }
+
+    .walk-share-card {
+        position: relative;
+        overflow: hidden;
+        margin-top: 14px;
+        min-height: 360px;
+        color: #ffffff;
+        background: linear-gradient(145deg, rgba(47, 109, 95, 0.95), rgba(225, 141, 50, 0.9));
+    }
+
+    .walk-share-card__photos,
+    .walk-share-card__overlay,
+    .walk-share-card__content,
+    .walk-share-card__watermark {
+        position: absolute;
+        inset: 0;
+    }
+
+    .walk-share-card__photos {
+        display: grid;
+        gap: 6px;
+        padding: 14px;
+    }
+
+    .walk-share-card__photos.is-empty,
+    .walk-share-card__photos.is-single {
+        grid-template-columns: 1fr;
+    }
+
+    .walk-share-card__photos.is-double {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .walk-share-card__photos.is-triple {
+        grid-template-columns: 1.15fr 0.85fr;
+        grid-template-rows: repeat(2, minmax(0, 1fr));
+    }
+
+    .walk-share-card__photos img {
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+        border-radius: 8px;
+        object-fit: cover;
+        opacity: 0.92;
+    }
+
+    .walk-share-card__photos.is-triple img:first-child {
+        grid-row: 1 / span 2;
+    }
+
+    .walk-share-card__overlay {
+        background:
+            linear-gradient(180deg, rgba(13, 27, 24, 0.08), rgba(13, 27, 24, 0.36)),
+            radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.18), transparent 28%);
+    }
+
+    .walk-share-card__watermark {
+        inset: auto 14px 14px auto;
+        width: auto;
+        height: auto;
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 7px 11px;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        border-radius: 999px;
+        background: rgba(13, 27, 24, 0.34);
+        color: rgba(255, 255, 255, 0.88);
+        font-size: 0.72rem;
+        font-weight: 950;
+        letter-spacing: 0.03em;
+        text-transform: lowercase;
+        backdrop-filter: blur(10px);
+    }
+
+    .walk-share-card__watermark-mark {
+        color: #ef8f42;
+        font-size: 0.9rem;
+        line-height: 1;
+        text-shadow: 0 0 12px rgba(239, 143, 66, 0.28);
+    }
+
+    .walk-share-card__content {
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        padding: 24px;
+    }
+
+    .walk-share-card__brand {
+        font-size: 0.9rem;
+        font-weight: 950;
+        letter-spacing: 0;
+        text-transform: uppercase;
+        opacity: 0.86;
+    }
+
+    .walk-share-card__dog {
+        margin-top: auto;
+        font-size: clamp(2.4rem, 11vw, 4.8rem);
+        font-weight: 950;
+        line-height: 0.95;
+    }
+
+    .walk-share-card__metric {
+        margin-top: 10px;
+        font-size: clamp(2.8rem, 13vw, 5.8rem);
+        font-weight: 950;
+        line-height: 0.95;
+    }
+
+    .walk-share-card__grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+        margin-top: 28px;
+    }
+
+    .walk-share-card__grid span {
+        padding: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.24);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.14);
+        font-weight: 900;
+        text-align: center;
+    }
+
+    .walk-share-card p {
+        margin: 16px 0 0;
+        font-size: 0.84rem;
+        font-weight: 850;
+        opacity: 0.82;
+    }
+
+    .walk-share-actions {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 10px;
+    }
+
+    .walk-share-actions button,
+    .walk-share-actions a {
+        min-height: 42px;
+        padding: 10px 16px;
+        border: 0;
+        border-radius: 999px;
+        background: #2f6d5f;
+        color: #ffffff;
+        font-weight: 900;
+        text-decoration: none;
+    }
+
+    .walk-share-actions span {
+        color: #2f6d5f;
+        font-weight: 850;
+    }
+
+    .walk-media-card {
+        margin-top: 14px;
+        padding: 18px;
+    }
+
+    .walk-photo-upload {
+        display: grid;
+        grid-template-columns: 1.1fr 1fr auto;
+        gap: 10px;
+        margin-bottom: 14px;
+    }
+
+    .walk-photo-upload input,
+    .walk-photo-upload button,
+    .walk-photo-item button {
+        min-height: 42px;
+        border: 1px solid rgba(31, 45, 41, 0.12);
+        border-radius: 8px;
+    }
+
+    .walk-photo-upload input {
+        padding: 10px 12px;
+        background: #ffffff;
+    }
+
+    .walk-photo-upload button,
+    .walk-photo-item button {
+        background: #2f6d5f;
+        color: #ffffff;
+        font-weight: 900;
+    }
+
+    .walk-photo-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+    }
+
+    .walk-photo-item {
+        margin: 0;
+        overflow: hidden;
+        border: 1px solid rgba(31, 45, 41, 0.08);
+        border-radius: 8px;
+        background: #fbfdfb;
+    }
+
+    .walk-photo-item img {
+        display: block;
+        width: 100%;
+        aspect-ratio: 4 / 5;
+        object-fit: cover;
+    }
+
+    .walk-photo-item__open {
+        display: block;
+        width: 100%;
+        padding: 0;
+        border: 0;
+        background: transparent;
+    }
+
+    .walk-photo-item figcaption {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 10px 12px 12px;
+    }
+
+    .walk-photo-item span {
+        color: #21342f;
+        font-weight: 750;
+    }
+
+    .walk-photo-item small {
+        display: block;
+        margin-top: 4px;
+        color: #65716d;
+        font-size: 0.78rem;
+        font-weight: 750;
+    }
+
+    .walk-photo-item__actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .walk-photo-item__actions button {
+        min-height: 36px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        font-weight: 850;
+    }
+
+    .walk-photo-item__actions .is-liked {
+        background: #2f6d5f;
+        color: #ffffff;
+    }
+
+    .walk-photo-gallery {
+        position: fixed;
+        inset: 0;
+        z-index: 1400;
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 12px;
+        padding: 20px;
+        background: rgba(8, 15, 13, 0.92);
+    }
+
+    .walk-photo-gallery__viewport {
+        position: relative;
+        min-height: 70vh;
+    }
+
+    .walk-photo-gallery__slide {
+        display: none;
+        height: 100%;
+        margin: 0;
+    }
+
+    .walk-photo-gallery__slide.is-active {
+        display: grid;
+        align-content: center;
+        gap: 10px;
+    }
+
+    .walk-photo-gallery__slide img {
+        max-width: 100%;
+        max-height: 76vh;
+        margin: 0 auto;
+        border-radius: 8px;
+        object-fit: contain;
+    }
+
+    .walk-photo-gallery__slide figcaption {
+        display: grid;
+        gap: 4px;
+        color: #ffffff;
+        text-align: center;
+    }
+
+    .walk-photo-gallery__close,
+    .walk-photo-gallery__nav {
+        border: 0;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.14);
+        color: #ffffff;
+        font-weight: 900;
+    }
+
+    .walk-photo-gallery__close {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        min-height: 42px;
+        padding: 10px 16px;
+    }
+
+    .walk-photo-gallery__nav {
+        width: 48px;
+        height: 48px;
+        font-size: 1.5rem;
+    }
+
+    @@media (max-width: 575.98px) {
+        .walk-summary__hero,
+        .walk-summary__map-header,
+        .walk-social-card__header,
+        .walk-photo-item figcaption,
+        .walk-photo-item__actions {
+            align-items: stretch;
+            flex-direction: column;
+        }
+
+        .walk-summary__hero .btn {
+            width: 100%;
+        }
+
+        .walk-summary__stats {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .walk-share-card__grid {
+            grid-template-columns: 1fr;
+        }
+
+        .walk-share-actions {
+            align-items: stretch;
+            flex-direction: column;
+        }
+
+        .walk-photo-upload,
+        .walk-photo-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .walk-summary__stop-item {
+            align-items: stretch;
+            flex-direction: column;
+        }
+
+        .walk-comment-form div {
+            grid-template-columns: 1fr;
+        }
+
+        .walk-photo-gallery {
+            grid-template-columns: 1fr;
+            padding: 16px;
+        }
+    }
+</style>

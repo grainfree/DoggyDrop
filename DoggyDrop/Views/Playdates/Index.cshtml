@@ -1,0 +1,460 @@
+@model DoggyDrop.ViewModels.PlaydatesViewModel
+
+@{
+    ViewData["Title"] = "Playdates";
+}
+
+<section class="app-page playdates-page">
+    <header class="playdates-hero">
+        <div>
+            <span>Skupnost</span>
+            <h1>Playdates</h1>
+            <p>Povabi druge lastnike na pasje srecanje. Za zdaj je to testni community flow, kasneje dodava potrditve in zasebna sporocila.</p>
+        </div>
+        <a asp-controller="Home" asp-action="Community">Skupnost</a>
+    </header>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success">@TempData["SuccessMessage"]</div>
+    }
+
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-warning">@TempData["ErrorMessage"]</div>
+    }
+
+    <section class="playdates-layout">
+        <article class="playdate-panel">
+            <div class="playdate-section-header">
+                <h2>Novo povabilo</h2>
+                <span>@Model.MyDogs.Count psov</span>
+            </div>
+
+            @if (Model.MyDogs.Count == 0)
+            {
+                <div class="playdate-empty">
+                    <h3>Najprej dodaj psa</h3>
+                    <p>Playdate povabilo mora biti povezano s profilom psa.</p>
+                    <a asp-controller="Dogs" asp-action="Create">Dodaj psa</a>
+                </div>
+            }
+            else
+            {
+                <form asp-controller="Playdates" asp-action="Create" method="post" class="playdate-form">
+                    <div asp-validation-summary="ModelOnly" class="text-danger small"></div>
+
+                    <div>
+                        <label asp-for="Create.DogId" class="form-label">Pes</label>
+                        <select asp-for="Create.DogId" class="form-select">
+                            @foreach (var dog in Model.MyDogs)
+                            {
+                                <option value="@dog.Id">@dog.Name</option>
+                            }
+                        </select>
+                        <span asp-validation-for="Create.DogId" class="text-danger small"></span>
+                    </div>
+
+                    <div>
+                        <label asp-for="Create.LocationLabel" class="form-label">Lokacija</label>
+                        <input asp-for="Create.LocationLabel" class="form-control" placeholder="npr. Tivoli, Mestni park, Lent" />
+                        <span asp-validation-for="Create.LocationLabel" class="text-danger small"></span>
+                    </div>
+
+                    <div class="playdate-form__grid">
+                        <div>
+                            <label asp-for="Create.PreferredAt" class="form-label">Termin</label>
+                            <input asp-for="Create.PreferredAt" type="datetime-local" class="form-control" />
+                            <span asp-validation-for="Create.PreferredAt" class="text-danger small"></span>
+                        </div>
+
+                        <div>
+                            <label asp-for="Create.EnergyLevel" class="form-label">Energija</label>
+                            <select asp-for="Create.EnergyLevel" class="form-select">
+                                <option>Mirna</option>
+                                <option>Srednja</option>
+                                <option>Aktivna</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label asp-for="Create.SizePreference" class="form-label">Velikost psov</label>
+                        <select asp-for="Create.SizePreference" class="form-select">
+                            <option>Vse velikosti</option>
+                            <option>Majhni psi</option>
+                            <option>Srednji psi</option>
+                            <option>Veliki psi</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label asp-for="Create.Note" class="form-label">Opomba</label>
+                        <textarea asp-for="Create.Note" rows="3" class="form-control" placeholder="npr. Floyd je prijazen, ampak rabi malo casa."></textarea>
+                        <span asp-validation-for="Create.Note" class="text-danger small"></span>
+                    </div>
+
+                    <button type="submit" class="btn btn-success rounded-pill fw-semibold">Objavi povabilo</button>
+                </form>
+            }
+        </article>
+
+        <section class="playdate-panel">
+            <div class="playdate-section-header">
+                <h2>Odprta povabila</h2>
+                <span>@Model.OpenRequests.Count aktivnih</span>
+            </div>
+
+            @if (Model.OpenRequests.Count == 0)
+            {
+                <p class="playdate-muted">Ni se aktivnih povabil. Objavi prvega in preveriva flow.</p>
+            }
+            else
+            {
+                <div class="playdate-list">
+                    @foreach (var request in Model.OpenRequests)
+                    {
+                        var isMine = request.OwnerId == User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                        var myInterest = request.Interests?.FirstOrDefault(interest => interest.OwnerId == User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value && interest.Status == "Interested");
+                        <article class="playdate-card">
+                            <div class="playdate-card__avatar">
+                                @if (!string.IsNullOrWhiteSpace(request.Dog?.PhotoUrl))
+                                {
+                                    <img src="@request.Dog.PhotoUrl" alt="@request.Dog.Name" />
+                                }
+                                else
+                                {
+                                    <span>@((request.Dog?.Name ?? "D").Substring(0, 1).ToUpperInvariant())</span>
+                                }
+                            </div>
+                            <div class="playdate-card__body">
+                                <div class="playdate-card__top">
+                                    <div>
+                                        <h3>@request.Dog?.Name</h3>
+                                        <p>@request.LocationLabel - @request.PreferredAt.ToLocalTime().ToString("dd.MM. HH:mm")</p>
+                                    </div>
+                                    <span>@request.EnergyLevel</span>
+                                </div>
+                                <div class="playdate-card__chips">
+                                    <span>@request.SizePreference</span>
+                                    <span>@(request.Owner?.DisplayName ?? request.Owner?.Email ?? "DoggyDrop uporabnik")</span>
+                                    <span>@(request.Interests?.Count(interest => interest.Status == "Interested") ?? 0) interesentov</span>
+                                </div>
+                                @if (!string.IsNullOrWhiteSpace(request.Note))
+                                {
+                                    <p class="playdate-card__note">@request.Note</p>
+                                }
+                                @if (isMine)
+                                {
+                                    @if (request.Interests?.Any(interest => interest.Status == "Interested") == true)
+                                    {
+                                        <div class="playdate-interest-list">
+                                            @foreach (var interest in request.Interests.Where(interest => interest.Status == "Interested"))
+                                            {
+                                                <div>
+                                                    <strong>@interest.Dog?.Name</strong>
+                                                    <span>@(interest.Owner?.DisplayName ?? interest.Owner?.Email ?? "DoggyDrop uporabnik")</span>
+                                                    @if (!string.IsNullOrWhiteSpace(interest.Message))
+                                                    {
+                                                        <p>@interest.Message</p>
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                    <form asp-controller="Playdates" asp-action="Close" asp-route-id="@request.Id" method="post">
+                                        <button type="submit">Zapri povabilo</button>
+                                    </form>
+                                }
+                                else if (Model.MyDogs.Count > 0)
+                                {
+                                    @if (myInterest == null)
+                                    {
+                                        <form asp-controller="Playdates" asp-action="Interested" asp-route-id="@request.Id" method="post" class="playdate-interest-form">
+                                            <select name="DogId" class="form-select">
+                                                @foreach (var dog in Model.MyDogs)
+                                                {
+                                                    <option value="@dog.Id">@dog.Name</option>
+                                                }
+                                            </select>
+                                            <input name="Message" class="form-control" maxlength="180" placeholder="Kratek pozdrav, npr. Floyd pride z veseljem." />
+                                            <button type="submit">Zanima me</button>
+                                        </form>
+                                    }
+                                    else
+                                    {
+                                        <form asp-controller="Playdates" asp-action="WithdrawInterest" asp-route-id="@request.Id" method="post" class="playdate-interest-form">
+                                            <p class="playdate-card__note">Zanimanje je poslano z @myInterest.Dog?.Name.</p>
+                                            <button type="submit">Umakni zanimanje</button>
+                                        </form>
+                                    }
+                                }
+                            </div>
+                        </article>
+                    }
+                </div>
+            }
+        </section>
+    </section>
+</section>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
+
+<style>
+    .playdates-hero,
+    .playdate-panel,
+    .playdate-card {
+        border: 1px solid rgba(31, 45, 41, 0.1);
+        border-radius: 8px;
+        background: #ffffff;
+        box-shadow: 0 12px 28px rgba(31, 45, 41, 0.08);
+    }
+
+    .playdates-hero {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 22px;
+    }
+
+    .playdates-hero span {
+        color: #2f6d5f;
+        font-size: 0.78rem;
+        font-weight: 900;
+        text-transform: uppercase;
+    }
+
+    .playdates-hero h1 {
+        margin: 4px 0 8px;
+        font-size: clamp(2rem, 8vw, 3.2rem);
+        font-weight: 950;
+        line-height: 1;
+    }
+
+    .playdates-hero p,
+    .playdate-muted,
+    .playdate-empty p,
+    .playdate-card p {
+        color: #65716d;
+    }
+
+    .playdates-hero p {
+        max-width: 640px;
+        margin: 0;
+    }
+
+    .playdates-hero a,
+    .playdate-empty a {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 42px;
+        padding: 10px 16px;
+        border-radius: 999px;
+        background: #2f6d5f;
+        color: #ffffff;
+        font-weight: 900;
+        text-decoration: none;
+    }
+
+    .playdates-layout {
+        display: grid;
+        grid-template-columns: minmax(280px, 420px) 1fr;
+        gap: 14px;
+        margin-top: 14px;
+    }
+
+    .playdate-panel {
+        padding: 18px;
+    }
+
+    .playdate-section-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 12px;
+    }
+
+    .playdate-section-header h2,
+    .playdate-card h3,
+    .playdate-empty h3 {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 950;
+    }
+
+    .playdate-section-header span {
+        color: #2f6d5f;
+        font-size: 0.82rem;
+        font-weight: 850;
+    }
+
+    .playdate-form {
+        display: grid;
+        gap: 12px;
+    }
+
+    .playdate-form__grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .playdate-form .btn {
+        justify-self: start;
+        min-width: 170px;
+    }
+
+    .playdate-list {
+        display: grid;
+        gap: 12px;
+    }
+
+    .playdate-card {
+        display: grid;
+        grid-template-columns: 72px 1fr;
+        gap: 14px;
+        padding: 14px;
+    }
+
+    .playdate-card__avatar {
+        display: grid;
+        width: 72px;
+        aspect-ratio: 1;
+        place-items: center;
+        overflow: hidden;
+        border-radius: 8px;
+        background: linear-gradient(135deg, #e7f3e5, #fff3dd);
+        color: #2f6d5f;
+        font-size: 1.8rem;
+        font-weight: 950;
+    }
+
+    .playdate-card__avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .playdate-card__top {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+    }
+
+    .playdate-card__top > span,
+    .playdate-card__chips span {
+        color: #2f6d5f;
+        font-size: 0.78rem;
+        font-weight: 900;
+    }
+
+    .playdate-card__top p,
+    .playdate-card__note {
+        margin: 4px 0 0;
+    }
+
+    .playdate-card__chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 10px;
+    }
+
+    .playdate-card__chips span {
+        padding: 6px 9px;
+        border-radius: 999px;
+        background: #eef7ed;
+    }
+
+    .playdate-card form {
+        margin-top: 10px;
+    }
+
+    .playdate-interest-form {
+        display: grid;
+        grid-template-columns: minmax(120px, 0.8fr) minmax(160px, 1.4fr) auto;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .playdate-interest-list {
+        display: grid;
+        gap: 8px;
+        margin-top: 12px;
+    }
+
+    .playdate-interest-list div {
+        padding: 10px;
+        border-radius: 8px;
+        background: #f8faf7;
+    }
+
+    .playdate-interest-list strong,
+    .playdate-interest-list span {
+        display: block;
+    }
+
+    .playdate-interest-list strong {
+        color: #1f2d29;
+        font-weight: 950;
+    }
+
+    .playdate-interest-list span {
+        color: #2f6d5f;
+        font-size: 0.8rem;
+        font-weight: 900;
+    }
+
+    .playdate-interest-list p {
+        margin: 4px 0 0;
+        color: #65716d;
+        font-size: 0.86rem;
+    }
+
+    .playdate-card button {
+        min-height: 34px;
+        padding: 7px 12px;
+        border: 1px solid rgba(47, 109, 95, 0.18);
+        border-radius: 999px;
+        background: #ffffff;
+        color: #2f6d5f;
+        font-weight: 900;
+    }
+
+    @@media (max-width: 800px) {
+        .playdates-layout {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @@media (max-width: 575.98px) {
+        .playdates-hero,
+        .playdate-section-header,
+        .playdate-card__top {
+            align-items: stretch;
+            flex-direction: column;
+        }
+
+        .playdate-form__grid,
+        .playdate-card,
+        .playdate-interest-form {
+            grid-template-columns: 1fr;
+        }
+
+        .playdate-card__avatar {
+            width: 100%;
+            max-width: 140px;
+        }
+
+        .playdate-form .btn,
+        .playdates-hero a {
+            width: 100%;
+        }
+    }
+</style>

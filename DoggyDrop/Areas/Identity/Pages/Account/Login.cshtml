@@ -1,58 +1,195 @@
-﻿@page
+@page
 @model LoginModel
 @{
     ViewData["Title"] = "Prijava";
+    var googleLoginEnabled = Model.ExternalLogins?.Any(login => login.Name == "Google") == true;
 }
 
-<div class="container d-flex align-items-center justify-content-center min-vh-100 bg-light">
-    <div class="card shadow-lg p-4 rounded-4" style="max-width: 400px; width: 100%;">
-        <div class="text-center mb-3">
-            <img src="~/images/logo_transparent.png" alt="DoggyDrop" style="height: 60px;" asp-append-version="true" class="mb-2" />
-            <h2 class="h4 text-success">Prijava</h2>
+<section class="auth-shell">
+    <div class="auth-shell__panel">
+        <div class="auth-brand">
+            <img src="~/images/logo_transparent.png" alt="DoggyDrop" asp-append-version="true" />
+            <span>DoggyDrop</span>
         </div>
 
-        <form asp-route-returnUrl="@Model.ReturnUrl" method="post">
-            <div asp-validation-summary="ModelOnly" class="text-danger mb-3 small"></div>
+        <div class="auth-hero">
+            <span>Dobrodošel nazaj</span>
+            <h1>Prijava v tvoj pasji svet.</h1>
+            <p>Odpri sprehode, spremljaj napredek svojega psa in ostani blizu skupnosti.</p>
+        </div>
 
-            <div class="mb-3">
-                <label asp-for="Input.Email" class="form-label">Email</label>
-                <input asp-for="Input.Email" class="form-control rounded-3" />
+        <form asp-route-returnUrl="@Model.ReturnUrl" method="post" class="auth-form">
+            <div asp-validation-summary="ModelOnly" class="text-danger small"></div>
+
+            <div class="auth-field">
+                <label asp-for="Input.Email">Email</label>
+                <input asp-for="Input.Email" class="form-control" />
                 <span asp-validation-for="Input.Email" class="text-danger small"></span>
             </div>
 
-            <div class="mb-3">
-                <label asp-for="Input.Password" class="form-label">Geslo</label>
-                <input asp-for="Input.Password" class="form-control rounded-3" />
+            <div class="auth-field">
+                <label asp-for="Input.Password">Geslo</label>
+                <input asp-for="Input.Password" class="form-control" />
                 <span asp-validation-for="Input.Password" class="text-danger small"></span>
             </div>
 
-            <div class="form-check mb-3">
+            <label class="form-check auth-check">
                 <input asp-for="Input.RememberMe" class="form-check-input" />
-                <label asp-for="Input.RememberMe" class="form-check-label">
-                    Zapomni si me
-                </label>
-            </div>
+                <span class="form-check-label">Zapomni si me</span>
+            </label>
 
-            <button type="submit" class="btn btn-success w-100 rounded-pill fw-semibold">
-                Prijavi se
-            </button>
+            <button type="submit" class="btn btn-success auth-submit">Prijavi se</button>
         </form>
 
-        <hr class="my-4" />
+        @if (googleLoginEnabled)
+        {
+            <div class="auth-divider"><span>ali nadaljuj z</span></div>
 
-        <div class="text-center">
-            <p class="mb-2 small">ali prijava z</p>
-            <form asp-page="./ExternalLogin" asp-route-returnUrl="@Model.ReturnUrl" method="post" class="d-grid">
-                <button type="submit" class="btn btn-outline-danger w-100 rounded-pill fw-semibold d-flex align-items-center justify-content-center gap-2" name="provider" value="Google">
-                    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google logo" style="height: 20px;" />
-                    Google račun
+            <form asp-page="./ExternalLogin" asp-route-returnUrl="@Model.ReturnUrl" method="post" class="auth-provider">
+                <button type="submit" class="btn btn-outline-secondary auth-provider__button" name="provider" value="Google">
+                    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="" />
+                    <span>Google račun</span>
                 </button>
             </form>
-        </div>
+        }
 
-        <p class="mt-3 text-center small">
+        <p class="auth-switch">
             Nimaš računa?
-            <a asp-page="./Register" class="text-decoration-none text-warning fw-bold">Registriraj se</a>
+            <a asp-page="./Register">Registriraj se</a>
         </p>
     </div>
-</div>
+</section>
+
+<style>
+    .auth-shell {
+        display: grid;
+        min-height: calc(100vh - 64px - 76px);
+        place-items: center;
+        padding: 24px 12px 32px;
+    }
+
+    .auth-shell__panel {
+        width: min(460px, 100%);
+        padding: 24px;
+        border: 1px solid rgba(31, 45, 41, 0.08);
+        border-radius: 28px;
+        background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(249,252,247,0.96));
+        box-shadow: 0 24px 48px rgba(31, 45, 41, 0.10);
+    }
+
+    .auth-brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 18px;
+        color: #2f6d5f;
+        font-weight: 900;
+    }
+
+    .auth-brand img {
+        height: 48px;
+        width: auto;
+    }
+
+    .auth-hero span {
+        color: #2f6d5f;
+        font-size: 0.78rem;
+        font-weight: 900;
+        text-transform: uppercase;
+    }
+
+    .auth-hero h1 {
+        margin: 6px 0 10px;
+        color: #17322c;
+        font-size: clamp(1.9rem, 7vw, 2.8rem);
+        font-weight: 950;
+        line-height: 1.03;
+    }
+
+    .auth-hero p,
+    .auth-switch {
+        color: #65716d;
+    }
+
+    .auth-form {
+        display: grid;
+        gap: 14px;
+        margin-top: 20px;
+    }
+
+    .auth-field {
+        display: grid;
+        gap: 6px;
+    }
+
+    .auth-field label {
+        color: #17322c;
+        font-weight: 850;
+    }
+
+    .auth-field .form-control {
+        min-height: 48px;
+        border-radius: 16px;
+        border-color: rgba(31, 45, 41, 0.12);
+        background: rgba(255,255,255,0.92);
+    }
+
+    .auth-check {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 0;
+        color: #50615c;
+        font-weight: 700;
+    }
+
+    .auth-submit {
+        width: 100%;
+        min-height: 46px;
+    }
+
+    .auth-divider {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin: 18px 0 14px;
+        color: #75837f;
+        font-size: 0.82rem;
+        font-weight: 800;
+    }
+
+    .auth-divider::before,
+    .auth-divider::after {
+        flex: 1 1 auto;
+        height: 1px;
+        background: rgba(31, 45, 41, 0.10);
+        content: "";
+    }
+
+    .auth-provider__button {
+        display: inline-flex;
+        width: 100%;
+        min-height: 46px;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+    }
+
+    .auth-provider__button img {
+        height: 20px;
+        width: 20px;
+    }
+
+    .auth-switch {
+        margin: 18px 0 0;
+        text-align: center;
+        font-size: 0.92rem;
+        font-weight: 700;
+    }
+
+    .auth-switch a {
+        color: #ef8f42;
+        font-weight: 900;
+        text-decoration: none;
+    }
+</style>

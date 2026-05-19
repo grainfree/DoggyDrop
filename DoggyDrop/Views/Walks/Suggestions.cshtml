@@ -1,0 +1,139 @@
+@model IReadOnlyList<DoggyDrop.ViewModels.WalkSuggestionItem>
+
+@{
+    ViewData["Title"] = "Predlogi poti";
+}
+
+<section class="app-page suggestions-page">
+    <header class="suggestions-hero">
+        <div>
+            <span>AI-ready</span>
+            <h1>Predlogi poti</h1>
+            <p>Za zdaj so to rocno pripravljeni scenariji. Kasneje jih lahko zamenjava z AI predlogi glede na psa, vreme, lokacijo in zgodovino.</p>
+        </div>
+        <a asp-controller="Walks" asp-action="Index">Nazaj</a>
+    </header>
+
+    <div class="suggestion-list">
+        @foreach (var suggestion in Model)
+        {
+            <article class="suggestion-card">
+                <div>
+                    <span>@suggestion.Area</span>
+                    <h2>@suggestion.Title</h2>
+                    <p>@suggestion.Description</p>
+                </div>
+                <div class="suggestion-card__meta">
+                    <strong>@suggestion.DistanceKm.ToString("0.0") km</strong>
+                    <span>@suggestion.Difficulty</span>
+                    <em>Za: @suggestion.BestFor</em>
+                </div>
+            </article>
+        }
+    </div>
+</section>
+
+<style>
+    .suggestions-hero,
+    .suggestion-card {
+        border: 1px solid rgba(31, 45, 41, 0.1);
+        border-radius: 8px;
+        background: #ffffff;
+        box-shadow: 0 12px 28px rgba(31, 45, 41, 0.08);
+    }
+
+    .suggestions-hero {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 22px;
+    }
+
+    .suggestions-hero span,
+    .suggestion-card > div:first-child > span {
+        color: #2f6d5f;
+        font-size: 0.78rem;
+        font-weight: 900;
+        text-transform: uppercase;
+    }
+
+    .suggestions-hero h1 {
+        margin: 4px 0 8px;
+        font-size: clamp(2rem, 8vw, 3.2rem);
+        font-weight: 950;
+        line-height: 1;
+    }
+
+    .suggestions-hero p,
+    .suggestion-card p {
+        margin: 0;
+        color: #65716d;
+    }
+
+    .suggestions-hero a {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 42px;
+        padding: 10px 16px;
+        border-radius: 999px;
+        background: #2f6d5f;
+        color: #ffffff;
+        font-weight: 900;
+        text-decoration: none;
+    }
+
+    .suggestion-list {
+        display: grid;
+        gap: 12px;
+        margin-top: 14px;
+    }
+
+    .suggestion-card {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 16px;
+        padding: 18px;
+    }
+
+    .suggestion-card h2 {
+        margin: 4px 0 8px;
+        font-size: 1.25rem;
+        font-weight: 950;
+    }
+
+    .suggestion-card__meta {
+        display: grid;
+        min-width: 132px;
+        gap: 8px;
+        align-content: center;
+        text-align: right;
+    }
+
+    .suggestion-card__meta strong {
+        color: #21342f;
+        font-size: 1.35rem;
+        font-weight: 950;
+    }
+
+    .suggestion-card__meta span,
+    .suggestion-card__meta em {
+        color: #2f6d5f;
+        font-style: normal;
+        font-weight: 850;
+    }
+
+    @@media (max-width: 575.98px) {
+        .suggestions-hero,
+        .suggestion-card {
+            align-items: stretch;
+            grid-template-columns: 1fr;
+            flex-direction: column;
+        }
+
+        .suggestion-card__meta {
+            text-align: left;
+        }
+    }
+</style>

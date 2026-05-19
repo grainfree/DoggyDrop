@@ -1,0 +1,218 @@
+@model IReadOnlyList<DoggyDrop.Models.Dog>
+
+@{
+    ViewData["Title"] = "Psi";
+}
+
+<section class="app-page dogs-page">
+    <header class="app-page__header dogs-hero">
+        <div>
+            <h1 class="app-page__title">Moji psi</h1>
+            <p class="app-page__lead">Dodaj pse, ki jih boš kasneje povezal s sprehodi, značkami in statistiko.</p>
+        </div>
+        <a class="btn btn-success rounded-pill fw-semibold" asp-controller="Dogs" asp-action="Create">Dodaj psa</a>
+    </header>
+
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success">@TempData["SuccessMessage"]</div>
+    }
+
+    @if (Model.Count == 0)
+    {
+        <article class="dog-empty-state">
+            <div class="dog-empty-state__icon"><i class="bi bi-heart-fill"></i></div>
+            <h2>Dodaj prvega psa</h2>
+            <p>Pasji profil je osnova za DoggyDrop: sprehodi, kilometri, značke in najljubši parki.</p>
+            <a class="btn btn-success rounded-pill px-4" asp-controller="Dogs" asp-action="Create">Ustvari profil psa</a>
+        </article>
+    }
+    else
+    {
+        <div class="dog-grid">
+            @foreach (var dog in Model)
+            {
+                <a class="dog-card" asp-controller="Dogs" asp-action="Details" asp-route-id="@dog.Id">
+                    <div class="dog-card__photo">
+                        @if (!string.IsNullOrWhiteSpace(dog.PhotoUrl))
+                        {
+                            <img src="@dog.PhotoUrl" alt="@dog.Name" />
+                        }
+                        else
+                        {
+                            <span>@dog.Name.Substring(0, 1).ToUpperInvariant()</span>
+                        }
+                    </div>
+                    <div class="dog-card__body">
+                        <h2>@dog.Name</h2>
+                        <p>@(string.IsNullOrWhiteSpace(dog.Breed) ? "Pasma še ni dodana" : dog.Breed)</p>
+                        <div class="dog-card__meta">
+                            @if (dog.NearbyVisibility == "Visible")
+                            {
+                                <span>Viden v bližini</span>
+                            }
+                            else if (dog.NearbyVisibility == "FriendsOnly")
+                            {
+                                <span>Samo prijatelji</span>
+                            }
+                            @if (dog.AgeYears.HasValue)
+                            {
+                                <span>@dog.AgeYears let</span>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(dog.Size))
+                            {
+                                <span>@dog.Size</span>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(dog.Gender))
+                            {
+                                <span>@dog.Gender</span>
+                            }
+                        </div>
+                        @if (!string.IsNullOrWhiteSpace(dog.Character))
+                        {
+                            <p class="dog-card__character">@dog.Character</p>
+                        }
+                    </div>
+                </a>
+            }
+        </div>
+    }
+</section>
+
+<style>
+    .dogs-hero {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 16px;
+    }
+
+    .dog-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 16px;
+    }
+
+    .dog-card,
+    .dog-empty-state {
+        border: 1px solid rgba(31, 45, 41, 0.08);
+        border-radius: 20px;
+        background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(249,252,247,0.96));
+        box-shadow: 0 18px 34px rgba(31, 45, 41, 0.09);
+    }
+
+    .dog-card {
+        overflow: hidden;
+        color: inherit;
+        text-decoration: none;
+        transition: transform 0.16s ease, box-shadow 0.16s ease;
+    }
+
+    .dog-card:hover,
+    .dog-card:focus {
+        color: inherit;
+        transform: translateY(-3px);
+        box-shadow: 0 24px 40px rgba(31, 45, 41, 0.14);
+    }
+
+    .dog-card__photo {
+        display: flex;
+        aspect-ratio: 1;
+        align-items: center;
+        justify-content: center;
+        margin: 16px 16px 0;
+        overflow: hidden;
+        border-radius: 18px;
+        background: linear-gradient(135deg, #e7f3e5, #fff3dd);
+        color: #2f6d5f;
+        font-size: 3.4rem;
+        font-weight: 900;
+    }
+
+    .dog-card__photo img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: center;
+    }
+
+    .dog-card__body {
+        padding: 16px 16px 18px;
+    }
+
+    .dog-card__body h2 {
+        margin: 0;
+        font-size: 1.3rem;
+        font-weight: 900;
+    }
+
+    .dog-card__body p {
+        margin: 4px 0 0;
+        color: #65716d;
+    }
+
+    .dog-card__meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 12px;
+    }
+
+    .dog-card__meta span {
+        padding: 7px 10px;
+        border-radius: 999px;
+        background: rgba(47, 109, 95, 0.10);
+        color: #2f6d5f;
+        font-size: 0.78rem;
+        font-weight: 800;
+    }
+
+    .dog-card__character {
+        padding-top: 12px;
+        line-height: 1.45;
+    }
+
+    .dog-empty-state {
+        display: grid;
+        place-items: center;
+        padding: 40px 22px;
+        text-align: center;
+    }
+
+    .dog-empty-state__icon {
+        display: grid;
+        width: 72px;
+        height: 72px;
+        place-items: center;
+        margin-bottom: 14px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #2f6d5f, #ef8f42);
+        color: #ffffff;
+        font-size: 2.2rem;
+        font-weight: 700;
+        box-shadow: 0 18px 28px rgba(47, 109, 95, 0.22);
+    }
+
+    .dog-empty-state h2 {
+        margin: 0;
+        font-size: 1.35rem;
+        font-weight: 850;
+    }
+
+    .dog-empty-state p {
+        max-width: 420px;
+        margin: 8px 0 18px;
+        color: #65716d;
+    }
+
+    @@media (max-width: 575.98px) {
+        .dogs-hero {
+            align-items: stretch;
+            flex-direction: column;
+        }
+
+        .dogs-hero .btn {
+            width: 100%;
+        }
+    }
+</style>

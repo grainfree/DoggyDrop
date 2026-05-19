@@ -1,34 +1,107 @@
-﻿@page
+@page
 @model ExternalLoginModel
 @{
-    ViewData["Title"] = "Registracija";
+    ViewData["Title"] = "Poveži račun";
 }
 
-<div class="container d-flex align-items-center justify-content-center min-vh-100 bg-light">
-    <div class="card shadow-lg p-4 rounded-4" style="max-width: 400px; width: 100%;">
-        <div class="text-center mb-3">
-            <img src="~/images/logo_transparent.png" alt="DoggyDrop" style="height: 60px;" asp-append-version="true" class="mb-2" />
-            <h2 class="h4 text-success">Poveži Google račun</h2>
+<section class="auth-shell">
+    <div class="auth-shell__panel">
+        <div class="auth-brand">
+            <img src="~/images/logo_transparent.png" alt="DoggyDrop" asp-append-version="true" />
+            <span>DoggyDrop</span>
         </div>
 
-        <form asp-page="./ExternalLogin" asp-route-returnUrl="@Model.ReturnUrl" method="post" class="form">
+        <div class="auth-hero">
+            <span>Povezava računa</span>
+            <h1>Dokončaj prijavo z Google računom.</h1>
+            <p>Večinoma DoggyDrop račun ustvari samodejno. Če manjka email, ga potrdi tukaj in nadaljuj.</p>
+        </div>
+
+        <form asp-page="./ExternalLogin" asp-route-returnUrl="@Model.ReturnUrl" method="post" class="auth-form">
             <div asp-validation-summary="All" class="text-danger small"></div>
 
-            <p class="text-center text-muted small mb-3">
-                Uspešno si se prijavil z <strong>Google</strong> računom.
-                Prosimo, potrdi svoj email in klikni <strong>Registriraj</strong>, da dokončaš prijavo.
-            </p>
-
-            <div class="mb-3">
-                <label asp-for="Input.Email" class="form-label">Email naslov</label>
-                <input asp-for="Input.Email" class="form-control rounded-3" />
+            <div class="auth-field">
+                <label asp-for="Input.Email">Email naslov</label>
+                <input asp-for="Input.Email" class="form-control" />
                 <span asp-validation-for="Input.Email" class="text-danger small"></span>
             </div>
 
-            <button type="submit" class="btn btn-success w-100 rounded-pill fw-semibold">Registriraj</button>
+            <button type="submit" class="btn btn-success auth-submit">Nadaljuj</button>
         </form>
     </div>
-</div>
+</section>
+
+<style>
+    .auth-shell {
+        display: grid;
+        min-height: calc(100vh - 64px - 76px);
+        place-items: center;
+        padding: 24px 12px 32px;
+    }
+
+    .auth-shell__panel {
+        width: min(460px, 100%);
+        padding: 24px;
+        border: 1px solid rgba(31, 45, 41, 0.08);
+        border-radius: 28px;
+        background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(249,252,247,0.96));
+        box-shadow: 0 24px 48px rgba(31, 45, 41, 0.10);
+    }
+
+    .auth-brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 18px;
+        color: #2f6d5f;
+        font-weight: 900;
+    }
+
+    .auth-brand img {
+        height: 48px;
+        width: auto;
+    }
+
+    .auth-hero span {
+        color: #2f6d5f;
+        font-size: 0.78rem;
+        font-weight: 900;
+        text-transform: uppercase;
+    }
+
+    .auth-hero h1 {
+        margin: 6px 0 10px;
+        color: #17322c;
+        font-size: clamp(1.9rem, 7vw, 2.8rem);
+        font-weight: 950;
+        line-height: 1.03;
+    }
+
+    .auth-hero p {
+        color: #65716d;
+    }
+
+    .auth-form {
+        display: grid;
+        gap: 14px;
+        margin-top: 20px;
+    }
+
+    .auth-field {
+        display: grid;
+        gap: 6px;
+    }
+
+    .auth-field label {
+        color: #17322c;
+        font-weight: 850;
+    }
+
+    .auth-submit {
+        width: 100%;
+        min-height: 46px;
+    }
+</style>
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />

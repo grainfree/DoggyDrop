@@ -1,0 +1,6 @@
+.vs/
+.tools/
+build-verify/
+*.log
+*.err.log
+DoggyDrop/wwwroot/uploads/

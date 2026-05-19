@@ -1,41 +1,552 @@
-﻿@using DoggyDrop.ViewModels
+@using DoggyDrop.ViewModels
 @model UserProfileViewModel
 
+@{
+    ViewData["Title"] = "Profil";
+    var displayName = string.IsNullOrWhiteSpace(Model.DisplayName) ? Model.Email : Model.DisplayName;
+    var initials = string.IsNullOrWhiteSpace(displayName) ? "D" : displayName.Substring(0, 1).ToUpperInvariant();
+    var totalHours = Math.Floor(Model.TotalWalkDuration.TotalHours);
+    var totalMinutes = Model.TotalWalkDuration.Minutes;
+}
 
-<div class="container d-flex align-items-center justify-content-center min-vh-100 bg-light">
-    <div class="card shadow-lg p-4 rounded-4" style="max-width: 500px; width: 100%;">
-        <div class="text-center mb-4">
-            <img src="@Model.ProfileImageUrl" alt="Profilna slika"
-                 class="rounded-circle mb-2" style="width: 80px; height: 80px; object-fit: cover;" />
-            <h3 class="text-success">@Model.Email</h3>
-            <p class="text-muted small mb-1">Skupno dodanih košev: <strong>@Model.TotalBins</strong></p>
-            <p class="text-muted small">Značke: @string.Join(", ", Model.Badges)</p>
+<section class="app-page profile-page">
+    <header class="profile-hero">
+        <div class="profile-hero__avatar">
+            @if (!string.IsNullOrWhiteSpace(Model.ProfileImageUrl))
+            {
+                <img src="@Model.ProfileImageUrl" alt="@displayName" />
+            }
+            else
+            {
+                <span>@initials</span>
+            }
         </div>
-
-        <hr />
-
-        <form asp-action="UpdateProfile" method="post" enctype="multipart/form-data">
-            <div asp-validation-summary="ModelOnly" class="text-danger small mb-3"></div>
-
-            <div class="mb-3">
-                <label class="form-label">Vzdevek / ime</label>
-                <input name="DisplayName" class="form-control rounded-3" value="@Model.DisplayName" />
-            </div>
-
-
-            <div class="mb-3">
-                <label class="form-label">Nova profilna slika</label>
-                <input type="file" name="ProfileImage" class="form-control rounded-3" />
-            </div>
-
-            <button type="submit" class="btn btn-success w-100 rounded-pill fw-semibold">
-                Shrani spremembe
-            </button>
-        </form>
-
-        <div class="text-center mt-4">
-            <a asp-action="ChangePassword" class="text-decoration-none text-warning d-block mb-2">Spremeni geslo</a>
-            <a asp-action="InviteFriend" class="text-decoration-none text-primary">Povabi prijatelja 🐶</a>
+        <div class="profile-hero__text">
+            <span>DoggyDrop profil</span>
+            <h1>@displayName</h1>
+            <p>@Model.Email</p>
         </div>
+    </header>
+
+    <div class="profile-stats">
+        <article>
+            <strong>@Model.TotalDistanceKm.ToString("0.0") km</strong>
+            <span>Skupaj</span>
+        </article>
+        <article>
+            <strong>@Model.TotalWalks</strong>
+            <span>Sprehodi</span>
+        </article>
+        <article>
+            <strong>@Model.WalksThisWeek</strong>
+            <span>Ta teden</span>
+        </article>
+        <article>
+            <strong>@Model.TotalDogs</strong>
+            <span>Psi</span>
+        </article>
+        <article>
+            <strong>@Model.TotalBins</strong>
+            <span>Kosi</span>
+        </article>
+        <article>
+            <strong>@($"{totalHours:0}h {totalMinutes:00}m")</strong>
+            <span>Aktivno</span>
+        </article>
     </div>
-</div>
+
+    <article class="profile-panel profile-activity">
+        <div class="profile-panel__header">
+            <h2>Aktivnost</h2>
+            <span>@Model.ActivityInsights.CurrentStreakDays dni streak</span>
+        </div>
+
+        <div class="profile-goal-grid">
+            <div class="profile-goal-card">
+                <div>
+                    <strong>Tedenski cilj</strong>
+                    <span>@Model.ActivityInsights.WeeklyDistanceKm.ToString("0.0") / @Model.ActivityInsights.WeeklyGoalKm.ToString("0") km</span>
+                </div>
+                <div class="profile-achievement__bar">
+                    <span style="width: @Model.ActivityInsights.WeeklyGoalPercent%"></span>
+                </div>
+            </div>
+            <div class="profile-goal-card">
+                <div>
+                    <strong>Mesec</strong>
+                    <span>@Model.ActivityInsights.MonthlyDistanceKm.ToString("0.0") / @Model.ActivityInsights.MonthlyGoalKm.ToString("0") km</span>
+                </div>
+                <div class="profile-achievement__bar">
+                    <span style="width: @Model.ActivityInsights.MonthlyGoalPercent%"></span>
+                </div>
+            </div>
+            <div class="profile-goal-card">
+                <div>
+                    <strong>@Model.ActivityInsights.NextMilestoneName</strong>
+                    <span>@Model.ActivityInsights.NextMilestoneProgress</span>
+                </div>
+                <div class="profile-achievement__bar">
+                    <span style="width: @Model.ActivityInsights.NextMilestonePercent%"></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="profile-challenge-list">
+            @foreach (var challenge in Model.ActivityInsights.Challenges)
+            {
+                <div class="profile-challenge @(challenge.IsComplete ? "is-complete" : "")">
+                    <div>
+                        <strong>@challenge.Title</strong>
+                        <span>@challenge.ProgressText</span>
+                    </div>
+                    <p>@challenge.Description</p>
+                    <div class="profile-achievement__bar">
+                        <span style="width: @challenge.ProgressPercent%"></span>
+                    </div>
+                </div>
+            }
+        </div>
+    </article>
+
+    <article class="profile-panel">
+        <div class="profile-panel__header">
+            <h2>Dosezki</h2>
+            <span>@Model.Achievements.Count(achievement => achievement.IsUnlocked) / @Model.Achievements.Count odklenjenih</span>
+        </div>
+
+        @if (Model.Achievements.Count == 0)
+        {
+            <p class="profile-muted">Dodaj psa, zacni sprehod ali dodaj kos in prve znacke se bodo odklenile.</p>
+        }
+        else
+        {
+            <div class="profile-achievements">
+                @foreach (var achievement in Model.Achievements)
+                {
+                    <div class="profile-achievement @(achievement.IsUnlocked ? "is-unlocked" : "is-locked")">
+                        <div class="profile-achievement__top">
+                            <strong>@achievement.Name</strong>
+                            <span>@(achievement.IsUnlocked ? "Odklenjeno" : achievement.ProgressText)</span>
+                        </div>
+                        <p>@achievement.Description</p>
+                        <div class="profile-achievement__bar">
+                            <span style="width: @achievement.ProgressPercent%"></span>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </article>
+
+    <article class="profile-panel">
+        <div class="profile-panel__header">
+            <h2>Moji kosi</h2>
+            <a asp-controller="Map" asp-action="MyBins">Odpri</a>
+        </div>
+
+        <div class="profile-bin-summary">
+            <div>
+                <strong>@Model.TotalBins</strong>
+                <span>dodanih kosev</span>
+            </div>
+            <p>Preglej status odobritve, uporabo in prispevek proti znacki Bin Hero.</p>
+        </div>
+    </article>
+
+    <article class="profile-panel">
+        <div class="profile-panel__header">
+            <h2>Moji psi</h2>
+            <a asp-controller="Dogs" asp-action="Create">Dodaj</a>
+        </div>
+
+        @if (Model.Dogs.Count == 0)
+        {
+            <p class="profile-muted">Ni se dodanih psov. Profil psa je osnova za sprehode, kilometre in znacke.</p>
+        }
+        else
+        {
+            <div class="profile-dog-list">
+                @foreach (var dog in Model.Dogs)
+                {
+                    <a class="profile-dog" asp-controller="Dogs" asp-action="Details" asp-route-id="@dog.Id">
+                        <div class="profile-dog__avatar">
+                            @if (!string.IsNullOrWhiteSpace(dog.PhotoUrl))
+                            {
+                                <img src="@dog.PhotoUrl" alt="@dog.Name" />
+                            }
+                            else
+                            {
+                                <span>@dog.Name.Substring(0, 1).ToUpperInvariant()</span>
+                            }
+                        </div>
+                        <div>
+                            <strong>@dog.Name</strong>
+                            <span>@dog.WalkCount sprehodov</span>
+                        </div>
+                        <em>@dog.DistanceKm.ToString("0.0") km</em>
+                    </a>
+                }
+            </div>
+        }
+    </article>
+
+    <article class="profile-panel">
+        <div class="profile-panel__header">
+            <h2>Uredi profil</h2>
+            <a asp-controller="Home" asp-action="Settings">Nastavitve</a>
+        </div>
+
+        <form asp-action="UpdateProfile" method="post" enctype="multipart/form-data" class="profile-form">
+            <div asp-validation-summary="ModelOnly" class="text-danger small"></div>
+
+            <div>
+                <label class="form-label">Vzdevek / ime</label>
+                <input name="DisplayName" class="form-control" value="@Model.DisplayName" />
+            </div>
+
+            <div>
+                <label class="form-label">Nova profilna slika</label>
+                <input type="file" name="ProfileImage" class="form-control" />
+            </div>
+
+            <button type="submit" class="btn btn-success rounded-pill fw-semibold">Shrani spremembe</button>
+        </form>
+    </article>
+</section>
+
+<style>
+    .profile-hero,
+    .profile-stats article,
+    .profile-panel {
+        border: 1px solid rgba(31, 45, 41, 0.1);
+        border-radius: 8px;
+        background: #ffffff;
+        box-shadow: 0 12px 28px rgba(31, 45, 41, 0.08);
+    }
+
+    .profile-hero {
+        display: grid;
+        grid-template-columns: 96px 1fr;
+        gap: 16px;
+        align-items: center;
+        padding: 18px;
+    }
+
+    .profile-hero__avatar,
+    .profile-dog__avatar {
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+        background: linear-gradient(135deg, #e7f3e5, #fff3dd);
+        color: #2f6d5f;
+        font-weight: 950;
+    }
+
+    .profile-hero__avatar {
+        width: 96px;
+        aspect-ratio: 1;
+        border-radius: 8px;
+        font-size: 2.4rem;
+    }
+
+    .profile-hero__avatar img,
+    .profile-dog__avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .profile-hero__text span {
+        color: #2f6d5f;
+        font-size: 0.78rem;
+        font-weight: 900;
+        text-transform: uppercase;
+    }
+
+    .profile-hero__text h1 {
+        margin: 4px 0;
+        font-size: clamp(1.8rem, 7vw, 2.8rem);
+        font-weight: 950;
+        line-height: 1;
+    }
+
+    .profile-hero__text p,
+    .profile-muted {
+        margin: 0;
+        color: #65716d;
+    }
+
+    .profile-stats {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        margin: 14px 0;
+    }
+
+    .profile-stats article {
+        padding: 16px;
+    }
+
+    .profile-stats strong,
+    .profile-stats span {
+        display: block;
+    }
+
+    .profile-stats strong {
+        font-size: 1.3rem;
+        font-weight: 950;
+    }
+
+    .profile-stats span {
+        color: #65716d;
+        font-weight: 750;
+    }
+
+    .profile-panel {
+        margin-top: 14px;
+        padding: 18px;
+    }
+
+    .profile-panel__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 12px;
+    }
+
+    .profile-panel__header h2 {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 950;
+    }
+
+    .profile-panel__header span,
+    .profile-panel__header a {
+        color: #2f6d5f;
+        font-size: 0.86rem;
+        font-weight: 850;
+        text-decoration: none;
+    }
+
+    .profile-achievements {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .profile-achievement {
+        padding: 12px;
+        border: 1px solid rgba(31, 45, 41, 0.08);
+        border-radius: 8px;
+        background: #f8faf7;
+    }
+
+    .profile-achievement.is-unlocked {
+        background: #eef7ed;
+    }
+
+    .profile-achievement__top {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 8px;
+    }
+
+    .profile-achievement strong {
+        color: #1f2d29;
+        font-weight: 950;
+    }
+
+    .profile-achievement__top span {
+        color: #2f6d5f;
+        font-size: 0.76rem;
+        font-weight: 900;
+        text-align: right;
+        white-space: nowrap;
+    }
+
+    .profile-achievement p {
+        margin: 6px 0 10px;
+        color: #65716d;
+        font-size: 0.84rem;
+        font-weight: 700;
+        line-height: 1.3;
+    }
+
+    .profile-achievement__bar {
+        overflow: hidden;
+        height: 8px;
+        border-radius: 999px;
+        background: rgba(47, 109, 95, 0.12);
+    }
+
+    .profile-achievement__bar span {
+        display: block;
+        height: 100%;
+        border-radius: inherit;
+        background: #2f6d5f;
+    }
+
+    .profile-dog-list,
+    .profile-form,
+    .profile-bin-summary,
+    .profile-challenge-list {
+        display: grid;
+        gap: 12px;
+    }
+
+    .profile-goal-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+        margin-bottom: 12px;
+    }
+
+    .profile-goal-card,
+    .profile-challenge {
+        padding: 12px;
+        border: 1px solid rgba(31, 45, 41, 0.08);
+        border-radius: 8px;
+        background: #f8faf7;
+    }
+
+    .profile-goal-card strong,
+    .profile-goal-card span,
+    .profile-challenge strong,
+    .profile-challenge span {
+        display: block;
+    }
+
+    .profile-goal-card strong,
+    .profile-challenge strong {
+        color: #1f2d29;
+        font-weight: 950;
+    }
+
+    .profile-goal-card span,
+    .profile-challenge span {
+        color: #2f6d5f;
+        font-size: 0.8rem;
+        font-weight: 900;
+    }
+
+    .profile-challenge.is-complete {
+        background: #eef7ed;
+    }
+
+    .profile-challenge div:first-child {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+    }
+
+    .profile-challenge p {
+        margin: 4px 0 10px;
+        color: #65716d;
+        font-size: 0.84rem;
+        font-weight: 700;
+    }
+
+    .profile-bin-summary {
+        grid-template-columns: 120px 1fr;
+        align-items: center;
+    }
+
+    .profile-bin-summary div {
+        padding: 14px;
+        border-radius: 8px;
+        background: #eef7ed;
+        color: #2f6d5f;
+        text-align: center;
+    }
+
+    .profile-bin-summary strong,
+    .profile-bin-summary span {
+        display: block;
+    }
+
+    .profile-bin-summary strong {
+        font-size: 1.8rem;
+        font-weight: 950;
+        line-height: 1;
+    }
+
+    .profile-bin-summary span {
+        font-size: 0.78rem;
+        font-weight: 850;
+    }
+
+    .profile-bin-summary p {
+        margin: 0;
+        color: #65716d;
+        font-weight: 750;
+    }
+
+    .profile-dog {
+        display: grid;
+        grid-template-columns: 52px 1fr auto;
+        gap: 12px;
+        align-items: center;
+        color: inherit;
+        text-decoration: none;
+    }
+
+    .profile-dog:hover,
+    .profile-dog:focus {
+        color: #2f6d5f;
+    }
+
+    .profile-dog__avatar {
+        width: 52px;
+        aspect-ratio: 1;
+        border-radius: 8px;
+        font-size: 1.35rem;
+    }
+
+    .profile-dog strong,
+    .profile-dog span {
+        display: block;
+    }
+
+    .profile-dog span {
+        color: #65716d;
+        font-size: 0.88rem;
+    }
+
+    .profile-dog em {
+        color: #2f6d5f;
+        font-style: normal;
+        font-weight: 900;
+    }
+
+    .profile-form .btn {
+        justify-self: start;
+        min-width: 180px;
+    }
+
+    @@media (max-width: 575.98px) {
+        .profile-hero,
+        .profile-dog,
+        .profile-bin-summary,
+        .profile-goal-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .profile-hero__avatar {
+            width: 100%;
+        }
+
+        .profile-stats {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .profile-achievements {
+            grid-template-columns: 1fr;
+        }
+
+        .profile-form .btn {
+            width: 100%;
+        }
+    }
+</style>

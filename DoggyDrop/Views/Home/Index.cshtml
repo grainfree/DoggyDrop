@@ -1,32 +1,104 @@
-﻿@{
+@{
     ViewData["Title"] = "Zemljevid";
+    ViewData["FullBleed"] = true;
 }
 
-<div id="map" style="height: 100vh; width: 100%;"></div>
+@section Styles {
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIINfQXh6ULpR5txR9wra5I3BcVsTPY1p3A="
+          crossorigin="" />
+}
+
+<div id="map" style="height: calc(100vh - 64px); min-height: 520px; width: 100%;"></div>
+
+<div class="map-notification-preview">
+    <section class="map-notification-preview__panel">
+        <div class="map-notification-preview__head">
+            <strong>Notification center</strong>
+            <span id="homeNotificationPreviewCount">0 novih</span>
+        </div>
+        <div id="homeNotificationPreviewItems" class="map-notification-preview__items">
+            <div class="map-notification-preview__item">
+                <strong>DoggyDrop start</strong>
+                <p>Tukaj bos videl najnovejse obvestilo ali smart namig za naslednji sprehod.</p>
+            </div>
+        </div>
+    </section>
+</div>
 
 @section Scripts {
-    <script>
-        function initMap() {
-            const map = new google.maps.Map(document.getElementById("map"), {
-                center: { lat: 46.05, lng: 14.5 },
-                zoom: 14,
-                styles: [
-                    { "elementType": "geometry", "stylers": [{ "color": "#f9f9f4" }] },
-                    { "elementType": "labels.text.fill", "stylers": [{ "color": "#4d4d4d" }] },
-                    { "elementType": "labels.text.stroke", "stylers": [{ "color": "#ffffff" }] },
-                    { "featureType": "poi", "elementType": "geometry", "stylers": [{ "color": "#e9ffe9" }] },
-                    { "featureType": "poi", "elementType": "labels.text", "stylers": [{ "visibility": "off" }] },
-                    { "featureType": "road", "elementType": "geometry", "stylers": [{ "color": "#ffffff" }] },
-                    { "featureType": "road", "elementType": "geometry.stroke", "stylers": [{ "color": "#90d192" }] },
-                    { "featureType": "water", "elementType": "geometry", "stylers": [{ "color": "#c6f1f1" }] },
-                    { "featureType": "transit", "stylers": [{ "visibility": "off" }] },
-                    { "featureType": "administrative", "stylers": [{ "visibility": "off" }] }
-                ]
-            });
-        }
-    </script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+            crossorigin=""></script>
 
-    <script async
-            src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC7BZuc_0STrDlrpQL6HF3mcQJW2HV4cDI&callback=initMap">
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const map = L.map("map").setView([46.05, 14.5], 14);
+
+            L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+                maxZoom: 19,
+                attribution: "&copy; OpenStreetMap"
+            }).addTo(map);
+
+            refreshHomeNotificationPreview();
+            window.setInterval(refreshHomeNotificationPreview, 60000);
+        });
+
+        async function refreshHomeNotificationPreview() {
+            const countElement = document.getElementById("homeNotificationPreviewCount");
+            const itemsElement = document.getElementById("homeNotificationPreviewItems");
+
+            try {
+                const response = await fetch("/api/notifications/center", {
+                    headers: { "X-Requested-With": "XMLHttpRequest" }
+                });
+
+                if (!response.ok) {
+                    return;
+                }
+
+                const data = await response.json();
+                const unreadCount = Number(data.unreadCount || 0);
+                const latestUnread = Array.isArray(data.latestUnread) ? data.latestUnread : [];
+                const smart = Array.isArray(data.smart) ? data.smart : [];
+                const previewItems = latestUnread.slice(0, 2).map(item => ({
+                    title: item.title,
+                    body: item.body
+                }));
+
+                if (previewItems.length < 2) {
+                    smart.slice(0, 2 - previewItems.length).forEach(item => {
+                        previewItems.push({
+                            title: item.title,
+                            body: item.body
+                        });
+                    });
+                }
+
+                countElement.textContent = unreadCount > 0 ? `${unreadCount} novih` : `${smart.length} smart`;
+                itemsElement.innerHTML = previewItems.length === 0
+                    ? `
+                        <div class="map-notification-preview__item">
+                            <strong>Miren trenutek</strong>
+                            <p>Trenutno ni novih obvestil ali smart predlogov.</p>
+                        </div>
+                    `
+                    : previewItems.map(item => `
+                        <div class="map-notification-preview__item">
+                            <strong>${escapeHtml(item.title || "DoggyDrop")}</strong>
+                            <p>${escapeHtml(item.body || "")}</p>
+                        </div>
+                    `).join("");
+            } catch {
+            }
+        }
+
+        function escapeHtml(value) {
+            return value
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;")
+                .replaceAll('"', "&quot;");
+        }
     </script>
 }

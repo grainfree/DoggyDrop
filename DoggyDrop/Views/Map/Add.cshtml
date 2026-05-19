@@ -1,113 +1,166 @@
-﻿@model DoggyDrop.ViewModels.TrashBinViewModel
+@model DoggyDrop.ViewModels.TrashBinViewModel
 @{
-    ViewData["Title"] = "Dodaj nov koš";
+    ViewData["Title"] = "Dodaj kos";
 }
 
-<style>
-    #map {
-        height: 300px;
-        width: 100%;
-        margin-bottom: 20px;
-    }
+@section Styles {
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIINfQXh6ULpR5txR9wra5I3BcVsTPY1p3A="
+          crossorigin="" />
+}
 
-    .form-container {
-        max-width: 600px;
-        margin: 0 auto;
-    }
-</style>
-
-<div class="form-container">
-    <h2 class="text-center mb-4">➕ Dodaj nov koš</h2>
+<section class="app-page add-bin-page">
+    <header class="app-page__header add-bin-hero">
+        <div>
+            <h1 class="app-page__title">Dodaj kos</h1>
+            <p class="app-page__lead">Oznaci lokacijo, dodaj fotografijo in pomagaj drugim lastnikom psov.</p>
+        </div>
+        <a class="btn btn-outline-secondary rounded-pill" asp-controller="Map" asp-action="Index">Zemljevid</a>
+    </header>
 
     @if (TempData["SuccessMessage"] != null)
     {
-        <div class="alert alert-success text-center">@TempData["SuccessMessage"]</div>
+        <div class="alert alert-success">@TempData["SuccessMessage"]</div>
     }
 
-    <form asp-action="Add" enctype="multipart/form-data" novalidate>
+    <form asp-action="Add" method="post" enctype="multipart/form-data" class="add-bin-form">
         <div asp-validation-summary="All" class="text-danger small mb-3"></div>
 
-        <div class="mb-3">
-            <label asp-for="Name" class="form-label">Ime lokacije</label>
-            <input asp-for="Name" class="form-control" placeholder="Npr. park ob drevoredu" />
-            <span asp-validation-for="Name" class="text-danger small"></span>
-        </div>
+        <article class="add-bin-panel">
+            <h2>Podatki</h2>
+            <div class="mb-3">
+                <label asp-for="Name" class="form-label">Ime lokacije</label>
+                <input asp-for="Name" class="form-control" placeholder="Npr. park ob drevoredu" />
+                <span asp-validation-for="Name" class="text-danger small"></span>
+            </div>
 
-        <div class="mb-3 text-center">
-            <label for="ImageFile" class="btn btn-success w-100 py-3" style="border-radius: 12px;">
-                📷 Posnami fotografijo koša
-            </label>
-            <input asp-for="ImageFile" id="ImageFile" type="file" accept="image/*" capture="environment" class="d-none" />
-            <img id="preview" src="#" class="img-fluid mt-3 d-none rounded" alt="Predogled" style="max-height: 250px;" />
-            <span asp-validation-for="ImageFile" class="text-danger small"></span>
-        </div>
+            <div>
+                <label asp-for="ImageFile" class="form-label">Fotografija kosa</label>
+                <input asp-for="ImageFile" id="ImageFile" type="file" accept="image/*" capture="environment" class="form-control" />
+                <span asp-validation-for="ImageFile" class="text-danger small"></span>
+                <img id="preview" src="#" class="add-bin-preview" alt="Predogled fotografije" hidden />
+            </div>
+        </article>
 
-        <div id="map"></div>
+        <article class="add-bin-panel">
+            <div class="add-bin-panel__header">
+                <div>
+                    <h2>Lokacija</h2>
+                    <p id="locationStatus">Premakni marker ali klikni na zemljevid.</p>
+                </div>
+                <button type="button" id="useMyLocation" class="btn btn-outline-success rounded-pill">Moja lokacija</button>
+            </div>
+
+            <div id="map"></div>
+
+            <div class="add-bin-coordinates">
+                <span>Lat: <strong id="latText">-</strong></span>
+                <span>Lng: <strong id="lngText">-</strong></span>
+            </div>
+        </article>
 
         <input type="hidden" asp-for="Latitude" id="Latitude" />
         <input type="hidden" asp-for="Longitude" id="Longitude" />
 
-        <button type="submit" class="btn btn-success w-100 rounded-pill">📍 Dodaj koš</button>
+        <div class="add-bin-actions">
+            <a class="btn btn-outline-secondary rounded-pill" asp-controller="Map" asp-action="Index">Preklici</a>
+            <button type="submit" class="btn btn-success rounded-pill fw-semibold">Shrani kos</button>
+        </div>
 
-        <!-- 🔄 indikator nalaganja -->
-        <div id="loading" class="text-center mt-4" style="display: none;">
+        <div id="loading" class="add-bin-loading" hidden>
             <div class="spinner-border text-success" role="status">
                 <span class="visually-hidden">Nalagam...</span>
             </div>
-            <p class="mt-2">Koš se dodaja, prosimo počakajte...</p>
+            <p>Kos se shranjuje...</p>
         </div>
     </form>
-</div>
+</section>
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+            crossorigin=""></script>
+
     <script>
         let map;
         let marker;
 
+        document.addEventListener("DOMContentLoaded", function () {
+            initMap();
+            initImagePreview();
+            initLoadingState();
+            document.getElementById("useMyLocation").addEventListener("click", useCurrentLocation);
+        });
+
         function initMap() {
-            map = new google.maps.Map(document.getElementById("map"), {
-                center: { lat: 46.5547, lng: 15.6459 },
-                zoom: 15
+            const fallbackLocation = [46.5547, 15.6459];
+            map = L.map("map").setView(fallbackLocation, 15);
+
+            L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+                maxZoom: 19,
+                attribution: "&copy; OpenStreetMap"
+            }).addTo(map);
+
+            setSelectedLocation(fallbackLocation[0], fallbackLocation[1]);
+            map.on("click", function (e) {
+                setSelectedLocation(e.latlng.lat, e.latlng.lng);
             });
 
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(function (position) {
-                    const userLocation = {
-                        lat: position.coords.latitude,
-                        lng: position.coords.longitude
-                    };
+            requestAnimationFrame(() => map.invalidateSize());
+            setTimeout(() => map.invalidateSize(), 300);
+        }
 
-                    map.setCenter(userLocation);
+        function useCurrentLocation() {
+            const status = document.getElementById("locationStatus");
 
-                    marker = new google.maps.Marker({
-                        position: userLocation,
-                        map: map
-                    });
-
-                    document.getElementById("Latitude").value = userLocation.lat;
-                    document.getElementById("Longitude").value = userLocation.lng;
-                });
+            if (!navigator.geolocation) {
+                status.textContent = "Ta brskalnik ne podpira lokacije.";
+                return;
             }
 
-            map.addListener("click", function (e) {
-                const lat = e.latLng.lat();
-                const lng = e.latLng.lng();
+            if (!window.isSecureContext) {
+                status.textContent = "GPS na telefonu zahteva HTTPS. Lokacijo lahko izberes rocno.";
+                return;
+            }
 
-                document.getElementById("Latitude").value = lat;
-                document.getElementById("Longitude").value = lng;
-
-                if (marker) marker.setMap(null);
-
-                marker = new google.maps.Marker({
-                    position: e.latLng,
-                    map: map
-                });
+            status.textContent = "Iskanje tvoje lokacije...";
+            navigator.geolocation.getCurrentPosition(function (position) {
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+                map.setView([lat, lng], 17);
+                setSelectedLocation(lat, lng);
+                status.textContent = "Lokacija nastavljena.";
+            }, function () {
+                status.textContent = "Lokacije ni bilo mogoce pridobiti.";
+            }, {
+                enableHighAccuracy: true,
+                maximumAge: 0,
+                timeout: 10000
             });
         }
 
-        // 📸 Predogled slike
-        document.addEventListener("DOMContentLoaded", function () {
+        function setSelectedLocation(lat, lng) {
+            const roundedLat = Number(lat).toFixed(6);
+            const roundedLng = Number(lng).toFixed(6);
+
+            document.getElementById("Latitude").value = roundedLat;
+            document.getElementById("Longitude").value = roundedLng;
+            document.getElementById("latText").textContent = roundedLat;
+            document.getElementById("lngText").textContent = roundedLng;
+
+            if (marker) {
+                marker.setLatLng([lat, lng]);
+            } else {
+                marker = L.marker([lat, lng], { draggable: true }).addTo(map);
+                marker.on("dragend", function () {
+                    const position = marker.getLatLng();
+                    setSelectedLocation(position.lat, position.lng);
+                });
+            }
+        }
+
+        function initImagePreview() {
             const fileInput = document.getElementById("ImageFile");
             const preview = document.getElementById("preview");
 
@@ -115,18 +168,159 @@
                 const [file] = e.target.files;
                 if (file) {
                     preview.src = URL.createObjectURL(file);
-                    preview.classList.remove("d-none");
+                    preview.hidden = false;
                 }
             });
+        }
 
-            // 🟢 Prikaži spinner ob oddaji obrazca
-            document.querySelector('form').addEventListener('submit', function () {
-                document.getElementById('loading').style.display = 'block';
+        function initLoadingState() {
+            document.querySelector(".add-bin-form").addEventListener("submit", function () {
+                document.getElementById("loading").hidden = false;
             });
-        });
-    </script>
-
-    <script async
-            src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC7BZuc_0STrDlrpQL6HF3mcQJW2HV4cDI&callback=initMap">
+        }
     </script>
 }
+
+<style>
+    .leaflet-container {
+        overflow: hidden;
+        background: #ddd;
+    }
+
+    .leaflet-pane,
+    .leaflet-tile,
+    .leaflet-marker-icon,
+    .leaflet-marker-shadow,
+    .leaflet-tile-container,
+    .leaflet-pane > svg,
+    .leaflet-pane > canvas,
+    .leaflet-zoom-box,
+    .leaflet-image-layer,
+    .leaflet-layer {
+        position: absolute;
+        left: 0;
+        top: 0;
+    }
+
+    .leaflet-tile {
+        width: 256px;
+        height: 256px;
+    }
+
+    .add-bin-hero {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 16px;
+    }
+
+    .add-bin-form {
+        display: grid;
+        gap: 14px;
+    }
+
+    .add-bin-panel {
+        padding: 18px;
+        border: 1px solid rgba(31, 45, 41, 0.1);
+        border-radius: 8px;
+        background: #ffffff;
+        box-shadow: 0 12px 28px rgba(31, 45, 41, 0.08);
+    }
+
+    .add-bin-panel h2 {
+        margin: 0 0 14px;
+        font-size: 1.1rem;
+        font-weight: 950;
+    }
+
+    .add-bin-panel__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 12px;
+    }
+
+    .add-bin-panel__header h2 {
+        margin-bottom: 4px;
+    }
+
+    .add-bin-panel__header p {
+        margin: 0;
+        color: #65716d;
+    }
+
+    .add-bin-preview {
+        width: 100%;
+        max-height: 280px;
+        object-fit: cover;
+        margin-top: 12px;
+        border-radius: 8px;
+    }
+
+    #map {
+        position: relative;
+        z-index: 1;
+        height: 360px;
+        width: 100%;
+        overflow: hidden;
+        border-radius: 8px;
+        background: #eef3ea;
+    }
+
+    .add-bin-coordinates {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 12px;
+        color: #65716d;
+        font-size: 0.86rem;
+        font-weight: 800;
+    }
+
+    .add-bin-coordinates strong {
+        color: #1f2d29;
+    }
+
+    .add-bin-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+    }
+
+    .add-bin-actions .btn {
+        min-width: 150px;
+    }
+
+    .add-bin-loading {
+        display: grid;
+        place-items: center;
+        gap: 8px;
+        padding: 18px;
+        color: #65716d;
+        font-weight: 800;
+    }
+
+    .add-bin-loading p {
+        margin: 0;
+    }
+
+    @@media (max-width: 575.98px) {
+        .add-bin-hero,
+        .add-bin-panel__header,
+        .add-bin-actions {
+            align-items: stretch;
+            flex-direction: column;
+        }
+
+        .add-bin-hero .btn,
+        .add-bin-panel__header .btn,
+        .add-bin-actions .btn {
+            width: 100%;
+        }
+
+        #map {
+            height: 330px;
+        }
+    }
+</style>

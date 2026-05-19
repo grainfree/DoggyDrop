@@ -12,10 +12,21 @@ namespace DoggyDrop.Data
             var configuration = new ConfigurationBuilder()
                 .SetBasePath(Directory.GetCurrentDirectory())
                 .AddJsonFile("appsettings.json")
+                .AddJsonFile("appsettings.Development.json", optional: true)
+                .AddUserSecrets<ApplicationDbContextFactory>(optional: true)
+                .AddEnvironmentVariables()
                 .Build();
 
             var optionsBuilder = new DbContextOptionsBuilder<ApplicationDbContext>();
-            optionsBuilder.UseNpgsql(configuration.GetConnectionString("DefaultConnection"));
+            var connectionString = configuration.GetConnectionString("DefaultConnection");
+
+            if (string.IsNullOrWhiteSpace(connectionString))
+            {
+                throw new InvalidOperationException(
+                    "Connection string 'DefaultConnection' is missing. Set it with user-secrets or an environment variable.");
+            }
+
+            optionsBuilder.UseNpgsql(connectionString);
 
             return new ApplicationDbContext(optionsBuilder.Options);
         }

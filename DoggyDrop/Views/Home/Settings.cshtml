@@ -1,0 +1,300 @@
+@{
+    ViewData["Title"] = "Nastavitve";
+}
+
+<section class="app-page settings-page">
+    <header class="settings-hero">
+        <div>
+            <span>DoggyDrop</span>
+            <h1>Nastavitve</h1>
+            <p>Privzeti sloji zemljevida in manj motece obnasanje med testiranjem aplikacije na telefonu.</p>
+        </div>
+    </header>
+
+    <article class="settings-panel">
+        <div class="settings-panel__header">
+            <h2>Zemljevid</h2>
+            <span>Shranjeno na tej napravi</span>
+        </div>
+
+        <div class="settings-list">
+            <label class="settings-row">
+                <span>
+                    <strong>Pasji kosi</strong>
+                    <small>Prikazi odobrene kose na zemljevidu.</small>
+                </span>
+                <input type="checkbox" data-map-setting="showBins" checked />
+            </label>
+
+            <label class="settings-row">
+                <span>
+                    <strong>Pasji parki</strong>
+                    <small>Prikazi vnesene pasje parke po Sloveniji.</small>
+                </span>
+                <input type="checkbox" data-map-setting="showParks" checked />
+            </label>
+
+            <label class="settings-row">
+                <span>
+                    <strong>Pitniki</strong>
+                    <small>Prikazi lokacije za vodo.</small>
+                </span>
+                <input type="checkbox" data-map-setting="showWater" checked />
+            </label>
+
+            <label class="settings-row">
+                <span>
+                    <strong>Dog friendly lokacije</strong>
+                    <small>Kavarne in lokacije, kamor lahko prides s psom.</small>
+                </span>
+                <input type="checkbox" data-map-setting="showCafes" checked />
+            </label>
+
+            <label class="settings-row">
+                <span>
+                    <strong>Psi v blizini</strong>
+                    <small>Za zdaj pripravljeno za kasnejsi social feature.</small>
+                </span>
+                <input type="checkbox" data-map-setting="showDogs" />
+            </label>
+        </div>
+    </article>
+
+    <article class="settings-panel">
+        <div class="settings-panel__header">
+            <h2>Testiranje</h2>
+            <span>Localhost</span>
+        </div>
+        <p class="settings-muted">GPS na telefonu bova uredila kasneje prek HTTPS povezave. Do takrat zemljevid, rocni sprehodi, fotografije in statistika delujejo normalno.</p>
+        <div class="settings-actions">
+            <a asp-controller="Map" asp-action="Index">Odpri zemljevid</a>
+            <button type="button" id="resetMapSettings">Ponastavi sloje</button>
+        </div>
+    </article>
+
+    <article class="settings-panel">
+        <div class="settings-panel__header">
+            <h2>Obvestila</h2>
+            <span>Pripravljeno za push</span>
+        </div>
+
+        <div class="settings-list">
+            <label class="settings-row">
+                <span>
+                    <strong>Cas za sprehod</strong>
+                    <small>Opomnik za redno dnevno aktivnost.</small>
+                </span>
+                <input type="checkbox" data-notification-setting="walkReminder" checked />
+            </label>
+
+            <label class="settings-row">
+                <span>
+                    <strong>Pes v blizini</strong>
+                    <small>Obvestilo, ko bo social sloj zaznal psa v blizini.</small>
+                </span>
+                <input type="checkbox" data-notification-setting="nearbyDog" />
+            </label>
+
+            <label class="settings-row">
+                <span>
+                    <strong>Znacka odklenjena</strong>
+                    <small>Obvestilo ob novem dosezku.</small>
+                </span>
+                <input type="checkbox" data-notification-setting="badgeEarned" checked />
+            </label>
+
+            <label class="settings-row">
+                <span>
+                    <strong>Nov kos v blizini</strong>
+                    <small>Opomnik, ko bo v okolici dodan nov pasji kos.</small>
+                </span>
+                <input type="checkbox" data-notification-setting="newBin" />
+            </label>
+        </div>
+    </article>
+</section>
+
+<style>
+    .settings-hero,
+    .settings-panel {
+        border: 1px solid rgba(31, 45, 41, 0.1);
+        border-radius: 8px;
+        background: #ffffff;
+        box-shadow: 0 12px 28px rgba(31, 45, 41, 0.08);
+    }
+
+    .settings-hero {
+        padding: 22px;
+    }
+
+    .settings-hero span {
+        color: #2f6d5f;
+        font-size: 0.78rem;
+        font-weight: 900;
+        text-transform: uppercase;
+    }
+
+    .settings-hero h1 {
+        margin: 4px 0 8px;
+        font-size: clamp(2rem, 8vw, 3.2rem);
+        font-weight: 950;
+        line-height: 1;
+    }
+
+    .settings-hero p,
+    .settings-muted,
+    .settings-row small {
+        color: #65716d;
+    }
+
+    .settings-hero p,
+    .settings-muted {
+        margin: 0;
+    }
+
+    .settings-panel {
+        margin-top: 14px;
+        padding: 18px;
+    }
+
+    .settings-panel__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 12px;
+    }
+
+    .settings-panel__header h2 {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 950;
+    }
+
+    .settings-panel__header span {
+        color: #2f6d5f;
+        font-size: 0.82rem;
+        font-weight: 850;
+    }
+
+    .settings-list {
+        display: grid;
+        gap: 10px;
+    }
+
+    .settings-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        padding: 12px;
+        border: 1px solid rgba(31, 45, 41, 0.08);
+        border-radius: 8px;
+        background: #f8faf7;
+    }
+
+    .settings-row strong,
+    .settings-row small {
+        display: block;
+    }
+
+    .settings-row input {
+        flex: 0 0 auto;
+        width: 24px;
+        height: 24px;
+        accent-color: #2f6d5f;
+    }
+
+    .settings-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 14px;
+    }
+
+    .settings-actions a,
+    .settings-actions button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 42px;
+        padding: 10px 16px;
+        border-radius: 999px;
+        font-weight: 900;
+        text-decoration: none;
+    }
+
+    .settings-actions a {
+        background: #2f6d5f;
+        color: #ffffff;
+    }
+
+    .settings-actions button {
+        border: 1px solid rgba(47, 109, 95, 0.18);
+        background: #ffffff;
+        color: #2f6d5f;
+    }
+
+    @@media (max-width: 575.98px) {
+        .settings-panel__header,
+        .settings-row {
+            align-items: stretch;
+            flex-direction: column;
+        }
+
+        .settings-actions a,
+        .settings-actions button {
+            width: 100%;
+        }
+    }
+</style>
+
+@section Scripts {
+    <script>
+        const settingsPrefix = "doggydrop.map.";
+        const notificationPrefix = "doggydrop.notifications.";
+        const defaults = {
+            showBins: true,
+            showParks: true,
+            showWater: true,
+            showCafes: true,
+            showDogs: false
+        };
+        const notificationDefaults = {
+            walkReminder: true,
+            nearbyDog: false,
+            badgeEarned: true,
+            newBin: false
+        };
+
+        document.querySelectorAll("[data-map-setting]").forEach(input => {
+            const key = input.dataset.mapSetting;
+            const stored = localStorage.getItem(settingsPrefix + key);
+            input.checked = stored === null ? defaults[key] : stored === "true";
+
+            input.addEventListener("change", () => {
+                localStorage.setItem(settingsPrefix + key, input.checked ? "true" : "false");
+            });
+        });
+
+        document.querySelectorAll("[data-notification-setting]").forEach(input => {
+            const key = input.dataset.notificationSetting;
+            const stored = localStorage.getItem(notificationPrefix + key);
+            input.checked = stored === null ? notificationDefaults[key] : stored === "true";
+
+            input.addEventListener("change", () => {
+                localStorage.setItem(notificationPrefix + key, input.checked ? "true" : "false");
+            });
+        });
+
+        document.getElementById("resetMapSettings").addEventListener("click", () => {
+            Object.entries(defaults).forEach(([key, value]) => {
+                localStorage.setItem(settingsPrefix + key, value ? "true" : "false");
+            });
+
+            document.querySelectorAll("[data-map-setting]").forEach(input => {
+                input.checked = defaults[input.dataset.mapSetting];
+            });
+        });
+    </script>
+}

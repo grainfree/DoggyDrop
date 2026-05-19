@@ -1,0 +1,220 @@
+@model DoggyDrop.ViewModels.DogEditViewModel
+
+@{
+    ViewData["Title"] = "Uredi psa";
+}
+
+<section class="app-page dog-form-page">
+    <header class="app-page__header dog-edit-hero">
+        <div>
+            <h1 class="app-page__title">Uredi psa</h1>
+            <p class="app-page__lead">Posodobi profil, fotografijo in podatke, ki se prikazejo pri sprehodih.</p>
+        </div>
+        <a class="btn btn-outline-secondary rounded-pill" asp-controller="Dogs" asp-action="Details" asp-route-id="@Model.Id">Nazaj</a>
+    </header>
+
+    <form asp-action="Edit" asp-route-id="@Model.Id" method="post" enctype="multipart/form-data" class="dog-form">
+        <input asp-for="Id" type="hidden" />
+        <input asp-for="CurrentPhotoUrl" type="hidden" />
+        <div asp-validation-summary="ModelOnly" class="text-danger small mb-3"></div>
+
+        <div class="dog-edit-photo">
+            @if (!string.IsNullOrWhiteSpace(Model.CurrentPhotoUrl))
+            {
+                <img src="@Model.CurrentPhotoUrl" alt="@Model.Name" />
+            }
+            else
+            {
+                <span>@(string.IsNullOrWhiteSpace(Model.Name) ? "D" : Model.Name.Substring(0, 1).ToUpperInvariant())</span>
+            }
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Name" class="form-label">Ime psa</label>
+            <input asp-for="Name" class="form-control" />
+            <span asp-validation-for="Name" class="text-danger small"></span>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Breed" class="form-label">Pasma</label>
+            <input asp-for="Breed" class="form-control" />
+            <span asp-validation-for="Breed" class="text-danger small"></span>
+        </div>
+
+        <div class="dog-form__grid">
+            <div class="mb-3">
+                <label asp-for="AgeYears" class="form-label">Starost</label>
+                <input asp-for="AgeYears" type="number" min="0" max="30" class="form-control" />
+                <span asp-validation-for="AgeYears" class="text-danger small"></span>
+            </div>
+
+            <div class="mb-3">
+                <label asp-for="Gender" class="form-label">Spol</label>
+                <select asp-for="Gender" class="form-select">
+                    <option value="">Izberi</option>
+                    <option>Samcek</option>
+                    <option>Samicka</option>
+                </select>
+                <span asp-validation-for="Gender" class="text-danger small"></span>
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Size" class="form-label">Velikost</label>
+            <select asp-for="Size" class="form-select">
+                <option value="">Izberi velikost</option>
+                <option>Majhen</option>
+                <option>Srednji</option>
+                <option>Velik</option>
+            </select>
+            <span asp-validation-for="Size" class="text-danger small"></span>
+        </div>
+
+        <div class="mb-3">
+            <label asp-for="Character" class="form-label">Karakter</label>
+            <textarea asp-for="Character" class="form-control" rows="3"></textarea>
+            <span asp-validation-for="Character" class="text-danger small"></span>
+        </div>
+
+        <section class="dog-social-settings">
+            <div>
+                <h2>Vidnost v skupnosti</h2>
+                <p>To uporablja sloj "Psi v blizini" na zemljevidu. Lokacija je za zdaj testna in priblizna.</p>
+            </div>
+
+            <div class="dog-form__grid">
+                <div class="mb-3">
+                    <label asp-for="NearbyVisibility" class="form-label">Vidnost</label>
+                    <select asp-for="NearbyVisibility" class="form-select">
+                        <option value="Invisible">Neviden</option>
+                        <option value="Visible">Viden v blizini</option>
+                        <option value="FriendsOnly">Samo prijatelji</option>
+                    </select>
+                    <span asp-validation-for="NearbyVisibility" class="text-danger small"></span>
+                </div>
+
+                <div class="mb-3">
+                    <label asp-for="ApproximateLocation" class="form-label">Testna lokacija</label>
+                    <select asp-for="ApproximateLocation" class="form-select">
+                        <option value="">Brez lokacije</option>
+                        <option value="maribor">Maribor</option>
+                        <option value="ljubljana">Ljubljana</option>
+                        <option value="celje">Celje</option>
+                        <option value="kranj">Kranj</option>
+                        <option value="koper">Koper</option>
+                    </select>
+                    <span asp-validation-for="ApproximateLocation" class="text-danger small"></span>
+                </div>
+            </div>
+        </section>
+
+        <div class="mb-4">
+            <label asp-for="Photo" class="form-label">Nova fotografija</label>
+            <input asp-for="Photo" type="file" accept="image/*" class="form-control" />
+            <span asp-validation-for="Photo" class="text-danger small"></span>
+        </div>
+
+        <div class="dog-form__actions">
+            <a class="btn btn-outline-secondary rounded-pill" asp-controller="Dogs" asp-action="Details" asp-route-id="@Model.Id">Preklici</a>
+            <button type="submit" class="btn btn-success rounded-pill fw-semibold">Shrani spremembe</button>
+        </div>
+    </form>
+</section>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
+
+<style>
+    .dog-edit-hero {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 16px;
+    }
+
+    .dog-form {
+        max-width: 640px;
+        padding: 18px;
+        border: 1px solid rgba(31, 45, 41, 0.1);
+        border-radius: 8px;
+        background: #ffffff;
+        box-shadow: 0 12px 28px rgba(31, 45, 41, 0.08);
+    }
+
+    .dog-edit-photo {
+        display: grid;
+        width: 100%;
+        aspect-ratio: 4 / 3;
+        place-items: center;
+        overflow: hidden;
+        margin-bottom: 18px;
+        border-radius: 8px;
+        background: linear-gradient(135deg, #e7f3e5, #fff3dd);
+        color: #2f6d5f;
+        font-size: 4rem;
+        font-weight: 950;
+    }
+
+    .dog-edit-photo img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: center;
+    }
+
+    .dog-form__grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+    }
+
+    .dog-social-settings {
+        margin: 18px 0;
+        padding: 14px;
+        border: 1px solid rgba(31, 45, 41, 0.1);
+        border-radius: 8px;
+        background: #f8faf7;
+    }
+
+    .dog-social-settings h2 {
+        margin: 0 0 4px;
+        font-size: 1rem;
+        font-weight: 950;
+    }
+
+    .dog-social-settings p {
+        margin: 0 0 12px;
+        color: #65716d;
+        font-size: 0.9rem;
+        font-weight: 700;
+    }
+
+    .dog-form__actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+    }
+
+    .dog-form__actions .btn {
+        min-width: 130px;
+    }
+
+    @@media (max-width: 575.98px) {
+        .dog-edit-hero,
+        .dog-form__actions {
+            align-items: stretch;
+            flex-direction: column;
+        }
+
+        .dog-form__grid {
+            grid-template-columns: 1fr;
+            gap: 0;
+        }
+
+        .dog-form__actions .btn,
+        .dog-edit-hero .btn {
+            width: 100%;
+        }
+    }
+</style>

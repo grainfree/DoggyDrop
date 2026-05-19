@@ -1,0 +1,386 @@
+@model DoggyDrop.ViewModels.NotificationsViewModel
+
+@{
+    ViewData["Title"] = "Obvestila";
+}
+
+<section class="app-page notifications-page">
+    <header class="notifications-hero">
+        <div>
+            <span>Inbox</span>
+            <h1>Obvestila</h1>
+            <p>Prijatelji, sprehodi, dosežki in pametni namigi na enem mestu.</p>
+        </div>
+        @if (Model.UnreadCount > 0)
+        {
+            <form asp-controller="Notifications" asp-action="MarkAllRead" method="post">
+                <button type="submit">Označi vse kot prebrano</button>
+            </form>
+        }
+    </header>
+
+    <div class="notification-stats">
+        <article>
+            <strong>@Model.UnreadCount</strong>
+            <span>Neprebrano</span>
+        </article>
+        <article>
+            <strong>@Model.Notifications.Count</strong>
+            <span>Zadnjih obvestil</span>
+        </article>
+    </div>
+
+    @if (Model.SmartCards.Count > 0)
+    {
+        <section class="notification-smart-grid">
+            @foreach (var card in Model.SmartCards)
+            {
+                <article class="smart-card" data-weather-card="@(card.Type == "WeatherAlert" ? "true" : null)">
+                    <div class="smart-card__top">
+                        <span>@GetTypeLabel(card.Type)</span>
+                        <strong>@card.Title</strong>
+                    </div>
+                    <p>@card.Body</p>
+                    @if (!string.IsNullOrWhiteSpace(card.LinkUrl))
+                    {
+                        <a href="@card.LinkUrl">Odpri</a>
+                    }
+                </article>
+            }
+        </section>
+    }
+
+    @if (Model.Notifications.Count == 0)
+    {
+        <article class="notifications-empty">
+            <h2>Še ni obvestil</h2>
+            <p>Ko se pojavijo prošnje, odzivi ali dosežki, jih boš videl tukaj.</p>
+        </article>
+    }
+    else
+    {
+        <div class="notifications-list">
+            @foreach (var notification in Model.Notifications)
+            {
+                <article class="notification-card @(notification.IsRead ? "is-read" : "is-unread")">
+                    <div class="notification-card__icon">@GetTypeIcon(notification.Type)</div>
+                    <div>
+                        <div class="notification-card__top">
+                            <strong>@notification.Title</strong>
+                            <span>@notification.CreatedAt.ToLocalTime().ToString("dd.MM. HH:mm")</span>
+                        </div>
+                        <p>@notification.Body</p>
+                        <div class="notification-card__meta">
+                            <span>@GetTypeLabel(notification.Type)</span>
+                            @if (!notification.IsRead)
+                            {
+                                <span>Novo</span>
+                            }
+                        </div>
+                    </div>
+                    <form asp-controller="Notifications" asp-action="MarkRead" asp-route-id="@notification.Id" method="post">
+                        <button type="submit">Odpri</button>
+                    </form>
+                </article>
+            }
+        </div>
+    }
+</section>
+
+@functions {
+    private static string GetTypeIcon(string type)
+    {
+        return type switch
+        {
+            "FriendRequest" => "🤝",
+            "FriendAccepted" => "💚",
+            "PlaydateInterest" => "🐶",
+            "FriendStartedWalk" => "🐾",
+            "NewBinNearby" => "🗑️",
+            "BinApproved" => "✅",
+            "Achievement" => "🏆",
+            "WalkReminder" => "⏰",
+            "PopularParkNearby" => "🌳",
+            "WeatherAlert" => "☁️",
+            _ => "D"
+        };
+    }
+
+    private static string GetTypeLabel(string type)
+    {
+        return type switch
+        {
+            "FriendRequest" => "Prijatelji",
+            "FriendAccepted" => "Prijatelji",
+            "PlaydateInterest" => "Playdates",
+            "FriendStartedWalk" => "Sprehodi",
+            "NewBinNearby" => "Zemljevid",
+            "BinApproved" => "Prispevek",
+            "Achievement" => "Dosežek",
+            "WalkReminder" => "Smart",
+            "PopularParkNearby" => "Smart",
+            "WeatherAlert" => "Vreme",
+            _ => "DoggyDrop"
+        };
+    }
+}
+
+<style>
+    .notifications-hero,
+    .notification-stats article,
+    .notification-card,
+    .notifications-empty {
+        border: 1px solid rgba(31, 45, 41, 0.08);
+        border-radius: 22px;
+        background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(249,252,247,0.96));
+        box-shadow: 0 18px 34px rgba(31, 45, 41, 0.08);
+    }
+
+    .notifications-hero {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 22px;
+    }
+
+    .notifications-hero span {
+        color: #2f6d5f;
+        font-size: 0.78rem;
+        font-weight: 900;
+        text-transform: uppercase;
+    }
+
+    .notifications-hero h1 {
+        margin: 4px 0 8px;
+        font-size: clamp(2rem, 8vw, 3.2rem);
+        font-weight: 950;
+        line-height: 1;
+    }
+
+    .notifications-hero p,
+    .notifications-empty p,
+    .notification-card p {
+        margin: 0;
+        color: #65716d;
+    }
+
+    .notifications-hero button,
+    .notification-card button {
+        min-height: 42px;
+        padding: 8px 16px;
+        border: 1px solid rgba(47, 109, 95, 0.18);
+        border-radius: 999px;
+        background: linear-gradient(135deg, #2f6d5f, #3d7d6e);
+        color: #ffffff;
+        font-weight: 900;
+    }
+
+    .notification-stats {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+        margin: 14px 0;
+    }
+
+    .notification-smart-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        margin-bottom: 14px;
+    }
+
+    .notification-stats article,
+    .notifications-empty,
+    .smart-card {
+        padding: 18px;
+    }
+
+    .notification-stats strong,
+    .notification-stats span {
+        display: block;
+    }
+
+    .notification-stats strong {
+        color: #1f2d29;
+        font-size: 1.4rem;
+        font-weight: 950;
+    }
+
+    .notification-stats span {
+        color: #65716d;
+        font-weight: 750;
+    }
+
+    .notifications-list {
+        display: grid;
+        gap: 10px;
+    }
+
+    .smart-card {
+        border: 1px solid rgba(31, 45, 41, 0.08);
+        border-radius: 20px;
+        background: linear-gradient(180deg, #ffffff 0%, #f7fbf7 100%);
+        box-shadow: 0 12px 28px rgba(31, 45, 41, 0.08);
+    }
+
+    .smart-card__top {
+        display: grid;
+        gap: 4px;
+    }
+
+    .smart-card__top span {
+        color: #2f6d5f;
+        font-size: 0.78rem;
+        font-weight: 900;
+        text-transform: uppercase;
+    }
+
+    .smart-card__top strong {
+        color: #1f2d29;
+        font-size: 1.05rem;
+        font-weight: 950;
+    }
+
+    .smart-card p {
+        margin: 8px 0 12px;
+        color: #65716d;
+    }
+
+    .smart-card a {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 38px;
+        padding: 8px 14px;
+        border-radius: 999px;
+        background: #2f6d5f;
+        color: #ffffff;
+        font-weight: 900;
+        text-decoration: none;
+    }
+
+    .notification-card {
+        display: grid;
+        grid-template-columns: 52px 1fr auto;
+        gap: 14px;
+        align-items: center;
+        padding: 16px;
+    }
+
+    .notification-card.is-unread {
+        border-color: rgba(47, 109, 95, 0.22);
+        background: linear-gradient(180deg, #f6fcf4, #ffffff);
+    }
+
+    .notification-card__icon {
+        display: grid;
+        width: 52px;
+        aspect-ratio: 1;
+        place-items: center;
+        border-radius: 16px;
+        background: #eef7ed;
+        color: #2f6d5f;
+        font-size: 1.15rem;
+        font-weight: 950;
+    }
+
+    .notification-card__top,
+    .notification-card__meta {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+    }
+
+    .notification-card__top strong {
+        color: #1f2d29;
+        font-weight: 950;
+    }
+
+    .notification-card__top span,
+    .notification-card__meta span {
+        color: #2f6d5f;
+        font-size: 0.8rem;
+        font-weight: 900;
+    }
+
+    .notification-card p {
+        margin: 4px 0 8px;
+        font-weight: 700;
+    }
+
+    @@media (max-width: 575.98px) {
+        .notifications-hero,
+        .notification-card__top,
+        .notification-card__meta {
+            align-items: stretch;
+            flex-direction: column;
+        }
+
+        .notification-stats,
+        .notification-smart-grid,
+        .notification-card {
+            grid-template-columns: 1fr;
+        }
+
+        .notification-card__icon {
+            width: 100%;
+            max-width: 90px;
+        }
+
+        .notification-card button,
+        .notifications-hero button {
+            width: 100%;
+        }
+    }
+</style>
+
+@section Scripts {
+    <script>
+        const weatherCard = document.querySelector("[data-weather-card]");
+
+        async function loadWeatherAlert() {
+            if (!weatherCard || !navigator.geolocation) {
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(async position => {
+                try {
+                    const latitude = position.coords.latitude.toFixed(4);
+                    const longitude = position.coords.longitude.toFixed(4);
+                    const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,wind_speed_10m,precipitation&timezone=auto`);
+                    if (!response.ok) {
+                        return;
+                    }
+
+                    const data = await response.json();
+                    const current = data.current;
+                    if (!current) {
+                        return;
+                    }
+
+                    let title = "Vreme za sprehod izgleda mirno";
+                    let body = `Trenutno ${Math.round(current.temperature_2m)}°C in veter ${Math.round(current.wind_speed_10m)} km/h.`;
+
+                    if (current.precipitation > 0.1) {
+                        title = "Možen dež med sprehodom";
+                        body = `Na tvoji lokaciji je zaznana padavina (${current.precipitation} mm). Vzemi krajšo pot ali počakaj na premor.`;
+                    } else if (current.wind_speed_10m >= 30) {
+                        title = "Veter je malo močnejši";
+                        body = `Veter je okoli ${Math.round(current.wind_speed_10m)} km/h, zato je bolj smiselna krajša in bolj zavetna trasa.`;
+                    } else if (current.temperature_2m >= 28) {
+                        title = "Topel del dneva";
+                        body = `Trenutno je okoli ${Math.round(current.temperature_2m)}°C. Predlagan je sprehod z vodo in senco.`;
+                    }
+
+                    weatherCard.querySelector(".smart-card__top strong").textContent = title;
+                    weatherCard.querySelector("p").textContent = body;
+                } catch {
+                }
+            });
+        }
+
+        loadWeatherAlert();
+    </script>
+}

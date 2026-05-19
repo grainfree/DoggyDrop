@@ -1,0 +1,482 @@
+@model DoggyDrop.ViewModels.WalkPlannerViewModel
+@using System.Text.Json
+
+@{
+    ViewData["Title"] = "Planer sprehoda";
+    var routePointsJson = Html.Raw(JsonSerializer.Serialize(Model.Route?.RoutePoints ?? []));
+    var stopsJson = Html.Raw(JsonSerializer.Serialize(Model.Route?.Stops ?? []));
+}
+
+@section Styles {
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIINfQXh6ULpR5txR9wra5I3BcVsTPY1p3A="
+          crossorigin="" />
+}
+
+<section class="app-page walk-planner-page">
+    <header class="app-page__header walk-planner-hero">
+        <div>
+            <h1 class="app-page__title">Planer sprehoda</h1>
+            <p class="app-page__lead">Izberi dolzino poti, DoggyDrop pa predlaga krog s kosi, parkom, vodo in dog-friendly postanki.</p>
+        </div>
+        <a class="btn btn-outline-secondary rounded-pill" asp-controller="Walks" asp-action="Index">Sprehodi</a>
+    </header>
+
+    <form class="walk-planner-form" asp-controller="Walks" asp-action="Planner" method="get">
+        <div>
+            <label for="dogId">Pes</label>
+            <select id="dogId" name="dogId">
+                @foreach (var dog in Model.Dogs)
+                {
+                    <option value="@dog.Id" selected="@(Model.SelectedDogId == dog.Id)">@dog.Name</option>
+                }
+            </select>
+        </div>
+        <div>
+            <label for="area">Obmocje</label>
+            <select id="area" name="area">
+                @foreach (var area in Model.Areas)
+                {
+                    <option value="@area.Key" selected="@(Model.AreaKey == area.Key)">@area.Name</option>
+                }
+            </select>
+        </div>
+        <div>
+            <label for="distanceKm">Dolzina</label>
+            <select id="distanceKm" name="distanceKm">
+                @foreach (var distance in new[] { 1.5, 2.5, 3.5, 5.0, 7.5, 10.0 })
+                {
+                    <option value="@distance.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                            selected="@(Math.Abs(Model.TargetDistanceKm - distance) < 0.05)">
+                        @distance.ToString("0.#") km
+                    </option>
+                }
+            </select>
+        </div>
+        <div>
+            <label for="walkStyle">Tip poti</label>
+            <select id="walkStyle" name="walkStyle">
+                @foreach (var style in Model.Styles)
+                {
+                    <option value="@style.Key" selected="@(Model.WalkStyle == style.Key)">@style.Name</option>
+                }
+            </select>
+        </div>
+        <div>
+            <label for="dogEnergy">Energija psa</label>
+            <select id="dogEnergy" name="dogEnergy">
+                <option value="auto" selected="@(Model.DogEnergy == "auto")">Auto</option>
+                <option value="low" selected="@(Model.DogEnergy == "low")">Mirna</option>
+                <option value="high" selected="@(Model.DogEnergy == "high")">Aktivna</option>
+            </select>
+        </div>
+        <label class="walk-planner-check">
+            <input type="hidden" name="includeBins" value="false" />
+            <input type="checkbox" name="includeBins" value="true" checked="@Model.IncludeBins" />
+            <span>Kosi</span>
+        </label>
+        <label class="walk-planner-check">
+            <input type="hidden" name="includePark" value="false" />
+            <input type="checkbox" name="includePark" value="true" checked="@Model.IncludePark" />
+            <span>Park</span>
+        </label>
+        <label class="walk-planner-check">
+            <input type="hidden" name="includeWater" value="false" />
+            <input type="checkbox" name="includeWater" value="true" checked="@Model.IncludeWater" />
+            <span>Voda</span>
+        </label>
+        <label class="walk-planner-check">
+            <input type="hidden" name="includeDogFriendly" value="false" />
+            <input type="checkbox" name="includeDogFriendly" value="true" checked="@Model.IncludeDogFriendly" />
+            <span>Dog-friendly</span>
+        </label>
+        <button type="submit">Ustvari pot</button>
+    </form>
+
+    @if (Model.Route != null)
+    {
+        <section class="walk-planner-layout">
+            <article class="walk-planner-map-card">
+                <div class="walk-planner-summary">
+                    <div>
+                        <h2>@Model.Route.Title</h2>
+                        <p>@Model.Route.Summary</p>
+                    </div>
+                    <div>
+                        <strong>@Model.Route.EstimatedDistanceKm.ToString("0.0") km</strong>
+                        <span>~@Model.Route.EstimatedMinutes min</span>
+                    </div>
+                </div>
+                <div id="plannerMap"></div>
+                <div class="walk-planner-start">
+                    <form asp-controller="Walks" asp-action="SavePlan" method="post">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="dogId" value="@Model.SelectedDogId" />
+                        <input type="hidden" name="area" value="@Model.AreaKey" />
+                        <input type="hidden" name="distanceKm" value="@Model.TargetDistanceKm.ToString(System.Globalization.CultureInfo.InvariantCulture)" />
+                        <input type="hidden" name="walkStyle" value="@Model.WalkStyle" />
+                        <input type="hidden" name="dogEnergy" value="@Model.DogEnergy" />
+                        <input type="hidden" name="includeBins" value="@Model.IncludeBins.ToString().ToLowerInvariant()" />
+                        <input type="hidden" name="includePark" value="@Model.IncludePark.ToString().ToLowerInvariant()" />
+                        <input type="hidden" name="includeWater" value="@Model.IncludeWater.ToString().ToLowerInvariant()" />
+                        <input type="hidden" name="includeDogFriendly" value="@Model.IncludeDogFriendly.ToString().ToLowerInvariant()" />
+                        <button type="submit" class="walk-planner-start__secondary">
+                            @(Model.Route.SavedPlanId.HasValue ? "Shrani kot nov plan" : "Shrani plan")
+                        </button>
+                    </form>
+                    @if (Model.SelectedDogId.HasValue)
+                    {
+                        <form asp-controller="Walks" asp-action="Start" method="post">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="dogId" value="@Model.SelectedDogId.Value" />
+                            @if (Model.Route.SavedPlanId.HasValue)
+                            {
+                                <input type="hidden" name="plannedWalkId" value="@Model.Route.SavedPlanId.Value" />
+                            }
+                            <button type="submit">Zacni ta sprehod</button>
+                        </form>
+                    }
+                    else
+                    {
+                        <a asp-controller="Dogs" asp-action="Create">Dodaj psa za zacetek sprehoda</a>
+                    }
+                </div>
+            </article>
+
+            <aside class="walk-planner-stops">
+                <h2>Postanki</h2>
+                @foreach (var stop in Model.Route.Stops)
+                {
+                    <article>
+                        <span>@stop.Order</span>
+                        <div>
+                            <strong>@stop.Name</strong>
+                            <small>@stop.Label</small>
+                            <p>@stop.Reason</p>
+                        </div>
+                    </article>
+                }
+            </aside>
+        </section>
+    }
+</section>
+
+@section Scripts {
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+            crossorigin=""></script>
+    <script>
+        const plannerPoints = @routePointsJson;
+        const plannerStops = @stopsJson;
+
+        document.addEventListener("DOMContentLoaded", function () {
+            if (!plannerPoints.length || !document.getElementById("plannerMap")) {
+                return;
+            }
+
+            const routePoints = plannerPoints.map(point => [point.Latitude ?? point.latitude, point.Longitude ?? point.longitude]);
+            const map = L.map("plannerMap", { zoomControl: true }).setView(routePoints[0], 15);
+
+            L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+                subdomains: "abcd",
+                maxZoom: 20,
+                attribution: "&copy; OpenStreetMap contributors &copy; CARTO"
+            }).addTo(map);
+
+            const line = L.polyline(routePoints, { color: "#2f6d5f", weight: 6, opacity: 0.9 }).addTo(map);
+
+            plannerStops.forEach(stop => {
+                const lat = stop.Latitude ?? stop.latitude;
+                const lng = stop.Longitude ?? stop.longitude;
+                const label = stop.Label ?? stop.label;
+                const name = stop.Name ?? stop.name;
+                if (typeof lat !== "number" || typeof lng !== "number") {
+                    return;
+                }
+
+                L.marker([lat, lng], { icon: buildPlannerIcon(stop.Type ?? stop.type) })
+                    .addTo(map)
+                    .bindPopup(`<strong>${escapeHtml(name)}</strong><br>${escapeHtml(label)}`);
+            });
+
+            map.fitBounds(line.getBounds().pad(0.2), { maxZoom: 16 });
+        });
+
+        function buildPlannerIcon(type) {
+            const labels = {
+                start: "S",
+                finish: "C",
+                bin: "B",
+                park: "P",
+                water: "W",
+                cafe: "C",
+                shop: "T"
+            };
+
+            return L.divIcon({
+                className: "",
+                html: `<span class="planner-marker planner-marker--${escapeHtml(type || "stop")}">${labels[type] || "•"}</span>`,
+                iconSize: [38, 38],
+                iconAnchor: [19, 19],
+                popupAnchor: [0, -18]
+            });
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? "")
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;")
+                .replaceAll('"', "&quot;")
+                .replaceAll("'", "&#039;");
+        }
+    </script>
+}
+
+<style>
+    .walk-planner-hero {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 14px;
+    }
+
+    .walk-planner-form,
+    .walk-planner-map-card,
+    .walk-planner-stops {
+        border: 1px solid rgba(31, 45, 41, 0.1);
+        border-radius: 8px;
+        background: #ffffff;
+        box-shadow: 0 12px 28px rgba(31, 45, 41, 0.08);
+    }
+
+    .walk-planner-form {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 10px;
+        margin-bottom: 14px;
+        padding: 14px;
+    }
+
+    .walk-planner-form div,
+    .walk-planner-check {
+        display: grid;
+        gap: 6px;
+    }
+
+    .walk-planner-form label {
+        color: #21342f;
+        font-size: 0.82rem;
+        font-weight: 900;
+    }
+
+    .walk-planner-form select,
+    .walk-planner-form button {
+        min-height: 42px;
+        border-radius: 8px;
+        font-weight: 850;
+    }
+
+    .walk-planner-form select {
+        border: 1px solid rgba(31, 45, 41, 0.14);
+        background: #ffffff;
+        color: #21342f;
+    }
+
+    .walk-planner-check {
+        grid-template-columns: auto 1fr;
+        align-items: center;
+        min-height: 42px;
+        padding: 8px 10px;
+        border-radius: 8px;
+        background: #f4f7f3;
+    }
+
+    .walk-planner-check input {
+        width: 18px;
+        height: 18px;
+        accent-color: #2f6d5f;
+    }
+
+    .walk-planner-form button {
+        border: 0;
+        background: #2f6d5f;
+        color: #ffffff;
+    }
+
+    .walk-planner-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 340px;
+        gap: 14px;
+    }
+
+    .walk-planner-map-card,
+    .walk-planner-stops {
+        padding: 14px;
+    }
+
+    .walk-planner-summary {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 12px;
+    }
+
+    .walk-planner-summary h2,
+    .walk-planner-stops h2 {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 950;
+    }
+
+    .walk-planner-summary p {
+        margin: 4px 0 0;
+        color: #65716d;
+    }
+
+    .walk-planner-summary strong,
+    .walk-planner-summary span {
+        display: block;
+        color: #2f6d5f;
+        font-weight: 950;
+        text-align: right;
+        white-space: nowrap;
+    }
+
+    #plannerMap {
+        height: min(560px, 68vh);
+        min-height: 420px;
+        overflow: hidden;
+        border-radius: 8px;
+        background: #eaf4ea;
+    }
+
+    .walk-planner-start {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        margin-top: 12px;
+    }
+
+    .walk-planner-start button,
+    .walk-planner-start a {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 42px;
+        padding: 10px 16px;
+        border: 0;
+        border-radius: 999px;
+        background: #2f6d5f;
+        color: #ffffff;
+        font-weight: 900;
+        text-decoration: none;
+    }
+
+    .walk-planner-start button {
+        width: 100%;
+    }
+
+    .walk-planner-start__secondary {
+        border: 1px solid rgba(47, 109, 95, 0.18) !important;
+        background: #eef7ed !important;
+        color: #2f6d5f !important;
+    }
+
+    .planner-marker {
+        display: grid;
+        width: 38px;
+        height: 38px;
+        place-items: center;
+        border: 3px solid #ffffff;
+        border-radius: 14px;
+        background: #2f6d5f;
+        box-shadow: 0 10px 20px rgba(31, 45, 41, 0.25);
+        color: #ffffff;
+        font-size: 0.8rem;
+        font-weight: 950;
+    }
+
+    .planner-marker--bin { background: #2f6d5f; }
+    .planner-marker--park { background: #467b42; }
+    .planner-marker--water { background: #2f7da5; }
+    .planner-marker--cafe,
+    .planner-marker--shop { background: #b66b2f; }
+    .planner-marker--start,
+    .planner-marker--finish { background: #21342f; }
+
+    .walk-planner-stops {
+        display: grid;
+        align-content: start;
+        gap: 10px;
+    }
+
+    .walk-planner-stops article {
+        display: grid;
+        grid-template-columns: 34px minmax(0, 1fr);
+        gap: 10px;
+        padding: 10px;
+        border: 1px solid rgba(31, 45, 41, 0.08);
+        border-radius: 8px;
+        background: #f8faf7;
+    }
+
+    .walk-planner-stops article > span {
+        display: grid;
+        width: 34px;
+        height: 34px;
+        place-items: center;
+        border-radius: 999px;
+        background: #2f6d5f;
+        color: #ffffff;
+        font-weight: 950;
+    }
+
+    .walk-planner-stops strong,
+    .walk-planner-stops small {
+        display: block;
+    }
+
+    .walk-planner-stops strong {
+        color: #21342f;
+        font-weight: 950;
+    }
+
+    .walk-planner-stops small {
+        color: #2f6d5f;
+        font-weight: 850;
+    }
+
+    .walk-planner-stops p {
+        margin: 4px 0 0;
+        color: #65716d;
+        font-size: 0.86rem;
+        line-height: 1.35;
+    }
+
+    @@media (max-width: 900px) {
+        .walk-planner-layout,
+        .walk-planner-form,
+        .walk-planner-start {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @@media (max-width: 575.98px) {
+        .walk-planner-hero,
+        .walk-planner-summary {
+            align-items: stretch;
+            flex-direction: column;
+        }
+
+        .walk-planner-summary strong,
+        .walk-planner-summary span {
+            text-align: left;
+        }
+
+        #plannerMap {
+            min-height: 360px;
+        }
+    }
+</style>

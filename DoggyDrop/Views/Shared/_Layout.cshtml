@@ -1,17 +1,38 @@
 ﻿@using Microsoft.AspNetCore.Identity
+@using DoggyDrop.Data
+@using Microsoft.EntityFrameworkCore
 @inject SignInManager<ApplicationUser> SignInManager
 @inject UserManager<ApplicationUser> UserManager
+@inject ApplicationDbContext DbContext
+@{
+    var controller = ViewContext.RouteData.Values["controller"]?.ToString();
+    var action = ViewContext.RouteData.Values["action"]?.ToString();
+    var isFullBleed = ViewData["FullBleed"] as bool? == true;
+    var isSignedIn = SignInManager.IsSignedIn(User);
+    var currentUserId = UserManager.GetUserId(User);
+    var unreadNotificationCount = isSignedIn && !string.IsNullOrWhiteSpace(currentUserId)
+        ? await DbContext.UserNotifications.CountAsync(n => n.UserId == currentUserId && !n.IsRead)
+        : 0;
+    var profileUrl = isSignedIn
+        ? Url.Action("UserProfile", "Home")
+        : "/Identity/Account/Login";
+    var displayName = isSignedIn ? (UserManager.GetUserName(User) ?? "Profil") : "Gost";
+    var displayInitial = string.IsNullOrWhiteSpace(displayName) ? "D" : displayName.Substring(0, 1).ToUpperInvariant();
+}
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="sl">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - DoggyDrop</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
 
     <!-- 📱 PWA podpora -->
     <link rel="manifest" href="/manifest.json" />
-    <meta name="theme-color" content="#425F57" />
+    <meta name="theme-color" content="#2F6D5F" />
 
     <!-- 📲 Apple naprave -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -27,84 +48,196 @@
 
     <!-- 🎨 CSS -->
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/DoggyDrop.styles.css" asp-append-version="true" />
+    @await RenderSectionAsync("Styles", required: false)
 </head>
 
 
 
 
-<body>
-    <header>
-        <nav class="navbar navbar-expand-sm navbar-light bg-white border-bottom shadow-sm px-3">
-            <div class="container-fluid">
-                <!-- ✅ Logotip namesto teksta -->
-                <a class="navbar-brand" asp-area="" asp-controller="Map" asp-action="Index">
-                    <img src="~/images/logo_transparent.png" alt="DoggyDrop" style="height: 40px;" />
-                </a>
+<body class="app-shell">
+    <header class="app-topbar">
+        <nav class="app-topbar__inner" aria-label="DoggyDrop glava">
+            <a class="app-brand" asp-area="" asp-controller="Map" asp-action="Index" aria-label="DoggyDrop domov">
+                <img src="~/images/logo_transparent.png" alt="" class="app-logo" />
+                <span>DoggyDrop</span>
+            </a>
 
-                <!-- Hamburger gumb -->
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar"
-                        aria-controls="mainNavbar" aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-
-                <!-- Navigacija -->
-                <div class="collapse navbar-collapse" id="mainNavbar">
-                    <ul class="navbar-nav me-auto">
-                        @if (SignInManager.IsSignedIn(User))
+            <div class="app-topbar__actions">
+                @if (isSignedIn)
+                {
+                    <button class="app-icon-button @(controller == "Notifications" ? "is-active" : "")"
+                            type="button"
+                            id="notificationCenterToggle"
+                            data-notification-center-toggle
+                            data-bs-toggle="offcanvas"
+                            data-bs-target="#notificationCenter"
+                            aria-controls="notificationCenter"
+                            aria-label="Obvestila">
+                        <i class="bi bi-bell-fill" aria-hidden="true"></i>
+                        @if (unreadNotificationCount > 0)
                         {
-                            <li class="nav-item">
-                                <a class="nav-link text-dark" asp-controller="Map" asp-action="MyBins">📋 Moji predlogi</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link text-dark" asp-controller="Home" asp-action="UserProfile">👤 Moj profil</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link text-dark" asp-controller="Home" asp-action="PwaHelp">📲 Dodaj na začetni zaslon</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link text-dark" asp-controller="Home" asp-action="Help">❓ Pomoč</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link text-dark" asp-controller="Home" asp-action="About">ℹ️ O aplikaciji</a>
-                            </li>
-
-
-                        }
-
-                        @if (User.Identity.IsAuthenticated && User.IsInRole("Admin"))
-                        {
-                            <li class="nav-item">
-                                <a class="nav-link text-dark" asp-controller="Map" asp-action="Manage">🛠 Upravljanje predlogov</a>
-                            </li>
-                        }
-                    </ul>
-
-                    <!-- Prijava / Odjava -->
-                    <div class="d-flex align-items-center">
-                        @if (SignInManager.IsSignedIn(User))
-                        {
-                            <span class="navbar-text me-2">
-                                Pozdravljen, @UserManager.GetUserName(User)!
-                            </span>
-                            <form class="d-inline" asp-area="Identity" asp-page="/Account/Logout" method="post" id="logoutForm">
-                                <button type="submit" class="btn btn-outline-secondary btn-sm">Odjava</button>
-                            </form>
+                            <em id="notificationBadgeCount" data-notification-badge>@Math.Min(unreadNotificationCount, 9)</em>
                         }
                         else
                         {
-                            <a class="btn btn-outline-primary btn-sm me-2" asp-area="Identity" asp-page="/Account/Login">Prijava</a>
-                            @* <a class="btn btn-outline-success btn-sm" asp-area="Identity" asp-page="/Account/Register">Registracija</a>*@
+                            <em id="notificationBadgeCount" data-notification-badge hidden>0</em>
                         }
-                    </div>
-                </div>
+                    </button>
+                    <a class="app-avatar-button @(controller == "Home" && action == "UserProfile" ? "is-active" : "")"
+                       href="@profileUrl"
+                       aria-label="Profil">
+                        @displayInitial
+                    </a>
+                }
+                else
+                {
+                    <a class="app-login-button" asp-area="Identity" asp-page="/Account/Login">Prijava</a>
+                }
+
+                <button class="app-icon-button"
+                        type="button"
+                        data-bs-toggle="offcanvas"
+                        data-bs-target="#appMenu"
+                        aria-controls="appMenu"
+                        aria-label="Odpri meni">
+                    <i class="bi bi-grid-3x3-gap-fill" aria-hidden="true"></i>
+                </button>
             </div>
         </nav>
     </header>
 
-    <div class="container">
-        <main role="main" class="pb-3">
+    <aside class="offcanvas offcanvas-bottom app-menu-sheet" tabindex="-1" id="appMenu" aria-labelledby="appMenuLabel">
+        <div class="app-menu-sheet__handle" aria-hidden="true"></div>
+        <div class="offcanvas-header app-menu-sheet__header">
+            <div>
+                <span>DoggyDrop</span>
+                <h2 id="appMenuLabel">Meni</h2>
+            </div>
+            <button type="button" class="app-icon-button" data-bs-dismiss="offcanvas" aria-label="Zapri meni">
+                <i class="bi bi-x-lg" aria-hidden="true"></i>
+            </button>
+        </div>
+        <div class="offcanvas-body app-menu-sheet__body">
+            @if (isSignedIn)
+            {
+                <div class="app-menu-user">
+                    <div class="app-menu-user__avatar">@displayInitial</div>
+                    <div>
+                        <strong>@displayName</strong>
+                        <span>Prijavljen uporabnik</span>
+                    </div>
+                </div>
+
+                <div class="app-menu-grid">
+                    <a asp-controller="Notifications" asp-action="Index">
+                        <strong>Obvestila</strong>
+                        <span>@unreadNotificationCount novih</span>
+                    </a>
+                    <a asp-controller="Friends" asp-action="Index">
+                        <strong>Prijatelji</strong>
+                        <span>Social</span>
+                    </a>
+                    <a asp-controller="Map" asp-action="MyBins">
+                        <strong>Moji predlogi</strong>
+                        <span>Koši</span>
+                    </a>
+                    <a asp-controller="Home" asp-action="Settings">
+                        <strong>Nastavitve</strong>
+                        <span>App</span>
+                    </a>
+                    <a asp-controller="City" asp-action="Dashboard">
+                        <strong>Mestni dashboard</strong>
+                        <span>Analytics</span>
+                    </a>
+                    <a asp-controller="Home" asp-action="PwaHelp">
+                        <strong>Dodaj na zaslon</strong>
+                        <span>PWA</span>
+                    </a>
+                    <a asp-controller="Home" asp-action="Help">
+                        <strong>Pomoč</strong>
+                        <span>Navodila</span>
+                    </a>
+                    <a asp-controller="Home" asp-action="About">
+                        <strong>O aplikaciji</strong>
+                        <span>Info</span>
+                    </a>
+                    @if (User.IsInRole("Admin"))
+                    {
+                        <a asp-controller="Map" asp-action="Manage">
+                            <strong>Admin</strong>
+                            <span>Predlogi</span>
+                        </a>
+                    }
+                </div>
+
+                <form class="app-menu-logout" asp-area="Identity" asp-page="/Account/Logout" method="post" id="logoutForm">
+                    <button type="submit">Odjava</button>
+                </form>
+            }
+            else
+            {
+                <div class="app-menu-user">
+                    <div class="app-menu-user__avatar">D</div>
+                    <div>
+                        <strong>Dobrodošel</strong>
+                        <span>Prijavi se za sprehode, pse in skupnost.</span>
+                    </div>
+                </div>
+                <a class="app-menu-primary" asp-area="Identity" asp-page="/Account/Login">Prijava</a>
+            }
+        </div>
+    </aside>
+
+    @if (isSignedIn)
+    {
+        <aside class="offcanvas offcanvas-bottom app-menu-sheet app-notification-center" tabindex="-1" id="notificationCenter" aria-labelledby="notificationCenterLabel">
+            <div class="app-menu-sheet__handle" aria-hidden="true"></div>
+            <div class="offcanvas-header app-menu-sheet__header">
+                <div>
+                    <span>DoggyDrop</span>
+                    <h2 id="notificationCenterLabel">Center obvestil</h2>
+                </div>
+                <button type="button" class="app-icon-button" data-bs-dismiss="offcanvas" aria-label="Zapri obvestila">
+                    <i class="bi bi-x-lg" aria-hidden="true"></i>
+                </button>
+            </div>
+            <div class="offcanvas-body app-menu-sheet__body app-notification-center__body">
+                <div class="app-notification-center__summary">
+                    <article>
+                        <strong id="notificationCenterUnread">@unreadNotificationCount</strong>
+                        <span>Neprebrano</span>
+                    </article>
+                    <a asp-controller="Notifications" asp-action="Index">Odpri inbox</a>
+                </div>
+
+                <section class="app-notification-center__smart">
+                    <div class="app-notification-center__section-head">
+                        <h3>Smart</h3>
+                        <span>Hitri namigi</span>
+                    </div>
+                    <div id="notificationCenterSmartList" class="app-notification-center__smart-list">
+                        <p class="app-notification-center__empty">Nalagam smart predloge...</p>
+                    </div>
+                </section>
+
+                <section class="app-notification-center__feed">
+                    <div class="app-notification-center__section-head">
+                        <h3>Zadnje</h3>
+                        <span id="notificationCenterStatus">Osvežujem...</span>
+                    </div>
+                    <div id="notificationCenterList" class="app-notification-center__list">
+                        <p class="app-notification-center__empty">Nalagam obvestila...</p>
+                    </div>
+                </section>
+            </div>
+        </aside>
+    }
+
+    <div class="@(isFullBleed ? "app-content app-content--full" : "app-content container")">
+        <main role="main" class="@(isFullBleed ? "app-main app-main--full" : "app-main")">
             @RenderBody()
         </main>
     </div>
@@ -120,7 +253,6 @@
     <script src="~/js/site.js" asp-append-version="true"></script>
     <partial name="_ValidationScriptsPartial" />
     
-    <!-- 📲 PWA toast za dodajanje na domači zaslon -->
     <div id="pwaPrompt" class="toast align-items-center text-bg-light border-0" role="alert"
          style="position: fixed; bottom: 20px; left: 20px; z-index: 2000;" aria-live="assertive" aria-atomic="true">
         <div class="d-flex">
@@ -142,6 +274,200 @@
         });
     </script>
 
+    @if (isSignedIn)
+    {
+        <script>
+            document.addEventListener("DOMContentLoaded", function () {
+                const badge = document.querySelector("[data-notification-badge]");
+                const centerUnread = document.getElementById("notificationCenterUnread");
+                const centerList = document.getElementById("notificationCenterList");
+                const smartList = document.getElementById("notificationCenterSmartList");
+                const status = document.getElementById("notificationCenterStatus");
+                const centerElement = document.getElementById("notificationCenter");
+                let notificationCenterLoaded = false;
+
+                async function fetchCenter() {
+                    try {
+                        const response = await fetch("/api/notifications/center", {
+                            headers: { "X-Requested-With": "XMLHttpRequest" }
+                        });
+
+                        if (!response.ok) {
+                            throw new Error("Center obvestil ni na voljo.");
+                        }
+
+                        const data = await response.json();
+                        renderCenter(data);
+                        notificationCenterLoaded = true;
+                    } catch {
+                        status.textContent = "Ni povezave";
+                    }
+                }
+
+                function renderCenter(data) {
+                    const unreadCount = Number(data.unreadCount || 0);
+                    centerUnread.textContent = unreadCount;
+                    status.textContent = "Ravno zdaj";
+
+                    if (badge) {
+                        badge.textContent = String(Math.min(unreadCount, 9));
+                        badge.hidden = unreadCount <= 0;
+                    }
+
+                    const latest = Array.isArray(data.latest) ? data.latest : [];
+                    centerList.innerHTML = latest.length === 0
+                        ? '<p class="app-notification-center__empty">Trenutno ni novih obvestil.</p>'
+                        : latest.map(renderNotificationItem).join("");
+
+                    const smart = Array.isArray(data.smart) ? data.smart : [];
+                    smartList.innerHTML = smart.length === 0
+                        ? '<p class="app-notification-center__empty">Ni smart predlogov.</p>'
+                        : smart.map(renderSmartItem).join("");
+
+                    centerList.querySelectorAll("[data-notification-open]").forEach(button => {
+                        button.addEventListener("click", async function () {
+                            const id = button.dataset.notificationId;
+                            const linkUrl = button.dataset.linkUrl;
+
+                            try {
+                                await fetch(`/api/notifications/${id}/read`, {
+                                    method: "POST",
+                                    headers: { "X-Requested-With": "XMLHttpRequest" }
+                                });
+                            } catch {
+                            }
+
+                            if (linkUrl) {
+                                window.location.href = linkUrl;
+                                return;
+                            }
+
+                            fetchCenter();
+                        });
+                    });
+                }
+
+                function renderNotificationItem(item) {
+                    const isUnread = item.isRead !== true;
+                    const meta = getNotificationLabel(item.type || "");
+                    const body = escapeHtml(item.body || "");
+                    const title = escapeHtml(item.title || "DoggyDrop");
+                    const createdAt = formatDateTime(item.createdAt);
+                    const buttonLabel = item.linkUrl ? "Odpri" : "Označi prebrano";
+
+                    return `
+                        <article class="app-notification-mini ${isUnread ? "is-unread" : ""}">
+                            <div class="app-notification-mini__icon">${meta.icon}</div>
+                            <div class="app-notification-mini__content">
+                                <div class="app-notification-mini__top">
+                                    <strong>${title}</strong>
+                                    <span>${createdAt}</span>
+                                </div>
+                                <p>${body}</p>
+                                <div class="app-notification-mini__meta">
+                                    <span>${meta.label}</span>
+                                    ${isUnread ? "<span>Novo</span>" : ""}
+                                </div>
+                            </div>
+                            <button type="button"
+                                    data-notification-open
+                                    data-notification-id="${item.id}"
+                                    data-link-url="${item.linkUrl || ""}">${buttonLabel}</button>
+                        </article>
+                    `;
+                }
+
+                function renderSmartItem(item) {
+                    const label = getNotificationLabel(item.type || "").label;
+                    return `
+                        <article class="app-notification-smart-item">
+                            <span>${label}</span>
+                            <strong>${escapeHtml(item.title || "DoggyDrop")}</strong>
+                            <p>${escapeHtml(item.body || "")}</p>
+                            ${item.linkUrl ? `<a href="${item.linkUrl}">Odpri</a>` : ""}
+                        </article>
+                    `;
+                }
+
+                function getNotificationLabel(type) {
+                    switch (type) {
+                        case "FriendStartedWalk": return { label: "Sprehodi", icon: "🐾" };
+                        case "NewBinNearby": return { label: "Zemljevid", icon: "🗑️" };
+                        case "BinApproved": return { label: "Prispevek", icon: "✅" };
+                        case "Achievement": return { label: "Dosežek", icon: "🏆" };
+                        case "WalkReminder": return { label: "Smart", icon: "⏰" };
+                        case "PopularParkNearby": return { label: "Smart", icon: "🌳" };
+                        case "WeatherAlert": return { label: "Vreme", icon: "☁️" };
+                        case "FriendRequest": return { label: "Prijatelji", icon: "🤝" };
+                        case "FriendAccepted": return { label: "Prijatelji", icon: "💚" };
+                        case "PlaydateInterest": return { label: "Playdates", icon: "🐶" };
+                        default: return { label: "DoggyDrop", icon: "D" };
+                    }
+                }
+
+                function formatDateTime(value) {
+                    if (!value) {
+                        return "";
+                    }
+
+                    const date = new Date(value);
+                    if (Number.isNaN(date.getTime())) {
+                        return "";
+                    }
+
+                    return date.toLocaleString("sl-SI", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        hour: "2-digit",
+                        minute: "2-digit"
+                    });
+                }
+
+                function escapeHtml(value) {
+                    return value
+                        .replaceAll("&", "&amp;")
+                        .replaceAll("<", "&lt;")
+                        .replaceAll(">", "&gt;")
+                        .replaceAll('"', "&quot;");
+                }
+
+                centerElement?.addEventListener("show.bs.offcanvas", function () {
+                    fetchCenter();
+                });
+
+                fetchCenter();
+                setInterval(fetchCenter, 60000);
+            });
+        </script>
+    }
+
+    <nav class="app-bottom-nav" aria-label="Glavna navigacija">
+        <a class="app-bottom-nav__item @(controller == "Map" && action == "Index" ? "is-active" : "")"
+           asp-controller="Map" asp-action="Index">
+            <span class="app-bottom-nav__icon" aria-hidden="true"><i class="bi bi-house-heart-fill"></i></span>
+            <span>Domov</span>
+        </a>
+        <a class="app-bottom-nav__item @(controller == "Dogs" ? "is-active" : "")"
+           asp-controller="Dogs" asp-action="Index">
+            <span class="app-bottom-nav__icon" aria-hidden="true"><i class="bi bi-shield-fill"></i></span>
+            <span>Psi</span>
+        </a>
+        <a class="app-bottom-nav__item @(controller == "Walks" ? "is-active" : "")"
+           asp-controller="Walks" asp-action="Index">
+            <span class="app-bottom-nav__icon" aria-hidden="true"><i class="bi bi-signpost-2-fill"></i></span>
+            <span>Sprehodi</span>
+        </a>
+        <a class="app-bottom-nav__item @(controller == "Home" && action == "Community" ? "is-active" : "")"
+           asp-controller="Home" asp-action="Community">
+            <span class="app-bottom-nav__icon" aria-hidden="true"><i class="bi bi-hearts"></i></span>
+            <span>Skupnost</span>
+        </a>
+        <a class="app-bottom-nav__item @(controller == "Home" && action == "UserProfile" ? "is-active" : "")"
+           href="@profileUrl">
+            <span class="app-bottom-nav__icon" aria-hidden="true"><i class="bi bi-person-heart"></i></span>
+            <span>Profil</span>
+        </a>
+    </nav>
     
     @await RenderSectionAsync("Scripts", required: false)
 </body>

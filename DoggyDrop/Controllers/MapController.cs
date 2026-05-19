@@ -18,18 +18,21 @@ namespace DoggyDrop.Controllers
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly ICloudinaryService _cloudinaryService;
         private readonly IEmailSender _emailSender;
+        private readonly INotificationService _notificationService;
 
         public MapController(ApplicationDbContext context,
                              IWebHostEnvironment environment,
                              UserManager<ApplicationUser> userManager,
                              ICloudinaryService cloudinaryService,
-                             IEmailSender emailSender)
+                             IEmailSender emailSender,
+                             INotificationService notificationService)
         {
             _context = context;
             _environment = environment;
             _userManager = userManager;
             _cloudinaryService = cloudinaryService;
             _emailSender = emailSender;
+            _notificationService = notificationService;
         }
 
         // 📍 Prikaz obrazca za dodajanje koša
@@ -63,20 +66,117 @@ namespace DoggyDrop.Controllers
 
             _context.TrashBins.Add(newBin);
             await _context.SaveChangesAsync();
+            await NotifyBinContributionAchievementsAsync(newBin.UserId);
 
-            TempData["SuccessMessage"] = "Koš je bil uspešno dodan!";
+            if (newBin.IsApproved)
+            {
+                await NotifyNearbyUsersAboutApprovedBinAsync(newBin, newBin.UserId);
+            }
+
+            TempData["SuccessMessage"] = User.IsInRole("Admin")
+                ? "Kos je bil dodan in je ze viden na zemljevidu."
+                : "Hvala! Kos je shranjen in caka na odobritev.";
             return RedirectToAction("Index");
         }
 
         // 🗺️ Glavna stran z zemljevidom
-        public IActionResult Index()
+        public async Task<IActionResult> Index()
         {
-            var bins = _context.TrashBins
+            var bins = await _context.TrashBins
                 .Include(b => b.User)
                 .Where(b => b.IsApproved)
-                .ToList();
+                .ToListAsync();
+
+            if (User.Identity?.IsAuthenticated == true)
+            {
+                var userId = _userManager.GetUserId(User);
+                var myDogs = await _context.Dogs
+                    .Where(dog => dog.OwnerId == userId)
+                    .OrderBy(dog => dog.Name)
+                    .Select(dog => new
+                    {
+                        dog.Id,
+                        dog.Name
+                    })
+                    .ToListAsync();
+
+                ViewBag.MyDogs = myDogs;
+                ViewBag.NeedsDogOnboarding = myDogs.Count == 0;
+                ViewBag.UserDisplayName = (await _userManager.GetUserAsync(User))?.DisplayName
+                    ?? User.Identity?.Name
+                    ?? "pasjeljubec";
+            }
+            else
+            {
+                ViewBag.MyDogs = Array.Empty<object>();
+                ViewBag.NeedsDogOnboarding = false;
+                ViewBag.UserDisplayName = "pasjeljubec";
+            }
 
             return View(bins);
+        }
+
+        [Authorize]
+        [HttpPost]
+        public async Task<IActionResult> ParkVisit([FromBody] ParkVisitInput input)
+        {
+            var userId = _userManager.GetUserId(User);
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                return Challenge();
+            }
+
+            var dog = await _context.Dogs
+                .FirstOrDefaultAsync(candidate => candidate.Id == input.DogId && candidate.OwnerId == userId);
+
+            if (dog == null)
+            {
+                return NotFound(new { message = "Pes ni najden." });
+            }
+
+            if (string.IsNullOrWhiteSpace(input.ParkName)
+                || string.IsNullOrWhiteSpace(input.PlaceKey)
+                || input.Latitude is < -90 or > 90
+                || input.Longitude is < -180 or > 180)
+            {
+                return BadRequest(new { message = "Lokacija parka ni veljavna." });
+            }
+
+            var now = DateTime.UtcNow;
+            var recentDuplicate = await _context.DogParkVisits.AnyAsync(visit =>
+                visit.DogId == dog.Id
+                && visit.PlaceKey == input.PlaceKey
+                && visit.VisitedAt >= now.AddHours(-2));
+
+            if (!recentDuplicate)
+            {
+                _context.DogParkVisits.Add(new DogParkVisit
+                {
+                    DogId = dog.Id,
+                    UserId = userId,
+                    ParkName = input.ParkName.Trim()[..Math.Min(input.ParkName.Trim().Length, 120)],
+                    Area = TrimToLength(input.Area, 80),
+                    Address = TrimToLength(input.Address, 160),
+                    PlaceKey = input.PlaceKey.Trim()[..Math.Min(input.PlaceKey.Trim().Length, 120)],
+                    Latitude = input.Latitude,
+                    Longitude = input.Longitude,
+                    VisitedAt = now
+                });
+
+                await _context.SaveChangesAsync();
+                await NotifyParkAchievementsAsync(userId);
+            }
+
+            var visitCount = await _context.DogParkVisits
+                .CountAsync(visit => visit.DogId == dog.Id && visit.PlaceKey == input.PlaceKey);
+
+            return Json(new
+            {
+                dog.Name,
+                input.ParkName,
+                VisitCount = visitCount,
+                Saved = !recentDuplicate
+            });
         }
 
         // ✅ Upravljanje - prikaz neodobrenih predlogov
@@ -94,13 +194,26 @@ namespace DoggyDrop.Controllers
 
         // ✅ Potrdi predlog
         [Authorize(Roles = "Admin")]
-        public IActionResult Approve(int id)
+        public async Task<IActionResult> Approve(int id)
         {
             var bin = _context.TrashBins.Find(id);
             if (bin != null)
             {
                 bin.IsApproved = true;
-                _context.SaveChanges();
+                await _context.SaveChangesAsync();
+
+                if (!string.IsNullOrWhiteSpace(bin.UserId))
+                {
+                    await _notificationService.CreateUniqueRecentAsync(
+                        bin.UserId,
+                        "BinApproved",
+                        "Tvoj pasji kos je odobren",
+                        $"{bin.Name} je zdaj viden na DoggyDrop zemljevidu.",
+                        Url.Action(nameof(MyBins), "Map"),
+                        withinHours: 24 * 14);
+                }
+
+                await NotifyNearbyUsersAboutApprovedBinAsync(bin, bin.UserId);
             }
 
             return RedirectToAction("Manage");
@@ -167,7 +280,39 @@ namespace DoggyDrop.Controllers
                 nearest.Name,
                 nearest.Latitude,
                 nearest.Longitude,
-                nearest.ImageUrl
+                nearest.ImageUrl,
+                ReliabilityScore = GetBinReliabilityScore(nearest)
+            });
+        }
+
+        [HttpGet]
+        public IActionResult GetBestBin(double latitude, double longitude)
+        {
+            var best = _context.TrashBins
+                .Where(b => b.IsApproved)
+                .AsEnumerable()
+                .Select(bin => new
+                {
+                    Bin = bin,
+                    DistanceMeters = GetDistanceMeters(latitude, longitude, bin.Latitude, bin.Longitude),
+                    ReliabilityScore = GetBinReliabilityScore(bin)
+                })
+                .OrderBy(item => item.DistanceMeters * 0.65 - item.ReliabilityScore * 9)
+                .FirstOrDefault();
+
+            if (best == null)
+            {
+                return NotFound();
+            }
+
+            return Json(new
+            {
+                best.Bin.Name,
+                best.Bin.Latitude,
+                best.Bin.Longitude,
+                best.Bin.ImageUrl,
+                best.DistanceMeters,
+                best.ReliabilityScore
             });
         }
 
@@ -187,6 +332,58 @@ namespace DoggyDrop.Controllers
                 .ToList();
 
             return Json(bins);
+        }
+
+        [Authorize]
+        [HttpPost]
+        public async Task<IActionResult> BinAction(int id, string action)
+        {
+            var bin = await _context.TrashBins.FindAsync(id);
+            if (bin == null || !bin.IsApproved)
+            {
+                return NotFound();
+            }
+
+            var now = DateTime.UtcNow;
+
+            switch ((action ?? string.Empty).Trim().ToLowerInvariant())
+            {
+                case "used":
+                    bin.UsedCount++;
+                    bin.LastUsedAt = now;
+                    break;
+                case "full":
+                    bin.FullReports++;
+                    bin.LastReportedAt = now;
+                    break;
+                case "missing":
+                    bin.MissingReports++;
+                    bin.LastReportedAt = now;
+                    break;
+                case "useful":
+                    bin.UsefulVotes++;
+                    break;
+                case "not-useful":
+                    bin.NotUsefulVotes++;
+                    break;
+                default:
+                    return BadRequest(new { message = "Neznana akcija." });
+            }
+
+            await _context.SaveChangesAsync();
+
+            return Json(new
+            {
+                bin.Id,
+                bin.UsedCount,
+                bin.FullReports,
+                bin.MissingReports,
+                bin.UsefulVotes,
+                bin.NotUsefulVotes,
+                ReliabilityScore = GetBinReliabilityScore(bin),
+                LastUsedAt = bin.LastUsedAt?.ToString("dd.MM.yyyy HH:mm"),
+                LastReportedAt = bin.LastReportedAt?.ToString("dd.MM.yyyy HH:mm")
+            });
         }
 
         // ✏️ Prikaz obrazca za urejanje koša
@@ -240,5 +437,155 @@ namespace DoggyDrop.Controllers
             TempData["SuccessMessage"] = "Hvala za vaš prispevek! Vaš koš je bil uspešno dodan. Administrator ga bo kmalu pregledal. 🐾";
             return RedirectToAction("Manage");
         }
+
+        private static string? TrimToLength(string? value, int maxLength)
+        {
+            var trimmed = value?.Trim();
+            if (string.IsNullOrWhiteSpace(trimmed))
+            {
+                return null;
+            }
+
+            return trimmed.Length <= maxLength ? trimmed : trimmed[..maxLength];
+        }
+
+        private async Task NotifyBinContributionAchievementsAsync(string? userId)
+        {
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                return;
+            }
+
+            var totalBins = await _context.TrashBins.CountAsync(bin => bin.UserId == userId);
+            var previousTotal = Math.Max(0, totalBins - 1);
+            if (previousTotal < 10 && totalBins >= 10)
+            {
+                await _notificationService.CreateUniqueRecentAsync(
+                    userId,
+                    "Achievement",
+                    "Added 10 bins",
+                    "Dosegel si mejnik 10 dodanih pasjih kosev.",
+                    Url.Action("UserProfile", "Home"),
+                    withinHours: 24 * 365);
+            }
+        }
+
+        private async Task NotifyParkAchievementsAsync(string userId)
+        {
+            var uniqueParkVisits = await _context.DogParkVisits
+                .Where(visit => visit.UserId == userId)
+                .Select(visit => visit.PlaceKey)
+                .Distinct()
+                .CountAsync();
+
+            if (uniqueParkVisits >= 5)
+            {
+                await _notificationService.CreateUniqueRecentAsync(
+                    userId,
+                    "Achievement",
+                    "Visited 5 parks",
+                    "Obiskal si 5 razlicnih pasjih parkov.",
+                    Url.Action("Index", "Walks"),
+                    withinHours: 24 * 365);
+            }
+        }
+
+        private async Task NotifyNearbyUsersAboutApprovedBinAsync(TrashBin bin, string? excludeUserId)
+        {
+            var candidateUsers = new HashSet<string>(StringComparer.Ordinal);
+            var pointCutoff = DateTime.UtcNow.AddDays(-30);
+            var recentWalkPoints = await _context.WalkPoints
+                .Include(point => point.Walk)
+                .Where(point => point.RecordedAt >= pointCutoff && point.Walk != null)
+                .ToListAsync();
+
+            foreach (var point in recentWalkPoints)
+            {
+                var ownerId = point.Walk?.OwnerId;
+                if (string.IsNullOrWhiteSpace(ownerId) || ownerId == excludeUserId)
+                {
+                    continue;
+                }
+
+                if (GetDistanceMeters(bin.Latitude, bin.Longitude, point.Latitude, point.Longitude) <= 4000)
+                {
+                    candidateUsers.Add(ownerId);
+                }
+            }
+
+            var visitCutoff = DateTime.UtcNow.AddDays(-60);
+            var recentParkVisits = await _context.DogParkVisits
+                .Where(visit => visit.VisitedAt >= visitCutoff)
+                .ToListAsync();
+
+            foreach (var visit in recentParkVisits)
+            {
+                if (string.IsNullOrWhiteSpace(visit.UserId) || visit.UserId == excludeUserId)
+                {
+                    continue;
+                }
+
+                if (GetDistanceMeters(bin.Latitude, bin.Longitude, visit.Latitude, visit.Longitude) <= 4000)
+                {
+                    candidateUsers.Add(visit.UserId);
+                }
+            }
+
+            foreach (var userId in candidateUsers.Take(20))
+            {
+                await _notificationService.CreateUniqueRecentAsync(
+                    userId,
+                    "NewBinNearby",
+                    "Nov pasji kos v tvoji okolici",
+                    $"{bin.Name} je zdaj na voljo blizu tvojih pogostih sprehodov.",
+                    Url.Action(nameof(Index), "Map"),
+                    withinHours: 48);
+            }
+        }
+
+        private static double GetDistanceMeters(double lat1, double lng1, double lat2, double lng2)
+        {
+            const double earthRadiusMeters = 6371000;
+            var dLat = ToRadians(lat2 - lat1);
+            var dLng = ToRadians(lng2 - lng1);
+            var a =
+                Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
+                Math.Cos(ToRadians(lat1)) * Math.Cos(ToRadians(lat2)) *
+                Math.Sin(dLng / 2) * Math.Sin(dLng / 2);
+
+            return earthRadiusMeters * 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+        }
+
+        private static double ToRadians(double value)
+        {
+            return value * Math.PI / 180;
+        }
+
+        private static int GetBinReliabilityScore(TrashBin bin)
+        {
+            var score = 60;
+            score += Math.Min(18, bin.UsefulVotes * 3);
+            score += Math.Min(15, bin.UsedCount);
+            score -= Math.Min(28, bin.FullReports * 8);
+            score -= Math.Min(35, bin.MissingReports * 12);
+            return Math.Clamp(score, 0, 100);
+        }
+    }
+
+    public class ParkVisitInput
+    {
+        public int DogId { get; set; }
+
+        public string ParkName { get; set; } = string.Empty;
+
+        public string? Area { get; set; }
+
+        public string? Address { get; set; }
+
+        public string PlaceKey { get; set; } = string.Empty;
+
+        public double Latitude { get; set; }
+
+        public double Longitude { get; set; }
     }
 }

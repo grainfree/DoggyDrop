@@ -1,104 +1,1352 @@
-﻿@model IEnumerable<DoggyDrop.Models.TrashBin>
+@model IEnumerable<DoggyDrop.Models.TrashBin>
 @using System.Text.Json
 
 @{
     ViewData["Title"] = "Zemljevid";
+    ViewData["FullBleed"] = true;
     var json = JsonSerializer.Serialize(
-    Model.Select(b => new
-    {
-        name = b.Name,
-        latitude = b.Latitude,
-        longitude = b.Longitude,
-        date = b.DateAdded.ToString("dd.MM.yyyy"),
-        image = b.FullImageUrl,
-        user = b.User?.DisplayName ?? "Neznan uporabnik"
-    })
-        );
+        Model.Select(b => new
+        {
+            id = b.Id,
+            name = b.Name,
+            latitude = b.Latitude,
+            longitude = b.Longitude,
+            date = b.DateAdded.ToString("dd.MM.yyyy"),
+            image = b.FullImageUrl,
+            user = b.User?.DisplayName ?? "Neznan uporabnik",
+            usedCount = b.UsedCount,
+            fullReports = b.FullReports,
+            missingReports = b.MissingReports,
+            usefulVotes = b.UsefulVotes,
+            notUsefulVotes = b.NotUsefulVotes,
+            reliabilityScore = Math.Clamp(60 + Math.Min(18, b.UsefulVotes * 3) + Math.Min(15, b.UsedCount) - Math.Min(28, b.FullReports * 8) - Math.Min(35, b.MissingReports * 12), 0, 100),
+            status = b.MissingReports >= 2 ? "missing" : b.FullReports >= 2 ? "full" : "ok",
+            lastUsedAt = b.LastUsedAt.HasValue ? b.LastUsedAt.Value.ToString("dd.MM.yyyy HH:mm") : null,
+            lastReportedAt = b.LastReportedAt.HasValue ? b.LastReportedAt.Value.ToString("dd.MM.yyyy HH:mm") : null
+        })
+    );
 
     var binsJson = Html.Raw(json);
+    var myDogsJson = Html.Raw(JsonSerializer.Serialize(ViewBag.MyDogs ?? Array.Empty<object>()));
+    var needsDogOnboarding = ViewBag.NeedsDogOnboarding as bool? == true;
+    var userDisplayName = (ViewBag.UserDisplayName as string) ?? "pasjeljubec";
+    var showFirstWalkPrompt = TempData["ShowFirstWalkPrompt"] as bool? == true;
+    var firstDogName = TempData["FirstDogName"] as string;
+}
+
+@section Styles {
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIINfQXh6ULpR5txR9wra5I3BcVsTPY1p3A="
+          crossorigin="" />
 }
 
 <style>
-    #map {
-        height: 100vh;
-        width: 100%;
+    .leaflet-container {
+        overflow: hidden;
+        background: #ddd;
+        outline-offset: 1px;
     }
 
-    .fab-main,
-    .fab-refresh,
-    .fab-secondary {
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    .leaflet-pane,
+    .leaflet-tile,
+    .leaflet-marker-icon,
+    .leaflet-marker-shadow,
+    .leaflet-tile-container,
+    .leaflet-pane > svg,
+    .leaflet-pane > canvas,
+    .leaflet-zoom-box,
+    .leaflet-image-layer,
+    .leaflet-layer {
+        position: absolute;
+        left: 0;
+        top: 0;
     }
 
-        .fab-main:hover,
-        .fab-refresh:hover,
-        .fab-secondary:hover {
-            transform: scale(1.05);
-            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
-            cursor: pointer;
-        }
+    .leaflet-tile,
+    .leaflet-marker-icon,
+    .leaflet-marker-shadow {
+        user-select: none;
+        -webkit-user-drag: none;
+    }
 
-    .fab-main {
-        position: fixed;
-        bottom: 80px;
+    .leaflet-tile {
+        width: 256px;
+        height: 256px;
+        filter: inherit;
+        visibility: hidden;
+    }
+
+    .leaflet-tile-loaded {
+        visibility: inherit;
+    }
+
+    .leaflet-marker-icon,
+    .leaflet-marker-shadow {
+        display: block;
+    }
+
+    .leaflet-control {
+        position: relative;
+        z-index: 800;
+        pointer-events: auto;
+    }
+
+    .leaflet-tile-pane {
+        z-index: 200;
+    }
+
+    .leaflet-tile-pane .leaflet-layer:first-child {
+        filter: saturate(0.86) contrast(0.94) brightness(1.06);
+    }
+
+    .leaflet-tile-pane .leaflet-layer:nth-child(2) {
+        filter: saturate(0.92) contrast(0.98);
+    }
+
+    .leaflet-overlay-pane {
+        z-index: 400;
+    }
+
+    .leaflet-shadow-pane {
+        z-index: 500;
+    }
+
+    .leaflet-marker-pane {
+        z-index: 600;
+    }
+
+    .leaflet-tooltip-pane {
+        z-index: 650;
+    }
+
+    .leaflet-popup-pane {
+        z-index: 700;
+    }
+
+    .leaflet-top,
+    .leaflet-bottom {
+        position: absolute;
+        z-index: 1000;
+        pointer-events: none;
+    }
+
+    .leaflet-top {
+        top: 0;
+    }
+
+    .leaflet-right {
+        right: 0;
+    }
+
+    .leaflet-bottom {
+        bottom: 0;
+    }
+
+    .leaflet-left {
+        left: 0;
+    }
+
+    .leaflet-popup {
+        position: absolute;
+        z-index: 700;
+        text-align: center;
+        margin-bottom: 20px;
+        pointer-events: auto;
+    }
+
+    .leaflet-popup-content-wrapper {
+        padding: 1px;
+        border-radius: 8px;
+        background: #ffffff;
+        box-shadow: 0 3px 14px rgba(0, 0, 0, 0.2);
+    }
+
+    .leaflet-popup-content {
+        margin: 13px 19px;
+        line-height: 1.4;
+    }
+
+    .leaflet-popup-tip-container {
+        position: absolute;
         left: 50%;
-        transform: translateX(-50%);
-        z-index: 1000;
-        background: none;
-        border: none;
-        border-radius: 12px;
-        padding: 0;
+        width: 40px;
+        height: 20px;
+        margin-left: -20px;
+        overflow: hidden;
+        pointer-events: none;
     }
 
-        .fab-main img {
-            height: 60px;
-            width: auto;
-            border-radius: 12px;
-        }
-
-    .fab-refresh {
-        position: fixed;
-        bottom: 20px;
-        left: 20px;
-        z-index: 1000;
-        background: none;
-        border: none;
-        border-radius: 12px;
-        padding: 0;
+    .leaflet-popup-tip {
+        width: 17px;
+        height: 17px;
+        margin: -10px auto 0;
+        padding: 1px;
+        transform: rotate(45deg);
+        background: #ffffff;
+        box-shadow: 0 3px 14px rgba(0, 0, 0, 0.2);
     }
 
-        .fab-refresh img {
-            height: 60px;
-            width: auto;
-            border-radius: 12px;
-        }
-
-    .fab-secondary {
-        position: fixed;
-        bottom: 20px;
-        right: 20px;
-        z-index: 1000;
-        background: none;
-        border: none;
-        border-radius: 12px;
-        padding: 0;
+    .leaflet-popup-close-button {
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 24px;
+        height: 24px;
+        border: 0;
+        background: transparent;
+        color: #66736f;
+        font: 18px/24px Arial, sans-serif;
+        text-align: center;
+        text-decoration: none;
     }
 
-        .fab-secondary img {
-            height: 60px;
-            width: auto;
-            border-radius: 12px;
-        }
+    #map {
+        position: relative;
+        z-index: 1;
+        display: block;
+        height: calc(100vh - 64px - 84px);
+        min-height: 520px;
+        width: 100%;
+        background:
+            radial-gradient(circle at 20% 18%, rgba(255, 230, 184, 0.36), transparent 26%),
+            radial-gradient(circle at 80% 28%, rgba(177, 222, 197, 0.34), transparent 28%),
+            #eaf4ea;
+    }
+
+    #map::before {
+        position: absolute;
+        inset: 0;
+        z-index: 300;
+        pointer-events: none;
+        content: "";
+        background:
+            radial-gradient(circle at 14% 16%, rgba(239, 143, 66, 0.10), transparent 18%),
+            radial-gradient(circle at 82% 18%, rgba(47, 109, 95, 0.10), transparent 20%);
+    }
+
+    #map::after {
+        position: absolute;
+        inset: 0;
+        z-index: 450;
+        pointer-events: none;
+        content: "";
+        background:
+            linear-gradient(180deg, rgba(246, 247, 242, 0.25), transparent 22%, transparent 76%, rgba(246, 247, 242, 0.34)),
+            radial-gradient(circle at 50% 50%, transparent 52%, rgba(47, 109, 95, 0.08));
+        mix-blend-mode: multiply;
+    }
+
+    .leaflet-popup-content img {
+        border-radius: 8px;
+    }
+
+    .bin-popup {
+        width: min(250px, 72vw);
+        text-align: left;
+    }
+
+    .bin-popup__title {
+        margin-bottom: 4px;
+        color: #1f2d29;
+        font-size: 1rem;
+        font-weight: 950;
+    }
+
+    .bin-popup__meta {
+        color: #5f6f68;
+        font-size: 0.78rem;
+        font-weight: 700;
+        line-height: 1.35;
+    }
+
+    .bin-popup__image {
+        width: 100%;
+        aspect-ratio: 4 / 3;
+        margin-top: 8px;
+        object-fit: cover;
+    }
+
+    .bin-popup__stats {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 6px;
+        margin: 10px 0;
+    }
+
+    .bin-popup__stat {
+        padding: 6px 4px;
+        border-radius: 8px;
+        background: #eef7ed;
+        color: #274a40;
+        font-size: 0.72rem;
+        font-weight: 850;
+        text-align: center;
+    }
+
+    .bin-popup__actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+    }
+
+    .bin-popup__button {
+        min-height: 34px;
+        border: 1px solid rgba(47, 109, 95, 0.18);
+        border-radius: 8px;
+        background: #ffffff;
+        color: #1f2d29;
+        font-size: 0.72rem;
+        font-weight: 900;
+    }
+
+    .bin-popup__button--primary {
+        grid-column: 1 / -1;
+        background: #2f6d5f;
+        color: #ffffff;
+    }
+
+    .bin-popup__nav {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        min-height: 34px;
+        margin-top: 8px;
+        border-radius: 8px;
+        background: #eef7ed;
+        color: #1f5d4f;
+        font-size: 0.74rem;
+        font-weight: 900;
+        text-decoration: none;
+    }
+
+    .bin-popup__feedback {
+        min-height: 16px;
+        margin-top: 8px;
+        color: #2f6d5f;
+        font-size: 0.76rem;
+        font-weight: 850;
+        text-align: center;
+    }
+
+    .park-visit-box {
+        display: grid;
+        gap: 6px;
+        margin-top: 10px;
+        padding: 8px;
+        border-radius: 8px;
+        background: #eef7ed;
+    }
+
+    .park-visit-box label,
+    .park-visit-box span {
+        color: #274a40;
+        font-size: 0.74rem;
+        font-weight: 850;
+    }
+
+    .park-visit-box select {
+        min-height: 34px;
+        border: 1px solid rgba(47, 109, 95, 0.22);
+        border-radius: 8px;
+        background: #ffffff;
+        color: #1f2d29;
+        font-size: 0.78rem;
+        font-weight: 850;
+    }
+
+    .park-visit-box button,
+    .park-visit-box a {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 34px;
+        border: 0;
+        border-radius: 8px;
+        background: #2f6d5f;
+        color: #ffffff;
+        font-size: 0.74rem;
+        font-weight: 900;
+        text-decoration: none;
+    }
+
+    .map-bin-marker {
+        position: relative;
+        display: grid;
+        width: 42px;
+        height: 42px;
+        place-items: center;
+        border: 3px solid #ffffff;
+        border-radius: 14px 14px 14px 4px;
+        background: #2f6d5f;
+        box-shadow: 0 12px 24px rgba(31, 45, 41, 0.3);
+        color: #ffffff;
+        font-size: 18px;
+        font-weight: 950;
+        line-height: 1;
+        transform: rotate(-10deg);
+    }
+
+    .map-bin-marker span {
+        transform: rotate(10deg);
+    }
+
+    .map-bin-marker::after {
+        position: absolute;
+        right: -5px;
+        bottom: -5px;
+        width: 14px;
+        height: 14px;
+        border: 3px solid #ffffff;
+        border-radius: 999px;
+        background: #f6b756;
+        content: "";
+    }
+
+    .map-bin-marker--full {
+        background: #b66b2f;
+    }
+
+    .map-bin-marker--missing {
+        background: #9f3a3a;
+    }
+
+    .map-place-marker {
+        position: relative;
+        display: grid;
+        width: 40px;
+        height: 40px;
+        place-items: center;
+        border: 3px solid #ffffff;
+        border-radius: 999px 999px 999px 8px;
+        box-shadow: 0 12px 24px rgba(31, 45, 41, 0.24);
+        color: #ffffff;
+        font-size: 15px;
+        font-weight: 950;
+        line-height: 1;
+        transform: rotate(-45deg);
+    }
+
+    .map-place-marker span {
+        transform: rotate(45deg);
+    }
+
+    .map-place-marker--park {
+        background: #467b42;
+    }
+
+    .map-place-marker--water {
+        background: #2f7da5;
+    }
+
+    .map-place-marker--cafe {
+        background: #b66b2f;
+    }
+
+    .map-dog-marker {
+        display: grid;
+        width: 42px;
+        height: 42px;
+        place-items: center;
+        border: 3px solid #ffffff;
+        border-radius: 16px;
+        background: #5c6bc0;
+        box-shadow: 0 12px 24px rgba(31, 45, 41, 0.28);
+        color: #ffffff;
+        font-size: 17px;
+        font-weight: 950;
+        line-height: 1;
+    }
 
     #directionsPanel {
-        padding: 10px;
+        position: fixed;
+        left: 50%;
+        bottom: 238px;
+        transform: translateX(-50%);
+        z-index: 1000;
+        max-width: min(520px, calc(100vw - 32px));
+        padding: 12px 16px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.94);
+        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.16);
         font-size: 16px;
+        display: none;
+    }
+
+    .map-action-stack {
+        position: fixed;
+        right: 16px;
+        bottom: 100px;
+        z-index: 1300;
+        display: grid;
+        gap: 10px;
+        width: min(240px, calc(100vw - 32px));
+    }
+
+    .map-action-button {
+        display: grid;
+        grid-template-columns: 34px minmax(0, 1fr);
+        align-items: center;
+        gap: 10px;
+        min-height: 52px;
+        padding: 9px 12px;
+        border: 1px solid rgba(31, 45, 41, 0.12);
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.95);
+        box-shadow: 0 12px 28px rgba(31, 45, 41, 0.16);
+        color: #1f2d29;
+        font-weight: 900;
+        text-decoration: none;
+        backdrop-filter: blur(14px);
+        transition: transform 160ms ease, border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+    }
+
+    .map-action-button__icon {
+        display: grid;
+        width: 34px;
+        height: 34px;
+        place-items: center;
+        border-radius: 12px;
+        background: #eef7ed;
+        color: #2f6d5f;
+        font-size: 1rem;
+        font-weight: 900;
+    }
+
+    .map-action-button--primary .map-action-button__icon {
+        background: rgba(255, 255, 255, 0.18);
+        color: #ffffff;
+    }
+
+    .map-explore-panel {
+        position: fixed;
+        left: 50%;
+        bottom: 96px;
+        z-index: 1250;
+        display: grid;
+        width: min(430px, calc(100vw - 32px));
+        max-height: min(520px, calc(100vh - 180px));
+        padding: 10px 14px 14px;
+        border: 1px solid rgba(31, 45, 41, 0.12);
+        border-radius: 22px 22px 14px 14px;
+        background: rgba(255, 255, 255, 0.96);
+        box-shadow: 0 12px 28px rgba(31, 45, 41, 0.16);
+        transform: translateX(-50%);
+        backdrop-filter: blur(14px);
+    }
+
+    .map-explore-panel--nearby {
+        top: 78px;
+        left: auto;
+        right: 16px;
+        bottom: auto;
+        width: min(360px, calc(100vw - 32px));
+        max-height: min(420px, calc(100vh - 180px));
+        overflow: hidden;
+        transform: none;
+        border-radius: 18px;
+    }
+
+    .map-nearby-dogs {
+        display: grid;
+        gap: 8px;
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid rgba(31, 45, 41, 0.08);
+    }
+
+    .map-nearby-dogs__head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        color: #21342f;
+        font-size: 0.82rem;
+        font-weight: 900;
+    }
+
+    .map-nearby-dogs__list {
+        display: grid;
+        gap: 8px;
+        max-height: 132px;
+        overflow: auto;
+    }
+
+    .map-nearby-dogs__empty {
+        padding: 10px 12px;
+        border-radius: 10px;
+        background: #f4f7f3;
+        color: #65716d;
+        font-size: 0.78rem;
+        font-weight: 700;
+    }
+
+    .map-nearby-dog-card {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: #f7faf7;
+    }
+
+    .map-nearby-dog-card strong {
+        display: block;
+        color: #1f2d29;
+        font-size: 0.84rem;
+        font-weight: 900;
+    }
+
+    .map-nearby-dog-card p {
+        margin: 2px 0 0;
+        color: #65716d;
+        font-size: 0.76rem;
+        font-weight: 700;
+    }
+
+    .map-nearby-dog-card button {
+        min-height: 34px;
+        padding: 0 12px;
+        border: 0;
+        border-radius: 999px;
+        background: #2f6d5f;
+        color: #ffffff;
+        font-size: 0.76rem;
+        font-weight: 900;
+    }
+
+    .map-explore-panel::before {
+        width: 44px;
+        height: 5px;
+        margin: 0 auto 10px;
+        border-radius: 999px;
+        background: rgba(31, 45, 41, 0.18);
+        content: "";
+    }
+
+    .map-explore-panel[hidden] {
+        display: none;
+    }
+
+    .map-explore-panel__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 10px;
+    }
+
+    .map-explore-panel__header h2 {
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 950;
+    }
+
+    .map-explore-close {
+        display: grid;
+        width: 34px;
+        height: 34px;
+        place-items: center;
+        border: 0;
+        border-radius: 999px;
+        background: #eef7ed;
+        color: #2f6d5f;
+        font-size: 1.2rem;
+        font-weight: 950;
+        line-height: 1;
+    }
+
+    .map-explore-search {
+        width: 100%;
+        min-height: 42px;
+        margin-bottom: 10px;
+        padding: 10px 12px;
+        border: 1px solid rgba(31, 45, 41, 0.16);
+        border-radius: 8px;
+        color: #1f2d29;
+        font-weight: 800;
+    }
+
+    .map-explore-tabs {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 6px;
+        margin-bottom: 10px;
+    }
+
+    .map-explore-tab {
+        min-height: 34px;
+        border: 1px solid rgba(31, 45, 41, 0.12);
+        border-radius: 999px;
+        background: #ffffff;
+        color: #33433e;
+        font-size: 0.74rem;
+        font-weight: 900;
+    }
+
+    .map-explore-tab.is-active {
+        border-color: #2f6d5f;
+        background: #2f6d5f;
+        color: #ffffff;
+    }
+
+    .map-explore-list {
+        display: grid;
+        gap: 8px;
+        overflow: auto;
+        padding-right: 2px;
+    }
+
+    .map-explore-item {
+        display: grid;
+        grid-template-columns: 34px minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        min-height: 58px;
+        padding: 8px;
+        border: 1px solid rgba(31, 45, 41, 0.1);
+        border-radius: 14px;
+        background: #ffffff;
+        color: #1f2d29;
+        text-align: left;
+    }
+
+    .map-explore-item__icon {
+        display: grid;
+        width: 34px;
+        height: 34px;
+        place-items: center;
+        border-radius: 12px;
+        background: #eef7ed;
+        color: #2f6d5f;
+        font-weight: 950;
+    }
+
+    .map-explore-item strong,
+    .map-explore-item span {
+        display: block;
+    }
+
+    .map-explore-item strong {
+        overflow: hidden;
+        color: #1f2d29;
+        font-size: 0.88rem;
+        font-weight: 950;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .map-explore-item span {
+        color: #65716d;
+        font-size: 0.76rem;
+        font-weight: 800;
+    }
+
+    .map-explore-item > span:last-of-type span {
+        display: -webkit-box;
+        overflow: hidden;
+        line-height: 1.35;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+    }
+
+    .map-explore-item em {
+        color: #2f6d5f;
+        font-size: 0.72rem;
+        font-style: normal;
+        font-weight: 900;
+    }
+
+    .map-explore-item--cta {
+        grid-template-columns: 42px minmax(0, 1fr);
+        align-items: start;
+        gap: 12px;
+        padding: 12px;
+        text-decoration: none;
+        background: #f7faf7;
+    }
+
+    .map-explore-item--cta .map-explore-item__icon {
+        width: 42px;
+        height: 42px;
+        border-radius: 14px;
+        background: #2f6d5f;
+        color: #ffffff;
+    }
+
+    .map-explore-item--cta .map-explore-item__content {
+        display: grid;
+        gap: 6px;
+        min-width: 0;
+    }
+
+    .map-explore-item--cta .map-explore-item__content strong {
+        overflow: visible;
+        white-space: normal;
+        line-height: 1.2;
+    }
+
+    .map-explore-item--cta .map-explore-item__content span {
+        line-height: 1.45;
+    }
+
+    .map-explore-item--cta .map-explore-item__meta {
+        color: #2f6d5f;
+        font-size: 0.74rem;
+        font-style: normal;
+        font-weight: 900;
+        line-height: 1.3;
+    }
+
+    .map-action-button:hover,
+    .map-action-button:focus {
+        color: #2f6d5f;
+        transform: translateY(-1px);
+        border-color: rgba(47, 109, 95, 0.22);
+        box-shadow: 0 18px 32px rgba(31, 45, 41, 0.18);
+    }
+
+    .map-action-button--primary {
+        border-color: #2f6d5f;
+        background: linear-gradient(135deg, #2f6d5f, #3d7d6e);
+        color: #ffffff;
+    }
+
+    .map-action-button--primary:hover,
+    .map-action-button--primary:focus {
+        color: #ffffff;
+        background: linear-gradient(135deg, #25584c, #2f6d5f);
+    }
+
+    .map-filter-panel {
+        position: fixed;
+        left: 16px;
+        bottom: 100px;
+        z-index: 1300;
+        width: min(280px, calc(100vw - 32px));
+        padding: 14px;
+        border: 1px solid rgba(31, 45, 41, 0.12);
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.95);
+        box-shadow: 0 12px 28px rgba(31, 45, 41, 0.16);
+        backdrop-filter: blur(14px);
+    }
+
+    .map-filter-panel[hidden] {
+        display: none;
+    }
+
+    .map-filter-toggle {
+        position: fixed;
+        left: 16px;
+        bottom: 100px;
+        z-index: 1300;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 54px;
+        min-height: 46px;
+        padding: 10px 14px;
+        border: 1px solid rgba(31, 45, 41, 0.12);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.95);
+        box-shadow: 0 12px 28px rgba(31, 45, 41, 0.16);
+        color: #1f2d29;
+        font-weight: 900;
+        backdrop-filter: blur(14px);
+        transition: transform 160ms ease, border-color 160ms ease, background-color 160ms ease;
+    }
+
+    .map-filter-toggle:hover,
+    .map-filter-toggle:focus {
+        transform: translateY(-1px);
+        border-color: rgba(47, 109, 95, 0.22);
+        background: rgba(255, 255, 255, 0.98);
+        color: #2f6d5f;
+    }
+
+    .map-filter-panel h2 {
+        margin: 0 0 10px;
+        font-size: 0.96rem;
+        font-weight: 950;
+    }
+
+    .map-filter-panel__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 8px;
+    }
+
+    .map-filter-panel__header h2 {
+        margin: 0;
+    }
+
+    .map-filter-close {
+        display: grid;
+        width: 34px;
+        height: 34px;
+        place-items: center;
+        border: 0;
+        border-radius: 999px;
+        background: #eef7ed;
+        color: #2f6d5f;
+        font-size: 1.2rem;
+        font-weight: 950;
+        line-height: 1;
+    }
+
+    .map-filter-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        min-height: 38px;
+        color: #1f2d29;
+        font-weight: 800;
+    }
+
+    .map-filter-row input {
+        width: 18px;
+        height: 18px;
+        accent-color: #2f6d5f;
+    }
+
+    .map-filter-row small {
+        color: #65716d;
+        font-size: 0.76rem;
+        font-weight: 800;
+    }
+
+    .map-location-warning {
+        margin-top: 10px;
+        padding: 10px;
+        border-radius: 8px;
+        background: #fff4e5;
+        color: #68430f;
+        font-size: 0.84rem;
+        font-weight: 750;
+        line-height: 1.35;
+    }
+
+    .map-status-pill {
+        position: fixed;
+        top: 78px;
+        left: 50%;
+        z-index: 1000;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        max-width: calc(100vw - 32px);
+        padding: 10px 14px;
+        border: 1px solid rgba(31, 45, 41, 0.1);
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.94);
+        box-shadow: 0 10px 24px rgba(31, 45, 41, 0.14);
+        color: #2f453f;
+        font-size: 0.9rem;
+        font-weight: 800;
+        transform: translateX(-50%);
+        backdrop-filter: blur(14px);
+    }
+
+    .map-status-pill strong,
+    .map-status-pill span {
+        white-space: nowrap;
+    }
+
+    .map-status-pill strong {
+        color: #1f2d29;
+        font-weight: 950;
+    }
+
+    .map-status-pill__dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: #2f9f6f;
+        box-shadow: 0 0 0 6px rgba(47, 159, 111, 0.12);
+    }
+
+    .map-quick-intro {
+        position: fixed;
+        top: 78px;
+        left: 18px;
+        z-index: 980;
+        width: min(320px, calc(100vw - 36px));
+        padding: 14px 16px;
+        border: 1px solid rgba(31, 45, 41, 0.1);
+        border-radius: 22px;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 251, 247, 0.94));
+        box-shadow: 0 16px 34px rgba(31, 45, 41, 0.14);
+        backdrop-filter: blur(14px);
+    }
+
+    .map-quick-intro__eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 6px;
+        color: #2f6d5f;
+        font-size: 0.76rem;
+        font-weight: 900;
+    }
+
+    .map-quick-intro__eyebrow i {
+        color: #ef8f42;
+    }
+
+    .map-quick-intro h1 {
+        margin: 0;
+        color: #17322c;
+        font-size: 1.28rem;
+        font-weight: 950;
+        line-height: 1.08;
+    }
+
+    .map-quick-intro p {
+        margin: 8px 0 0;
+        color: #60706c;
+        font-size: 0.84rem;
+        font-weight: 700;
+        line-height: 1.45;
+    }
+
+    @@media (max-width: 575.98px) {
+        #map {
+            height: calc(100vh - 58px - 78px);
+            min-height: 480px;
+        }
+
+        .map-status-pill {
+            top: 66px;
+            gap: 6px;
+            max-width: calc(100vw - 24px);
+            padding: 9px 12px;
+            font-size: 0.78rem;
+        }
+
+        .map-filter-panel {
+            left: 8px;
+            right: 8px;
+            bottom: 178px;
+            width: auto;
+        }
+
+        .map-filter-toggle {
+            left: 8px;
+            bottom: 178px;
+            min-width: 48px;
+            min-height: 42px;
+            padding: 8px 12px;
+        }
+
+        .map-action-stack {
+            left: 8px;
+            right: 8px;
+            bottom: 86px;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            width: auto;
+        }
+
+        .map-action-button {
+            grid-template-columns: 1fr;
+            justify-items: center;
+            padding: 8px 5px;
+            font-size: 0.68rem;
+            text-align: center;
+            border-radius: 16px;
+        }
+
+        .map-action-button__icon {
+            width: 30px;
+            height: 30px;
+            font-size: 0.92rem;
+        }
+
+        #directionsPanel {
+            bottom: 332px;
+        }
+
+        .map-explore-panel {
+            left: 8px;
+            right: 8px;
+            bottom: 172px;
+            width: auto;
+            max-height: min(520px, calc(100vh - 248px));
+            transform: none;
+        }
+
+        .map-explore-panel--nearby {
+            top: auto;
+            right: 10px;
+            left: 10px;
+            bottom: 178px;
+            max-height: 22vh;
+            min-height: 0;
+            padding: 8px 10px 10px;
+            border-radius: 18px;
+            background: rgba(255, 255, 255, 0.92);
+        }
+
+        .map-quick-intro {
+            top: 66px;
+            left: 10px;
+            right: 10px;
+            width: auto;
+            padding: 12px 13px;
+            border-radius: 18px;
+        }
+
+        .map-quick-intro__eyebrow {
+            margin-bottom: 4px;
+            font-size: 0.7rem;
+        }
+
+        .map-quick-intro h1 {
+            font-size: 1.05rem;
+        }
+
+        .map-quick-intro p {
+            font-size: 0.74rem;
+            line-height: 1.35;
+        }
+
+        .map-explore-panel--nearby .map-explore-panel__header {
+            margin-bottom: 6px;
+        }
+
+        .map-explore-panel--nearby .map-explore-panel__header h2 {
+            font-size: 0.88rem;
+        }
+
+        .map-explore-panel--nearby .map-location-warning {
+            margin-top: 0;
+            padding: 7px 9px;
+            font-size: 0.72rem;
+            line-height: 1.3;
+        }
+
+        .map-explore-panel--nearby .map-explore-list {
+            gap: 5px;
+            max-height: 112px;
+            overflow: auto;
+        }
+
+        .map-explore-panel--nearby .map-explore-item {
+            min-height: 46px;
+            padding: 7px;
+            gap: 7px;
+        }
+
+        .map-explore-panel--nearby .map-explore-item strong {
+            font-size: 0.76rem;
+        }
+
+        .map-explore-panel--nearby .map-explore-item span {
+            font-size: 0.66rem;
+            line-height: 1.25;
+        }
+
+        .map-explore-panel--nearby .map-explore-item em {
+            font-size: 0.64rem;
+        }
+
+        .map-explore-panel--nearby .map-nearby-dogs {
+            display: none;
+        }
+
+        .map-explore-panel--nearby .map-explore-item > span:last-of-type span {
+            -webkit-line-clamp: 1;
+        }
+    }
+
+    .map-first-dog-card {
+        position: absolute;
+        top: 156px;
+        left: 18px;
+        z-index: 1100;
+        display: grid;
+        gap: 12px;
+        width: min(360px, calc(100vw - 36px));
+        padding: 18px;
+        border: 1px solid rgba(47, 109, 95, 0.14);
+        border-radius: 22px;
+        background:
+            radial-gradient(circle at top right, rgba(239, 143, 66, 0.16), transparent 34%),
+            linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(246, 250, 247, 0.98));
+        box-shadow: 0 20px 42px rgba(31, 45, 41, 0.16);
+        backdrop-filter: blur(12px);
+    }
+
+    .map-first-dog-card__eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: #ef8f42;
+        font-size: 0.78rem;
+        font-weight: 900;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+
+    .map-first-dog-card h2 {
+        margin: 0;
+        color: #1f2d29;
+        font-size: 1.2rem;
+        font-weight: 900;
+        line-height: 1.2;
+    }
+
+    .map-first-dog-card p {
+        margin: 0;
+        color: #556761;
+        font-size: 0.92rem;
+        line-height: 1.55;
+    }
+
+    .map-first-dog-card__chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .map-first-dog-card__chips span {
+        display: inline-flex;
+        align-items: center;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: rgba(47, 109, 95, 0.10);
+        color: #2f6d5f;
+        font-size: 0.76rem;
+        font-weight: 800;
+    }
+
+    .map-first-dog-card__actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .map-first-dog-card__actions .btn {
+        border-radius: 999px;
+        font-weight: 800;
+    }
+
+    .map-first-dog-card__hint {
+        color: #6c7c76;
+        font-size: 0.76rem;
+        line-height: 1.45;
+    }
+
+    .map-first-walk-card {
+        position: absolute;
+        top: 156px;
+        left: 18px;
+        z-index: 1120;
+        display: grid;
+        gap: 12px;
+        width: min(360px, calc(100vw - 36px));
+        padding: 18px;
+        border: 1px solid rgba(239, 143, 66, 0.18);
+        border-radius: 24px;
+        background:
+            radial-gradient(circle at top right, rgba(47, 109, 95, 0.14), transparent 36%),
+            linear-gradient(180deg, rgba(255, 251, 244, 0.98), rgba(255, 255, 255, 0.98));
+        box-shadow: 0 20px 44px rgba(31, 45, 41, 0.18);
+        backdrop-filter: blur(12px);
+    }
+
+    .map-first-walk-card__eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: #ef8f42;
+        font-size: 0.78rem;
+        font-weight: 900;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+
+    .map-first-walk-card h2 {
+        margin: 0;
+        color: #1f2d29;
+        font-size: 1.18rem;
+        font-weight: 900;
+        line-height: 1.2;
+    }
+
+    .map-first-walk-card p {
+        margin: 0;
+        color: #556761;
+        font-size: 0.92rem;
+        line-height: 1.55;
+    }
+
+    .map-first-walk-card__cta {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        min-height: 50px;
+        border-radius: 999px;
+        font-weight: 900;
+        font-size: 0.98rem;
+    }
+
+    .map-first-walk-card__meta {
+        color: #6c7c76;
+        font-size: 0.76rem;
+        line-height: 1.45;
+    }
+
+    @@media (max-width: 575.98px) {
+        .map-first-dog-card {
+            top: 148px;
+            left: 10px;
+            right: 10px;
+            width: auto;
+            padding: 14px;
+            border-radius: 18px;
+        }
+
+        .map-first-dog-card h2 {
+            font-size: 1.02rem;
+        }
+
+        .map-first-dog-card p {
+            font-size: 0.82rem;
+        }
+
+        .map-first-dog-card__actions {
+            flex-direction: column;
+        }
+
+        .map-first-dog-card__actions .btn {
+            width: 100%;
+        }
+
+        .map-first-walk-card {
+            top: 148px;
+            left: 10px;
+            right: 10px;
+            width: auto;
+            padding: 14px;
+            border-radius: 18px;
+        }
+
+        .map-first-walk-card h2 {
+            font-size: 1.02rem;
+        }
+
+        .map-first-walk-card p {
+            font-size: 0.82rem;
+        }
     }
 </style>
 
-
-<!-- 🔄 Osveži pot -->
 @if (TempData["SuccessMessage"] != null)
 {
     <div class="alert alert-success text-center position-fixed top-0 start-50 translate-middle-x mt-3 z-3" style="max-width: 500px;">
@@ -106,171 +1354,1181 @@
     </div>
 }
 
-<button onclick="refreshRoute()" class="fab-refresh">
-    <img src="/images/restart_hires.png" alt="Osveži lokacijo" />
-</button>
+<button type="button" id="filterToggle" class="map-filter-toggle">Filtri</button>
 
+<section class="map-quick-intro" aria-label="DoggyDrop zemljevid">
+    <div class="map-quick-intro__eyebrow">
+        <i class="bi bi-heart-pulse-fill" aria-hidden="true"></i>
+        <span>DoggyDrop mapa</span>
+    </div>
+    <h1>Odkrij bližnje sprehode, parke in pasje koše.</h1>
+    <p>Tukaj najhitreje začneš sprehod, najdeš najbližji koš in odpreš predloge poti okoli sebe.</p>
+</section>
 
-<!-- 📍 Najdi najbližji koš -->
-<button onclick="findNearestTrashBin()" class="fab-main">
-    <img src="/images/gumb.png" alt="" />
-</button>
+@if (showFirstWalkPrompt)
+{
+    <section class="map-first-walk-card" aria-label="Prvi sprehod">
+        <div class="map-first-walk-card__eyebrow">
+            <i class="bi bi-heart-fill" aria-hidden="true"></i>
+            <span>Prvi kuža dodan</span>
+        </div>
+        <h2>Super, @firstDogName je pripravljen za prvi sprehod</h2>
+        <p>Zdaj lahko v enem tapu predlagava prvo pot, pogledava bližnje parke ali pa samo hitro začnemo hoditi.</p>
+        <a class="btn btn-success map-first-walk-card__cta" asp-controller="Walks" asp-action="Planner">
+            <i class="bi bi-play-circle-fill" aria-hidden="true"></i>
+            <span>Start walk</span>
+        </a>
+        <div class="map-first-walk-card__meta">DoggyDrop bo medtem začel beležiti kilometre, značke in najljubše sprehode.</div>
+    </section>
+}
+else if (needsDogOnboarding)
+{
+    <section class="map-first-dog-card" aria-label="Dodaj prvega psa">
+        <div class="map-first-dog-card__eyebrow">
+            <i class="bi bi-stars" aria-hidden="true"></i>
+            <span>Prvi pasji profil</span>
+        </div>
+        <h2>@userDisplayName, spoznajmo tvojega kužka</h2>
+        <p>Dodaj psa, da DoggyDrop začne delati zate: boljši predlogi sprehodov, osebne statistike, značke in veliko bolj živ profil.</p>
+        <div class="map-first-dog-card__chips" aria-label="Predlogi za profil">
+            <span>Ime</span>
+            <span>Fotka smrčka</span>
+            <span>Pasma</span>
+            <span>Velikost</span>
+            <span>Karakter</span>
+        </div>
+        <div class="map-first-dog-card__actions">
+            <a class="btn btn-success" asp-controller="Dogs" asp-action="Create" asp-route-firstDog="true" asp-route-returnUrl="/Map">Dodaj prvega psa</a>
+            <a class="btn btn-outline-secondary" asp-controller="Dogs" asp-action="Create" asp-route-firstDog="true" asp-route-returnUrl="/Map">Samo hitro začni</a>
+        </div>
+        <div class="map-first-dog-card__hint">Dovolj je ime. Ostalo lahko dopolniš kasneje, ko boš imel minuto miru.</div>
+    </section>
+}
 
+<aside id="filterPanel" class="map-filter-panel" hidden>
+    <div class="map-filter-panel__header">
+        <h2>Filtri zemljevida</h2>
+        <button type="button" id="filterClose" class="map-filter-close" aria-label="Zapri filtre">&times;</button>
+    </div>
+    <label class="map-filter-row">
+        <span>Pasji kosi</span>
+        <input id="showBins" type="checkbox" checked />
+    </label>
+    <label class="map-filter-row">
+        <span>Psi v blizini</span>
+        <input id="showDogs" type="checkbox" checked />
+    </label>
+    <label class="map-filter-row">
+        <span>Pasji parki <small id="parkCountLabel"></small></span>
+        <input id="showParks" type="checkbox" checked />
+    </label>
+    <label class="map-filter-row">
+        <span>Pitniki</span>
+        <input id="showWater" type="checkbox" checked />
+    </label>
+    <label class="map-filter-row">
+        <span>Dog friendly</span>
+        <input id="showCafes" type="checkbox" checked />
+    </label>
+    <div id="mapLocationWarning" class="map-location-warning" hidden>
+        Lokacija na telefonu zahteva HTTPS povezavo. Zemljevid in rocne akcije se vedno delujejo.
+    </div>
+</aside>
 
+<div class="map-action-stack">
+    <a class="map-action-button map-action-button--primary" asp-controller="Walks" asp-action="Planner">
+        <span class="map-action-button__icon" aria-hidden="true"><i class="bi bi-play-fill"></i></span>
+        <span>Start walk</span>
+    </a>
+    <a class="map-action-button" asp-controller="Map" asp-action="Add">
+        <span class="map-action-button__icon" aria-hidden="true"><i class="bi bi-plus-lg"></i></span>
+        <span>Dodaj koš</span>
+    </a>
+    <button type="button" onclick="findNearestTrashBin()" class="map-action-button">
+        <span class="map-action-button__icon" aria-hidden="true"><i class="bi bi-geo-alt-fill"></i></span>
+        <span>Najbližji koš</span>
+    </button>
+    <button type="button" id="exploreToggle" class="map-action-button">
+        <span class="map-action-button__icon" aria-hidden="true"><i class="bi bi-list-ul"></i></span>
+        <span>Seznam</span>
+    </button>
+</div>
 
-<!-- ➕ Dodaj koš -->
-<a href="/Map/Add" class="fab-secondary">
-    <img src="/images/plus_hires.png" alt="Dodaj koš" />
-</a>
+<div class="map-status-pill">
+    <span class="map-status-pill__dot" aria-hidden="true"></span>
+    <strong>@Model.Count()</strong>
+    <span>pasjih košev na zemljevidu</span>
+</div>
 
-<!-- 🌍 Zemljevid -->
+<aside id="explorePanel" class="map-explore-panel" hidden>
+    <div class="map-explore-panel__header">
+        <h2>Raziskuj lokacije</h2>
+        <button type="button" id="exploreClose" class="map-explore-close" aria-label="Zapri seznam">&times;</button>
+    </div>
+    <input id="exploreSearch" class="map-explore-search" type="search" placeholder="Išči park, koš, pitnik ..." autocomplete="off" />
+    <div class="map-explore-tabs" aria-label="Tip lokacije">
+        <button type="button" class="map-explore-tab is-active" data-explore-filter="all">Vse</button>
+        <button type="button" class="map-explore-tab" data-explore-filter="bin">Koši</button>
+        <button type="button" class="map-explore-tab" data-explore-filter="park">Parki</button>
+        <button type="button" class="map-explore-tab" data-explore-filter="water,cafe">Ostalo</button>
+    </div>
+    <div id="exploreList" class="map-explore-list"></div>
+</aside>
+
+<aside id="nearbySuggestionsPanel" class="map-explore-panel map-explore-panel--nearby">
+    <div class="map-explore-panel__header">
+        <h2>Blizu tebe</h2>
+        <button type="button" class="map-explore-close" aria-label="Osveži predloge" onclick="locateAndSuggestWalks()"><i class="bi bi-arrow-clockwise"></i></button>
+    </div>
+    <div id="nearbySuggestionsStatus" class="map-location-warning">DoggyDrop lahko iz tvoje lokacije pripravi hiter začetek sprehoda.</div>
+    <div id="nearbySuggestionsList" class="map-explore-list"></div>
+    <div class="map-nearby-dogs">
+        <div class="map-nearby-dogs__head">
+            <strong>Psi v bližini</strong>
+            <span id="nearbyDogsCount">0</span>
+        </div>
+        <div id="nearbyDogsList" class="map-nearby-dogs__list">
+            <div class="map-nearby-dogs__empty">Ko bo lokacija pripravljena, se bodo tukaj pokazali psi in hitra playdate povabila.</div>
+        </div>
+    </div>
+</aside>
+
+<div class="map-notification-preview" id="mapNotificationPreview">
+    <section class="map-notification-preview__panel">
+        <div class="map-notification-preview__head">
+            <strong>Center obvestil</strong>
+            <span id="mapNotificationPreviewCount">0 novih</span>
+        </div>
+        <div id="mapNotificationPreviewItems" class="map-notification-preview__items">
+            <div class="map-notification-preview__item">
+                <strong>DoggyDrop je pripravljen</strong>
+                <p>Ko bodo nova obvestila ali smart predlogi, jih boš videl tukaj.</p>
+            </div>
+        </div>
+    </section>
+</div>
+
 <div id="map"></div>
-
-<!-- 📋 Navodila -->
 <div id="directionsPanel"></div>
 
-
 @section Scripts {
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+            crossorigin=""></script>
+
     <script>
         const bins = @binsJson;
-        let map, directionsService, directionsRenderer;
+        let map;
         let userMarker;
+        let routeLine;
+        let binLayer;
+        let dogLayer;
+        let parkLayer;
+        let waterLayer;
+        let cafeLayer;
+        let exploreFilter = "all";
+        let userLocation = null;
+        const binMarkers = new Map();
+        const placeMarkers = new Map();
+        const mapSettingsPrefix = "doggydrop.map.";
+        const myDogs = @myDogsJson;
+        const mapNotificationPreviewCount = document.getElementById("mapNotificationPreviewCount");
+        const mapNotificationPreviewItems = document.getElementById("mapNotificationPreviewItems");
+        const nearbyDogsList = document.getElementById("nearbyDogsList");
+        const nearbyDogsCount = document.getElementById("nearbyDogsCount");
 
-        window.initMap = function () {
-            directionsService = new google.maps.DirectionsService();
-            directionsRenderer = new google.maps.DirectionsRenderer({
-                polylineOptions: {
-                    strokeColor: "#00796B",
-                    strokeOpacity: 0.9,
-                    strokeWeight: 6
+        const placeGroups = {
+            parks: [
+                { name: "Pasji park Koseze", area: "Ljubljana", address: "Ob Koseskem bajerju", latitude: 46.0689, longitude: 14.4697, type: "park", label: "Pasji park" },
+                { name: "Pasji park Stepansko naselje", area: "Ljubljana", address: "Ob Pesarski cesti", latitude: 46.0476, longitude: 14.5515, type: "park", label: "Pasji park" },
+                { name: "Pasji park Severni park", area: "Ljubljana", address: "Vilharjeva / Zelezna cesta", latitude: 46.0615, longitude: 14.5210, type: "park", label: "Pasji park" },
+                { name: "Pasji park Tivoli", area: "Ljubljana", address: "Tivoli park", latitude: 46.0567, longitude: 14.4965, type: "park", label: "Pasji park" },
+                { name: "Pasji park Fuzine", area: "Ljubljana", address: "Fuzinski park", latitude: 46.0519, longitude: 14.5650, type: "park", label: "Pasji park" },
+                { name: "Pasji park Bezigrad", area: "Ljubljana", address: "Ob Dunajski cesti", latitude: 46.0742, longitude: 14.5148, type: "park", label: "Pasji park" },
+                { name: "Pasji park Vic", area: "Ljubljana", address: "Ob PST poti", latitude: 46.0415, longitude: 14.4769, type: "park", label: "Pasji park" },
+                { name: "Pasji park Mostec", area: "Ljubljana", address: "Rekreacijsko obmocje Mostec", latitude: 46.0727, longitude: 14.4723, type: "park", label: "Pasji park" },
+                { name: "Pasji park Koper", area: "Obala", address: "Semedela", latitude: 45.5426, longitude: 13.7184, type: "park", label: "Pasji park" },
+                { name: "Pasji park Izola", area: "Obala", address: "Ob obalni promenadi", latitude: 45.5365, longitude: 13.6619, type: "park", label: "Pasji park" },
+                { name: "Pasji park Lucija", area: "Obala", address: "Lucija center", latitude: 45.5056, longitude: 13.6024, type: "park", label: "Pasji park" },
+                { name: "Pasji park Murska Sobota", area: "Prekmurje", address: "Mestni park / sportni del", latitude: 46.6606, longitude: 16.1664, type: "park", label: "Pasji park" },
+                { name: "Pasji park Tabor", area: "Maribor", address: "Ob sportnem parku Tabor", latitude: 46.5487, longitude: 15.6453, type: "park", label: "Pasji park" },
+                { name: "Pasji park Mestni park", area: "Maribor", address: "Ob robu Mestnega parka", latitude: 46.5625, longitude: 15.6480, type: "park", label: "Pasji park" },
+                { name: "Pasji park Pekre", area: "Maribor", address: "Pekre", latitude: 46.5338, longitude: 15.5959, type: "park", label: "Pasji park" },
+                { name: "Pasji park Celje", area: "Celje", address: "Ob Savinji", latitude: 46.2387, longitude: 15.2675, type: "park", label: "Pasji park" },
+                { name: "Pasji park Lava", area: "Celje", address: "Lava", latitude: 46.2289, longitude: 15.2518, type: "park", label: "Pasji park" },
+                { name: "Pasji park Kranj", area: "Kranj", address: "Zlato polje", latitude: 46.2449, longitude: 14.3617, type: "park", label: "Pasji park" },
+                { name: "Pasji park Strazisce", area: "Kranj", address: "Strazisce", latitude: 46.2508, longitude: 14.3325, type: "park", label: "Pasji park" },
+                { name: "Pasji park Novo mesto", area: "Novo mesto", address: "Portoval", latitude: 45.7998, longitude: 15.1771, type: "park", label: "Pasji park" },
+                { name: "Pasji park Nova Gorica", area: "Nova Gorica", address: "Ob sportnem centru", latitude: 45.9561, longitude: 13.6482, type: "park", label: "Pasji park" },
+                { name: "Pasji park Ptuj", area: "Ptuj", address: "Ranca Ptuj", latitude: 46.4216, longitude: 15.8788, type: "park", label: "Pasji park" },
+                { name: "Pasji park Slovenj Gradec", area: "Slovenj Gradec", address: "Sportni park", latitude: 46.5095, longitude: 15.0808, type: "park", label: "Pasji park" },
+                { name: "Pasji park Velenje", area: "Velenje", address: "Ob Velenjskem jezeru", latitude: 46.3622, longitude: 15.1147, type: "park", label: "Pasji park" }
+            ],
+            water: [
+                { name: "Pitnik Lent", latitude: 46.5572, longitude: 15.6467, type: "water", label: "Voda" },
+                { name: "Pitnik Tivoli", latitude: 46.0552, longitude: 14.4958, type: "water", label: "Voda" },
+                { name: "Pitnik ob Dravi", latitude: 46.5608, longitude: 15.6395, type: "water", label: "Voda" }
+            ],
+            cafes: [
+                { name: "Dog friendly Lent", latitude: 46.5578, longitude: 15.6452, type: "cafe", label: "Cafe" },
+                { name: "Dog friendly center Ljubljana", latitude: 46.0511, longitude: 14.5051, type: "cafe", label: "Cafe" },
+                { name: "Dog friendly Koper", latitude: 45.5481, longitude: 13.7301, type: "cafe", label: "Cafe" }
+            ]
+        };
+
+        const nearbyFallbackAreas = [
+            { key: "maribor", name: "Maribor", latitude: 46.5547, longitude: 15.6459 },
+            { key: "ljubljana", name: "Ljubljana", latitude: 46.0569, longitude: 14.5058 },
+            { key: "koper", name: "Koper / Obala", latitude: 45.5481, longitude: 13.7301 },
+            { key: "celje", name: "Celje", latitude: 46.2397, longitude: 15.2677 },
+            { key: "kranj", name: "Kranj", latitude: 46.2397, longitude: 14.3556 }
+        ];
+
+        function createBinIcon(bin) {
+            const statusClass = bin.status === "missing"
+                ? " map-bin-marker--missing"
+                : bin.status === "full"
+                    ? " map-bin-marker--full"
+                    : "";
+
+            return L.divIcon({
+                className: "",
+                html: `<span class="map-bin-marker${statusClass}"><span>B</span></span>`,
+                iconSize: [42, 42],
+                iconAnchor: [21, 21],
+                popupAnchor: [0, -22]
+            });
+        }
+
+        const userIcon = L.icon({
+            iconUrl: "/images/jack%20russel%20terrier.png",
+            iconSize: [50, 50],
+            iconAnchor: [25, 25],
+            popupAnchor: [0, -24]
+        });
+
+        const dogIcon = L.divIcon({
+            className: "",
+            html: "<span class=\"map-dog-marker\">D</span>",
+            iconSize: [42, 42],
+            iconAnchor: [21, 21],
+            popupAnchor: [0, -22]
+        });
+
+        function createPlaceIcon(type) {
+            const label = type === "park" ? "P" : type === "water" ? "W" : "C";
+            return L.divIcon({
+                className: "",
+                html: `<span class="map-place-marker map-place-marker--${type}"><span>${label}</span></span>`,
+                iconSize: [40, 40],
+                iconAnchor: [20, 20],
+                popupAnchor: [0, -22]
+            });
+        }
+
+        document.addEventListener("DOMContentLoaded", initMap);
+
+        function initMap() {
+            map = L.map("map").setView([46.5547, 15.6459], 14);
+
+            L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png", {
+                subdomains: "abcd",
+                maxZoom: 20,
+                attribution: "&copy; OpenStreetMap contributors &copy; CARTO"
+            }).addTo(map);
+
+            L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png", {
+                subdomains: "abcd",
+                maxZoom: 20,
+                pane: "tilePane",
+                opacity: 0.72,
+                attribution: "&copy; OpenStreetMap contributors &copy; CARTO"
+            }).addTo(map);
+
+            binLayer = L.layerGroup().addTo(map);
+            bins.forEach(bin => {
+                const marker = L.marker([bin.latitude, bin.longitude], { icon: createBinIcon(bin) })
+                    .addTo(binLayer)
+                    .bindPopup(buildPopupContent(bin));
+                binMarkers.set(Number(bin.id), marker);
+            });
+
+            parkLayer = buildPlaceLayer(placeGroups.parks);
+            waterLayer = buildPlaceLayer(placeGroups.water);
+            cafeLayer = buildPlaceLayer(placeGroups.cafes);
+            dogLayer = L.layerGroup();
+            parkLayer.addTo(map);
+            waterLayer.addTo(map);
+            cafeLayer.addTo(map);
+            loadNearbyDogs();
+
+            if (bins.length > 0) {
+                const bounds = L.latLngBounds(bins.map(bin => [bin.latitude, bin.longitude]));
+                map.fitBounds(bounds.pad(0.2), { maxZoom: 16 });
+            }
+
+            requestAnimationFrame(() => {
+                map.invalidateSize();
+                if (bins.length > 0) {
+                    const bounds = L.latLngBounds(bins.map(bin => [bin.latitude, bin.longitude]));
+                    map.fitBounds(bounds.pad(0.2), { maxZoom: 16 });
                 }
             });
 
-            map = new google.maps.Map(document.getElementById("map"), {
-                center: { lat: 46.5547, lng: 15.6459 },
-                zoom: 14,
-                styles: [
-                    { elementType: "geometry", stylers: [{ color: "#f5f5f5" }] },
-                    { elementType: "labels.icon", stylers: [{ visibility: "off" }] },
-                    { elementType: "labels.text.fill", stylers: [{ color: "#616161" }] },
-                    { elementType: "labels.text.stroke", stylers: [{ color: "#f5f5f5" }] },
-                    { featureType: "poi", elementType: "geometry", stylers: [{ color: "#eeeeee" }] },
-                    { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#d6e9c6" }] },
-                    { featureType: "road", elementType: "geometry", stylers: [{ color: "#ffffff" }] },
-                    { featureType: "water", elementType: "geometry", stylers: [{ color: "#c9e6ff" }] }
-                ]
+            setTimeout(() => map.invalidateSize(), 300);
+
+            document.getElementById("showBins").addEventListener("change", function (event) {
+                if (event.target.checked) {
+                    binLayer.addTo(map);
+                } else {
+                    binLayer.remove();
+                }
+                saveMapSetting("showBins", event.target.checked);
             });
 
-            directionsRenderer.setMap(map);
+            wireLayerToggle("showParks", parkLayer);
+            wireLayerToggle("showWater", waterLayer);
+            wireLayerToggle("showCafes", cafeLayer);
+            wireLayerToggle("showDogs", dogLayer);
+            document.getElementById("filterToggle").addEventListener("click", openFilterPanel);
+            document.getElementById("filterClose").addEventListener("click", closeFilterPanel);
+            document.getElementById("exploreToggle").addEventListener("click", openExplorePanel);
+            document.getElementById("exploreClose").addEventListener("click", closeExplorePanel);
+            document.getElementById("exploreSearch").addEventListener("input", renderExploreList);
+            document.querySelectorAll("[data-explore-filter]").forEach(button => {
+                button.addEventListener("click", () => {
+                    exploreFilter = button.dataset.exploreFilter || "all";
+                    document.querySelectorAll("[data-explore-filter]").forEach(item => item.classList.remove("is-active"));
+                    button.classList.add("is-active");
+                    renderExploreList();
+                });
+            });
+            document.getElementById("parkCountLabel").textContent = `(${placeGroups.parks.length})`;
+            applySavedMapSettings();
+            renderExploreList();
+            locateAndSuggestWalks(false);
+            refreshNotificationPreview();
+            window.setInterval(refreshNotificationPreview, 60000);
 
-            // ➕ Markerji za koše
-            bins.forEach(bin => {
-                const marker = new google.maps.Marker({
-                    position: { lat: bin.latitude, lng: bin.longitude },
-                    map: map,
-                    title: bin.name,
-                    animation: google.maps.Animation.DROP,
-                    icon: {
-                        url: '/images/transparet_marker.png',
-                        scaledSize: new google.maps.Size(40, 50)
+            if (!window.isSecureContext) {
+                document.getElementById("mapLocationWarning").hidden = false;
+            }
+        }
+
+        async function refreshNotificationPreview() {
+            try {
+                const response = await fetch("/api/notifications/center", {
+                    headers: { "X-Requested-With": "XMLHttpRequest" }
+                });
+
+                if (!response.ok) {
+                    return;
+                }
+
+                const data = await response.json();
+                const unreadCount = Number(data.unreadCount || 0);
+                const latestUnread = Array.isArray(data.latestUnread) ? data.latestUnread : [];
+                const smart = Array.isArray(data.smart) ? data.smart : [];
+                const previewItems = latestUnread.slice(0, 2).map(item => ({
+                    title: item.title,
+                    body: item.body
+                }));
+
+                if (previewItems.length < 2) {
+                    smart.slice(0, 2 - previewItems.length).forEach(item => {
+                        previewItems.push({
+                            title: item.title,
+                            body: item.body
+                        });
+                    });
+                }
+
+                mapNotificationPreviewCount.textContent = unreadCount > 0
+                    ? `${unreadCount} novih`
+                    : `${smart.length} smart`;
+
+                if (previewItems.length === 0) {
+                    mapNotificationPreviewItems.innerHTML = `
+                        <div class="map-notification-preview__item">
+                            <strong>Miren trenutek</strong>
+                            <p>Trenutno ni novih obvestil ali smart predlogov.</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                mapNotificationPreviewItems.innerHTML = previewItems.map(item => `
+                    <div class="map-notification-preview__item">
+                        <strong>${escapeHtml(item.title || "DoggyDrop")}</strong>
+                        <p>${escapeHtml(item.body || "")}</p>
+                    </div>
+                `).join("");
+            } catch {
+            }
+        }
+
+        function buildPlaceLayer(places) {
+            const layer = L.layerGroup();
+            places.forEach(place => {
+                const marker = L.marker([place.latitude, place.longitude], { icon: createPlaceIcon(place.type) })
+                    .addTo(layer)
+                    .bindPopup(`
+                        <div class="bin-popup">
+                            <div class="bin-popup__title">${escapeHtml(place.name)}</div>
+                            <div class="bin-popup__meta">
+                                ${escapeHtml(place.label)}${place.area ? ` - ${escapeHtml(place.area)}` : ""}<br>
+                                ${place.address ? escapeHtml(place.address) : "Lokacija na zemljevidu"}
+                            </div>
+                            ${buildParkVisitControls(place)}
+                            <a class="bin-popup__nav" href="${buildNavigationUrl(place.latitude, place.longitude)}" target="_blank" rel="noopener">Odpri navigacijo</a>
+                        </div>
+                    `);
+                placeMarkers.set(getPlaceKey(place), marker);
+            });
+            return layer;
+        }
+
+        function buildParkVisitControls(place) {
+            if (place.type !== "park") {
+                return "";
+            }
+
+            if (!myDogs || myDogs.length === 0) {
+                return `
+                    <div class="park-visit-box">
+                        <span>Za belezenje obiska najprej dodaj psa.</span>
+                        <a href="/Dogs/Create">Dodaj psa</a>
+                    </div>
+                `;
+            }
+
+            const placeKey = getPlaceKey(place);
+            const options = myDogs
+                .map(dog => `<option value="${Number(dog.id ?? dog.Id)}">${escapeHtml(dog.name ?? dog.Name ?? "Pes")}</option>`)
+                .join("");
+
+            return `
+                <div class="park-visit-box">
+                    <label for="parkDog${escapeAttribute(placeKey)}">Obisk parka</label>
+                    <select id="parkDog${escapeAttribute(placeKey)}">${options}</select>
+                    <button type="button" onclick="recordParkVisit('${escapeAttribute(placeKey)}')">Zabelezi obisk</button>
+                    <span id="parkVisitFeedback${escapeAttribute(placeKey)}"></span>
+                </div>
+            `;
+        }
+
+        async function recordParkVisit(placeKey) {
+            const place = [...placeGroups.parks, ...placeGroups.water, ...placeGroups.cafes]
+                .find(candidate => getPlaceKey(candidate) === placeKey);
+            const feedback = document.getElementById(`parkVisitFeedback${placeKey}`);
+            const dogSelect = document.getElementById(`parkDog${placeKey}`);
+
+            if (!place || !dogSelect) {
+                return;
+            }
+
+            if (feedback) {
+                feedback.textContent = "Shranjujem ...";
+            }
+
+            try {
+                const response = await fetch("/Map/ParkVisit", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-Requested-With": "XMLHttpRequest"
+                    },
+                    body: JSON.stringify({
+                        dogId: Number(dogSelect.value),
+                        parkName: place.name,
+                        area: place.area,
+                        address: place.address,
+                        placeKey,
+                        latitude: place.latitude,
+                        longitude: place.longitude
+                    })
+                });
+
+                if (response.status === 401 || response.redirected) {
+                    window.location.href = "/Identity/Account/Login";
+                    return;
+                }
+
+                if (!response.ok) {
+                    throw new Error("Obiska ni bilo mogoce shraniti.");
+                }
+
+                const result = await response.json();
+                if (feedback) {
+                    feedback.textContent = result.saved
+                        ? `${escapeHtml(result.name)}: obisk shranjen (${result.visitCount}x).`
+                        : `Obisk je bil ze shranjen pred kratkim (${result.visitCount}x).`;
+                }
+            } catch (error) {
+                if (feedback) {
+                    feedback.textContent = error.message;
+                }
+            }
+        }
+
+        function wireLayerToggle(inputId, layer) {
+            document.getElementById(inputId).addEventListener("change", function (event) {
+                if (event.target.checked) {
+                    layer.addTo(map);
+                } else {
+                    layer.remove();
+                }
+                saveMapSetting(inputId, event.target.checked);
+            });
+        }
+
+        function applySavedMapSettings() {
+            applyLayerSetting("showBins", binLayer, true);
+            applyLayerSetting("showParks", parkLayer, true);
+            applyLayerSetting("showWater", waterLayer, true);
+            applyLayerSetting("showCafes", cafeLayer, true);
+            applyLayerSetting("showDogs", dogLayer, false);
+        }
+
+        async function loadNearbyDogs() {
+            try {
+                const query = userLocation
+                    ? `?latitude=${encodeURIComponent(userLocation.lat)}&longitude=${encodeURIComponent(userLocation.lng)}&radiusKm=8`
+                    : "";
+                const response = await fetch(`/api/dogs/nearby${query}`);
+                if (!response.ok) {
+                    return;
+                }
+
+                const dogs = await response.json();
+                dogLayer.clearLayers();
+                dogs.forEach(dog => {
+                    L.marker([dog.latitude, dog.longitude], { icon: dogIcon })
+                        .addTo(dogLayer)
+                        .bindPopup(buildDogPopupContent(dog));
+                });
+                renderNearbyDogCards(dogs);
+
+                if (getMapSetting("showDogs", false)) {
+                    dogLayer.addTo(map);
+                }
+            } catch {
+                // Social layer is optional during local testing.
+            }
+        }
+
+        function applyLayerSetting(inputId, layer, fallback) {
+            const enabled = getMapSetting(inputId, fallback);
+            document.getElementById(inputId).checked = enabled;
+            if (enabled) {
+                layer.addTo(map);
+            } else {
+                layer.remove();
+            }
+        }
+
+        function applyCheckboxSetting(inputId, fallback) {
+            document.getElementById(inputId).checked = getMapSetting(inputId, fallback);
+        }
+
+        function getMapSetting(key, fallback) {
+            const stored = localStorage.getItem(mapSettingsPrefix + key);
+            return stored === null ? fallback : stored === "true";
+        }
+
+        function saveMapSetting(key, value) {
+            localStorage.setItem(mapSettingsPrefix + key, value ? "true" : "false");
+        }
+
+        function buildPopupContent(bin) {
+            const statusText = bin.status === "missing"
+                ? "Prijavljeno kot manjkajoc kos"
+                : bin.status === "full"
+                    ? "Vec prijav polnega kosa"
+                    : "Status OK";
+            const reliability = Number(bin.reliabilityScore) || 0;
+
+            return `
+                <div class="bin-popup">
+                    <div class="bin-popup__title">${escapeHtml(bin.name)}</div>
+                    <div class="bin-popup__meta">
+                        Predlagal: ${escapeHtml(bin.user)}<br>
+                        Dodano: ${escapeHtml(bin.date)}
+                        <br>Status: ${escapeHtml(statusText)}
+                        ${bin.lastUsedAt ? `<br>Zadnja uporaba: ${escapeHtml(bin.lastUsedAt)}` : ""}
+                    </div>
+                    ${bin.image ? `<img class="bin-popup__image" src="${escapeAttribute(bin.image)}" alt="Kos">` : ""}
+                    <div class="bin-popup__stats">
+                        <div class="bin-popup__stat">${Number(bin.usedCount) || 0}<br>uporab</div>
+                        <div class="bin-popup__stat">${Number(bin.fullReports) || 0}<br>poln</div>
+                        <div class="bin-popup__stat">${Number(bin.usefulVotes) || 0}<br>koristen</div>
+                    </div>
+                    <div class="bin-popup__meta">Zanesljivost: ${reliability}/100${bin.lastReportedAt ? `<br>Zadnja prijava: ${escapeHtml(bin.lastReportedAt)}` : ""}</div>
+                    <div class="bin-popup__actions">
+                        <button type="button" class="bin-popup__button bin-popup__button--primary" onclick="sendBinAction(${Number(bin.id)}, 'used')">Oznaci uporabo</button>
+                        <button type="button" class="bin-popup__button" onclick="sendBinAction(${Number(bin.id)}, 'full')">Poln kos</button>
+                        <button type="button" class="bin-popup__button" onclick="sendBinAction(${Number(bin.id)}, 'missing')">Manjka</button>
+                        <button type="button" class="bin-popup__button" onclick="sendBinAction(${Number(bin.id)}, 'useful')">Koristen</button>
+                        <button type="button" class="bin-popup__button" onclick="sendBinAction(${Number(bin.id)}, 'not-useful')">Ni OK</button>
+                    </div>
+                    <a class="bin-popup__nav" href="${buildNavigationUrl(bin.latitude, bin.longitude)}" target="_blank" rel="noopener">Odpri navigacijo</a>
+                    <div class="bin-popup__feedback" id="binFeedback${Number(bin.id)}"></div>
+                </div>
+            `;
+        }
+
+        function buildDogPopupContent(dog) {
+            const canInvite = Array.isArray(myDogs) && myDogs.length > 0;
+            const sourceOptions = canInvite
+                ? `<select id="quickInviteDog${Number(dog.id)}" class="park-visit-box__select">${myDogs.map(item => `<option value="${Number(item.id ?? item.Id)}">${escapeHtml(item.name ?? item.Name ?? "Pes")}</option>`).join("")}</select>`
+                : "";
+            return `
+                <div class="bin-popup">
+                    <div class="bin-popup__title">${escapeHtml(dog.name)}</div>
+                    <div class="bin-popup__meta">
+                        ${escapeHtml(dog.breed || "Pes v blizini")}<br>
+                        Lastnik: ${escapeHtml(dog.ownerName || "DoggyDrop uporabnik")}
+                        ${dog.distanceKm ? `<br>Oddaljenost: ${Number(dog.distanceKm).toFixed(1)} km` : ""}
+                    </div>
+                    ${dog.photoUrl ? `<img class="bin-popup__image" src="${escapeAttribute(dog.photoUrl)}" alt="${escapeAttribute(dog.name)}">` : ""}
+                    ${dog.character ? `<p style="margin:10px 0 0;color:#65716d;font-weight:700;">${escapeHtml(dog.character)}</p>` : ""}
+                    ${canInvite ? `
+                        <div class="park-visit-box">
+                            <label for="quickInviteDog${Number(dog.id)}">Povabi na sprehod</label>
+                            ${sourceOptions}
+                            <button type="button" onclick="sendQuickPlaydateInvite(${Number(dog.id)})">Poslji povabilo</button>
+                            <span id="quickInviteFeedback${Number(dog.id)}"></span>
+                        </div>
+                    ` : ""}
+                </div>
+            `;
+        }
+
+        function renderNearbyDogCards(dogs) {
+            nearbyDogsCount.textContent = String(dogs.length || 0);
+
+            if (!dogs.length) {
+                nearbyDogsList.innerHTML = `<div class="map-nearby-dogs__empty">Trenutno ni vidnih psov v blizini ali pa se lokacija se ni osvezila.</div>`;
+                return;
+            }
+
+            nearbyDogsList.innerHTML = dogs.slice(0, 5).map(dog => `
+                <article class="map-nearby-dog-card">
+                    <div>
+                        <strong>${escapeHtml(dog.name)}</strong>
+                        <p>${escapeHtml(dog.breed || "Pes v blizini")} · ${dog.distanceKm ? `${Number(dog.distanceKm).toFixed(1)} km` : "blizu tebe"}</p>
+                    </div>
+                    <button type="button" onclick="focusNearbyDog(${Number(dog.latitude)}, ${Number(dog.longitude)})">Poglej</button>
+                </article>
+            `).join("");
+        }
+
+        function focusNearbyDog(latitude, longitude) {
+            map.flyTo([latitude, longitude], Math.max(map.getZoom(), 15), { duration: 0.8 });
+        }
+
+        async function sendQuickPlaydateInvite(targetDogId) {
+            const sourceSelect = document.getElementById(`quickInviteDog${targetDogId}`);
+            const feedback = document.getElementById(`quickInviteFeedback${targetDogId}`);
+
+            if (!sourceSelect) {
+                return;
+            }
+
+            if (feedback) {
+                feedback.textContent = "Posiljam ...";
+            }
+
+            try {
+                const response = await fetch("/api/playdates/quick-invite", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-Requested-With": "XMLHttpRequest"
+                    },
+                    body: JSON.stringify({
+                        sourceDogId: Number(sourceSelect.value),
+                        targetDogId,
+                        locationLabel: userLocation ? "trenutna lokacija" : "DoggyDrop mapa",
+                        energyLevel: "Srednja",
+                        message: "Hitro povabilo iz mape."
+                    })
+                });
+
+                if (response.status === 401 || response.redirected) {
+                    window.location.href = "/Identity/Account/Login";
+                    return;
+                }
+
+                if (!response.ok) {
+                    const result = await response.json().catch(() => null);
+                    throw new Error(result?.message || "Povabila ni bilo mogoce poslati.");
+                }
+
+                if (feedback) {
+                    feedback.textContent = "Povabilo poslano.";
+                }
+            } catch (error) {
+                if (feedback) {
+                    feedback.textContent = error.message;
+                }
+            }
+        }
+
+        async function sendBinAction(binId, action) {
+            const feedback = document.getElementById(`binFeedback${binId}`);
+            if (feedback) {
+                feedback.textContent = "Shranjujem ...";
+            }
+
+            try {
+                const response = await fetch(`/Map/BinAction/${binId}?action=${encodeURIComponent(action)}`, {
+                    method: "POST",
+                    headers: {
+                        "X-Requested-With": "XMLHttpRequest"
                     }
                 });
 
-                        const infoContent = `
-            <div style="max-width: 200px;">
-                <strong>${bin.name}</strong><br>
-                Predlagal: ${bin.user}<br>
-                Dodano: ${bin.date}<br>
-                ${bin.image ? `<img src="${bin.image}" alt="Koš" style="width:100%; margin-top:5px;">` : ""}
-            </div>
-        `;
+                if (response.status === 401 || response.redirected) {
+                    window.location.href = "/Identity/Account/Login";
+                    return;
+                }
 
+                if (!response.ok) {
+                    throw new Error("Akcije ni bilo mogoce shraniti.");
+                }
 
-                const infoWindow = new google.maps.InfoWindow({ content: infoContent });
-                marker.addListener("click", () => infoWindow.open(map, marker));
-            });
-        };
+                const updated = await response.json();
+                const bin = bins.find(item => Number(item.id) === Number(binId));
+                if (!bin) {
+                    return;
+                }
+
+                Object.assign(bin, {
+                    usedCount: updated.usedCount,
+                    fullReports: updated.fullReports,
+                    missingReports: updated.missingReports,
+                    usefulVotes: updated.usefulVotes,
+                    notUsefulVotes: updated.notUsefulVotes,
+                    status: updated.missingReports >= 2 ? "missing" : updated.fullReports >= 2 ? "full" : "ok",
+                    lastUsedAt: updated.lastUsedAt,
+                    lastReportedAt: updated.lastReportedAt
+                });
+
+                const marker = binMarkers.get(Number(binId));
+                if (marker) {
+                    marker.setIcon(createBinIcon(bin));
+                    marker.setPopupContent(buildPopupContent(bin));
+                    marker.openPopup();
+                }
+
+                const nextFeedback = document.getElementById(`binFeedback${binId}`);
+                if (nextFeedback) {
+                    nextFeedback.textContent = "Shranjeno.";
+                }
+            } catch (error) {
+                if (feedback) {
+                    feedback.textContent = error.message;
+                } else {
+                    alert(error.message);
+                }
+            }
+        }
 
         function findNearestTrashBin() {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(position => {
-                    const userLocation = {
-                        lat: position.coords.latitude,
-                        lng: position.coords.longitude
-                    };
-
-                    // ➤ Dodaj ali posodobi marker za uporabnika
-                    if (userMarker) {
-                        userMarker.setPosition(userLocation);
-                    } else {
-                        userMarker = new google.maps.Marker({
-                            position: userLocation,
-                            map: map,
-                            title: "Tvoja lokacija",
-                            icon: {
-                                url: "/images/jack russel terrier.png",
-                                scaledSize: new google.maps.Size(50, 50)
-                            }
-                        });
-                    }
-
-                    map.setCenter(userLocation);
-
-                    let nearestBin = null;
-                    let shortestDistance = Infinity;
-
-                    bins.forEach(bin => {
-                        const dist = Math.sqrt(
-                            Math.pow(bin.latitude - userLocation.lat, 2) +
-                            Math.pow(bin.longitude - userLocation.lng, 2)
-                        );
-                        if (dist < shortestDistance) {
-                            shortestDistance = dist;
-                            nearestBin = bin;
-                        }
-                    });
-
-                    if (nearestBin) {
-                        const request = {
-                            origin: userLocation,
-                            destination: { lat: nearestBin.latitude, lng: nearestBin.longitude },
-                            travelMode: google.maps.TravelMode.WALKING
-                        };
-
-                        directionsService.route(request, (result, status) => {
-                            if (status === google.maps.DirectionsStatus.OK) {
-                                directionsRenderer.setDirections(result);
-
-                                const leg = result.routes[0].legs[0];
-                                const duration = leg.duration.text;
-                                const distance = leg.distance.text;
-
-                                document.getElementById("directionsPanel").innerHTML = `
-                                    <strong>⏱️ Čas hoje:</strong> ${duration}<br>
-                                    <strong>📏 Razdalja:</strong> ${distance}
-                                `;
-                            } else {
-                                alert("Napaka pri iskanju poti: " + status);
-                            }
-                        });
-                    }
-                }, () => alert("Napaka pri pridobivanju lokacije."), {
-                    enableHighAccuracy: true,
-                    maximumAge: 0,
-                    timeout: 10000
-                });
-            } else {
+            if (!navigator.geolocation) {
                 alert("Geolokacija ni podprta v tvojem brskalniku.");
+                return;
             }
+
+            if (!window.isSecureContext) {
+                document.getElementById("mapLocationWarning").hidden = false;
+                alert("Lokacija na tej povezavi ni dovoljena. Za GPS na telefonu bova kasneje uredila HTTPS.");
+                return;
+            }
+
+            if (bins.length === 0) {
+                alert("Trenutno ni odobrenih kosev.");
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(position => {
+                userLocation = {
+                    lat: position.coords.latitude,
+                    lng: position.coords.longitude
+                };
+
+                if (userMarker) {
+                    userMarker.setLatLng([userLocation.lat, userLocation.lng]);
+                } else {
+                    userMarker = L.marker([userLocation.lat, userLocation.lng], { icon: userIcon })
+                        .addTo(map)
+                        .bindPopup("Tvoja lokacija");
+                }
+
+                loadNearbyDogs();
+
+                fetch(`/Map/GetBestBin?latitude=${encodeURIComponent(userLocation.lat)}&longitude=${encodeURIComponent(userLocation.lng)}`, {
+                    headers: { "X-Requested-With": "XMLHttpRequest" }
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error("Najboljsega kosa ni bilo mogoce poiskati.");
+                    }
+
+                    return response.json();
+                })
+                .then(nearestBin => {
+                    if (routeLine) {
+                        routeLine.remove();
+                    }
+
+                    routeLine = L.polyline(
+                        [
+                            [userLocation.lat, userLocation.lng],
+                            [nearestBin.latitude, nearestBin.longitude]
+                        ],
+                        { color: "#00796B", weight: 6, opacity: 0.9 }
+                    ).addTo(map);
+
+                    map.fitBounds(routeLine.getBounds().pad(0.25));
+
+                    const distance = formatDistance(nearestBin.distanceMeters);
+                    const walkingMinutes = Math.max(1, Math.round(nearestBin.distanceMeters / 83));
+                    const panel = document.getElementById("directionsPanel");
+                    panel.style.display = "block";
+                    panel.innerHTML = `
+                        <strong>Predlagan kos:</strong> ${escapeHtml(nearestBin.name)}<br>
+                        <strong>Cas hoje:</strong> priblizno ${walkingMinutes} min<br>
+                        <strong>Razdalja:</strong> ${distance}<br>
+                        <strong>Zanesljivost:</strong> ${Number(nearestBin.reliabilityScore || 0)}/100
+                    `;
+                    renderNearbySuggestions();
+                })
+                .catch(error => alert(error.message));
+            }, () => alert("Napaka pri pridobivanju lokacije."), {
+                enableHighAccuracy: true,
+                maximumAge: 0,
+                timeout: 10000
+            });
+        }
+
+        function locateAndSuggestWalks(flyToLocation = true) {
+            const status = document.getElementById("nearbySuggestionsStatus");
+
+            if (!navigator.geolocation) {
+                status.textContent = "Ta brskalnik ne podpira geolokacije.";
+                renderNearbySuggestions();
+                return;
+            }
+
+            if (!window.isSecureContext) {
+                status.textContent = "Za tocen GPS na telefonu bo treba uporabiti HTTPS povezavo.";
+                renderNearbySuggestions();
+                return;
+            }
+
+            status.textContent = "Pridobivam tvojo lokacijo ...";
+
+            navigator.geolocation.getCurrentPosition(position => {
+                userLocation = {
+                    lat: position.coords.latitude,
+                    lng: position.coords.longitude
+                };
+                loadNearbyDogs();
+
+                if (userMarker) {
+                    userMarker.setLatLng([userLocation.lat, userLocation.lng]);
+                } else {
+                    userMarker = L.marker([userLocation.lat, userLocation.lng], { icon: userIcon })
+                        .addTo(map)
+                        .bindPopup("Tvoja lokacija");
+                }
+
+                if (flyToLocation) {
+                    map.setView([userLocation.lat, userLocation.lng], 16, { animate: true });
+                }
+
+                status.textContent = "Predlogi so pripravljeni iz tvoje trenutne lokacije.";
+                renderNearbySuggestions();
+            }, () => {
+                status.textContent = "Lokacije ni bilo mogoce pridobiti. Prikazani so predlogi iz centra zemljevida.";
+                renderNearbySuggestions();
+            }, {
+                enableHighAccuracy: true,
+                maximumAge: 0,
+                timeout: 10000
+            });
         }
 
         function refreshRoute() {
             findNearestTrashBin();
         }
-    </script>
 
-    <script async
-            src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC7BZuc_0STrDlrpQL6HF3mcQJW2HV4cDI&callback=initMap">
+        function openFilterPanel() {
+            document.getElementById("filterPanel").hidden = false;
+            document.getElementById("filterToggle").hidden = true;
+        }
+
+        function closeFilterPanel() {
+            document.getElementById("filterPanel").hidden = true;
+            document.getElementById("filterToggle").hidden = false;
+        }
+
+        function openExplorePanel() {
+            document.getElementById("explorePanel").hidden = false;
+            document.getElementById("exploreToggle").hidden = true;
+            closeFilterPanel();
+            renderExploreList();
+        }
+
+        function closeExplorePanel() {
+            document.getElementById("explorePanel").hidden = true;
+            document.getElementById("exploreToggle").hidden = false;
+        }
+
+        function renderExploreList() {
+            const list = document.getElementById("exploreList");
+            if (!list) {
+                return;
+            }
+
+            const search = normalizeSearch(document.getElementById("exploreSearch").value);
+            const center = map ? map.getCenter() : L.latLng(46.5547, 15.6459);
+            const filterTypes = exploreFilter === "all" ? null : exploreFilter.split(",");
+            const items = getExploreItems()
+                .filter(item => !filterTypes || filterTypes.includes(item.type))
+                .filter(item => !search || normalizeSearch(`${item.name} ${item.area || ""} ${item.address || ""}`).includes(search))
+                .map(item => ({
+                    ...item,
+                    distanceMeters: getDistanceMeters(center.lat, center.lng, item.latitude, item.longitude)
+                }))
+                .sort((a, b) => a.distanceMeters - b.distanceMeters)
+                .slice(0, 40);
+
+            if (items.length === 0) {
+                list.innerHTML = `<div class="map-location-warning">Ni zadetkov za ta filter.</div>`;
+                return;
+            }
+
+            list.innerHTML = items.map(item => `
+                <button type="button" class="map-explore-item" onclick="focusExploreItem('${escapeAttribute(item.key)}')">
+                    <span class="map-explore-item__icon">${escapeHtml(item.shortLabel)}</span>
+                    <span>
+                        <strong>${escapeHtml(item.name)}</strong>
+                        <span>${escapeHtml(item.subtitle)}</span>
+                    </span>
+                    <em>${formatDistance(item.distanceMeters)}</em>
+                </button>
+            `).join("");
+        }
+
+        function renderNearbySuggestions() {
+            const list = document.getElementById("nearbySuggestionsList");
+            const hasPreciseLocation = !!userLocation;
+            const fallbackArea = getNearbyFallbackArea();
+            const origin = userLocation ?? fallbackArea;
+            const nearbyBinLimitMeters = hasPreciseLocation ? 1800 : 3200;
+            const ranked = getExploreItems()
+                .map(item => ({
+                    ...item,
+                    distanceMeters: getDistanceMeters(origin.lat, origin.lng, item.latitude, item.longitude)
+                }))
+                .sort((a, b) => a.distanceMeters - b.distanceMeters);
+
+            const nearestPark = ranked.find(item => item.type === "park");
+            const nearestBin = ranked.find(item => item.type === "bin");
+            const nearestWater = ranked.find(item => item.type === "water");
+            const nearestCafe = ranked.find(item => item.type === "cafe");
+            const nearbyBin = nearestBin && nearestBin.distanceMeters <= nearbyBinLimitMeters
+                ? nearestBin
+                : null;
+
+            const cards = [
+                buildNearbySuggestionCard("Hiter park walk", "Kratek izhod s prostorom za vohanje in igro.", nearestPark, [nearbyBin, nearestWater], hasPreciseLocation, fallbackArea),
+                nearbyBin
+                    ? buildNearbySuggestionCard("Utility walk", "Prakticen mestni krog s kosom in hitro pavzo.", nearbyBin, [nearestCafe, nearestWater], hasPreciseLocation, fallbackArea)
+                    : buildCommunityBinCard(hasPreciseLocation, fallbackArea),
+                buildNearbySuggestionCard("Daljsi social walk", "Za daljsi sprehod povezi park, vodo in dog-friendly postanek.", nearestPark, [nearestWater, nearestCafe], hasPreciseLocation, fallbackArea)
+            ].filter(Boolean);
+
+            list.innerHTML = cards.length > 0
+                ? cards.join("")
+                : `<div class="map-location-warning">V blizini se ni dovolj tock za samodejni predlog.</div>`;
+        }
+
+        function buildNearbySuggestionCard(title, description, anchor, extras, hasPreciseLocation, fallbackArea) {
+            if (!anchor) {
+                return "";
+            }
+
+            const chain = [anchor, ...(extras || []).filter(Boolean)];
+            const totalDistance = chain.reduce((sum, item) => sum + (item.distanceMeters || 0), 0);
+            const metaText = hasPreciseLocation
+                ? formatDistance(totalDistance)
+                : `predlog iz ${escapeHtml(fallbackArea.name)}`;
+
+            return `
+                <button type="button" class="map-explore-item" onclick="focusExploreItem('${escapeAttribute(anchor.key)}')">
+                    <span class="map-explore-item__icon">${escapeHtml(anchor.shortLabel)}</span>
+                    <span>
+                        <strong>${escapeHtml(title)}</strong>
+                        <span>${escapeHtml(description)} ${escapeHtml(chain.map(item => item.shortLabel).join(" - "))}</span>
+                    </span>
+                    <em>${metaText}</em>
+                </button>
+            `;
+        }
+
+        function buildCommunityBinCard(hasPreciseLocation, fallbackArea) {
+            const metaText = hasPreciseLocation
+                ? "v tvoji okolici se se ni potrjenega kosa"
+                : `pomagaj skupnosti v okolici ${escapeHtml(fallbackArea.name)}`;
+
+            return `
+                <a class="map-explore-item map-explore-item--cta" href="/Map/Add">
+                    <span class="map-explore-item__icon">+</span>
+                    <span class="map-explore-item__content">
+                        <strong>Tukaj manjka pasji kos</strong>
+                        <span>Ce ga v tej okolici uporabljas ali opazis dober spot, ga dodaj v DoggyDrop in pomagaj skrbeti za lepse okolje.</span>
+                        <span class="map-explore-item__meta">${metaText}</span>
+                    </span>
+                </a>
+            `;
+        }
+
+        function getNearbyFallbackArea() {
+            const center = map ? map.getCenter() : L.latLng(46.5547, 15.6459);
+            return nearbyFallbackAreas
+                .map(area => ({
+                    ...area,
+                    distanceMeters: getDistanceMeters(center.lat, center.lng, area.latitude, area.longitude)
+                }))
+                .sort((a, b) => a.distanceMeters - b.distanceMeters)[0];
+        }
+
+        function getExploreItems() {
+            const binItems = bins.map(bin => ({
+                key: `bin-${Number(bin.id)}`,
+                type: "bin",
+                shortLabel: "B",
+                name: bin.name,
+                subtitle: bin.status === "full" ? "Kos je prijavljen kot poln" : bin.status === "missing" ? "Kos je prijavljen kot manjkajoc" : "Pasji kos",
+                latitude: bin.latitude,
+                longitude: bin.longitude
+            }));
+
+            const placeItems = [...placeGroups.parks, ...placeGroups.water, ...placeGroups.cafes].map(place => ({
+                key: getPlaceKey(place),
+                type: place.type,
+                shortLabel: place.type === "park" ? "P" : place.type === "water" ? "W" : "C",
+                name: place.name,
+                area: place.area,
+                address: place.address,
+                subtitle: `${place.label}${place.area ? ` - ${place.area}` : ""}`,
+                latitude: place.latitude,
+                longitude: place.longitude
+            }));
+
+            return [...binItems, ...placeItems];
+        }
+
+        function focusExploreItem(key) {
+            const item = getExploreItems().find(candidate => candidate.key === key);
+            if (!item) {
+                return;
+            }
+
+            const marker = item.type === "bin"
+                ? binMarkers.get(Number(key.replace("bin-", "")))
+                : placeMarkers.get(key);
+
+            ensureLayerVisible(item.type);
+            map.setView([item.latitude, item.longitude], Math.max(map.getZoom(), 16), { animate: true });
+            if (marker) {
+                marker.openPopup();
+            }
+        }
+
+        function ensureLayerVisible(type) {
+            if (type === "bin") {
+                document.getElementById("showBins").checked = true;
+                binLayer.addTo(map);
+                saveMapSetting("showBins", true);
+                return;
+            }
+
+            const mapByType = {
+                park: ["showParks", parkLayer],
+                water: ["showWater", waterLayer],
+                cafe: ["showCafes", cafeLayer]
+            };
+
+            const setting = mapByType[type];
+            if (!setting) {
+                return;
+            }
+
+            document.getElementById(setting[0]).checked = true;
+            setting[1].addTo(map);
+            saveMapSetting(setting[0], true);
+        }
+
+        function getPlaceKey(place) {
+            return `${place.type}-${place.latitude}-${place.longitude}`;
+        }
+
+        function buildNavigationUrl(latitude, longitude) {
+            return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${latitude},${longitude}`)}`;
+        }
+
+        function normalizeSearch(value) {
+            return String(value || "")
+                .toLowerCase()
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "");
+        }
+
+        function showFutureFilterMessage() {
+            const warning = document.getElementById("mapLocationWarning");
+            warning.hidden = false;
+            warning.textContent = "Ta filter je pripravljen, markerje za pse, parke, vodo in kavarne pa dodava v naslednjih korakih.";
+        }
+
+        function getDistanceMeters(lat1, lng1, lat2, lng2) {
+            const earthRadius = 6371000;
+            const dLat = toRadians(lat2 - lat1);
+            const dLng = toRadians(lng2 - lng1);
+            const a =
+                Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
+                Math.sin(dLng / 2) * Math.sin(dLng / 2);
+            return earthRadius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        }
+
+        function toRadians(value) {
+            return value * Math.PI / 180;
+        }
+
+        function formatDistance(meters) {
+            if (meters >= 1000) {
+                return `${(meters / 1000).toFixed(1)} km`;
+            }
+
+            return `${Math.round(meters)} m`;
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? "")
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;")
+                .replaceAll('"', "&quot;")
+                .replaceAll("'", "&#039;");
+        }
+
+        function escapeAttribute(value) {
+            return escapeHtml(value).replaceAll("`", "&#096;");
+        }
     </script>
 }
-
