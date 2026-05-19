@@ -73,6 +73,16 @@ else
 }
 
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
+builder.Services.PostConfigure<EmailSettings>(settings =>
+{
+    settings.SmtpUser = string.IsNullOrWhiteSpace(settings.SmtpUser)
+        ? GetConfiguredValue(builder.Configuration, "EmailSettings:Username", "EmailSettings__Username") ?? string.Empty
+        : settings.SmtpUser;
+
+    settings.SmtpPass = string.IsNullOrWhiteSpace(settings.SmtpPass)
+        ? GetConfiguredValue(builder.Configuration, "EmailSettings:Password", "EmailSettings__Password") ?? string.Empty
+        : settings.SmtpPass;
+});
 builder.Services.AddTransient<IEmailSender, EmailSender>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 
