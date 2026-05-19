@@ -100,6 +100,35 @@
         }
     </article>
 
+    <article class="profile-panel profile-founders">
+        <div class="profile-panel__header">
+            <h2>Founder badges</h2>
+            <span>@Model.FounderBadges.Count permanent</span>
+        </div>
+
+        @if (Model.FounderBadges.Count == 0)
+        {
+            <div class="profile-founder-empty">
+                <strong>Be the first DoggyDrop Explorer here.</strong>
+                <p>Dodaj prvi odobren pasji koš v kraju, kjer DoggyDrop še nima pokritosti, in dobiš trajen founder badge na profilu.</p>
+                <a asp-controller="Map" asp-action="Add">Dodaj koš</a>
+            </div>
+        }
+        else
+        {
+            <div class="profile-founder-list">
+                @foreach (var badge in Model.FounderBadges)
+                {
+                    <div class="profile-founder-badge">
+                        <span>Founder</span>
+                        <strong>@badge.AreaName</strong>
+                        <em>@badge.UnlockedAt.ToLocalTime().ToString("dd.MM.yyyy")</em>
+                    </div>
+                }
+            </div>
+        }
+    </article>
+
     <article class="profile-panel profile-stamps">
         <div class="profile-panel__header">
             <h2>Map stamps</h2>
@@ -629,6 +658,59 @@
         margin: 8px 0 0;
     }
 
+    .profile-founder-list {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .profile-founder-badge,
+    .profile-founder-empty {
+        padding: 14px;
+        border: 1px solid rgba(239, 143, 66, 0.22);
+        border-radius: 8px;
+        background: linear-gradient(180deg, #fff9ee, #ffffff);
+        box-shadow: 0 12px 26px rgba(239, 143, 66, 0.10);
+    }
+
+    .profile-founder-badge span,
+    .profile-founder-badge strong,
+    .profile-founder-badge em,
+    .profile-founder-empty strong,
+    .profile-founder-empty p {
+        display: block;
+    }
+
+    .profile-founder-badge span {
+        color: #ef8f42;
+        font-size: 0.72rem;
+        font-weight: 950;
+        text-transform: uppercase;
+    }
+
+    .profile-founder-badge strong,
+    .profile-founder-empty strong {
+        color: #1f2d29;
+        font-weight: 950;
+    }
+
+    .profile-founder-badge em,
+    .profile-founder-empty p {
+        margin-top: 5px;
+        color: #65716d;
+        font-style: normal;
+        font-size: 0.84rem;
+        font-weight: 800;
+    }
+
+    .profile-founder-empty a {
+        display: inline-flex;
+        margin-top: 10px;
+        color: #2f6d5f;
+        font-weight: 950;
+        text-decoration: none;
+    }
+
     .profile-stamp-summary {
         display: grid;
         grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -990,6 +1072,7 @@
         }
 
         .profile-achievements,
+        .profile-founder-list,
         .profile-stamp-summary,
         .profile-stamp-book {
             grid-template-columns: 1fr;

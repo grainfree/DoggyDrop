@@ -1137,6 +1137,65 @@
         box-shadow: 0 0 0 6px rgba(47, 159, 111, 0.12);
     }
 
+    .map-founder-prompt {
+        position: fixed;
+        left: 18px;
+        top: 78px;
+        z-index: 990;
+        width: min(330px, calc(100vw - 36px));
+        padding: 14px;
+        border: 1px solid rgba(239, 143, 66, 0.22);
+        border-radius: 8px;
+        background: rgba(255, 249, 238, 0.96);
+        box-shadow: 0 16px 34px rgba(31, 45, 41, 0.14);
+        backdrop-filter: blur(14px);
+    }
+
+    .map-founder-prompt[hidden] {
+        display: none;
+    }
+
+    .map-founder-prompt span,
+    .map-founder-prompt strong,
+    .map-founder-prompt p {
+        display: block;
+    }
+
+    .map-founder-prompt span {
+        color: #b76519;
+        font-size: 0.72rem;
+        font-weight: 950;
+        text-transform: uppercase;
+    }
+
+    .map-founder-prompt strong {
+        margin-top: 4px;
+        color: #1f2d29;
+        font-weight: 950;
+        line-height: 1.2;
+    }
+
+    .map-founder-prompt p {
+        margin: 6px 0 10px;
+        color: #65716d;
+        font-size: 0.84rem;
+        font-weight: 800;
+        line-height: 1.35;
+    }
+
+    .map-founder-prompt a {
+        display: inline-flex;
+        min-height: 34px;
+        align-items: center;
+        padding: 7px 12px;
+        border-radius: 999px;
+        background: #2f6d5f;
+        color: #ffffff;
+        font-size: 0.8rem;
+        font-weight: 950;
+        text-decoration: none;
+    }
+
     .map-community-heat {
         position: fixed;
         right: 18px;
@@ -1310,6 +1369,14 @@
             max-width: calc(100vw - 24px);
             padding: 9px 12px;
             font-size: 0.78rem;
+        }
+
+        .map-founder-prompt {
+            left: 8px;
+            right: 8px;
+            top: 110px;
+            width: auto;
+            padding: 11px;
         }
 
         .map-community-heat {
@@ -1777,6 +1844,13 @@ else if (needsDogOnboarding)
     <span>pasjih košev na zemljevidu</span>
 </div>
 
+<aside id="mapFounderPrompt" class="map-founder-prompt" hidden>
+    <span>Founder opportunity</span>
+    <strong>Be the first DoggyDrop Explorer here.</strong>
+    <p id="mapFounderPromptText">V tej okolici še ni potrjenega pasjega koša. Dodaj prvega in odpri območje za skupnost.</p>
+    <a asp-controller="Map" asp-action="Add">Dodaj prvi koš</a>
+</aside>
+
 <aside id="communityHeatPanel" class="map-community-heat">
     <div class="map-community-heat__head">
         <strong>Community heat</strong>
@@ -1889,6 +1963,8 @@ else if (needsDogOnboarding)
         const communityPopularParks = document.getElementById("communityPopularParks");
         const communityTrendingRoutes = document.getElementById("communityTrendingRoutes");
         const communityEvents = document.getElementById("communityEvents");
+        const mapFounderPrompt = document.getElementById("mapFounderPrompt");
+        const mapFounderPromptText = document.getElementById("mapFounderPromptText");
 
         const placeGroups = {
             parks: [
@@ -2079,6 +2155,8 @@ else if (needsDogOnboarding)
             renderExploreList();
             refreshNotificationPreview();
             window.setInterval(refreshNotificationPreview, 60000);
+            updateFounderPrompt();
+            map.on("moveend", updateFounderPrompt);
             focusMapNearUser();
 
             if (!window.isSecureContext) {
@@ -2106,6 +2184,7 @@ else if (needsDogOnboarding)
                 }
 
                 map.setView([userLocation.lat, userLocation.lng], 15, { animate: true });
+                updateFounderPrompt();
                 loadNearbyDogs();
                 renderNearbySuggestions();
             }, () => {
@@ -2954,6 +3033,24 @@ else if (needsDogOnboarding)
                 : `<div class="map-location-warning">V blizini se ni dovolj tock za samodejni predlog.</div>`;
         }
 
+        function updateFounderPrompt() {
+            if (!mapFounderPrompt || !mapFounderPromptText || !map) {
+                return;
+            }
+
+            const center = userLocation ?? map.getCenter();
+            const fallbackArea = getNearbyFallbackArea();
+            const nearbyBins = bins.filter(bin =>
+                getDistanceMeters(center.lat, center.lng, bin.latitude, bin.longitude) <= 1800);
+
+            mapFounderPrompt.hidden = nearbyBins.length > 0;
+            if (nearbyBins.length === 0) {
+                mapFounderPromptText.textContent = userLocation
+                    ? "V tvoji neposredni okolici še ni potrjenega pasjega koša. Dodaj prvega in postani founder tega območja."
+                    : `Okolica ${fallbackArea.name} ima še prostor za prve DoggyDrop koše. Dodaj prvega in odpri območje za skupnost.`;
+            }
+        }
+
         function buildNearbySuggestionCard(title, description, anchor, extras, hasPreciseLocation, fallbackArea) {
             if (!anchor) {
                 return "";
@@ -2979,15 +3076,15 @@ else if (needsDogOnboarding)
 
         function buildCommunityBinCard(hasPreciseLocation, fallbackArea) {
             const metaText = hasPreciseLocation
-                ? "v tvoji okolici se se ni potrjenega kosa"
+                ? "founder badge opportunity"
                 : `pomagaj skupnosti v okolici ${escapeHtml(fallbackArea.name)}`;
 
             return `
                 <a class="map-explore-item map-explore-item--cta" href="/Map/Add">
                     <span class="map-explore-item__icon">+</span>
                     <span class="map-explore-item__content">
-                        <strong>Tukaj manjka pasji kos</strong>
-                        <span>Ce ga v tej okolici uporabljas ali opazis dober spot, ga dodaj v DoggyDrop in pomagaj skrbeti za lepse okolje.</span>
+                        <strong>Be the first DoggyDrop Explorer here</strong>
+                        <span>Ce v tej okolici uporabljas ali opazis dober spot za kos, ga dodaj in si lahko prvi founder tega obmocja.</span>
                         <span class="map-explore-item__meta">${metaText}</span>
                     </span>
                 </a>

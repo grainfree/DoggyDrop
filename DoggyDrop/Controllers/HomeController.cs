@@ -307,6 +307,10 @@ namespace DoggyDrop.Controllers
             var gamificationProfile = await _gamificationService.EnsureProfileAsync(user.Id);
             var levelInfo = _gamificationService.CalculateLevelInfo(gamificationProfile.TotalXp);
             var streaks = await _gamificationService.GetStreaksAsync(user.Id);
+            var founderBadges = await _context.FounderBadges
+                .Where(badge => badge.UserId == user.Id)
+                .OrderByDescending(badge => badge.UnlockedAt)
+                .ToListAsync();
 
             var model = new UserProfileViewModel
             {
@@ -355,6 +359,12 @@ namespace DoggyDrop.Controllers
                         LastCollectedAt = stamp.LastCollectedAt
                     }).ToList()
                 },
+                FounderBadges = founderBadges.Select(badge => new FounderBadgeViewModel
+                {
+                    AreaName = badge.AreaName,
+                    BadgeType = badge.BadgeType,
+                    UnlockedAt = badge.UnlockedAt
+                }).ToList(),
                 Gamification = new GamificationProfileViewModel
                 {
                     TotalXp = levelInfo.TotalXp,

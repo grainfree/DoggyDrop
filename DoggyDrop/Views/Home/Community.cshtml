@@ -103,7 +103,11 @@
 
         @if (Model.WeeklyLeaders.Count == 0)
         {
-            <p class="community-muted">Ko zaključiš prvi sprehod, se bo tukaj prikazala lestvica.</p>
+            <article class="community-empty community-empty--founder">
+                <h3>Be the first DoggyDrop Explorer here.</h3>
+                <p>Zaključi prvi sprehod v svojem kraju in odpri tedensko lestvico, preden jo napolni skupnost.</p>
+                <a class="btn btn-success rounded-pill fw-semibold" asp-controller="Walks" asp-action="Planner">Začni prvi sprehod</a>
+            </article>
         }
         else
         {
@@ -210,7 +214,11 @@
 
         @if (Model.PhotoFeed.Count == 0)
         {
-            <p class="community-muted">Ko bodo dodane prve walk photos, se bodo prikazale tukaj.</p>
+            <article class="community-empty community-empty--founder">
+                <h3>Prva fotka čaka nate</h3>
+                <p>Dodaj walk photo in postani prvi obraz lokalnega DoggyDrop feeda.</p>
+                <a class="btn btn-success rounded-pill fw-semibold" asp-controller="Walks" asp-action="Index">Odpri sprehode</a>
+            </article>
         }
         else
         {
@@ -259,7 +267,11 @@
 
         @if (Model.BinPhotoGallery.Count == 0)
         {
-            <p class="community-muted">Ko bodo odobreni koši s slikami, jih boš videl tukaj.</p>
+            <article class="community-empty community-empty--founder">
+                <h3>Be the first bin founder.</h3>
+                <p>Dodaj prvi koš s fotografijo v svoji okolici. Če je to prvo odobreno območje, dobiš trajen founder badge.</p>
+                <a class="btn btn-success rounded-pill fw-semibold" asp-controller="Map" asp-action="Add">Dodaj koš</a>
+            </article>
         }
         else
         {
@@ -286,9 +298,9 @@
 
         @if (Model.RecentWalks.Count == 0)
         {
-            <article class="community-empty">
-                <h3>Ni še objav</h3>
-                <p>Zaključi sprehod in DoggyDrop ga bo prikazal tukaj kot prvo aktivnost skupnosti.</p>
+            <article class="community-empty community-empty--founder">
+                <h3>Be the first DoggyDrop Explorer here.</h3>
+                <p>Zaključi sprehod in DoggyDrop ga bo prikazal kot prvo aktivnost tvoje skupnosti.</p>
                 <a class="btn btn-success rounded-pill fw-semibold" asp-controller="Walks" asp-action="Index">Začni sprehod</a>
             </article>
         }
@@ -389,6 +401,26 @@
     .community-section {
         margin-top: 14px;
         padding: 20px;
+    }
+
+    .community-empty--founder {
+        border-color: rgba(239, 143, 66, 0.22);
+        background: linear-gradient(180deg, #fff9ee, #ffffff);
+        box-shadow: 0 18px 34px rgba(239, 143, 66, 0.10);
+    }
+
+    .community-empty--founder h3::before {
+        content: "Founder";
+        display: inline-flex;
+        margin-right: 8px;
+        padding: 4px 8px;
+        border-radius: 999px;
+        background: rgba(239, 143, 66, 0.14);
+        color: #b76519;
+        font-size: 0.68rem;
+        font-weight: 950;
+        text-transform: uppercase;
+        vertical-align: middle;
     }
 
     .community-section__header {

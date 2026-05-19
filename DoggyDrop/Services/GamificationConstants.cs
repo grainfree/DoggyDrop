@@ -10,6 +10,7 @@ namespace DoggyDrop.Services
         public const string VisitNewPark = "VisitNewPark";
         public const string CreateRoute = "CreateRoute";
         public const string HelpfulVote = "HelpfulVote";
+        public const string FounderBadge = "FounderBadge";
 
         public const int AddedTrashBinXp = 50;
         public const int ApprovedTrashBinXp = 20;
@@ -19,5 +20,6 @@ namespace DoggyDrop.Services
         public const int VisitNewParkXp = 40;
         public const int CreateRouteXp = 60;
         public const int HelpfulVoteXp = 10;
+        public const int FounderBadgeXp = 100;
     }
 }

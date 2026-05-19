@@ -44,5 +44,7 @@ namespace DoggyDrop.Models
         public ICollection<UserXpEvent>? XpEvents { get; set; }
 
         public ICollection<UserStreak>? Streaks { get; set; }
+
+        public ICollection<FounderBadge>? FounderBadges { get; set; }
     }
 }

@@ -21,6 +21,19 @@ namespace DoggyDrop.Controllers
         private readonly INotificationService _notificationService;
         private readonly IGamificationService _gamificationService;
         private readonly IDogProgressionService _dogProgressionService;
+        private static readonly IReadOnlyList<FounderArea> FounderAreas =
+        [
+            new("maribor", "Maribor", 46.5547, 15.6459, 6500),
+            new("ljubljana", "Ljubljana", 46.0569, 14.5058, 8500),
+            new("celje", "Celje", 46.2397, 15.2677, 5500),
+            new("koper", "Koper / Obala", 45.5481, 13.7301, 7000),
+            new("kranj", "Kranj", 46.2397, 14.3556, 5500),
+            new("ptuj", "Ptuj", 46.4216, 15.8788, 4500),
+            new("velenje", "Velenje", 46.3622, 15.1147, 4500),
+            new("novo-mesto", "Novo mesto", 45.7998, 15.1771, 5000),
+            new("nova-gorica", "Nova Gorica", 45.9561, 13.6482, 5000),
+            new("murska-sobota", "Murska Sobota", 46.6606, 16.1664, 4500)
+        ];
 
         public MapController(ApplicationDbContext context,
                              IWebHostEnvironment environment,
@@ -84,6 +97,7 @@ namespace DoggyDrop.Controllers
 
             if (newBin.IsApproved)
             {
+                await AwardFounderBadgeIfFirstInAreaAsync(newBin);
                 await NotifyNearbyUsersAboutApprovedBinAsync(newBin, newBin.UserId);
             }
 
@@ -232,6 +246,7 @@ namespace DoggyDrop.Controllers
             {
                 bin.IsApproved = true;
                 await _context.SaveChangesAsync();
+                await AwardFounderBadgeIfFirstInAreaAsync(bin);
 
                 if (!string.IsNullOrWhiteSpace(bin.UserId))
                 {
@@ -520,6 +535,85 @@ namespace DoggyDrop.Controllers
             }
         }
 
+        private async Task AwardFounderBadgeIfFirstInAreaAsync(TrashBin bin)
+        {
+            if (string.IsNullOrWhiteSpace(bin.UserId))
+            {
+                return;
+            }
+
+            var area = ResolveFounderArea(bin.Latitude, bin.Longitude);
+            var approvedAreaBins = await _context.TrashBins
+                .Where(candidate => candidate.Id != bin.Id && candidate.IsApproved)
+                .Select(candidate => new { candidate.Latitude, candidate.Longitude })
+                .ToListAsync();
+            var hasEarlierApprovedBin = approvedAreaBins.Any(candidate =>
+                GetDistanceMeters(candidate.Latitude, candidate.Longitude, area.Latitude, area.Longitude) <= area.RadiusMeters);
+
+            if (hasEarlierApprovedBin)
+            {
+                return;
+            }
+
+            var alreadyClaimed = await _context.FounderBadges.AnyAsync(badge =>
+                badge.AreaKey == area.Key && badge.BadgeType == "ExplorerFounder");
+
+            if (alreadyClaimed)
+            {
+                return;
+            }
+
+            _context.FounderBadges.Add(new FounderBadge
+            {
+                UserId = bin.UserId,
+                AreaKey = area.Key,
+                AreaName = area.Name,
+                BadgeType = "ExplorerFounder",
+                TrashBinId = bin.Id,
+                UnlockedAt = DateTime.UtcNow
+            });
+
+            await _context.SaveChangesAsync();
+            await _gamificationService.AwardXpAsync(
+                bin.UserId,
+                GamificationConstants.FounderBadge,
+                GamificationConstants.FounderBadgeXp,
+                nameof(FounderBadge),
+                area.Key,
+                $"Founder explorer za {area.Name}");
+            await _notificationService.CreateUniqueRecentAsync(
+                bin.UserId,
+                $"FounderBadge:{area.Key}",
+                $"Founder Explorer: {area.Name}",
+                $"Prvi si dodal odobren pasji koš za območje {area.Name}. Ta founder badge ostane na tvojem profilu.",
+                Url.Action(nameof(HomeController.UserProfile), "Home"),
+                withinHours: 24 * 365);
+        }
+
+        private static FounderArea ResolveFounderArea(double latitude, double longitude)
+        {
+            return FounderAreas
+                .Select(area => area with
+                {
+                    DistanceMeters = GetDistanceMeters(latitude, longitude, area.Latitude, area.Longitude)
+                })
+                .Where(area => area.DistanceMeters <= area.RadiusMeters)
+                .OrderBy(area => area.DistanceMeters)
+                .FirstOrDefault()
+                ?? new FounderArea(
+                    BuildAreaKey(latitude, longitude),
+                    "Novo DoggyDrop območje",
+                    latitude,
+                    longitude,
+                    2500,
+                    0);
+        }
+
+        private static string BuildAreaKey(double latitude, double longitude)
+        {
+            return $"area-{Math.Round(latitude, 2):0.00}-{Math.Round(longitude, 2):0.00}".Replace(',', '.');
+        }
+
         private async Task NotifyParkAchievementsAsync(string userId)
         {
             var uniqueParkVisits = await _context.DogParkVisits
@@ -620,6 +714,14 @@ namespace DoggyDrop.Controllers
             score -= Math.Min(35, bin.MissingReports * 12);
             return Math.Clamp(score, 0, 100);
         }
+
+        private sealed record FounderArea(
+            string Key,
+            string Name,
+            double Latitude,
+            double Longitude,
+            double RadiusMeters,
+            double DistanceMeters = 0);
     }
 
     public class ParkVisitInput

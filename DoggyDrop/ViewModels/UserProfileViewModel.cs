@@ -35,6 +35,17 @@ namespace DoggyDrop.ViewModels
         public string SeasonalMapTheme { get; set; } = "default";
 
         public MapStampCollectionViewModel MapStamps { get; set; } = new();
+
+        public IReadOnlyList<FounderBadgeViewModel> FounderBadges { get; set; } = [];
+    }
+
+    public class FounderBadgeViewModel
+    {
+        public string AreaName { get; set; } = string.Empty;
+
+        public string BadgeType { get; set; } = string.Empty;
+
+        public DateTime UnlockedAt { get; set; }
     }
 
     public class MapStampCollectionViewModel

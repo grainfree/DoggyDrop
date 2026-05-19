@@ -57,6 +57,8 @@ namespace DoggyDrop.Data
 
         public DbSet<DogXpEvent> DogXpEvents { get; set; }
 
+        public DbSet<FounderBadge> FounderBadges { get; set; }
+
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
@@ -260,6 +262,25 @@ namespace DoggyDrop.Data
             builder.Entity<UserStreak>()
                 .HasIndex(streak => new { streak.UserId, streak.StreakType })
                 .IsUnique();
+
+            builder.Entity<FounderBadge>()
+                .HasOne(badge => badge.User)
+                .WithMany(user => user.FounderBadges)
+                .HasForeignKey(badge => badge.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<FounderBadge>()
+                .HasOne(badge => badge.TrashBin)
+                .WithMany()
+                .HasForeignKey(badge => badge.TrashBinId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            builder.Entity<FounderBadge>()
+                .HasIndex(badge => new { badge.AreaKey, badge.BadgeType })
+                .IsUnique();
+
+            builder.Entity<FounderBadge>()
+                .HasIndex(badge => new { badge.UserId, badge.UnlockedAt });
 
             builder.Entity<DogProgressionProfile>()
                 .HasOne(profile => profile.Dog)
