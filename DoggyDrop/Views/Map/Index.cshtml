@@ -1345,6 +1345,15 @@
             font-size: 0.82rem;
         }
     }
+
+    .map-quick-intro,
+    .map-first-walk-card,
+    .map-first-dog-card,
+    .map-explore-panel--nearby,
+    .map-notification-preview,
+    .map-status-pill {
+        display: none !important;
+    }
 </style>
 
 @if (TempData["SuccessMessage"] != null)
@@ -1706,7 +1715,6 @@ else if (needsDogOnboarding)
             document.getElementById("parkCountLabel").textContent = `(${placeGroups.parks.length})`;
             applySavedMapSettings();
             renderExploreList();
-            locateAndSuggestWalks(false);
             refreshNotificationPreview();
             window.setInterval(refreshNotificationPreview, 60000);
 

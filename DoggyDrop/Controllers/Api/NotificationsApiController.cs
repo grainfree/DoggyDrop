@@ -146,7 +146,17 @@ namespace DoggyDrop.Controllers.Api
                 walk.Status == "Completed" &&
                 walk.StartedAt >= today);
 
-            if (hasDogs && !walkedToday)
+            if (!hasDogs)
+            {
+                items.Add(new
+                {
+                    Type = "FirstDogProfile",
+                    Title = "Dodaj prvega psa",
+                    Body = "Pasji profil odklene osebne sprehode, statistiko in boljse predloge okoli tebe.",
+                    LinkUrl = "/Dogs/Create?firstDog=true&returnUrl=/Map"
+                });
+            }
+            else if (!walkedToday)
             {
                 items.Add(new
                 {
@@ -172,6 +182,14 @@ namespace DoggyDrop.Controllers.Api
                     LinkUrl = "/Map"
                 });
             }
+
+            items.Add(new
+            {
+                Type = "NearbyMapTips",
+                Title = "Blizu tebe",
+                Body = "Predloge poti, najblizji kos in seznam lokacij odpres iz spodnjih gumbov na mapi.",
+                LinkUrl = "/Map"
+            });
 
             items.Add(new
             {

@@ -198,7 +198,17 @@ namespace DoggyDrop.Controllers
                 walk.Status == "Completed" &&
                 walk.StartedAt >= today);
 
-            if (hasDogs && !walkedToday)
+            if (!hasDogs)
+            {
+                cards.Add(new SmartNotificationCard
+                {
+                    Type = "FirstDogProfile",
+                    Title = "Dodaj prvega psa",
+                    Body = "Pasji profil odklene osebne sprehode, statistiko in boljse predloge okoli tebe.",
+                    LinkUrl = Url.Action("Create", "Dogs", new { firstDog = true, returnUrl = "/Map" })
+                });
+            }
+            else if (!walkedToday)
             {
                 cards.Add(new SmartNotificationCard
                 {
@@ -224,6 +234,14 @@ namespace DoggyDrop.Controllers
                     LinkUrl = Url.Action("Index", "Map")
                 });
             }
+
+            cards.Add(new SmartNotificationCard
+            {
+                Type = "NearbyMapTips",
+                Title = "Blizu tebe",
+                Body = "Predloge poti, najblizji kos in seznam lokacij odpres iz spodnjih gumbov na mapi.",
+                LinkUrl = Url.Action("Index", "Map")
+            });
 
             cards.Add(new SmartNotificationCard
             {
