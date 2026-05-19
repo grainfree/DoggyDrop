@@ -196,7 +196,7 @@ static string? ResolveConnectionString(IConfiguration configuration)
     var explicitConnectionString = configuration.GetConnectionString("DefaultConnection");
     if (!string.IsNullOrWhiteSpace(explicitConnectionString))
     {
-        return explicitConnectionString;
+        return NormalizePostgresConnectionString(explicitConnectionString);
     }
 
     var databaseUrl = GetConfiguredValue(configuration, "DATABASE_URL");
@@ -205,14 +205,19 @@ static string? ResolveConnectionString(IConfiguration configuration)
         return null;
     }
 
-    if (databaseUrl.StartsWith("Host=", StringComparison.OrdinalIgnoreCase))
+    return NormalizePostgresConnectionString(databaseUrl);
+}
+
+static string NormalizePostgresConnectionString(string connectionString)
+{
+    if (connectionString.StartsWith("Host=", StringComparison.OrdinalIgnoreCase))
     {
-        return databaseUrl;
+        return connectionString;
     }
 
-    if (!Uri.TryCreate(databaseUrl, UriKind.Absolute, out var databaseUri))
+    if (!Uri.TryCreate(connectionString, UriKind.Absolute, out var databaseUri))
     {
-        return databaseUrl;
+        return connectionString;
     }
 
     var userInfoParts = databaseUri.UserInfo.Split(':', 2);
