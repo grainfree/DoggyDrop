@@ -753,7 +753,7 @@ body {
   }
 
   .app-brand span {
-    max-width: 112px;
+    display: none;
   }
 
   .app-logo {
