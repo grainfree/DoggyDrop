@@ -20,6 +20,7 @@ namespace DoggyDrop.Controllers
         private readonly IEmailSender _emailSender;
         private readonly INotificationService _notificationService;
         private readonly IGamificationService _gamificationService;
+        private readonly IDogProgressionService _dogProgressionService;
 
         public MapController(ApplicationDbContext context,
                              IWebHostEnvironment environment,
@@ -27,7 +28,8 @@ namespace DoggyDrop.Controllers
                              ICloudinaryService cloudinaryService,
                              IEmailSender emailSender,
                              INotificationService notificationService,
-                             IGamificationService gamificationService)
+                             IGamificationService gamificationService,
+                             IDogProgressionService dogProgressionService)
         {
             _context = context;
             _environment = environment;
@@ -36,6 +38,7 @@ namespace DoggyDrop.Controllers
             _emailSender = emailSender;
             _notificationService = notificationService;
             _gamificationService = gamificationService;
+            _dogProgressionService = dogProgressionService;
         }
 
         // 📍 Prikaz obrazca za dodajanje koša
@@ -185,6 +188,14 @@ namespace DoggyDrop.Controllers
                     $"{dog.Id}:{input.PlaceKey}",
                     "Obiskan nov park");
                 await _gamificationService.RecordStreakActivityAsync(userId, GamificationStreakConstants.Explorer);
+                await _dogProgressionService.AwardXpAsync(
+                    dog.Id,
+                    "ParkVisit",
+                    35,
+                    new DogProgressionStatBoost { Adventure = 10, Social = 8, Forest = 12 },
+                    nameof(DogParkVisit),
+                    $"{dog.Id}:{input.PlaceKey}",
+                    "Obisk pasjega parka");
             }
 
             var visitCount = await _context.DogParkVisits

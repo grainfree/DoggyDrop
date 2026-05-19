@@ -63,6 +63,28 @@
         </div>
     </header>
 
+    <article class="dog-profile__section dog-progression">
+        <div class="dog-profile__section-header">
+            <div>
+                <h2>Level @Model.Progression.Level</h2>
+                <span>@Model.Progression.DogClass</span>
+            </div>
+            <strong>@Model.Progression.TotalXp XP</strong>
+        </div>
+        <div class="dog-progression__bar">
+            <span style="width: @Model.Progression.ProgressPercent%"></span>
+        </div>
+        <p>@Model.Progression.XpRemaining XP do naslednjega levela.</p>
+        <div class="dog-progression__stats">
+            <div><strong>@Model.Progression.Adventure</strong><span>Adventure</span></div>
+            <div><strong>@Model.Progression.Social</strong><span>Social</span></div>
+            <div><strong>@Model.Progression.Forest</strong><span>Forest</span></div>
+            <div><strong>@Model.Progression.City</strong><span>City</span></div>
+            <div><strong>@Model.Progression.Water</strong><span>Water</span></div>
+            <div><strong>@Model.Progression.Speed</strong><span>Speed</span></div>
+        </div>
+    </article>
+
     <article class="dog-profile__section">
         <h2>Fotografija</h2>
         <form asp-controller="Dogs" asp-action="UpdatePhoto" asp-route-id="@Model.Dog.Id" method="post" enctype="multipart/form-data" class="dog-profile__photo-form">
@@ -124,6 +146,41 @@
                             <span>@(string.IsNullOrWhiteSpace(park.Area) ? "Pasji park" : park.Area) · nazadnje @park.LastVisitedAt.ToLocalTime().ToString("dd.MM.")</span>
                         </div>
                         <em>@park.VisitCount x</em>
+                    </div>
+                }
+            </div>
+        }
+    </article>
+
+    <article class="dog-profile__section">
+        <div class="dog-profile__section-header">
+            <h2>Memories</h2>
+            <span>@Model.Memories.Count trenutkov</span>
+        </div>
+
+        @if (Model.Memories.Count == 0)
+        {
+            <p>Ko bosta imela prve sprehode, fotografije in odkritja na zemljevidu, se bodo tukaj zlagali posebni trenutki.</p>
+        }
+        else
+        {
+            <div class="dog-memory-list">
+                @foreach (var memory in Model.Memories)
+                {
+                    <div class="dog-memory">
+                        @if (!string.IsNullOrWhiteSpace(memory.ImageUrl))
+                        {
+                            <img src="@memory.ImageUrl" alt="@memory.Title" />
+                        }
+                        else
+                        {
+                            <span class="dog-memory__mark">@memory.Title.Substring(0, 1)</span>
+                        }
+                        <div>
+                            <strong>@memory.Title</strong>
+                            <span>@memory.Description</span>
+                            <em>@memory.OccurredAt.ToLocalTime().ToString("dd.MM.yyyy")</em>
+                        </div>
                     </div>
                 }
             </div>
@@ -289,6 +346,127 @@
 
     .dog-profile__hero-actions .btn {
         min-width: 120px;
+    }
+
+    .dog-progression {
+        background: linear-gradient(135deg, rgba(255,255,255,0.98), rgba(238,247,237,0.96) 58%, rgba(255,243,221,0.96));
+    }
+
+    .dog-progression .dog-profile__section-header strong {
+        color: #2f6d5f;
+        font-size: 1.05rem;
+        font-weight: 950;
+    }
+
+    .dog-progression__bar {
+        height: 11px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: rgba(47, 109, 95, 0.12);
+    }
+
+    .dog-progression__bar span {
+        display: block;
+        height: 100%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, #2f6d5f, #ef8f42);
+    }
+
+    .dog-progression p {
+        margin: 10px 0 0;
+        color: #65716d;
+        font-weight: 800;
+    }
+
+    .dog-progression__stats {
+        display: grid;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        gap: 8px;
+        margin-top: 14px;
+    }
+
+    .dog-progression__stats div {
+        min-width: 0;
+        padding: 10px;
+        border: 1px solid rgba(47, 109, 95, 0.12);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.74);
+    }
+
+    .dog-progression__stats strong,
+    .dog-progression__stats span {
+        display: block;
+    }
+
+    .dog-progression__stats strong {
+        font-weight: 950;
+    }
+
+    .dog-progression__stats span {
+        color: #65716d;
+        font-size: 0.76rem;
+        font-weight: 850;
+    }
+
+    .dog-memory-list {
+        display: grid;
+        gap: 10px;
+    }
+
+    .dog-memory {
+        display: grid;
+        grid-template-columns: 78px 1fr;
+        gap: 12px;
+        align-items: center;
+        padding: 10px;
+        border: 1px solid rgba(31, 45, 41, 0.08);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.72);
+    }
+
+    .dog-memory img,
+    .dog-memory__mark {
+        width: 78px;
+        aspect-ratio: 1;
+        border-radius: 8px;
+    }
+
+    .dog-memory img {
+        object-fit: cover;
+    }
+
+    .dog-memory__mark {
+        display: grid;
+        place-items: center;
+        background: linear-gradient(135deg, #e7f3e5, #fff3dd);
+        color: #2f6d5f;
+        font-size: 1.4rem;
+        font-weight: 950;
+    }
+
+    .dog-memory strong,
+    .dog-memory span,
+    .dog-memory em {
+        display: block;
+    }
+
+    .dog-memory strong {
+        font-weight: 950;
+    }
+
+    .dog-memory span,
+    .dog-memory em {
+        color: #65716d;
+        font-size: 0.86rem;
+        font-style: normal;
+        font-weight: 750;
+    }
+
+    .dog-memory .dog-memory__mark {
+        display: grid;
+        color: #2f6d5f;
+        font-size: 1.4rem;
+        font-weight: 950;
     }
 
     .dog-profile__section {
@@ -570,7 +748,8 @@
         }
 
         .dog-profile__achievements,
-        .dog-profile__goal-grid {
+        .dog-profile__goal-grid,
+        .dog-progression__stats {
             grid-template-columns: 1fr;
         }
 

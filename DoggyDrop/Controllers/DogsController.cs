@@ -15,15 +15,18 @@ namespace DoggyDrop.Controllers
         private readonly ApplicationDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly ICloudinaryService _cloudinaryService;
+        private readonly IDogProgressionService _dogProgressionService;
 
         public DogsController(
             ApplicationDbContext context,
             UserManager<ApplicationUser> userManager,
-            ICloudinaryService cloudinaryService)
+            ICloudinaryService cloudinaryService,
+            IDogProgressionService dogProgressionService)
         {
             _context = context;
             _userManager = userManager;
             _cloudinaryService = cloudinaryService;
+            _dogProgressionService = dogProgressionService;
         }
 
         [HttpGet]
@@ -67,6 +70,7 @@ namespace DoggyDrop.Controllers
 
             var weekStart = DateTime.UtcNow.Date.AddDays(-6);
             var completedWalks = await _context.Walks
+                .Include(w => w.Photos)
                 .Where(w => w.DogId == dog.Id && w.OwnerId == userId && w.Status == "Completed")
                 .OrderByDescending(w => w.StartedAt)
                 .ToListAsync();
@@ -75,6 +79,14 @@ namespace DoggyDrop.Controllers
                 .OrderByDescending(visit => visit.VisitedAt)
                 .ToListAsync();
             var totalDistanceKm = completedWalks.Sum(w => w.DistanceMeters) / 1000;
+            var progression = await _dogProgressionService.EnsureProfileAsync(dog.Id);
+            var dogLevel = _dogProgressionService.CalculateLevelInfo(progression.TotalXp);
+            var recentPhotos = await _context.WalkPhotos
+                .Include(photo => photo.Walk)
+                .Where(photo => photo.Walk != null && photo.Walk.DogId == dog.Id && photo.UserId == userId)
+                .OrderByDescending(photo => photo.CreatedAt)
+                .Take(3)
+                .ToListAsync();
 
             var model = new DogDetailsViewModel
             {
@@ -94,6 +106,21 @@ namespace DoggyDrop.Controllers
                     completedWalks.Sum(w => w.UsedBinsCount),
                     parkVisits.Select(visit => visit.PlaceKey).Distinct().Count()),
                 ActivityInsights = ActivityInsightsBuilder.Build(completedWalks, weeklyGoalKm: 7, monthlyGoalKm: 30),
+                Progression = new DogProgressionViewModel
+                {
+                    TotalXp = dogLevel.TotalXp,
+                    Level = dogLevel.Level,
+                    XpRemaining = dogLevel.XpRemaining,
+                    ProgressPercent = dogLevel.ProgressPercent,
+                    DogClass = progression.DogClass,
+                    Adventure = progression.Adventure,
+                    Social = progression.Social,
+                    Forest = progression.Forest,
+                    City = progression.City,
+                    Water = progression.Water,
+                    Speed = progression.Speed
+                },
+                Memories = BuildDogMemories(completedWalks, parkVisits, recentPhotos),
                 FavoriteParks = parkVisits
                     .GroupBy(visit => new
                     {
@@ -186,6 +213,7 @@ namespace DoggyDrop.Controllers
 
             _context.Dogs.Add(dog);
             await _context.SaveChangesAsync();
+            await _dogProgressionService.EnsureProfileAsync(dog.Id);
 
             TempData["SuccessMessage"] = model.IsFirstDog
                 ? $"{dog.Name} je zdaj del DoggyDrop. Cas je za prvi sprehod."
@@ -303,6 +331,55 @@ namespace DoggyDrop.Controllers
                 BuildAchievement("Bin buddy", "Uporabi 5 pasjih kosev med sprehodi.", usedBinsCount, 5, suffix: "uporab"),
                 BuildAchievement("Park explorer", "Obisci 5 razlicnih pasjih parkov.", uniqueParkCount, 5, suffix: "parkov")
             ];
+        }
+
+        private static IReadOnlyList<DogMemoryItem> BuildDogMemories(
+            IReadOnlyList<Walk> completedWalks,
+            IReadOnlyList<DogParkVisit> parkVisits,
+            IReadOnlyList<WalkPhoto> recentPhotos)
+        {
+            var memories = new List<DogMemoryItem>();
+            var bestWalk = completedWalks.OrderByDescending(walk => walk.DistanceMeters).FirstOrDefault();
+            if (bestWalk != null)
+            {
+                memories.Add(new DogMemoryItem
+                {
+                    Title = "Best walk",
+                    Description = $"{bestWalk.DistanceMeters / 1000:0.0} km sprehod",
+                    OccurredAt = bestWalk.StartedAt,
+                    ImageUrl = bestWalk.Photos?.OrderByDescending(photo => photo.CreatedAt).FirstOrDefault()?.ImageUrl
+                });
+            }
+
+            foreach (var photo in recentPhotos)
+            {
+                memories.Add(new DogMemoryItem
+                {
+                    Title = "Photo memory",
+                    Description = string.IsNullOrWhiteSpace(photo.Caption) ? "Nova fotografija s sprehoda" : photo.Caption,
+                    OccurredAt = photo.CreatedAt,
+                    ImageUrl = photo.ImageUrl
+                });
+            }
+
+            foreach (var visit in parkVisits
+                .GroupBy(item => item.PlaceKey)
+                .Select(group => group.OrderByDescending(item => item.VisitedAt).First())
+                .OrderByDescending(item => item.VisitedAt)
+                .Take(3))
+            {
+                memories.Add(new DogMemoryItem
+                {
+                    Title = "Map discovery",
+                    Description = visit.ParkName,
+                    OccurredAt = visit.VisitedAt
+                });
+            }
+
+            return memories
+                .OrderByDescending(item => item.OccurredAt)
+                .Take(6)
+                .ToList();
         }
 
         private static AchievementItem BuildAchievement(string name, string description, double current, double target, string suffix)

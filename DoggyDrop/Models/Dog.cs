@@ -54,5 +54,9 @@ namespace DoggyDrop.Models
         public ICollection<DogParkVisit>? ParkVisits { get; set; }
 
         public ICollection<PlannedWalk>? PlannedWalks { get; set; }
+
+        public DogProgressionProfile? ProgressionProfile { get; set; }
+
+        public ICollection<DogXpEvent>? XpEvents { get; set; }
     }
 }

@@ -19,19 +19,22 @@ namespace DoggyDrop.Controllers
         private readonly INotificationService _notificationService;
         private readonly ICloudinaryService _cloudinaryService;
         private readonly IGamificationService _gamificationService;
+        private readonly IDogProgressionService _dogProgressionService;
 
         public WalksController(
             ApplicationDbContext context,
             UserManager<ApplicationUser> userManager,
             INotificationService notificationService,
             ICloudinaryService cloudinaryService,
-            IGamificationService gamificationService)
+            IGamificationService gamificationService,
+            IDogProgressionService dogProgressionService)
         {
             _context = context;
             _userManager = userManager;
             _notificationService = notificationService;
             _cloudinaryService = cloudinaryService;
             _gamificationService = gamificationService;
+            _dogProgressionService = dogProgressionService;
         }
 
         [HttpGet]
@@ -554,6 +557,14 @@ namespace DoggyDrop.Controllers
                 walkPhoto.Id.ToString(),
                 "Nalozena fotografija");
             await _gamificationService.RecordStreakActivityAsync(userId, GamificationStreakConstants.Contribution);
+            await _dogProgressionService.AwardXpAsync(
+                walk.DogId,
+                "WalkPhoto",
+                12,
+                new DogProgressionStatBoost { Social = 6, Adventure = 3 },
+                nameof(WalkPhoto),
+                walkPhoto.Id.ToString(),
+                "Fotografija s sprehoda");
 
             TempData["SuccessMessage"] = "Fotografija sprehoda je dodana.";
             return RedirectToPhotoSource(walk);
@@ -905,6 +916,14 @@ namespace DoggyDrop.Controllers
                     walk.Id.ToString(),
                     "Zakljucen sprehod");
                 await _gamificationService.RecordStreakActivityAsync(userId, GamificationStreakConstants.Walk);
+                await _dogProgressionService.AwardXpAsync(
+                    walk.DogId,
+                    "CompletedWalk",
+                    Math.Max(10, (int)Math.Round(walk.DistanceMeters / 1000d * 18)),
+                    BuildDogWalkStats(walk),
+                    nameof(Walk),
+                    walk.Id.ToString(),
+                    "Zakljucen sprehod");
             }
 
             TempData["SuccessMessage"] = "Sprehod je shranjen.";
@@ -950,6 +969,22 @@ namespace DoggyDrop.Controllers
                     Url.Action("Community", "Home"),
                     withinHours: 2);
             }
+        }
+
+        private static DogProgressionStatBoost BuildDogWalkStats(Walk walk)
+        {
+            var distanceKm = walk.DistanceMeters / 1000d;
+            var durationHours = walk.EndedAt.HasValue
+                ? Math.Max(0.05, (walk.EndedAt.Value - walk.StartedAt).TotalHours)
+                : 0.5;
+            var speedKmh = distanceKm / durationHours;
+
+            return new DogProgressionStatBoost
+            {
+                Adventure = Math.Max(1, (int)Math.Round(distanceKm * 8)),
+                City = walk.UsedBinsCount > 0 ? Math.Min(20, walk.UsedBinsCount * 4) : 2,
+                Speed = speedKmh >= 6 ? Math.Min(30, (int)Math.Round(speedKmh * 3)) : 0
+            };
         }
 
         private async Task NotifyWalkAchievementsAsync(string userId, double lastWalkDistanceKm)

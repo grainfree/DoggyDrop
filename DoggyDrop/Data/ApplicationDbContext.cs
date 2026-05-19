@@ -53,6 +53,10 @@ namespace DoggyDrop.Data
 
         public DbSet<UserStreak> UserStreaks { get; set; }
 
+        public DbSet<DogProgressionProfile> DogProgressionProfiles { get; set; }
+
+        public DbSet<DogXpEvent> DogXpEvents { get; set; }
+
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
@@ -248,6 +252,28 @@ namespace DoggyDrop.Data
             builder.Entity<UserStreak>()
                 .HasIndex(streak => new { streak.UserId, streak.StreakType })
                 .IsUnique();
+
+            builder.Entity<DogProgressionProfile>()
+                .HasOne(profile => profile.Dog)
+                .WithOne(dog => dog.ProgressionProfile)
+                .HasForeignKey<DogProgressionProfile>(profile => profile.DogId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<DogProgressionProfile>()
+                .HasIndex(profile => profile.DogId)
+                .IsUnique();
+
+            builder.Entity<DogXpEvent>()
+                .HasOne(xpEvent => xpEvent.Dog)
+                .WithMany(dog => dog.XpEvents)
+                .HasForeignKey(xpEvent => xpEvent.DogId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<DogXpEvent>()
+                .HasIndex(xpEvent => new { xpEvent.DogId, xpEvent.OccurredAt });
+
+            builder.Entity<DogXpEvent>()
+                .HasIndex(xpEvent => new { xpEvent.DogId, xpEvent.ActivityType, xpEvent.ReferenceType, xpEvent.ReferenceId });
         }
     }
 }
