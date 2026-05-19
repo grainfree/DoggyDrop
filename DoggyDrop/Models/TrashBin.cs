@@ -72,7 +72,7 @@ namespace DoggyDrop.Models
                     return "/" + value.TrimStart('/');
                 }
 
-                return "/uploads/trashbins/" + value.TrimStart('/');
+                return "/uploads/" + value.TrimStart('/');
             }
         }
 
