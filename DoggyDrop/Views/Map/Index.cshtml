@@ -1189,11 +1189,11 @@
         }
 
         .map-action-stack {
-            left: 8px;
+            left: auto;
             right: 8px;
             bottom: 86px;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            width: auto;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            width: min(248px, calc(100vw - 16px));
         }
 
         .map-action-button {
@@ -1203,6 +1203,15 @@
             font-size: 0.68rem;
             text-align: center;
             border-radius: 16px;
+        }
+
+        .map-action-button--primary {
+            grid-column: 1 / -1;
+            grid-template-columns: 34px minmax(0, 1fr);
+            justify-items: start;
+            padding: 10px 12px;
+            font-size: 0.82rem;
+            text-align: left;
         }
 
         .map-action-button__icon {
@@ -1882,10 +1891,45 @@ else if (needsDogOnboarding)
             renderExploreList();
             refreshNotificationPreview();
             window.setInterval(refreshNotificationPreview, 60000);
+            focusMapNearUser();
 
             if (!window.isSecureContext) {
                 document.getElementById("mapLocationWarning").hidden = false;
             }
+        }
+
+        function focusMapNearUser() {
+            if (!navigator.geolocation || !window.isSecureContext) {
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(position => {
+                userLocation = {
+                    lat: position.coords.latitude,
+                    lng: position.coords.longitude
+                };
+
+                if (userMarker) {
+                    userMarker.setLatLng([userLocation.lat, userLocation.lng]);
+                } else {
+                    userMarker = L.marker([userLocation.lat, userLocation.lng], { icon: userIcon })
+                        .addTo(map)
+                        .bindPopup("Tvoja lokacija");
+                }
+
+                map.setView([userLocation.lat, userLocation.lng], 15, { animate: true });
+                loadNearbyDogs();
+                renderNearbySuggestions();
+            }, () => {
+                if (bins.length > 0) {
+                    const bounds = L.latLngBounds(bins.map(bin => [bin.latitude, bin.longitude]));
+                    map.fitBounds(bounds.pad(0.2), { maxZoom: 16 });
+                }
+            }, {
+                enableHighAccuracy: false,
+                timeout: 5000,
+                maximumAge: 300000
+            });
         }
 
         async function refreshNotificationPreview() {
