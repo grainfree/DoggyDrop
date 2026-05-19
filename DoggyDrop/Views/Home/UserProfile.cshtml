@@ -25,6 +25,15 @@
             <span>DoggyDrop profil</span>
             <h1>@displayName</h1>
             <p>@Model.Email</p>
+            <div class="profile-hero__actions" aria-label="Profil akcije">
+                <a asp-controller="Home" asp-action="Settings">Nastavitve</a>
+                <form asp-area="Identity"
+                      asp-page="/Account/Logout"
+                      asp-route-returnUrl="/Identity/Account/Login"
+                      method="post">
+                    <button type="submit">Odjava</button>
+                </form>
+            </div>
         </div>
     </header>
 
@@ -274,6 +283,38 @@
     .profile-muted {
         margin: 0;
         color: #65716d;
+    }
+
+    .profile-hero__actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 14px;
+    }
+
+    .profile-hero__actions a,
+    .profile-hero__actions button {
+        display: inline-flex;
+        min-height: 42px;
+        align-items: center;
+        justify-content: center;
+        padding: 9px 16px;
+        border: 1px solid rgba(47, 109, 95, 0.18);
+        border-radius: 999px;
+        background: #eef7ed;
+        color: #2f6d5f;
+        font-weight: 900;
+        text-decoration: none;
+    }
+
+    .profile-hero__actions form {
+        margin: 0;
+    }
+
+    .profile-hero__actions button {
+        background: #ffffff;
+        color: #9b3b2f;
+        border-color: rgba(155, 59, 47, 0.18);
     }
 
     .profile-stats {
@@ -546,6 +587,12 @@
         }
 
         .profile-form .btn {
+            width: 100%;
+        }
+
+        .profile-hero__actions a,
+        .profile-hero__actions form,
+        .profile-hero__actions button {
             width: 100%;
         }
     }
