@@ -99,6 +99,10 @@ namespace DoggyDrop.Data
                 .HasIndex(reaction => new { reaction.WalkId, reaction.UserId })
                 .IsUnique();
 
+            builder.Entity<WalkReaction>()
+                .Property(reaction => reaction.ReactionType)
+                .HasDefaultValue("paw");
+
             builder.Entity<WalkComment>()
                 .HasOne(comment => comment.Walk)
                 .WithMany(walk => walk.Comments)
@@ -147,6 +151,10 @@ namespace DoggyDrop.Data
             builder.Entity<WalkPhotoReaction>()
                 .HasIndex(reaction => new { reaction.WalkPhotoId, reaction.UserId })
                 .IsUnique();
+
+            builder.Entity<WalkPhotoReaction>()
+                .Property(reaction => reaction.ReactionType)
+                .HasDefaultValue("heart");
 
             builder.Entity<DogParkVisit>()
                 .HasOne(visit => visit.Dog)

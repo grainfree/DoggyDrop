@@ -117,6 +117,10 @@ namespace DoggyDrop.ViewModels
 
         public bool IsReactedByCurrentUser { get; set; }
 
+        public string? CurrentUserReactionType { get; set; }
+
+        public IReadOnlyDictionary<string, int> ReactionCounts { get; set; } = new Dictionary<string, int>();
+
         public string? StopName { get; set; }
     }
 

@@ -18,6 +18,9 @@ namespace DoggyDrop.Models
         [ForeignKey(nameof(UserId))]
         public ApplicationUser? User { get; set; }
 
+        [MaxLength(30)]
+        public string ReactionType { get; set; } = "heart";
+
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }
 }

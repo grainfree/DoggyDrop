@@ -134,6 +134,13 @@ namespace DoggyDrop.Controllers
                         ReactionCount = photo.Reactions?.Count ?? 0,
                         IsReactedByCurrentUser = !string.IsNullOrWhiteSpace(userId)
                             && (photo.Reactions?.Any(reaction => reaction.UserId == userId) ?? false),
+                        CurrentUserReactionType = string.IsNullOrWhiteSpace(userId)
+                            ? null
+                            : photo.Reactions?.FirstOrDefault(reaction => reaction.UserId == userId)?.ReactionType,
+                        ReactionCounts = photo.Reactions?
+                            .GroupBy(reaction => reaction.ReactionType)
+                            .ToDictionary(group => group.Key, group => group.Count())
+                            ?? new Dictionary<string, int>(),
                         StopName = photo.PlannedWalkStop != null ? photo.PlannedWalkStop.Name : null
                     }))
                 .OrderByDescending(item => item.CreatedAt)

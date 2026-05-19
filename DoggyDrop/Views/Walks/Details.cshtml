@@ -33,8 +33,12 @@
         .Select(photo => photo.Id)
         .ToHashSet();
     var sharePhotos = walkPhotos.Take(3).ToList();
-    var isLikedByCurrentUser = !string.IsNullOrWhiteSpace(currentUserId)
-        && reactions.Any(reaction => reaction.UserId == currentUserId);
+    var currentUserReactionType = !string.IsNullOrWhiteSpace(currentUserId)
+        ? reactions.FirstOrDefault(reaction => reaction.UserId == currentUserId)?.ReactionType
+        : null;
+    var reactionCounts = reactions
+        .GroupBy(reaction => reaction.ReactionType)
+        .ToDictionary(group => group.Key, group => group.Count());
     var points = (Model.Points ?? Array.Empty<DoggyDrop.Models.WalkPoint>())
         .OrderBy(point => point.RecordedAt)
         .Select(point => new
@@ -376,13 +380,25 @@
                 <h2>Odzivi</h2>
                 <p>@reactions.Count() tack · @comments.Count komentarjev</p>
             </div>
-            <form asp-controller="Walks" asp-action="ToggleLike" asp-route-id="@Model.Id" method="post">
-                @Html.AntiForgeryToken()
-                <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
-                <button type="submit" class="walk-social-like @(isLikedByCurrentUser ? "is-liked" : "")">
-                    @(isLikedByCurrentUser ? "Tačka dana" : "Daj tačko")
-                </button>
-            </form>
+            <div class="walk-reaction-strip">
+                @foreach (var reaction in new[] {
+                    new { Type = "paw", Label = "\U0001F43E" },
+                    new { Type = "heart", Label = "\u2665" },
+                    new { Type = "fire", Label = "\U0001F525" },
+                    new { Type = "good-route", Label = "Good route" }
+                })
+                {
+                    var count = reactionCounts.TryGetValue(reaction.Type, out var reactionCount) ? reactionCount : 0;
+                    <form asp-controller="Walks" asp-action="ToggleLike" asp-route-id="@Model.Id" method="post">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="reactionType" value="@reaction.Type" />
+                        <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+                        <button type="submit" class="walk-social-like @(currentUserReactionType == reaction.Type ? "is-liked" : "")">
+                            @reaction.Label @count
+                        </button>
+                    </form>
+                }
+            </div>
         </div>
 
         <form class="walk-comment-form" asp-controller="Walks" asp-action="AddComment" asp-route-id="@Model.Id" method="post">
@@ -725,6 +741,17 @@
     .walk-social-empty {
         margin: 4px 0 0;
         color: #65716d;
+    }
+
+    .walk-reaction-strip {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 8px;
+    }
+
+    .walk-reaction-strip form {
+        margin: 0;
     }
 
     .walk-social-like,

@@ -592,7 +592,7 @@ namespace DoggyDrop.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> TogglePhotoReaction(int id, int photoId, string? returnUrl = null)
+        public async Task<IActionResult> TogglePhotoReaction(int id, int photoId, string? reactionType = null, string? returnUrl = null)
         {
             var userId = _userManager.GetUserId(User);
             if (string.IsNullOrWhiteSpace(userId))
@@ -609,6 +609,7 @@ namespace DoggyDrop.Controllers
                 return NotFound();
             }
 
+            var normalizedReaction = NormalizeReactionType(reactionType, "heart");
             var existingReaction = await _context.WalkPhotoReactions
                 .FirstOrDefaultAsync(reaction => reaction.WalkPhotoId == photoId && reaction.UserId == userId);
 
@@ -618,8 +619,14 @@ namespace DoggyDrop.Controllers
                 {
                     WalkPhotoId = photoId,
                     UserId = userId,
+                    ReactionType = normalizedReaction,
                     CreatedAt = DateTime.UtcNow
                 });
+            }
+            else if (existingReaction.ReactionType != normalizedReaction)
+            {
+                existingReaction.ReactionType = normalizedReaction;
+                existingReaction.CreatedAt = DateTime.UtcNow;
             }
             else
             {
@@ -656,7 +663,7 @@ namespace DoggyDrop.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> ToggleLike(int id, string? returnUrl = null)
+        public async Task<IActionResult> ToggleLike(int id, string? reactionType = null, string? returnUrl = null)
         {
             var userId = _userManager.GetUserId(User);
             if (string.IsNullOrWhiteSpace(userId))
@@ -673,6 +680,7 @@ namespace DoggyDrop.Controllers
                 return NotFound();
             }
 
+            var normalizedReaction = NormalizeReactionType(reactionType, "paw");
             var existingReaction = await _context.WalkReactions
                 .FirstOrDefaultAsync(reaction => reaction.WalkId == id && reaction.UserId == userId);
 
@@ -682,6 +690,7 @@ namespace DoggyDrop.Controllers
                 {
                     WalkId = id,
                     UserId = userId,
+                    ReactionType = normalizedReaction,
                     CreatedAt = DateTime.UtcNow
                 });
 
@@ -693,11 +702,17 @@ namespace DoggyDrop.Controllers
                     var displayName = GetDisplayName(currentUser);
                     await _notificationService.CreateAsync(
                         walk.OwnerId,
-                        "WalkLike",
-                        "Nova tačka na sprehodu",
-                        $"{displayName} je oznacil sprehod psa {walk.Dog?.Name ?? "Pes"} in poslal tačko/high five.",
+                        "WalkReaction",
+                        "Nova reakcija na sprehodu",
+                        $"{displayName} je reagiral na sprehod psa {walk.Dog?.Name ?? "Pes"}: {GetReactionLabel(normalizedReaction)}.",
                         Url.Action(nameof(Details), "Walks", new { id = walk.Id }));
                 }
+            }
+            else if (existingReaction.ReactionType != normalizedReaction)
+            {
+                existingReaction.ReactionType = normalizedReaction;
+                existingReaction.CreatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
             }
             else
             {
@@ -984,6 +999,31 @@ namespace DoggyDrop.Controllers
                 Adventure = Math.Max(1, (int)Math.Round(distanceKm * 8)),
                 City = walk.UsedBinsCount > 0 ? Math.Min(20, walk.UsedBinsCount * 4) : 2,
                 Speed = speedKmh >= 6 ? Math.Min(30, (int)Math.Round(speedKmh * 3)) : 0
+            };
+        }
+
+        private static string NormalizeReactionType(string? reactionType, string fallback)
+        {
+            return reactionType?.Trim().ToLowerInvariant() switch
+            {
+                "paw" => "paw",
+                "heart" => "heart",
+                "fire" => "fire",
+                "good-route" => "good-route",
+                "cute-dog" => "cute-dog",
+                _ => fallback
+            };
+        }
+
+        private static string GetReactionLabel(string reactionType)
+        {
+            return reactionType switch
+            {
+                "heart" => "srcek",
+                "fire" => "ogenj",
+                "good-route" => "good route",
+                "cute-dog" => "cute dog",
+                _ => "tacka"
             };
         }
 

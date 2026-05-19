@@ -217,7 +217,7 @@
             <div class="community-photo-feed">
                 @foreach (var photo in Model.PhotoFeed)
                 {
-                    <a class="community-photo-card" asp-controller="Walks" asp-action="Details" asp-route-id="@photo.WalkId">
+                    <article class="community-photo-card">
                         <img src="@photo.ImageUrl" alt="Fotografija sprehoda @photo.DogName" />
                         <div class="community-photo-card__overlay">
                             <strong>@photo.DogName</strong>
@@ -227,13 +227,25 @@
                                 <small>@photo.StopName</small>
                             }
                             <small>@(string.IsNullOrWhiteSpace(photo.Caption) ? photo.CreatedAt.ToLocalTime().ToString("dd.MM. HH:mm") : photo.Caption)</small>
-                            <form class="community-photo-card__reaction" asp-controller="Walks" asp-action="TogglePhotoReaction" asp-route-id="@photo.WalkId" asp-route-photoId="@photo.PhotoId" method="post">
-                                @Html.AntiForgeryToken()
-                                <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
-                                <button type="submit" class="@(photo.IsReactedByCurrentUser ? "is-liked" : string.Empty)">❤ @photo.ReactionCount</button>
-                            </form>
+                            <div class="community-reaction-strip">
+                                @foreach (var reaction in new[] {
+                                    new { Type = "paw", Label = "🐾" },
+                                    new { Type = "heart", Label = "♥" },
+                                    new { Type = "fire", Label = "🔥" },
+                                    new { Type = "cute-dog", Label = "Cute dog" }
+                                })
+                                {
+                                    var count = photo.ReactionCounts.TryGetValue(reaction.Type, out var reactionCount) ? reactionCount : 0;
+                                    <form class="community-photo-card__reaction" asp-controller="Walks" asp-action="TogglePhotoReaction" asp-route-id="@photo.WalkId" asp-route-photoId="@photo.PhotoId" method="post">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="reactionType" value="@reaction.Type" />
+                                        <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
+                                        <button type="submit" class="@(photo.CurrentUserReactionType == reaction.Type ? "is-liked" : string.Empty)">@reaction.Label @count</button>
+                                    </form>
+                                }
+                            </div>
                         </div>
-                    </a>
+                    </article>
                 }
             </div>
         }
@@ -452,13 +464,25 @@
         opacity: 0.88;
     }
 
+    .community-reaction-strip {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 4px;
+    }
+
+    .community-photo-card__reaction {
+        margin: 0;
+    }
+
     .community-photo-card__reaction button {
         min-height: 34px;
-        padding: 8px 12px;
+        padding: 7px 10px;
         border: 0;
         border-radius: 999px;
         background: rgba(255, 255, 255, 0.16);
         color: #ffffff;
+        font-size: 0.78rem;
         font-weight: 900;
     }
 

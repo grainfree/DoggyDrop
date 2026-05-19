@@ -261,7 +261,7 @@ namespace DoggyDrop.Controllers.Api
         }
 
         [HttpPost("photos/{photoId:int}/like")]
-        public async Task<IActionResult> TogglePhotoLike(int photoId)
+        public async Task<IActionResult> TogglePhotoLike(int photoId, [FromQuery] string? reactionType = null)
         {
             var userId = _userManager.GetUserId(User);
             if (string.IsNullOrWhiteSpace(userId))
@@ -278,6 +278,7 @@ namespace DoggyDrop.Controllers.Api
                 return NotFound();
             }
 
+            var normalizedReaction = NormalizeReactionType(reactionType, "heart");
             var reaction = await _context.WalkPhotoReactions
                 .FirstOrDefaultAsync(existing => existing.WalkPhotoId == photoId && existing.UserId == userId);
             var isLiked = reaction == null;
@@ -288,8 +289,15 @@ namespace DoggyDrop.Controllers.Api
                 {
                     WalkPhotoId = photoId,
                     UserId = userId,
+                    ReactionType = normalizedReaction,
                     CreatedAt = DateTime.UtcNow
                 });
+            }
+            else if (reaction.ReactionType != normalizedReaction)
+            {
+                reaction.ReactionType = normalizedReaction;
+                reaction.CreatedAt = DateTime.UtcNow;
+                isLiked = true;
             }
             else
             {
@@ -298,11 +306,12 @@ namespace DoggyDrop.Controllers.Api
 
             await _context.SaveChangesAsync();
             var count = await _context.WalkPhotoReactions.CountAsync(existing => existing.WalkPhotoId == photoId);
-            return Ok(new { IsLiked = isLiked, ReactionCount = count });
+            var counts = await BuildPhotoReactionCountsAsync(photoId);
+            return Ok(new { IsLiked = isLiked, ReactionCount = count, ReactionType = normalizedReaction, Reactions = counts });
         }
 
         [HttpPost("{id:int}/like")]
-        public async Task<IActionResult> ToggleLike(int id)
+        public async Task<IActionResult> ToggleLike(int id, [FromQuery] string? reactionType = null)
         {
             var userId = _userManager.GetUserId(User);
             if (string.IsNullOrWhiteSpace(userId))
@@ -319,6 +328,7 @@ namespace DoggyDrop.Controllers.Api
                 return NotFound();
             }
 
+            var normalizedReaction = NormalizeReactionType(reactionType, "paw");
             var reaction = await _context.WalkReactions
                 .FirstOrDefaultAsync(existing => existing.WalkId == id && existing.UserId == userId);
             var isLiked = reaction == null;
@@ -329,8 +339,15 @@ namespace DoggyDrop.Controllers.Api
                 {
                     WalkId = id,
                     UserId = userId,
+                    ReactionType = normalizedReaction,
                     CreatedAt = DateTime.UtcNow
                 });
+            }
+            else if (reaction.ReactionType != normalizedReaction)
+            {
+                reaction.ReactionType = normalizedReaction;
+                reaction.CreatedAt = DateTime.UtcNow;
+                isLiked = true;
             }
             else
             {
@@ -344,14 +361,15 @@ namespace DoggyDrop.Controllers.Api
                 var currentUser = await _userManager.GetUserAsync(User);
                 await _notificationService.CreateAsync(
                     walk.OwnerId,
-                    "WalkLike",
-                    "Nova tačka na sprehodu",
-                    $"{GetDisplayName(currentUser)} je oznacil sprehod psa {walk.Dog?.Name ?? "Pes"} in poslal tačko/high five.",
+                    "WalkReaction",
+                    "Nova reakcija na sprehodu",
+                    $"{GetDisplayName(currentUser)} je reagiral na sprehod psa {walk.Dog?.Name ?? "Pes"}.",
                     $"/Walks/Details/{walk.Id}");
             }
 
             var likeCount = await _context.WalkReactions.CountAsync(existing => existing.WalkId == id);
-            return Ok(new { IsLiked = isLiked, LikeCount = likeCount });
+            var counts = await BuildWalkReactionCountsAsync(id);
+            return Ok(new { IsLiked = isLiked, LikeCount = likeCount, ReactionType = normalizedReaction, Reactions = counts });
         }
 
         [HttpPost("{id:int}/comments")]
@@ -421,6 +439,35 @@ namespace DoggyDrop.Controllers.Api
             }
 
             return user?.Email ?? "DoggyDrop uporabnik";
+        }
+
+        private async Task<IReadOnlyDictionary<string, int>> BuildWalkReactionCountsAsync(int walkId)
+        {
+            return await _context.WalkReactions
+                .Where(reaction => reaction.WalkId == walkId)
+                .GroupBy(reaction => reaction.ReactionType)
+                .ToDictionaryAsync(group => group.Key, group => group.Count());
+        }
+
+        private async Task<IReadOnlyDictionary<string, int>> BuildPhotoReactionCountsAsync(int photoId)
+        {
+            return await _context.WalkPhotoReactions
+                .Where(reaction => reaction.WalkPhotoId == photoId)
+                .GroupBy(reaction => reaction.ReactionType)
+                .ToDictionaryAsync(group => group.Key, group => group.Count());
+        }
+
+        private static string NormalizeReactionType(string? reactionType, string fallback)
+        {
+            return reactionType?.Trim().ToLowerInvariant() switch
+            {
+                "paw" => "paw",
+                "heart" => "heart",
+                "fire" => "fire",
+                "good-route" => "good-route",
+                "cute-dog" => "cute-dog",
+                _ => fallback
+            };
         }
     }
 
