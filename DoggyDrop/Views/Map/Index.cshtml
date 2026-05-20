@@ -580,26 +580,40 @@
 
     .map-bin-marker {
         position: relative;
-        display: grid;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
         width: 42px;
         height: 42px;
-        place-items: center;
         border: 3px solid #ffffff;
         border-radius: 14px 14px 14px 4px;
         background: #2f6d5f;
         box-shadow: 0 12px 24px rgba(31, 45, 41, 0.3);
         color: #ffffff;
-        font-size: 18px;
-        font-weight: 950;
-        line-height: 1;
         transform: rotate(-10deg);
     }
 
-    .map-bin-marker span {
+    .map-bin-marker__icon {
+        width: 25px;
+        height: 25px;
         transform: rotate(10deg);
     }
 
-    .map-bin-marker::after {
+    .map-bin-marker__lid,
+    .map-bin-marker__body,
+    .map-bin-marker__line {
+        fill: none;
+        stroke: currentColor;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-width: 2.6;
+    }
+
+    .map-bin-marker__paw {
+        fill: currentColor;
+    }
+
+    .map-bin-marker__status {
         position: absolute;
         right: -5px;
         bottom: -5px;
@@ -608,7 +622,6 @@
         border: 3px solid #ffffff;
         border-radius: 999px;
         background: #f6b756;
-        content: "";
     }
 
     .map-bin-marker--full {
@@ -2098,7 +2111,18 @@ else if (needsDogOnboarding)
 
             return L.divIcon({
                 className: "",
-                html: `<span class="map-bin-marker${statusClass}"><span>B</span></span>`,
+                html: `
+                    <span class="map-bin-marker${statusClass}" aria-label="Pasji koš">
+                        <svg class="map-bin-marker__icon" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+                            <path class="map-bin-marker__lid" d="M9 10h14" />
+                            <path class="map-bin-marker__body" d="M11 12h10l-1 12h-8l-1-12z" />
+                            <path class="map-bin-marker__line" d="M14 15v6M18 15v6" />
+                            <circle class="map-bin-marker__paw" cx="16" cy="6.5" r="1.5" />
+                            <circle class="map-bin-marker__paw" cx="12.8" cy="7.6" r="1.1" />
+                            <circle class="map-bin-marker__paw" cx="19.2" cy="7.6" r="1.1" />
+                        </svg>
+                        <span class="map-bin-marker__status"></span>
+                    </span>`,
                 iconSize: [42, 42],
                 iconAnchor: [21, 21],
                 popupAnchor: [0, -22]
