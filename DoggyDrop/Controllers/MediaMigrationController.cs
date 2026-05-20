@@ -166,6 +166,20 @@ namespace DoggyDrop.Controllers
                     Error = exception.Message
                 };
             }
+            catch (HttpRequestException exception) when (exception.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Gone)
+            {
+                await ClearDatabaseUrlAsync(item);
+                _logger.LogInformation(exception, "Cloudinary media missing for {SourceType} {EntityId}", item.SourceType, item.EntityId);
+                return new MediaMigrationResultViewModel
+                {
+                    SourceType = item.SourceType,
+                    EntityId = item.EntityId,
+                    EntityKey = item.EntityKey,
+                    OldUrl = item.Url,
+                    Status = "Missing",
+                    Error = $"Cloudinary slika ne obstaja vec ({(int)exception.StatusCode.Value})."
+                };
+            }
             catch (Exception exception)
             {
                 _logger.LogWarning(exception, "Cloudinary media migration failed for {SourceType} {EntityId}", item.SourceType, item.EntityId);
