@@ -271,10 +271,24 @@
             linear-gradient(135deg, rgba(238, 247, 237, 0.98), rgba(255, 243, 221, 0.86));
     }
 
+    .bin-popup__image-frame.is-rotated-landscape,
+    .map-bin-detail__image-frame.is-rotated-landscape {
+        aspect-ratio: 3 / 4;
+    }
+
     .bin-popup__image {
         width: 100%;
         max-height: 320px;
         object-fit: contain;
+    }
+
+    .bin-popup__image.is-rotated-landscape,
+    .map-bin-detail__image.is-rotated-landscape {
+        width: auto;
+        height: 72%;
+        max-height: none;
+        transform: rotate(90deg);
+        transform-origin: center;
     }
 
     .bin-popup__stats {
@@ -2565,7 +2579,7 @@ else if (needsDogOnboarding)
                         <br>Status: ${escapeHtml(statusText)}
                         ${bin.lastUsedAt ? `<br>Zadnja uporaba: ${escapeHtml(bin.lastUsedAt)}` : ""}
                     </div>
-                    ${bin.image ? `<div class="bin-popup__image-frame"><img class="bin-popup__image" src="${escapeAttribute(bin.image)}" alt="Kos"></div>` : ""}
+                    ${bin.image ? `<div class="bin-popup__image-frame"><img class="bin-popup__image" src="${escapeAttribute(bin.image)}" alt="Kos" onload="normalizeBinPhotoOrientation(this)"></div>` : ""}
                     <div class="bin-popup__stats">
                         <div class="bin-popup__stat">${Number(bin.usedCount) || 0}<br>uporab</div>
                         <div class="bin-popup__stat">${Number(bin.fullReports) || 0}<br>poln</div>
@@ -2642,7 +2656,18 @@ else if (needsDogOnboarding)
             }
 
             const fallback = getBinImageFallback(imageUrl);
-            return `<div class="map-bin-detail__image-frame"><img class="map-bin-detail__image" src="${escapeAttribute(imageUrl)}" data-fallback-src="${escapeAttribute(fallback || "")}" alt="${escapeAttribute(name || "Kos")}" onerror="handleBinImageError(this)"></div>`;
+            return `<div class="map-bin-detail__image-frame"><img class="map-bin-detail__image" src="${escapeAttribute(imageUrl)}" data-fallback-src="${escapeAttribute(fallback || "")}" alt="${escapeAttribute(name || "Kos")}" onload="normalizeBinPhotoOrientation(this)" onerror="handleBinImageError(this)"></div>`;
+        }
+
+        function normalizeBinPhotoOrientation(image) {
+            if (!image?.naturalWidth || !image?.naturalHeight) {
+                return;
+            }
+
+            const shouldRotate = image.naturalWidth > image.naturalHeight * 1.15;
+            image.classList.toggle("is-rotated-landscape", shouldRotate);
+            image.closest(".bin-popup__image-frame, .map-bin-detail__image-frame")
+                ?.classList.toggle("is-rotated-landscape", shouldRotate);
         }
 
         function getBinImageFallback(imageUrl) {
