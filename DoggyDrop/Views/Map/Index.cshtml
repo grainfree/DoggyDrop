@@ -424,7 +424,9 @@
 
     .map-bin-detail__image-frame {
         display: grid;
-        height: clamp(210px, 28vh, 300px);
+        justify-self: center;
+        width: min(220px, 58vw);
+        height: clamp(220px, 30vh, 310px);
         place-items: center;
         overflow: hidden;
         border-radius: 14px;
@@ -528,7 +530,8 @@
         }
 
         .map-bin-detail__image-frame {
-            height: clamp(180px, 25vh, 240px);
+            width: min(190px, 56vw);
+            height: clamp(180px, 24vh, 230px);
         }
     }
 
