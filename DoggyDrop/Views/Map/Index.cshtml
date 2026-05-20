@@ -261,6 +261,7 @@
 
     .bin-popup__image-frame {
         display: grid;
+        position: relative;
         min-height: 190px;
         max-height: 320px;
         margin-top: 8px;
@@ -282,12 +283,19 @@
         object-fit: contain;
     }
 
+    .bin-popup__image,
+    .map-bin-detail__image {
+        display: block;
+    }
+
     .bin-popup__image.is-rotated-landscape,
     .map-bin-detail__image.is-rotated-landscape {
-        width: auto;
-        height: 100%;
+        position: absolute;
+        top: 50%;
+        left: 50%;
         max-height: none;
-        transform: rotate(90deg);
+        object-fit: cover;
+        transform: translate(-50%, -50%) rotate(90deg);
         transform-origin: center;
     }
 
@@ -424,6 +432,7 @@
 
     .map-bin-detail__image-frame {
         display: grid;
+        position: relative;
         justify-self: center;
         width: min(220px, 58vw);
         height: clamp(220px, 30vh, 310px);
@@ -2692,9 +2701,20 @@ else if (needsDogOnboarding)
             }
 
             const shouldRotate = image.naturalWidth > image.naturalHeight * 1.15;
+            const frame = image.closest(".bin-popup__image-frame, .map-bin-detail__image-frame");
             image.classList.toggle("is-rotated-landscape", shouldRotate);
-            image.closest(".bin-popup__image-frame, .map-bin-detail__image-frame")
-                ?.classList.toggle("is-rotated-landscape", shouldRotate);
+            frame?.classList.toggle("is-rotated-landscape", shouldRotate);
+
+            if (!shouldRotate || !frame) {
+                image.style.removeProperty("width");
+                image.style.removeProperty("height");
+                return;
+            }
+
+            const frameWidth = frame.clientWidth;
+            const frameHeight = frame.clientHeight;
+            image.style.width = `${frameHeight}px`;
+            image.style.height = `${frameWidth}px`;
         }
 
         function getBinImageFallback(imageUrl) {
