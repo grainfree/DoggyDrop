@@ -77,9 +77,9 @@ namespace DoggyDrop.Controllers
 
         [HttpPost("OptimizeR2")]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> OptimizeR2(int batchLimit = 25)
+        public async Task<IActionResult> OptimizeR2(int batchLimit = 2)
         {
-            batchLimit = Math.Clamp(batchLimit, 1, 100);
+            batchLimit = Math.Clamp(batchLimit, 1, 2);
             var model = await BuildViewModelAsync(batchLimit);
             if (!_r2Settings.IsConfigured)
             {
@@ -98,6 +98,8 @@ namespace DoggyDrop.Controllers
             foreach (var item in items)
             {
                 results.Add(await OptimizeR2ItemAsync(item));
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
             }
 
             await _context.SaveChangesAsync();
@@ -106,7 +108,7 @@ namespace DoggyDrop.Controllers
             refreshed.Results = results;
             refreshed.MigratedCount = results.Count(result => result.Status == "Optimized");
             refreshed.FailedCount = results.Count(result => result.Status == "Failed");
-            refreshed.Message = $"R2 optimizacija koncana: {refreshed.MigratedCount} optimiziranih, {refreshed.FailedCount} neuspesnih.";
+            refreshed.Message = $"R2 optimizacija koncana: {refreshed.MigratedCount} optimiziranih, {refreshed.FailedCount} neuspesnih. Optimizacija tece v zelo majhnih batchih, da Render ne preseze memory limita.";
             return View("Index", refreshed);
         }
 

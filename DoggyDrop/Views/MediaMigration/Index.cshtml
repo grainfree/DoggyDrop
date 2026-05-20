@@ -64,12 +64,12 @@
     <article class="media-migration-panel">
         <div>
             <h2>Optimiziraj R2 slike</h2>
-            <p>Obstoječe R2 slike zmanjša in pretvori v WebP. To pospeši nalaganje zemljevida in kartic košev.</p>
+            <p>Obstoječe R2 slike zmanjša in pretvori v WebP. Zaradi Render memory limita optimiziraj v majhnih batchih do 2 sliki.</p>
         </div>
         <form asp-controller="MediaMigration" asp-action="OptimizeR2" method="post">
             @Html.AntiForgeryToken()
             <label for="optimizeBatchLimit">Batch limit</label>
-            <input id="optimizeBatchLimit" name="batchLimit" type="number" min="1" max="100" value="@Model.BatchLimit" />
+            <input id="optimizeBatchLimit" name="batchLimit" type="number" min="1" max="2" value="2" />
             <button type="submit" class="btn btn-success rounded-pill fw-semibold" disabled="@(!Model.IsR2Configured || Model.R2OptimizationPendingCount == 0)">Optimiziraj R2 batch</button>
         </form>
     </article>
