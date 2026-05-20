@@ -6,6 +6,8 @@ namespace DoggyDrop.ViewModels
 
         public int R2Count { get; set; }
 
+        public int R2OptimizationPendingCount { get; set; }
+
         public int LocalCount { get; set; }
 
         public int EmptyCount { get; set; }

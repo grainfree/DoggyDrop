@@ -20,6 +20,7 @@ namespace DoggyDrop.Controllers
         private readonly IAmazonS3? _s3Client;
         private readonly CloudflareR2Settings _r2Settings;
         private readonly HttpClient _httpClient;
+        private readonly IImageOptimizationService _imageOptimizationService;
         private readonly ILogger<MediaMigrationController> _logger;
 
         public MediaMigrationController(
@@ -27,12 +28,14 @@ namespace DoggyDrop.Controllers
             IServiceProvider serviceProvider,
             IOptions<CloudflareR2Settings> r2Settings,
             IHttpClientFactory httpClientFactory,
+            IImageOptimizationService imageOptimizationService,
             ILogger<MediaMigrationController> logger)
         {
             _context = context;
             _s3Client = serviceProvider.GetService<IAmazonS3>();
             _r2Settings = r2Settings.Value;
             _httpClient = httpClientFactory.CreateClient(nameof(MediaMigrationController));
+            _imageOptimizationService = imageOptimizationService;
             _logger = logger;
         }
 
@@ -72,6 +75,41 @@ namespace DoggyDrop.Controllers
             return View("Index", refreshed);
         }
 
+        [HttpPost("OptimizeR2")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> OptimizeR2(int batchLimit = 25)
+        {
+            batchLimit = Math.Clamp(batchLimit, 1, 100);
+            var model = await BuildViewModelAsync(batchLimit);
+            if (!_r2Settings.IsConfigured)
+            {
+                model.Message = "Cloudflare R2 ni konfiguriran. Preveri Render env spremenljivke za R2 in ponovno deployaj.";
+                return View("Index", model);
+            }
+
+            var results = new List<MediaMigrationResultViewModel>();
+            var items = (await LoadMediaItemsAsync())
+                .Where(item => IsR2Url(item.Url) && !IsOptimizedR2Url(item.Url))
+                .OrderBy(item => item.SourceType)
+                .ThenBy(item => item.EntityId)
+                .Take(batchLimit)
+                .ToList();
+
+            foreach (var item in items)
+            {
+                results.Add(await OptimizeR2ItemAsync(item));
+            }
+
+            await _context.SaveChangesAsync();
+
+            var refreshed = await BuildViewModelAsync(batchLimit);
+            refreshed.Results = results;
+            refreshed.MigratedCount = results.Count(result => result.Status == "Optimized");
+            refreshed.FailedCount = results.Count(result => result.Status == "Failed");
+            refreshed.Message = $"R2 optimizacija koncana: {refreshed.MigratedCount} optimiziranih, {refreshed.FailedCount} neuspesnih.";
+            return View("Index", refreshed);
+        }
+
         private async Task<MediaMigrationViewModel> BuildViewModelAsync(int batchLimit = 25)
         {
             var items = await LoadMediaItemsAsync();
@@ -79,6 +117,7 @@ namespace DoggyDrop.Controllers
             {
                 CloudinaryCount = items.Count(item => IsCloudinaryUrl(item.Url)),
                 R2Count = items.Count(item => IsR2Url(item.Url)),
+                R2OptimizationPendingCount = items.Count(item => IsR2Url(item.Url) && !IsOptimizedR2Url(item.Url)),
                 LocalCount = items.Count(item => IsLocalUrl(item.Url)),
                 EmptyCount = items.Count(item => string.IsNullOrWhiteSpace(item.Url)),
                 IsR2Configured = _r2Settings.IsConfigured,
@@ -195,7 +234,39 @@ namespace DoggyDrop.Controllers
             }
         }
 
-        private async Task<string> CopyRemoteImageToR2Async(MediaMigrationItemViewModel item)
+        private async Task<MediaMigrationResultViewModel> OptimizeR2ItemAsync(MediaMigrationItemViewModel item)
+        {
+            try
+            {
+                var newUrl = await CopyRemoteImageToR2Async(item, forceOptimizedFolder: true);
+                await UpdateDatabaseUrlAsync(item, newUrl);
+
+                return new MediaMigrationResultViewModel
+                {
+                    SourceType = item.SourceType,
+                    EntityId = item.EntityId,
+                    EntityKey = item.EntityKey,
+                    OldUrl = item.Url,
+                    NewUrl = newUrl,
+                    Status = "Optimized"
+                };
+            }
+            catch (Exception exception)
+            {
+                _logger.LogWarning(exception, "R2 media optimization failed for {SourceType} {EntityId}", item.SourceType, item.EntityId);
+                return new MediaMigrationResultViewModel
+                {
+                    SourceType = item.SourceType,
+                    EntityId = item.EntityId,
+                    EntityKey = item.EntityKey,
+                    OldUrl = item.Url,
+                    Status = "Failed",
+                    Error = exception.Message
+                };
+            }
+        }
+
+        private async Task<string> CopyRemoteImageToR2Async(MediaMigrationItemViewModel item, bool forceOptimizedFolder = false)
         {
             if (_s3Client == null || !_r2Settings.IsConfigured)
             {
@@ -210,21 +281,22 @@ namespace DoggyDrop.Controllers
 
             response.EnsureSuccessStatusCode();
 
-            var contentType = response.Content.Headers.ContentType?.MediaType ?? "application/octet-stream";
-            var extension = ResolveExtension(item.Url, contentType);
-            var key = BuildObjectKey(item.SourceType, item.EntityId, item.EntityKey, extension);
-
             await using var remoteStream = await response.Content.ReadAsStreamAsync();
-            await using var uploadStream = new MemoryStream();
-            await remoteStream.CopyToAsync(uploadStream);
-            uploadStream.Position = 0;
+            var contentType = response.Content.Headers.ContentType?.MediaType ?? "application/octet-stream";
+            var optimizedImage = await _imageOptimizationService.OptimizeAsync(
+                remoteStream,
+                contentType,
+                item.Url,
+                ResolveOptimizationPreset(item.SourceType));
+            await using var uploadStream = optimizedImage.Content;
+            var key = BuildObjectKey(item.SourceType, item.EntityId, item.EntityKey, optimizedImage.Extension, forceOptimizedFolder || optimizedImage.WasOptimized);
 
             var request = new PutObjectRequest
             {
                 BucketName = _r2Settings.BucketName,
                 Key = key,
                 InputStream = uploadStream,
-                ContentType = contentType,
+                ContentType = optimizedImage.ContentType,
                 AutoCloseStream = false,
                 DisableDefaultChecksumValidation = true,
                 DisablePayloadSigning = true,
@@ -309,19 +381,30 @@ namespace DoggyDrop.Controllers
             }
         }
 
-        private static string BuildObjectKey(string sourceType, int? entityId, string? entityKey, string extension)
+        private static string BuildObjectKey(string sourceType, int? entityId, string? entityKey, string extension, bool optimized)
         {
-            var folder = sourceType switch
+            var folderPrefix = sourceType switch
             {
-                "User profile" => "profile-images/migrated",
-                "Dog" => "dogs/migrated",
-                "Trash bin" => "trashbins/migrated",
-                "Walk photo" => "walks/migrated",
-                _ => "media/migrated"
+                "User profile" => "profile-images",
+                "Dog" => "dogs",
+                "Trash bin" => "trashbins",
+                "Walk photo" => "walks",
+                _ => "media"
             };
 
+            var folder = optimized ? $"{folderPrefix}/optimized" : $"{folderPrefix}/migrated";
             var idPart = entityId?.ToString() ?? SanitizeKeyPart(entityKey) ?? "user";
             return $"{folder}/{DateTime.UtcNow:yyyy/MM}/{idPart}-{Guid.NewGuid():N}{extension}";
+        }
+
+        private static ImageOptimizationPreset ResolveOptimizationPreset(string sourceType)
+        {
+            return sourceType switch
+            {
+                "User profile" or "Dog" => ImageOptimizationPreset.Profile,
+                "Walk photo" => ImageOptimizationPreset.Walk,
+                _ => ImageOptimizationPreset.TrashBin
+            };
         }
 
         private static string? SanitizeKeyPart(string? value)
@@ -365,6 +448,14 @@ namespace DoggyDrop.Controllers
             return !string.IsNullOrWhiteSpace(url)
                 && !string.IsNullOrWhiteSpace(_r2Settings.PublicBaseUrl)
                 && url.StartsWith(_r2Settings.PublicBaseUrl.TrimEnd('/'), StringComparison.OrdinalIgnoreCase);
+        }
+
+        private bool IsOptimizedR2Url(string? url)
+        {
+            return !string.IsNullOrWhiteSpace(url)
+                && IsR2Url(url)
+                && (url.Contains("/optimized/", StringComparison.OrdinalIgnoreCase)
+                    || url.EndsWith(".webp", StringComparison.OrdinalIgnoreCase));
         }
 
         private static bool IsCloudinaryUrl(string? url)

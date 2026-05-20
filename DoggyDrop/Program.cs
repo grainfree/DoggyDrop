@@ -128,6 +128,7 @@ builder.Services.PostConfigure<EmailSettings>(settings =>
 });
 builder.Services.AddTransient<IEmailSender, EmailSender>();
 builder.Services.AddHttpClient();
+builder.Services.AddSingleton<IImageOptimizationService, ImageOptimizationService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IGamificationService, GamificationService>();
 builder.Services.AddScoped<IDogProgressionService, DogProgressionService>();

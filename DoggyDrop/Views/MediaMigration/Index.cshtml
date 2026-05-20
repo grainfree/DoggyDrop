@@ -35,6 +35,10 @@
             <span>že na R2</span>
         </article>
         <article>
+            <strong>@Model.R2OptimizationPendingCount</strong>
+            <span>za optimizacijo</span>
+        </article>
+        <article>
             <strong>@Model.LocalCount</strong>
             <span>lokalne slike</span>
         </article>
@@ -54,6 +58,19 @@
             <label for="batchLimit">Batch limit</label>
             <input id="batchLimit" name="batchLimit" type="number" min="1" max="100" value="@Model.BatchLimit" />
             <button type="submit" class="btn btn-success rounded-pill fw-semibold" disabled="@(!Model.IsR2Configured)">Kopiraj naslednji batch</button>
+        </form>
+    </article>
+
+    <article class="media-migration-panel">
+        <div>
+            <h2>Optimiziraj R2 slike</h2>
+            <p>Obstoječe R2 slike zmanjša in pretvori v WebP. To pospeši nalaganje zemljevida in kartic košev.</p>
+        </div>
+        <form asp-controller="MediaMigration" asp-action="OptimizeR2" method="post">
+            @Html.AntiForgeryToken()
+            <label for="optimizeBatchLimit">Batch limit</label>
+            <input id="optimizeBatchLimit" name="batchLimit" type="number" min="1" max="100" value="@Model.BatchLimit" />
+            <button type="submit" class="btn btn-success rounded-pill fw-semibold" disabled="@(!Model.IsR2Configured || Model.R2OptimizationPendingCount == 0)">Optimiziraj R2 batch</button>
         </form>
     </article>
 
@@ -99,7 +116,7 @@
 <style>
     .media-migration-stats {
         display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-columns: repeat(5, minmax(0, 1fr));
         gap: 12px;
         margin-bottom: 14px;
     }
@@ -182,6 +199,10 @@
     }
 
     .media-migration-row--migrated {
+        background: #eef7ed;
+    }
+
+    .media-migration-row--optimized {
         background: #eef7ed;
     }
 

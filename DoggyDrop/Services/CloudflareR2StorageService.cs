@@ -20,34 +20,37 @@ namespace DoggyDrop.Services
 
         private readonly IAmazonS3 _s3Client;
         private readonly CloudflareR2Settings _settings;
+        private readonly IImageOptimizationService _imageOptimizationService;
         private readonly ILogger<CloudflareR2StorageService> _logger;
 
         public CloudflareR2StorageService(
             IAmazonS3 s3Client,
             IOptions<CloudflareR2Settings> settings,
+            IImageOptimizationService imageOptimizationService,
             ILogger<CloudflareR2StorageService> logger)
         {
             _s3Client = s3Client;
             _settings = settings.Value;
+            _imageOptimizationService = imageOptimizationService;
             _logger = logger;
         }
 
         public Task<string?> UploadImageAsync(IFormFile file)
         {
-            return UploadFileAsync(file, "profile-images");
+            return UploadFileAsync(file, "profile-images", ImageOptimizationPreset.Profile);
         }
 
         public Task<string?> UploadTrashBinImageAsync(IFormFile file)
         {
-            return UploadFileAsync(file, "trashbins");
+            return UploadFileAsync(file, "trashbins", ImageOptimizationPreset.TrashBin);
         }
 
         public Task<string?> UploadWalkImageAsync(IFormFile file)
         {
-            return UploadFileAsync(file, "walks");
+            return UploadFileAsync(file, "walks", ImageOptimizationPreset.Walk);
         }
 
-        private async Task<string?> UploadFileAsync(IFormFile file, string folderName)
+        private async Task<string?> UploadFileAsync(IFormFile file, string folderName, ImageOptimizationPreset preset)
         {
             if (file == null || file.Length == 0)
             {
@@ -61,20 +64,23 @@ namespace DoggyDrop.Services
                 return null;
             }
 
-            var key = BuildObjectKey(folderName, extension);
             await using var stream = file.OpenReadStream();
+            var optimizedImage = await _imageOptimizationService.OptimizeAsync(stream, file.ContentType, file.FileName, preset);
+            await using var optimizedStream = optimizedImage.Content;
+            var key = BuildObjectKey(folderName, optimizedImage.Extension);
 
             var request = new PutObjectRequest
             {
                 BucketName = _settings.BucketName,
                 Key = key,
-                InputStream = stream,
-                ContentType = ResolveContentType(file.ContentType, extension),
+                InputStream = optimizedImage.Content,
+                ContentType = optimizedImage.ContentType,
                 AutoCloseStream = false,
                 DisableDefaultChecksumValidation = true,
                 DisablePayloadSigning = true,
                 Headers =
                 {
+                    ContentLength = optimizedImage.Content.Length,
                     CacheControl = "public, max-age=31536000, immutable"
                 }
             };
