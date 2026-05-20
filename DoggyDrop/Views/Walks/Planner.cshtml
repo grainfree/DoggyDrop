@@ -9,6 +9,7 @@
     var latitudeValue = Model.Latitude?.ToString("0.######", CultureInfo.InvariantCulture) ?? string.Empty;
     var longitudeValue = Model.Longitude?.ToString("0.######", CultureInfo.InvariantCulture) ?? string.Empty;
     var binStop = Model.Route?.Stops.FirstOrDefault(stop => stop.Type == "bin");
+    var selectedDog = Model.Dogs.FirstOrDefault(dog => dog.Id == Model.SelectedDogId) ?? Model.Dogs.FirstOrDefault();
 }
 
 @section Styles {
@@ -35,24 +36,33 @@
         <input type="hidden" id="includePark" name="includePark" value="@Model.IncludePark.ToString().ToLowerInvariant()" />
         <input type="hidden" id="includeWater" name="includeWater" value="@Model.IncludeWater.ToString().ToLowerInvariant()" />
         <input type="hidden" id="includeDogFriendly" name="includeDogFriendly" value="@Model.IncludeDogFriendly.ToString().ToLowerInvariant()" />
+        <input type="hidden" id="dogEnergy" name="dogEnergy" value="auto" />
 
         <div class="walk-planner-toolbar">
-            <div>
-                <label for="dogId">Pes</label>
-                <select id="dogId" name="dogId">
-                    @foreach (var dog in Model.Dogs)
-                    {
-                        <option value="@dog.Id" selected="@(Model.SelectedDogId == dog.Id)">@dog.Name</option>
-                    }
-                </select>
-            </div>
-            <div>
-                <label for="dogEnergy">Energija</label>
-                <select id="dogEnergy" name="dogEnergy">
-                    <option value="auto" selected="@(Model.DogEnergy == "auto")">Auto</option>
-                    <option value="low" selected="@(Model.DogEnergy == "low")">Mirna</option>
-                    <option value="high" selected="@(Model.DogEnergy == "high")">Aktivna</option>
-                </select>
+            <div class="walk-planner-dogs">
+                <span>Za koga greva?</span>
+                @if (Model.Dogs.Count == 0)
+                {
+                    <a class="walk-planner-dog-chip walk-planner-dog-chip--empty" asp-controller="Dogs" asp-action="Create">Dodaj psa</a>
+                }
+                else if (Model.Dogs.Count == 1 && selectedDog != null)
+                {
+                    <input type="hidden" id="dogId" name="dogId" value="@selectedDog.Id" />
+                    <strong class="walk-planner-dog-chip is-active">@selectedDog.Name</strong>
+                }
+                else
+                {
+                    <div class="walk-planner-dog-options" role="radiogroup" aria-label="Izberi psa">
+                        @foreach (var dog in Model.Dogs)
+                        {
+                            var isSelected = Model.SelectedDogId == dog.Id || (!Model.SelectedDogId.HasValue && dog.Id == selectedDog?.Id);
+                            <label class="walk-planner-dog-chip @(isSelected ? "is-active" : "")">
+                                <input type="radio" name="dogId" value="@dog.Id" checked="@isSelected" />
+                                <span>@dog.Name</span>
+                            </label>
+                        }
+                    </div>
+                }
             </div>
             <div class="walk-planner-location">
                 <label>Izhodišče</label>
@@ -134,7 +144,7 @@
                         <input type="hidden" name="longitude" value="@longitudeValue" />
                         <input type="hidden" name="distanceKm" value="@Model.TargetDistanceKm.ToString(CultureInfo.InvariantCulture)" />
                         <input type="hidden" name="walkStyle" value="@Model.WalkStyle" />
-                        <input type="hidden" name="dogEnergy" value="@Model.DogEnergy" />
+                        <input type="hidden" name="dogEnergy" value="auto" />
                         <input type="hidden" name="includeBins" value="@Model.IncludeBins.ToString().ToLowerInvariant()" />
                         <input type="hidden" name="includePark" value="@Model.IncludePark.ToString().ToLowerInvariant()" />
                         <input type="hidden" name="includeWater" value="@Model.IncludeWater.ToString().ToLowerInvariant()" />
@@ -200,8 +210,6 @@
             const includeParkInput = document.getElementById("includePark");
             const includeWaterInput = document.getElementById("includeWater");
             const includeDogFriendlyInput = document.getElementById("includeDogFriendly");
-            const dogSelect = document.getElementById("dogId");
-            const energySelect = document.getElementById("dogEnergy");
 
             document.querySelectorAll(".walk-planner-preset").forEach(button => {
                 button.addEventListener("click", function () {
@@ -215,8 +223,9 @@
                 });
             });
 
-            dogSelect?.addEventListener("change", () => plannerForm?.requestSubmit());
-            energySelect?.addEventListener("change", () => plannerForm?.requestSubmit());
+            document.querySelectorAll("input[name='dogId'][type='radio']").forEach(input => {
+                input.addEventListener("change", () => plannerForm?.requestSubmit());
+            });
 
             function requestPlannerLocation(source) {
                 if (!navigator.geolocation || !locationStatus || !latitudeInput || !longitudeInput) {
@@ -288,6 +297,7 @@
             });
 
             map.fitBounds(line.getBounds().pad(0.2), { maxZoom: 16 });
+            window.setTimeout(() => map.invalidateSize(), 120);
         });
 
         function buildPlannerIcon(type) {
@@ -322,6 +332,13 @@
 }
 
 <style>
+    .walk-planner-page {
+        width: 100%;
+        max-width: 1120px;
+        margin: 0 auto;
+        padding-bottom: 110px;
+    }
+
     .walk-planner-hero {
         display: flex;
         align-items: flex-end;
@@ -348,7 +365,7 @@
 
     .walk-planner-toolbar {
         display: grid;
-        grid-template-columns: minmax(150px, 1fr) minmax(120px, 0.7fr) minmax(220px, 1.2fr);
+        grid-template-columns: minmax(0, 1fr) minmax(220px, 0.9fr);
         gap: 10px;
         align-items: start;
     }
@@ -363,6 +380,59 @@
         color: #21342f;
         font-size: 0.82rem;
         font-weight: 900;
+    }
+
+    .walk-planner-dogs {
+        display: grid;
+        gap: 8px;
+    }
+
+    .walk-planner-dogs > span {
+        color: #21342f;
+        font-size: 0.82rem;
+        font-weight: 900;
+    }
+
+    .walk-planner-dog-options {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .walk-planner-dog-chip {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 42px;
+        width: fit-content;
+        max-width: 100%;
+        padding: 10px 14px;
+        border: 1px solid rgba(47, 109, 95, 0.16);
+        border-radius: 999px;
+        background: #f5faf3;
+        color: #21342f;
+        font-weight: 950;
+        line-height: 1;
+        text-decoration: none;
+        cursor: pointer;
+    }
+
+    .walk-planner-dog-chip input {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .walk-planner-dog-chip.is-active {
+        border-color: rgba(47, 109, 95, 0.3);
+        background: #2f6d5f;
+        color: #ffffff;
+        box-shadow: 0 10px 18px rgba(47, 109, 95, 0.18);
+    }
+
+    .walk-planner-dog-chip--empty {
+        background: #ffffff;
     }
 
     .walk-planner-form select,
@@ -480,14 +550,22 @@
 
     .walk-planner-layout {
         display: grid;
-        grid-template-columns: minmax(0, 760px) minmax(280px, 340px);
+        grid-template-columns: minmax(0, 720px) minmax(280px, 340px);
         justify-content: center;
         gap: 14px;
+        width: 100%;
+        max-width: 1080px;
+        margin: 0 auto;
     }
 
     .walk-planner-map-card,
     .walk-planner-stops {
         padding: 14px;
+    }
+
+    .walk-planner-map-card {
+        align-self: start;
+        overflow: hidden;
     }
 
     .walk-planner-summary {
@@ -520,18 +598,30 @@
     }
 
     .walk-planner-map-frame {
+        position: relative;
         overflow: hidden;
         border-radius: 8px;
-        border: 1px solid rgba(31, 45, 41, 0.1);
+        border: 1px solid rgba(31, 45, 41, 0.14);
         background: #eaf4ea;
-        aspect-ratio: 4 / 3;
-        max-height: 560px;
+        height: clamp(320px, 42vw, 460px);
+        min-height: 320px;
+        max-height: 460px;
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.42);
     }
 
     #plannerMap {
+        position: absolute;
+        inset: 0;
         width: 100%;
         height: 100%;
-        min-height: 0;
+        min-height: 320px;
+        background: #eaf4ea;
+    }
+
+    #plannerMap .leaflet-container,
+    #plannerMap .leaflet-pane,
+    #plannerMap .leaflet-tile-pane {
+        max-width: 100%;
     }
 
     .walk-planner-start {
@@ -592,6 +682,8 @@
         display: grid;
         align-content: start;
         gap: 10px;
+        min-width: 0;
+        overflow: visible;
     }
 
     .walk-planner-stops article {
@@ -641,14 +733,27 @@
         .walk-planner-presets {
             grid-template-columns: repeat(2, minmax(0, 1fr));
         }
+
+        .walk-planner-layout {
+            grid-template-columns: minmax(0, 680px);
+            max-width: 680px;
+        }
     }
 
     @@media (max-width: 900px) {
-        .walk-planner-layout,
         .walk-planner-toolbar,
         .walk-planner-start,
         .walk-planner-advanced__grid {
             grid-template-columns: 1fr;
+        }
+
+        .walk-planner-dog-options {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .walk-planner-dog-chip {
+            width: 100%;
         }
     }
 
@@ -667,18 +772,36 @@
             min-height: 112px;
         }
 
+        .walk-planner-map-card,
+        .walk-planner-stops,
+        .walk-planner-form,
+        .walk-planner-nearby-bin {
+            padding: 12px;
+        }
+
         .walk-planner-summary strong,
         .walk-planner-summary span {
             text-align: left;
         }
 
-        #plannerMap {
-            min-height: 0;
+        .walk-planner-map-frame {
+            height: min(78vw, 360px);
+            min-height: 280px;
+            max-height: 360px;
         }
 
-        .walk-planner-map-frame {
-            aspect-ratio: 1 / 1;
-            max-height: 420px;
+        #plannerMap {
+            min-height: 280px;
+        }
+
+        .walk-planner-stops article {
+            grid-template-columns: 30px minmax(0, 1fr);
+            padding: 9px;
+        }
+
+        .walk-planner-stops article > span {
+            width: 30px;
+            height: 30px;
         }
     }
 </style>

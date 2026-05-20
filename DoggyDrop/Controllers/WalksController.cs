@@ -222,7 +222,7 @@ namespace DoggyDrop.Controllers
                 : GetPlannerAreaCenter(areaKey);
             var safeDistanceKm = Math.Clamp(distanceKm ?? 3, 1, 12);
             var selectedWalkStyle = styles.Any(item => item.Key == walkStyle) ? walkStyle! : "balanced";
-            var selectedDogEnergy = NormalizeDogEnergy(dogEnergy);
+            var selectedDogEnergy = "auto";
 
             var bins = await _context.TrashBins
                 .Where(bin => bin.IsApproved)
@@ -380,7 +380,7 @@ namespace DoggyDrop.Controllers
                 : GetPlannerAreaCenter(areaKey);
             var safeDistanceKm = Math.Clamp(distanceKm, 1, 12);
             var selectedWalkStyle = GetPlannerStyles().Any(item => item.Key == walkStyle) ? walkStyle! : "balanced";
-            var selectedDogEnergy = NormalizeDogEnergy(dogEnergy);
+            var selectedDogEnergy = "auto";
             var bins = await _context.TrashBins
                 .Where(bin => bin.IsApproved)
                 .ToListAsync();
