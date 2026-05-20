@@ -35,28 +35,34 @@ namespace DoggyDrop.Services
 
             try
             {
+                using var codec = SKCodec.Create(original);
+                var origin = codec?.EncodedOrigin ?? SKEncodedOrigin.TopLeft;
+                original.Position = 0;
+
                 using var bitmap = SKBitmap.Decode(original);
                 if (bitmap == null)
                 {
                     return BuildFallback(original, contentType, fileName);
                 }
 
+                using var orientedBitmap = ApplyEncodedOrigin(bitmap, origin);
+                var sourceBitmap = orientedBitmap ?? bitmap;
                 var settings = ResolveSettings(preset);
-                var outputWidth = bitmap.Width;
-                var outputHeight = bitmap.Height;
-                if (bitmap.Width > settings.MaxDimension || bitmap.Height > settings.MaxDimension)
+                var outputWidth = sourceBitmap.Width;
+                var outputHeight = sourceBitmap.Height;
+                if (sourceBitmap.Width > settings.MaxDimension || sourceBitmap.Height > settings.MaxDimension)
                 {
                     var scale = Math.Min(
-                        settings.MaxDimension / (double)bitmap.Width,
-                        settings.MaxDimension / (double)bitmap.Height);
-                    outputWidth = Math.Max(1, (int)Math.Round(bitmap.Width * scale));
-                    outputHeight = Math.Max(1, (int)Math.Round(bitmap.Height * scale));
+                        settings.MaxDimension / (double)sourceBitmap.Width,
+                        settings.MaxDimension / (double)sourceBitmap.Height);
+                    outputWidth = Math.Max(1, (int)Math.Round(sourceBitmap.Width * scale));
+                    outputHeight = Math.Max(1, (int)Math.Round(sourceBitmap.Height * scale));
                 }
 
-                using var resizedBitmap = outputWidth == bitmap.Width && outputHeight == bitmap.Height
+                using var resizedBitmap = outputWidth == sourceBitmap.Width && outputHeight == sourceBitmap.Height
                     ? null
-                    : ResizeBitmap(bitmap, outputWidth, outputHeight);
-                using var image = SKImage.FromBitmap(resizedBitmap ?? bitmap);
+                    : ResizeBitmap(sourceBitmap, outputWidth, outputHeight);
+                using var image = SKImage.FromBitmap(resizedBitmap ?? sourceBitmap);
                 using var encoded = image.Encode(SKEncodedImageFormat.Webp, settings.WebpQuality);
                 if (encoded == null)
                 {
@@ -91,6 +97,60 @@ namespace DoggyDrop.Services
             }
 
             return resized;
+        }
+
+        private static SKBitmap? ApplyEncodedOrigin(SKBitmap source, SKEncodedOrigin origin)
+        {
+            if (origin is SKEncodedOrigin.TopLeft or SKEncodedOrigin.Default)
+            {
+                return null;
+            }
+
+            var swapsDimensions = origin is SKEncodedOrigin.LeftTop
+                or SKEncodedOrigin.RightTop
+                or SKEncodedOrigin.RightBottom
+                or SKEncodedOrigin.LeftBottom;
+            var targetWidth = swapsDimensions ? source.Height : source.Width;
+            var targetHeight = swapsDimensions ? source.Width : source.Height;
+            var transformed = new SKBitmap(new SKImageInfo(targetWidth, targetHeight, source.ColorType, source.AlphaType));
+
+            using var canvas = new SKCanvas(transformed);
+            switch (origin)
+            {
+                case SKEncodedOrigin.TopRight:
+                    canvas.Translate(source.Width, 0);
+                    canvas.Scale(-1, 1);
+                    break;
+                case SKEncodedOrigin.BottomRight:
+                    canvas.Translate(source.Width, source.Height);
+                    canvas.RotateDegrees(180);
+                    break;
+                case SKEncodedOrigin.BottomLeft:
+                    canvas.Translate(0, source.Height);
+                    canvas.Scale(1, -1);
+                    break;
+                case SKEncodedOrigin.LeftTop:
+                    canvas.RotateDegrees(90);
+                    canvas.Scale(1, -1);
+                    break;
+                case SKEncodedOrigin.RightTop:
+                    canvas.Translate(source.Height, 0);
+                    canvas.RotateDegrees(90);
+                    break;
+                case SKEncodedOrigin.RightBottom:
+                    canvas.Translate(source.Height, source.Width);
+                    canvas.RotateDegrees(90);
+                    canvas.Scale(1, -1);
+                    break;
+                case SKEncodedOrigin.LeftBottom:
+                    canvas.Translate(0, source.Width);
+                    canvas.RotateDegrees(270);
+                    break;
+            }
+
+            canvas.DrawBitmap(source, 0, 0);
+            canvas.Flush();
+            return transformed;
         }
 
         private static OptimizedImage BuildFallback(MemoryStream original, string? contentType, string? fileName)

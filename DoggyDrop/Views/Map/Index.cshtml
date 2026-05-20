@@ -259,11 +259,22 @@
         line-height: 1.35;
     }
 
+    .bin-popup__image-frame {
+        display: grid;
+        min-height: 190px;
+        max-height: 320px;
+        margin-top: 8px;
+        place-items: center;
+        overflow: hidden;
+        border-radius: 12px;
+        background:
+            linear-gradient(135deg, rgba(238, 247, 237, 0.98), rgba(255, 243, 221, 0.86));
+    }
+
     .bin-popup__image {
         width: 100%;
-        aspect-ratio: 4 / 3;
-        margin-top: 8px;
-        object-fit: cover;
+        max-height: 320px;
+        object-fit: contain;
     }
 
     .bin-popup__stats {
@@ -396,12 +407,21 @@
         padding: 0 14px 14px;
     }
 
+    .map-bin-detail__image-frame {
+        display: grid;
+        min-height: 250px;
+        max-height: min(52vh, 520px);
+        place-items: center;
+        overflow: hidden;
+        border-radius: 14px;
+        background:
+            linear-gradient(135deg, rgba(238, 247, 237, 0.98), rgba(255, 243, 221, 0.86));
+    }
+
     .map-bin-detail__image {
         width: 100%;
-        aspect-ratio: 16 / 9;
-        border-radius: 12px;
-        background: #eef7ed;
-        object-fit: cover;
+        max-height: min(52vh, 520px);
+        object-fit: contain;
     }
 
     .map-bin-detail__image-placeholder {
@@ -2545,7 +2565,7 @@ else if (needsDogOnboarding)
                         <br>Status: ${escapeHtml(statusText)}
                         ${bin.lastUsedAt ? `<br>Zadnja uporaba: ${escapeHtml(bin.lastUsedAt)}` : ""}
                     </div>
-                    ${bin.image ? `<img class="bin-popup__image" src="${escapeAttribute(bin.image)}" alt="Kos">` : ""}
+                    ${bin.image ? `<div class="bin-popup__image-frame"><img class="bin-popup__image" src="${escapeAttribute(bin.image)}" alt="Kos"></div>` : ""}
                     <div class="bin-popup__stats">
                         <div class="bin-popup__stat">${Number(bin.usedCount) || 0}<br>uporab</div>
                         <div class="bin-popup__stat">${Number(bin.fullReports) || 0}<br>poln</div>
@@ -2622,7 +2642,7 @@ else if (needsDogOnboarding)
             }
 
             const fallback = getBinImageFallback(imageUrl);
-            return `<img class="map-bin-detail__image" src="${escapeAttribute(imageUrl)}" data-fallback-src="${escapeAttribute(fallback || "")}" alt="${escapeAttribute(name || "Kos")}" onerror="handleBinImageError(this)">`;
+            return `<div class="map-bin-detail__image-frame"><img class="map-bin-detail__image" src="${escapeAttribute(imageUrl)}" data-fallback-src="${escapeAttribute(fallback || "")}" alt="${escapeAttribute(name || "Kos")}" onerror="handleBinImageError(this)"></div>`;
         }
 
         function getBinImageFallback(imageUrl) {
@@ -2654,6 +2674,12 @@ else if (needsDogOnboarding)
             const placeholder = document.createElement("div");
             placeholder.className = "map-bin-detail__image-placeholder";
             placeholder.textContent = "Fotografija trenutno ni na voljo.";
+            const frame = image.closest(".map-bin-detail__image-frame");
+            if (frame) {
+                frame.replaceWith(placeholder);
+                return;
+            }
+
             image.replaceWith(placeholder);
         }
 
