@@ -285,7 +285,7 @@
     .bin-popup__image.is-rotated-landscape,
     .map-bin-detail__image.is-rotated-landscape {
         width: auto;
-        height: 72%;
+        height: 100%;
         max-height: none;
         transform: rotate(90deg);
         transform-origin: center;
@@ -371,7 +371,8 @@
     }
 
     .map-bin-detail__panel {
-        overflow: hidden;
+        overflow-y: auto;
+        max-height: calc(100vh - 120px);
         border: 1px solid rgba(31, 45, 41, 0.12);
         border-radius: 18px;
         background: rgba(255, 255, 255, 0.98);
@@ -417,14 +418,13 @@
 
     .map-bin-detail__body {
         display: grid;
-        gap: 10px;
+        gap: 8px;
         padding: 0 14px 14px;
     }
 
     .map-bin-detail__image-frame {
         display: grid;
-        min-height: 250px;
-        max-height: min(52vh, 520px);
+        height: clamp(210px, 28vh, 300px);
         place-items: center;
         overflow: hidden;
         border-radius: 14px;
@@ -434,8 +434,9 @@
 
     .map-bin-detail__image {
         width: 100%;
-        max-height: min(52vh, 520px);
-        object-fit: contain;
+        height: 100%;
+        object-fit: cover;
+        object-position: center 58%;
     }
 
     .map-bin-detail__image-placeholder {
@@ -506,6 +507,29 @@
         font-size: 0.76rem;
         font-weight: 850;
         text-align: center;
+    }
+
+    @@media (max-width: 575.98px) {
+        .map-bin-detail {
+            bottom: calc(78px + env(safe-area-inset-bottom));
+        }
+
+        .map-bin-detail__panel {
+            max-height: calc(100vh - 110px);
+        }
+
+        .map-bin-detail__header {
+            padding: 12px 12px 6px;
+        }
+
+        .map-bin-detail__body {
+            gap: 7px;
+            padding: 0 12px 12px;
+        }
+
+        .map-bin-detail__image-frame {
+            height: clamp(180px, 25vh, 240px);
+        }
     }
 
     .park-visit-box {
