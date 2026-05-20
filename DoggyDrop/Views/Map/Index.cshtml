@@ -1198,10 +1198,13 @@
 
     .map-community-heat {
         position: fixed;
+        top: 78px;
         right: 18px;
-        bottom: calc(92px + env(safe-area-inset-bottom));
+        bottom: auto;
         z-index: 980;
         width: min(330px, calc(100vw - 36px));
+        max-height: calc(100vh - 170px);
+        overflow: auto;
         padding: 14px;
         border: 1px solid rgba(31, 45, 41, 0.10);
         border-radius: 8px;
@@ -1374,15 +1377,18 @@
         .map-founder-prompt {
             left: 8px;
             right: 8px;
-            top: 110px;
+            top: 284px;
             width: auto;
             padding: 11px;
         }
 
         .map-community-heat {
+            top: 112px;
+            left: auto;
             right: 8px;
-            bottom: calc(84px + env(safe-area-inset-bottom));
-            width: min(300px, calc(100vw - 16px));
+            bottom: auto;
+            width: min(280px, calc(100vw - 16px));
+            max-height: min(168px, calc(100vh - 250px));
             padding: 10px;
         }
 
