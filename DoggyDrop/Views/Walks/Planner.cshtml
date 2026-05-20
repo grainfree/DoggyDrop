@@ -169,13 +169,19 @@
                     </form>
                     @if (Model.SelectedDogId.HasValue)
                     {
-                        <form asp-controller="Walks" asp-action="Start" method="post">
+                        <form asp-controller="Walks" asp-action="StartPlanned" method="post">
                             @Html.AntiForgeryToken()
                             <input type="hidden" name="dogId" value="@Model.SelectedDogId.Value" />
-                            @if (Model.Route.SavedPlanId.HasValue)
-                            {
-                                <input type="hidden" name="plannedWalkId" value="@Model.Route.SavedPlanId.Value" />
-                            }
+                            <input type="hidden" name="area" value="@Model.AreaKey" />
+                            <input type="hidden" name="latitude" value="@latitudeValue" />
+                            <input type="hidden" name="longitude" value="@longitudeValue" />
+                            <input type="hidden" name="distanceKm" value="@Model.TargetDistanceKm.ToString(CultureInfo.InvariantCulture)" />
+                            <input type="hidden" name="walkStyle" value="@Model.WalkStyle" />
+                            <input type="hidden" name="dogEnergy" value="auto" />
+                            <input type="hidden" name="includeBins" value="@Model.IncludeBins.ToString().ToLowerInvariant()" />
+                            <input type="hidden" name="includePark" value="@Model.IncludePark.ToString().ToLowerInvariant()" />
+                            <input type="hidden" name="includeWater" value="@Model.IncludeWater.ToString().ToLowerInvariant()" />
+                            <input type="hidden" name="includeDogFriendly" value="@Model.IncludeDogFriendly.ToString().ToLowerInvariant()" />
                             <button type="submit">Začni ta sprehod</button>
                         </form>
                     }

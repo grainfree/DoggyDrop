@@ -227,20 +227,18 @@ namespace DoggyDrop.Controllers
             var bins = await _context.TrashBins
                 .Where(bin => bin.IsApproved)
                 .ToListAsync();
-            var route = hasCurrentLocation
-                ? await _osmWalkPlannerService.PlanAsync(
-                    start.Latitude,
-                    start.Longitude,
-                    safeDistanceKm,
-                    bins,
-                    selectedWalkStyle,
-                    selectedDogEnergy,
-                    includeBins,
-                    includePark,
-                    includeWater,
-                    includeDogFriendly,
-                    HttpContext.RequestAborted)
-                : null;
+            var route = BuildPlannedRoute(
+                areaKey,
+                start,
+                hasCurrentLocation,
+                safeDistanceKm,
+                bins,
+                selectedWalkStyle,
+                selectedDogEnergy,
+                includeBins,
+                includePark,
+                includeWater,
+                includeDogFriendly);
 
             var model = new WalkPlannerViewModel
             {
@@ -261,18 +259,7 @@ namespace DoggyDrop.Controllers
                 Presets = BuildQuickWalkTemplates(),
                 WalkStyle = selectedWalkStyle,
                 DogEnergy = selectedDogEnergy,
-                Route = route ?? BuildPlannedRoute(
-                    areaKey,
-                    start,
-                    hasCurrentLocation,
-                    safeDistanceKm,
-                    bins,
-                    selectedWalkStyle,
-                    selectedDogEnergy,
-                    includeBins,
-                    includePark,
-                    includeWater,
-                    includeDogFriendly)
+                Route = route
             };
             if (model.Route != null && savedPlanId.HasValue)
             {
@@ -345,6 +332,113 @@ namespace DoggyDrop.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        public async Task<IActionResult> StartPlanned(
+            int dogId,
+            string area,
+            double distanceKm,
+            string? walkStyle,
+            string? dogEnergy,
+            double? latitude,
+            double? longitude,
+            bool includeBins = true,
+            bool includePark = true,
+            bool includeWater = true,
+            bool includeDogFriendly = true)
+        {
+            var userId = _userManager.GetUserId(User);
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                return Challenge();
+            }
+
+            var dogExists = await _context.Dogs.AnyAsync(dog => dog.Id == dogId && dog.OwnerId == userId);
+            if (!dogExists)
+            {
+                return NotFound();
+            }
+
+            var activeWalk = await _context.Walks
+                .FirstOrDefaultAsync(walk => walk.OwnerId == userId && walk.Status == "Active");
+            if (activeWalk != null)
+            {
+                TempData["ErrorMessage"] = "Najprej zaključi trenutni sprehod.";
+                return RedirectToAction(nameof(Active), new { id = activeWalk.Id });
+            }
+
+            var areaKey = GetPlannerAreas().Any(candidate => candidate.Key == area) ? area : "maribor";
+            var hasCurrentLocation = IsValidPlannerCoordinate(latitude, longitude);
+            var start = hasCurrentLocation
+                ? new PlannerAreaCenter("Moja lokacija", latitude!.Value, longitude!.Value)
+                : GetPlannerAreaCenter(areaKey);
+            var safeDistanceKm = Math.Clamp(distanceKm, 1, 12);
+            var selectedWalkStyle = GetPlannerStyles().Any(item => item.Key == walkStyle) ? walkStyle! : "balanced";
+            var selectedDogEnergy = "auto";
+            var bins = await _context.TrashBins
+                .Where(bin => bin.IsApproved)
+                .ToListAsync();
+            var route = BuildPlannedRoute(areaKey, start, hasCurrentLocation, safeDistanceKm, bins, selectedWalkStyle, selectedDogEnergy, includeBins, includePark, includeWater, includeDogFriendly);
+
+            var plan = new PlannedWalk
+            {
+                OwnerId = userId,
+                DogId = dogId,
+                Title = route.Title,
+                AreaKey = hasCurrentLocation ? "current-location" : areaKey,
+                AreaName = start.Name,
+                TargetDistanceKm = safeDistanceKm,
+                EstimatedDistanceKm = route.EstimatedDistanceKm,
+                EstimatedMinutes = route.EstimatedMinutes,
+                IncludeBins = includeBins,
+                IncludePark = includePark,
+                IncludeWater = includeWater,
+                IncludeDogFriendly = includeDogFriendly,
+                CreatedAt = DateTime.UtcNow,
+                UsedAt = DateTime.UtcNow,
+                Stops = route.Stops.Select(stop => new PlannedWalkStop
+                {
+                    Order = stop.Order,
+                    Name = stop.Name,
+                    Type = stop.Type,
+                    Label = stop.Label,
+                    Reason = stop.Reason,
+                    Latitude = stop.Latitude,
+                    Longitude = stop.Longitude
+                }).ToList(),
+                RoutePoints = route.RoutePoints.Select((point, index) => new PlannedWalkRoutePoint
+                {
+                    Order = index + 1,
+                    Latitude = point.Latitude,
+                    Longitude = point.Longitude
+                }).ToList()
+            };
+
+            var walk = new Walk
+            {
+                DogId = dogId,
+                OwnerId = userId,
+                StartedAt = DateTime.UtcNow,
+                Status = "Active",
+                PlannedWalk = plan
+            };
+
+            _context.Walks.Add(walk);
+            await _context.SaveChangesAsync();
+            await _gamificationService.AwardXpAsync(
+                userId,
+                GamificationConstants.CreateRoute,
+                GamificationConstants.CreateRouteXp,
+                nameof(PlannedWalk),
+                plan.Id.ToString(),
+                "Nova pot");
+            await _gamificationService.RecordStreakActivityAsync(userId, GamificationStreakConstants.Explorer);
+            await NotifyFriendsAboutWalkStartAsync(walk.Id, userId, dogId, plan.Title);
+
+            TempData["SuccessMessage"] = "Sprehod je zagnan s planirano potjo.";
+            return RedirectToAction(nameof(Active), new { id = walk.Id });
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> SavePlan(
             int? dogId,
             string area,
@@ -384,21 +478,7 @@ namespace DoggyDrop.Controllers
             var bins = await _context.TrashBins
                 .Where(bin => bin.IsApproved)
                 .ToListAsync();
-            var route = hasCurrentLocation
-                ? await _osmWalkPlannerService.PlanAsync(
-                    start.Latitude,
-                    start.Longitude,
-                    safeDistanceKm,
-                    bins,
-                    selectedWalkStyle,
-                    selectedDogEnergy,
-                    includeBins,
-                    includePark,
-                    includeWater,
-                    includeDogFriendly,
-                    HttpContext.RequestAborted)
-                : null;
-            route ??= BuildPlannedRoute(areaKey, start, hasCurrentLocation, safeDistanceKm, bins, selectedWalkStyle, selectedDogEnergy, includeBins, includePark, includeWater, includeDogFriendly);
+            var route = BuildPlannedRoute(areaKey, start, hasCurrentLocation, safeDistanceKm, bins, selectedWalkStyle, selectedDogEnergy, includeBins, includePark, includeWater, includeDogFriendly);
 
             var plan = new PlannedWalk
             {

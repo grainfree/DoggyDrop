@@ -106,7 +106,7 @@
                 <h2>GPS pot</h2>
                 <p id="gpsStatus">GPS se ni zagnan.</p>
             </div>
-            <button type="button" id="trackingToggle" class="btn btn-success rounded-pill fw-semibold">Start GPS</button>
+            <button type="button" id="trackingToggle" class="btn btn-success rounded-pill fw-semibold">Začni sledenje</button>
         </div>
         <div id="gpsSecurityWarning" class="gps-security-warning" hidden>
             GPS na telefonu deluje samo prek HTTPS povezave. Lokalni LAN naslov na http:// ne more zahtevati dovoljenja za lokacijo.
@@ -285,6 +285,9 @@
             updateNextStopCard();
             validateGpsEnvironment();
             trackingToggle.addEventListener("click", toggleTracking);
+            if (window.isSecureContext && navigator.geolocation) {
+                window.setTimeout(startTracking, 400);
+            }
             completeNextStopButton?.addEventListener("click", async function () {
                 if (currentNextStopId) {
                     await toggleStopState(currentNextStopId, true);
@@ -449,7 +452,7 @@
             });
 
             isTracking = true;
-            trackingToggle.textContent = "Pause";
+            trackingToggle.textContent = "Ustavi sledenje";
             trackingToggle.classList.remove("btn-success");
             trackingToggle.classList.add("btn-warning");
             gpsStatusElement.textContent = "GPS sledenje tece.";
@@ -462,7 +465,7 @@
             }
 
             isTracking = false;
-            trackingToggle.textContent = "Resume";
+            trackingToggle.textContent = "Nadaljuj sledenje";
             trackingToggle.classList.remove("btn-warning");
             trackingToggle.classList.add("btn-success");
             gpsStatusElement.textContent = "GPS sledenje je pavzirano.";
