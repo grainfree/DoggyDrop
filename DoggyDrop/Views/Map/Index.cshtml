@@ -501,15 +501,8 @@
     }
 
     .map-bin-detail__button--primary {
-        grid-column: 1 / -1;
         background: #2f6d5f;
         color: #ffffff;
-    }
-
-    .map-bin-detail__footer {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 6px;
     }
 
     .map-bin-detail__feedback {
@@ -2600,9 +2593,9 @@ else if (needsDogOnboarding)
 
         function buildPopupContent(bin) {
             const statusText = bin.status === "missing"
-                ? "Prijavljeno kot manjkajoc kos"
+                ? "Prijavljeno kot manjkajoč koš"
                 : bin.status === "full"
-                    ? "Vec prijav polnega kosa"
+                    ? "Več prijav polnega koša"
                     : "Status OK";
             const reliability = Number(bin.reliabilityScore) || 0;
 
@@ -2623,8 +2616,8 @@ else if (needsDogOnboarding)
                     </div>
                     <div class="bin-popup__meta">Zanesljivost: ${reliability}/100${bin.lastReportedAt ? `<br>Zadnja prijava: ${escapeHtml(bin.lastReportedAt)}` : ""}</div>
                     <div class="bin-popup__actions">
-                        <button type="button" class="bin-popup__button bin-popup__button--primary" onclick="sendBinAction(${Number(bin.id)}, 'used')">Oznaci uporabo</button>
-                        <button type="button" class="bin-popup__button" onclick="sendBinAction(${Number(bin.id)}, 'full')">Poln kos</button>
+                        <button type="button" class="bin-popup__button bin-popup__button--primary" onclick="sendBinAction(${Number(bin.id)}, 'used')">Označi uporabo</button>
+                        <button type="button" class="bin-popup__button" onclick="sendBinAction(${Number(bin.id)}, 'full')">Poln koš</button>
                         <button type="button" class="bin-popup__button" onclick="sendBinAction(${Number(bin.id)}, 'missing')">Manjka</button>
                         <button type="button" class="bin-popup__button" onclick="sendBinAction(${Number(bin.id)}, 'useful')">Koristen</button>
                         <button type="button" class="bin-popup__button" onclick="sendBinAction(${Number(bin.id)}, 'not-useful')">Ni OK</button>
@@ -2642,9 +2635,9 @@ else if (needsDogOnboarding)
             const meta = document.getElementById("binDetailMeta");
             const body = document.getElementById("binDetailBody");
             const statusText = bin.status === "missing"
-                ? "Prijavljeno kot manjkajoc kos"
+                ? "Prijavljeno kot manjkajoč koš"
                 : bin.status === "full"
-                    ? "Vec prijav polnega kosa"
+                    ? "Več prijav polnega koša"
                     : "Status OK";
             const reliability = Number(bin.reliabilityScore) || 0;
 
@@ -2662,14 +2655,10 @@ else if (needsDogOnboarding)
                 </div>
                 <div class="map-bin-detail__meta">Zanesljivost: ${reliability}/100${bin.lastReportedAt ? `<br>Zadnja prijava: ${escapeHtml(bin.lastReportedAt)}` : ""}</div>
                 <div class="map-bin-detail__actions">
-                    <button type="button" class="map-bin-detail__button map-bin-detail__button--primary" onclick="sendBinAction(${Number(bin.id)}, 'used')">Oznaci uporabo</button>
-                    <button type="button" class="map-bin-detail__button" onclick="sendBinAction(${Number(bin.id)}, 'full')">Poln kos</button>
+                    <button type="button" class="map-bin-detail__button map-bin-detail__button--primary" onclick="sendBinAction(${Number(bin.id)}, 'used')">Označi uporabo</button>
+                    <button type="button" class="map-bin-detail__button" onclick="sendBinAction(${Number(bin.id)}, 'full')">Poln koš</button>
                     <button type="button" class="map-bin-detail__button" onclick="sendBinAction(${Number(bin.id)}, 'missing')">Manjka</button>
-                    <button type="button" class="map-bin-detail__button" onclick="sendBinAction(${Number(bin.id)}, 'useful')">Koristen</button>
-                </div>
-                <div class="map-bin-detail__footer">
                     <a class="map-bin-detail__link" href="${buildNavigationUrl(bin.latitude, bin.longitude)}" target="_blank" rel="noopener">Navigacija</a>
-                    <button type="button" class="map-bin-detail__button" onclick="closeBinDetail()">Nazaj na mapo</button>
                 </div>
                 <div class="map-bin-detail__feedback" id="binFeedback${Number(bin.id)}"></div>
             `;
@@ -2688,7 +2677,7 @@ else if (needsDogOnboarding)
 
         function buildBinDetailImage(imageUrl, name) {
             if (!imageUrl) {
-                return `<div class="map-bin-detail__image-placeholder">Fotografija kosa se ni dodana.</div>`;
+                return `<div class="map-bin-detail__image-placeholder">Fotografija koša še ni dodana.</div>`;
             }
 
             const fallback = getBinImageFallback(imageUrl);
