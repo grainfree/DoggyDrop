@@ -693,7 +693,7 @@
 
     .map-action-button {
         display: grid;
-        grid-template-columns: 34px minmax(0, 1fr);
+        grid-template-columns: 42px minmax(0, 1fr) 42px;
         align-items: center;
         gap: 10px;
         min-height: 52px;
@@ -707,6 +707,13 @@
         text-decoration: none;
         backdrop-filter: blur(14px);
         transition: transform 160ms ease, border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+    }
+
+    .map-action-button > span:not(.map-action-button__icon) {
+        grid-column: 2;
+        justify-self: center;
+        min-width: 0;
+        text-align: center;
     }
 
     .map-action-button__icon {
