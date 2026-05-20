@@ -111,6 +111,13 @@
         <div id="gpsSecurityWarning" class="gps-security-warning" hidden>
             GPS na telefonu deluje samo prek HTTPS povezave. Lokalni LAN naslov na http:// ne more zahtevati dovoljenja za lokacijo.
         </div>
+        <div id="binProximityToast" class="active-walk-bin-toast" hidden>
+            <div>
+                <strong>Koš je blizu</strong>
+                <span id="binProximityText">Planirani koš je na tvoji poti.</span>
+            </div>
+            <button type="button" id="dismissBinProximityToast" aria-label="Zapri obvestilo">×</button>
+        </div>
         <div id="walkMap"></div>
     </article>
 
@@ -242,10 +249,14 @@
         const proximityModeElement = document.getElementById("proximityMode");
         const autoCompleteStopsToggle = document.getElementById("autoCompleteStopsToggle");
         const vibrateOnStopToggle = document.getElementById("vibrateOnStopToggle");
+        const binProximityToast = document.getElementById("binProximityToast");
+        const binProximityText = document.getElementById("binProximityText");
+        const dismissBinProximityToast = document.getElementById("dismissBinProximityToast");
         const autoCompletePreferenceKey = "doggydrop.walk.autoCompleteStops";
         const vibratePreferenceKey = "doggydrop.walk.vibrateOnStop";
         const autoCompleteRadiusMeters = 28;
         const approachRadiusMeters = 60;
+        const binAlertRadiusMeters = 85;
 
         let map;
         let routeLine;
@@ -253,21 +264,24 @@
         let userMarker;
         let plannedStopMarkers = [];
         let checklistCheckboxes = [];
+        let routePoints = initialPoints.map(point => [point.latitude, point.longitude]);
         let currentPosition = routePoints.length > 0 ? routePoints[routePoints.length - 1] : null;
         let currentNextStopId = null;
         let watchId = null;
         let isTracking = false;
         let isSending = false;
         let distanceMeters = @Model.DistanceMeters.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        let routePoints = initialPoints.map(point => [point.latitude, point.longitude]);
         let lastApproachStopId = null;
         let lastCompletedByProximityStopId = null;
+        let lastBinToastStopId = null;
+        let binToastTimeout = null;
 
         document.addEventListener("DOMContentLoaded", function () {
             initTimer();
             initMap();
             wireStopChecklist();
             wireProximityControls();
+            dismissBinProximityToast?.addEventListener("click", hideBinProximityToast);
             updateNextStopCard();
             validateGpsEnvironment();
             trackingToggle.addEventListener("click", toggleTracking);
@@ -732,6 +746,14 @@
 
             const nearest = remainingStops[0];
             const nearestName = nearest.stop.name ?? nearest.stop.Name;
+            const nearestBin = remainingStops.find(item => item.type === "bin");
+
+            if (nearestBin && nearestBin.distance <= binAlertRadiusMeters && lastBinToastStopId !== nearestBin.stopId) {
+                lastBinToastStopId = nearestBin.stopId;
+                showBinProximityToast(nearestBin.stop, nearestBin.distance);
+            } else if (nearestBin && nearestBin.distance > binAlertRadiusMeters * 1.6 && lastBinToastStopId === nearestBin.stopId) {
+                lastBinToastStopId = null;
+            }
 
             if (nearest.distance <= approachRadiusMeters && lastApproachStopId !== nearest.stopId) {
                 lastApproachStopId = nearest.stopId;
@@ -762,6 +784,36 @@
             } else if (nearest.distance > autoCompleteRadiusMeters && lastCompletedByProximityStopId === nearest.stopId) {
                 lastCompletedByProximityStopId = null;
             }
+        }
+
+        function showBinProximityToast(stop, distance) {
+            if (!binProximityToast || !binProximityText) {
+                return;
+            }
+
+            const stopName = stop.name ?? stop.Name ?? "Koš";
+            binProximityText.textContent = `${stopName} je približno ${formatDistance(distance)} stran. Če ga potrebuješ, je zdaj pravi trenutek.`;
+            binProximityToast.hidden = false;
+            binProximityToast.classList.add("is-visible");
+
+            if (vibrateOnStopToggle?.checked && navigator.vibrate) {
+                navigator.vibrate([90, 60, 90]);
+            }
+
+            if (binToastTimeout) {
+                window.clearTimeout(binToastTimeout);
+            }
+
+            binToastTimeout = window.setTimeout(hideBinProximityToast, 8500);
+        }
+
+        function hideBinProximityToast() {
+            if (!binProximityToast) {
+                return;
+            }
+
+            binProximityToast.classList.remove("is-visible");
+            binProximityToast.hidden = true;
         }
 
         function formatDistance(distanceMetersValue) {
@@ -1217,6 +1269,62 @@
         color: #8c5c12;
         font-size: 0.9rem;
         font-weight: 750;
+    }
+
+    .active-walk-bin-toast {
+        position: fixed;
+        left: 50%;
+        bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+        z-index: 1300;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: min(92vw, 420px);
+        gap: 12px;
+        padding: 13px 14px;
+        border: 1px solid rgba(47, 109, 95, 0.18);
+        border-radius: 8px;
+        background: #fff8e8;
+        box-shadow: 0 18px 38px rgba(31, 45, 41, 0.18);
+        color: #21342f;
+        transform: translate(-50%, 16px);
+        opacity: 0;
+        transition: opacity 160ms ease, transform 160ms ease;
+    }
+
+    .active-walk-bin-toast.is-visible {
+        transform: translate(-50%, 0);
+        opacity: 1;
+    }
+
+    .active-walk-bin-toast strong,
+    .active-walk-bin-toast span {
+        display: block;
+    }
+
+    .active-walk-bin-toast strong {
+        font-weight: 950;
+    }
+
+    .active-walk-bin-toast span {
+        color: #5d665f;
+        font-size: 0.88rem;
+        font-weight: 800;
+        line-height: 1.25;
+    }
+
+    .active-walk-bin-toast button {
+        display: grid;
+        flex: 0 0 34px;
+        width: 34px;
+        height: 34px;
+        place-items: center;
+        border: 0;
+        border-radius: 999px;
+        background: rgba(47, 109, 95, 0.1);
+        color: #21342f;
+        font-size: 1.35rem;
+        line-height: 1;
     }
 
     #walkMap {
