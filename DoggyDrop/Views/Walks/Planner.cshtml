@@ -1,10 +1,13 @@
 @model DoggyDrop.ViewModels.WalkPlannerViewModel
+@using System.Globalization
 @using System.Text.Json
 
 @{
     ViewData["Title"] = "Planer sprehoda";
     var routePointsJson = Html.Raw(JsonSerializer.Serialize(Model.Route?.RoutePoints ?? []));
     var stopsJson = Html.Raw(JsonSerializer.Serialize(Model.Route?.Stops ?? []));
+    var latitudeValue = Model.Latitude?.ToString("0.######", CultureInfo.InvariantCulture) ?? string.Empty;
+    var longitudeValue = Model.Longitude?.ToString("0.######", CultureInfo.InvariantCulture) ?? string.Empty;
 }
 
 @section Styles {
@@ -17,12 +20,12 @@
     <header class="app-page__header walk-planner-hero">
         <div>
             <h1 class="app-page__title">Planer sprehoda</h1>
-            <p class="app-page__lead">Izberi dolzino poti, DoggyDrop pa predlaga krog s kosi, parkom, vodo in dog-friendly postanki.</p>
+            <p class="app-page__lead">Izberi dolžino poti, aplikacija pa predlaga krog iz tvoje trenutne lokacije.</p>
         </div>
         <a class="btn btn-outline-secondary rounded-pill" asp-controller="Walks" asp-action="Index">Sprehodi</a>
     </header>
 
-    <form class="walk-planner-form" asp-controller="Walks" asp-action="Planner" method="get">
+    <form class="walk-planner-form" asp-controller="Walks" asp-action="Planner" method="get" id="walkPlannerForm">
         <div>
             <label for="dogId">Pes</label>
             <select id="dogId" name="dogId">
@@ -32,8 +35,19 @@
                 }
             </select>
         </div>
-        <div>
-            <label for="area">Obmocje</label>
+        <div class="walk-planner-location">
+            <label>Izhodišče</label>
+            <input type="hidden" id="plannerLatitude" name="latitude" value="@latitudeValue" />
+            <input type="hidden" id="plannerLongitude" name="longitude" value="@longitudeValue" />
+            <button type="button" id="usePlannerLocation" class="walk-planner-location__button">
+                Uporabi mojo lokacijo
+            </button>
+            <span id="plannerLocationStatus">
+                @(Model.UsesCurrentLocation ? "Izhodišče: tvoja trenutna lokacija" : "Izhodišče: izberi GPS ali uporabi fallback območje")
+            </span>
+        </div>
+        <div class="walk-planner-fallback">
+            <label for="area">Fallback območje</label>
             <select id="area" name="area">
                 @foreach (var area in Model.Areas)
                 {
@@ -42,7 +56,7 @@
             </select>
         </div>
         <div>
-            <label for="distanceKm">Dolzina</label>
+            <label for="distanceKm">Dolžina</label>
             <select id="distanceKm" name="distanceKm">
                 @foreach (var distance in new[] { 1.5, 2.5, 3.5, 5.0, 7.5, 10.0 })
                 {
@@ -115,6 +129,8 @@
                         @Html.AntiForgeryToken()
                         <input type="hidden" name="dogId" value="@Model.SelectedDogId" />
                         <input type="hidden" name="area" value="@Model.AreaKey" />
+                        <input type="hidden" name="latitude" value="@latitudeValue" />
+                        <input type="hidden" name="longitude" value="@longitudeValue" />
                         <input type="hidden" name="distanceKm" value="@Model.TargetDistanceKm.ToString(System.Globalization.CultureInfo.InvariantCulture)" />
                         <input type="hidden" name="walkStyle" value="@Model.WalkStyle" />
                         <input type="hidden" name="dogEnergy" value="@Model.DogEnergy" />
@@ -172,6 +188,38 @@
         const plannerStops = @stopsJson;
 
         document.addEventListener("DOMContentLoaded", function () {
+            const plannerForm = document.getElementById("walkPlannerForm");
+            const latitudeInput = document.getElementById("plannerLatitude");
+            const longitudeInput = document.getElementById("plannerLongitude");
+            const locationStatus = document.getElementById("plannerLocationStatus");
+            const locationButton = document.getElementById("usePlannerLocation");
+
+            if (locationButton && latitudeInput && longitudeInput && locationStatus) {
+                locationButton.addEventListener("click", function () {
+                    if (!navigator.geolocation) {
+                        locationStatus.textContent = "Brskalnik ne podpira GPS lokacije. Uporabljeno bo fallback območje.";
+                        return;
+                    }
+
+                    locationButton.disabled = true;
+                    locationStatus.textContent = "Iščem tvojo lokacijo...";
+
+                    navigator.geolocation.getCurrentPosition(
+                        position => {
+                            latitudeInput.value = position.coords.latitude.toFixed(6);
+                            longitudeInput.value = position.coords.longitude.toFixed(6);
+                            locationStatus.textContent = "Izhodišče: tvoja trenutna lokacija";
+                            plannerForm?.requestSubmit();
+                        },
+                        () => {
+                            locationButton.disabled = false;
+                            locationStatus.textContent = "Lokacije ni bilo mogoče pridobiti. Preveri dovoljenje za lokacijo ali uporabi fallback območje.";
+                        },
+                        { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+                    );
+                });
+            }
+
             if (!plannerPoints.length || !document.getElementById("plannerMap")) {
                 return;
             }
@@ -264,6 +312,27 @@
     .walk-planner-check {
         display: grid;
         gap: 6px;
+    }
+
+    .walk-planner-location {
+        grid-column: span 2;
+    }
+
+    .walk-planner-location__button {
+        border: 1px solid rgba(47, 109, 95, 0.18) !important;
+        background: #eef7ed !important;
+        color: #2f6d5f !important;
+    }
+
+    .walk-planner-location__button:disabled {
+        opacity: 0.72;
+    }
+
+    #plannerLocationStatus {
+        color: #65716d;
+        font-size: 0.78rem;
+        font-weight: 800;
+        line-height: 1.25;
     }
 
     .walk-planner-form label {

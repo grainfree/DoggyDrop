@@ -10,6 +10,14 @@ namespace DoggyDrop.ViewModels
 
         public string AreaKey { get; set; } = "maribor";
 
+        public double? Latitude { get; set; }
+
+        public double? Longitude { get; set; }
+
+        public bool UsesCurrentLocation { get; set; }
+
+        public string StartLabel { get; set; } = "Moja lokacija";
+
         public double TargetDistanceKm { get; set; } = 3;
 
         public bool IncludeBins { get; set; } = true;

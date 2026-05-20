@@ -189,6 +189,8 @@ namespace DoggyDrop.Controllers
             double? distanceKm,
             string? walkStyle,
             string? dogEnergy,
+            double? latitude,
+            double? longitude,
             bool includeBins = true,
             bool includePark = true,
             bool includeWater = true,
@@ -211,6 +213,10 @@ namespace DoggyDrop.Controllers
             var areaKey = areas.Any(candidate => candidate.Key == area)
                 ? area!
                 : "maribor";
+            var hasCurrentLocation = IsValidPlannerCoordinate(latitude, longitude);
+            var start = hasCurrentLocation
+                ? new PlannerAreaCenter("Moja lokacija", latitude!.Value, longitude!.Value)
+                : GetPlannerAreaCenter(areaKey);
             var safeDistanceKm = Math.Clamp(distanceKm ?? 3, 1, 12);
             var selectedWalkStyle = styles.Any(item => item.Key == walkStyle) ? walkStyle! : "balanced";
             var selectedDogEnergy = NormalizeDogEnergy(dogEnergy);
@@ -224,6 +230,10 @@ namespace DoggyDrop.Controllers
                 Dogs = dogs,
                 SelectedDogId = dogId ?? dogs.FirstOrDefault()?.Id,
                 AreaKey = areaKey,
+                Latitude = hasCurrentLocation ? latitude : null,
+                Longitude = hasCurrentLocation ? longitude : null,
+                UsesCurrentLocation = hasCurrentLocation,
+                StartLabel = start.Name,
                 TargetDistanceKm = safeDistanceKm,
                 IncludeBins = includeBins,
                 IncludePark = includePark,
@@ -235,6 +245,8 @@ namespace DoggyDrop.Controllers
                 DogEnergy = selectedDogEnergy,
                 Route = BuildPlannedRoute(
                     areaKey,
+                    start,
+                    hasCurrentLocation,
                     safeDistanceKm,
                     bins,
                     selectedWalkStyle,
@@ -321,6 +333,8 @@ namespace DoggyDrop.Controllers
             double distanceKm,
             string? walkStyle,
             string? dogEnergy,
+            double? latitude,
+            double? longitude,
             bool includeBins = true,
             bool includePark = true,
             bool includeWater = true,
@@ -342,22 +356,25 @@ namespace DoggyDrop.Controllers
             }
 
             var areaKey = GetPlannerAreas().Any(candidate => candidate.Key == area) ? area : "maribor";
+            var hasCurrentLocation = IsValidPlannerCoordinate(latitude, longitude);
+            var start = hasCurrentLocation
+                ? new PlannerAreaCenter("Moja lokacija", latitude!.Value, longitude!.Value)
+                : GetPlannerAreaCenter(areaKey);
             var safeDistanceKm = Math.Clamp(distanceKm, 1, 12);
             var selectedWalkStyle = GetPlannerStyles().Any(item => item.Key == walkStyle) ? walkStyle! : "balanced";
             var selectedDogEnergy = NormalizeDogEnergy(dogEnergy);
             var bins = await _context.TrashBins
                 .Where(bin => bin.IsApproved)
                 .ToListAsync();
-            var route = BuildPlannedRoute(areaKey, safeDistanceKm, bins, selectedWalkStyle, selectedDogEnergy, includeBins, includePark, includeWater, includeDogFriendly);
-            var areaCenter = GetPlannerAreaCenter(areaKey);
+            var route = BuildPlannedRoute(areaKey, start, hasCurrentLocation, safeDistanceKm, bins, selectedWalkStyle, selectedDogEnergy, includeBins, includePark, includeWater, includeDogFriendly);
 
             var plan = new PlannedWalk
             {
                 OwnerId = userId,
                 DogId = dogId,
                 Title = route.Title,
-                AreaKey = areaKey,
-                AreaName = areaCenter.Name,
+                AreaKey = hasCurrentLocation ? "current-location" : areaKey,
+                AreaName = start.Name,
                 TargetDistanceKm = safeDistanceKm,
                 EstimatedDistanceKm = route.EstimatedDistanceKm,
                 EstimatedMinutes = route.EstimatedMinutes,
@@ -400,7 +417,11 @@ namespace DoggyDrop.Controllers
             {
                 dogId,
                 area = areaKey,
+                latitude = hasCurrentLocation ? latitude : null,
+                longitude = hasCurrentLocation ? longitude : null,
                 distanceKm = safeDistanceKm,
+                walkStyle = selectedWalkStyle,
+                dogEnergy = selectedDogEnergy,
                 includeBins,
                 includePark,
                 includeWater,
@@ -1427,6 +1448,8 @@ namespace DoggyDrop.Controllers
 
         private static PlannedWalkRoute BuildPlannedRoute(
             string areaKey,
+            PlannerAreaCenter area,
+            bool usesCurrentLocation,
             double targetDistanceKm,
             IReadOnlyList<TrashBin> bins,
             string walkStyle,
@@ -1436,7 +1459,6 @@ namespace DoggyDrop.Controllers
             bool includeWater,
             bool includeDogFriendly)
         {
-            var area = GetPlannerAreaCenter(areaKey);
             var effectiveDistanceKm = AdjustDistanceForEnergyAndStyle(targetDistanceKm, dogEnergy, walkStyle);
             var styleBins = includeBins;
             var stylePark = includePark;
@@ -1515,6 +1537,10 @@ namespace DoggyDrop.Controllers
             }
 
             var places = GetPlannerPlaces(areaKey);
+            if (usesCurrentLocation)
+            {
+                places = [];
+            }
             if (stylePark && effectiveDistanceKm >= 2.2)
             {
                 AddNearestPlannerPlace(stops, places, "park", "Pasji park", "Prostor za pocasnejsi tempo, vohanje in socialni del sprehoda.", ref order);
@@ -1550,7 +1576,7 @@ namespace DoggyDrop.Controllers
             return new PlannedWalkRoute
             {
                 Title = $"{effectiveDistanceKm:0.#} km {GetStyleTitle(walkStyle)} - {area.Name}",
-                Summary = BuildRouteSummary(stops, effectiveDistanceKm, walkStyle, dogEnergy),
+                Summary = BuildRouteSummary(stops, effectiveDistanceKm, walkStyle, dogEnergy, usesCurrentLocation),
                 TargetDistanceKm = effectiveDistanceKm,
                 EstimatedDistanceKm = estimatedDistanceKm,
                 EstimatedMinutes = Math.Max(10, (int)Math.Round(effectiveDistanceKm / GetSpeedKmPerHour(dogEnergy, walkStyle) * 60)),
@@ -1621,7 +1647,12 @@ namespace DoggyDrop.Controllers
             return generated;
         }
 
-        private static string BuildRouteSummary(IReadOnlyList<PlannedWalkRouteStop> stops, double targetDistanceKm, string walkStyle, string dogEnergy)
+        private static string BuildRouteSummary(
+            IReadOnlyList<PlannedWalkRouteStop> stops,
+            double targetDistanceKm,
+            string walkStyle,
+            string dogEnergy,
+            bool usesCurrentLocation)
         {
             var hasBin = stops.Any(stop => stop.Type == "bin");
             var hasPark = stops.Any(stop => stop.Type == "park");
@@ -1659,9 +1690,13 @@ namespace DoggyDrop.Controllers
                 _ => "Tempo je srednje zivahen."
             };
 
+            var locationNote = usesCurrentLocation
+                ? " Izhodišče je tvoja trenutna lokacija."
+                : string.Empty;
+
             return parts.Count == 0
-                ? $"{intro} {targetDistanceKm:0.#} km. {energyNote}"
-                : $"{intro} {targetDistanceKm:0.#} km: {string.Join(", ", parts)}. {energyNote}";
+                ? $"{intro} {targetDistanceKm:0.#} km. {energyNote}{locationNote}"
+                : $"{intro} {targetDistanceKm:0.#} km: {string.Join(", ", parts)}. {energyNote}{locationNote}";
         }
 
         private static double EstimateRouteDistance(IReadOnlyList<PlannedWalkPoint> points)
@@ -1824,6 +1859,14 @@ namespace DoggyDrop.Controllers
             }
 
             return "nizja";
+        }
+
+        private static bool IsValidPlannerCoordinate(double? latitude, double? longitude)
+        {
+            return latitude is >= -90 and <= 90
+                && longitude is >= -180 and <= 180
+                && Math.Abs(latitude.Value) > 0.0001
+                && Math.Abs(longitude.Value) > 0.0001;
         }
 
         private static PlannerAreaCenter GetPlannerAreaCenter(string areaKey)
