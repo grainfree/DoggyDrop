@@ -127,6 +127,7 @@ builder.Services.PostConfigure<EmailSettings>(settings =>
         : settings.SmtpPass;
 });
 builder.Services.AddTransient<IEmailSender, EmailSender>();
+builder.Services.AddHttpClient();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IGamificationService, GamificationService>();
 builder.Services.AddScoped<IDogProgressionService, DogProgressionService>();

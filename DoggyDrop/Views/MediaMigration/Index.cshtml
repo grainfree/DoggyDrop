@@ -1,0 +1,198 @@
+@model DoggyDrop.ViewModels.MediaMigrationViewModel
+
+@{
+    ViewData["Title"] = "Media migration";
+}
+
+<section class="app-page media-migration-page">
+    <header class="app-page__header">
+        <div>
+            <h1 class="app-page__title">Cloudinary → Cloudflare R2</h1>
+            <p class="app-page__lead">Kopiranje starih fotografij v R2. Najprej preveri stevilke, potem pozeneš batch.</p>
+        </div>
+        <a class="btn btn-outline-secondary rounded-pill fw-semibold" asp-controller="Map" asp-action="Manage">Nazaj na admin</a>
+    </header>
+
+    @if (!string.IsNullOrWhiteSpace(Model.Message))
+    {
+        <div class="alert alert-info">@Model.Message</div>
+    }
+
+    @if (!Model.IsR2Configured)
+    {
+        <div class="alert alert-warning">
+            Cloudflare R2 ni konfiguriran. Na Renderju morajo biti nastavljeni R2 account, access key, secret key, bucket in public URL.
+        </div>
+    }
+
+    <div class="media-migration-stats">
+        <article>
+            <strong>@Model.CloudinaryCount</strong>
+            <span>Cloudinary URL</span>
+        </article>
+        <article>
+            <strong>@Model.R2Count</strong>
+            <span>že na R2</span>
+        </article>
+        <article>
+            <strong>@Model.LocalCount</strong>
+            <span>lokalne slike</span>
+        </article>
+        <article>
+            <strong>@Model.EmptyCount</strong>
+            <span>prazno</span>
+        </article>
+    </div>
+
+    <article class="media-migration-panel">
+        <div>
+            <h2>Naslednji batch</h2>
+            <p>Vsak zagon kopira samo omejeno število slik. Če kaj pade, ostane star Cloudinary URL v bazi in lahko ponoviš.</p>
+        </div>
+        <form asp-controller="MediaMigration" asp-action="Run" method="post">
+            @Html.AntiForgeryToken()
+            <label for="batchLimit">Batch limit</label>
+            <input id="batchLimit" name="batchLimit" type="number" min="1" max="100" value="@Model.BatchLimit" />
+            <button type="submit" class="btn btn-success rounded-pill fw-semibold" disabled="@(!Model.IsR2Configured)">Kopiraj naslednji batch</button>
+        </form>
+    </article>
+
+    @if (Model.Results.Count > 0)
+    {
+        <article class="media-migration-panel">
+            <h2>Zadnji rezultati</h2>
+            <div class="media-migration-list">
+                @foreach (var result in Model.Results)
+                {
+                    <div class="media-migration-row media-migration-row--@result.Status.ToLowerInvariant()">
+                        <strong>@result.Status</strong>
+                        <span>@result.SourceType @(result.EntityId?.ToString() ?? result.EntityKey)</span>
+                        <small>@(string.IsNullOrWhiteSpace(result.Error) ? result.NewUrl : result.Error)</small>
+                    </div>
+                }
+            </div>
+        </article>
+    }
+
+    <article class="media-migration-panel">
+        <h2>Prvih 100 čakajočih</h2>
+        @if (Model.PendingItems.Count == 0)
+        {
+            <p>Ni več Cloudinary URL-jev za migracijo.</p>
+        }
+        else
+        {
+            <div class="media-migration-list">
+                @foreach (var item in Model.PendingItems)
+                {
+                    <div class="media-migration-row">
+                        <strong>@item.SourceType</strong>
+                        <span>@(item.EntityId?.ToString() ?? item.EntityKey)</span>
+                        <small>@item.Url</small>
+                    </div>
+                }
+            </div>
+        }
+    </article>
+</section>
+
+<style>
+    .media-migration-stats {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        margin-bottom: 14px;
+    }
+
+    .media-migration-stats article,
+    .media-migration-panel {
+        border: 1px solid rgba(31, 45, 41, 0.08);
+        border-radius: 8px;
+        background: #ffffff;
+        box-shadow: 0 14px 28px rgba(31, 45, 41, 0.08);
+    }
+
+    .media-migration-stats article {
+        padding: 16px;
+    }
+
+    .media-migration-stats strong,
+    .media-migration-stats span {
+        display: block;
+    }
+
+    .media-migration-stats strong {
+        color: #1f2d29;
+        font-size: 1.7rem;
+        font-weight: 950;
+    }
+
+    .media-migration-stats span,
+    .media-migration-panel p,
+    .media-migration-row small {
+        color: #65716d;
+    }
+
+    .media-migration-panel {
+        display: grid;
+        gap: 12px;
+        margin-top: 14px;
+        padding: 18px;
+    }
+
+    .media-migration-panel h2 {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 950;
+    }
+
+    .media-migration-panel form {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+    }
+
+    .media-migration-panel input {
+        width: 100px;
+        min-height: 40px;
+        border: 1px solid rgba(47, 109, 95, 0.18);
+        border-radius: 8px;
+        padding: 8px;
+    }
+
+    .media-migration-list {
+        display: grid;
+        gap: 8px;
+    }
+
+    .media-migration-row {
+        display: grid;
+        grid-template-columns: 130px 80px minmax(0, 1fr);
+        gap: 10px;
+        align-items: center;
+        padding: 10px;
+        border-radius: 8px;
+        background: #f7fbf8;
+    }
+
+    .media-migration-row small {
+        overflow-wrap: anywhere;
+        font-size: 0.8rem;
+    }
+
+    .media-migration-row--migrated {
+        background: #eef7ed;
+    }
+
+    .media-migration-row--failed {
+        background: #fff4e5;
+    }
+
+    @@media (max-width: 575.98px) {
+        .media-migration-stats,
+        .media-migration-row {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
