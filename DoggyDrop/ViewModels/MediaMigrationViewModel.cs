@@ -14,6 +14,8 @@ namespace DoggyDrop.ViewModels
 
         public int FailedCount { get; set; }
 
+        public int MissingCount { get; set; }
+
         public int BatchLimit { get; set; } = 25;
 
         public string? Message { get; set; }

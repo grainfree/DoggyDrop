@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using System.Net;
 
 namespace DoggyDrop.Controllers
 {
@@ -66,7 +67,8 @@ namespace DoggyDrop.Controllers
             refreshed.Results = results;
             refreshed.MigratedCount = results.Count(result => result.Status == "Migrated");
             refreshed.FailedCount = results.Count(result => result.Status == "Failed");
-            refreshed.Message = $"Batch koncan: {refreshed.MigratedCount} migriranih, {refreshed.FailedCount} neuspesnih.";
+            refreshed.MissingCount = results.Count(result => result.Status == "Missing");
+            refreshed.Message = $"Batch koncan: {refreshed.MigratedCount} migriranih, {refreshed.MissingCount} manjkajocih, {refreshed.FailedCount} neuspesnih.";
             return View("Index", refreshed);
         }
 
@@ -150,6 +152,20 @@ namespace DoggyDrop.Controllers
                     Status = "Migrated"
                 };
             }
+            catch (MissingRemoteMediaException exception)
+            {
+                await ClearDatabaseUrlAsync(item);
+                _logger.LogInformation(exception, "Cloudinary media missing for {SourceType} {EntityId}", item.SourceType, item.EntityId);
+                return new MediaMigrationResultViewModel
+                {
+                    SourceType = item.SourceType,
+                    EntityId = item.EntityId,
+                    EntityKey = item.EntityKey,
+                    OldUrl = item.Url,
+                    Status = "Missing",
+                    Error = exception.Message
+                };
+            }
             catch (Exception exception)
             {
                 _logger.LogWarning(exception, "Cloudinary media migration failed for {SourceType} {EntityId}", item.SourceType, item.EntityId);
@@ -173,6 +189,11 @@ namespace DoggyDrop.Controllers
             }
 
             using var response = await _httpClient.GetAsync(item.Url, HttpCompletionOption.ResponseHeadersRead);
+            if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Gone)
+            {
+                throw new MissingRemoteMediaException($"Cloudinary slika ne obstaja vec ({(int)response.StatusCode}).");
+            }
+
             response.EnsureSuccessStatusCode();
 
             var contentType = response.Content.Headers.ContentType?.MediaType ?? "application/octet-stream";
@@ -234,6 +255,41 @@ namespace DoggyDrop.Controllers
                     if (photo != null && photo.ImageUrl == item.Url)
                     {
                         photo.ImageUrl = newUrl;
+                    }
+                    break;
+            }
+        }
+
+        private async Task ClearDatabaseUrlAsync(MediaMigrationItemViewModel item)
+        {
+            switch (item.SourceType)
+            {
+                case "User profile":
+                    var user = await _context.Users.FirstOrDefaultAsync(candidate => candidate.Id == item.EntityKey);
+                    if (user != null && user.ProfileImageUrl == item.Url)
+                    {
+                        user.ProfileImageUrl = null;
+                    }
+                    break;
+                case "Dog":
+                    var dog = await _context.Dogs.FindAsync(item.EntityId);
+                    if (dog != null && dog.PhotoUrl == item.Url)
+                    {
+                        dog.PhotoUrl = null;
+                    }
+                    break;
+                case "Trash bin":
+                    var bin = await _context.TrashBins.FindAsync(item.EntityId);
+                    if (bin != null && bin.ImageUrl == item.Url)
+                    {
+                        bin.ImageUrl = null;
+                    }
+                    break;
+                case "Walk photo":
+                    var photo = await _context.WalkPhotos.FindAsync(item.EntityId);
+                    if (photo != null && photo.ImageUrl == item.Url)
+                    {
+                        photo.ImageUrl = string.Empty;
                     }
                     break;
             }
@@ -307,6 +363,14 @@ namespace DoggyDrop.Controllers
         {
             return !string.IsNullOrWhiteSpace(url)
                 && url.StartsWith("/", StringComparison.Ordinal);
+        }
+
+        private sealed class MissingRemoteMediaException : Exception
+        {
+            public MissingRemoteMediaException(string message)
+                : base(message)
+            {
+            }
         }
     }
 }
