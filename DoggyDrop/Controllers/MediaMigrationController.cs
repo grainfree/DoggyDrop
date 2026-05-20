@@ -179,18 +179,23 @@ namespace DoggyDrop.Controllers
             var extension = ResolveExtension(item.Url, contentType);
             var key = BuildObjectKey(item.SourceType, item.EntityId, item.EntityKey, extension);
 
-            await using var stream = await response.Content.ReadAsStreamAsync();
+            await using var remoteStream = await response.Content.ReadAsStreamAsync();
+            await using var uploadStream = new MemoryStream();
+            await remoteStream.CopyToAsync(uploadStream);
+            uploadStream.Position = 0;
+
             var request = new PutObjectRequest
             {
                 BucketName = _r2Settings.BucketName,
                 Key = key,
-                InputStream = stream,
+                InputStream = uploadStream,
                 ContentType = contentType,
                 AutoCloseStream = false,
                 DisableDefaultChecksumValidation = true,
                 DisablePayloadSigning = true,
                 Headers =
                 {
+                    ContentLength = uploadStream.Length,
                     CacheControl = "public, max-age=31536000, immutable"
                 }
             };
