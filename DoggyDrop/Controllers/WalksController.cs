@@ -20,6 +20,7 @@ namespace DoggyDrop.Controllers
         private readonly ICloudinaryService _cloudinaryService;
         private readonly IGamificationService _gamificationService;
         private readonly IDogProgressionService _dogProgressionService;
+        private readonly IOsmWalkPlannerService _osmWalkPlannerService;
 
         public WalksController(
             ApplicationDbContext context,
@@ -27,7 +28,8 @@ namespace DoggyDrop.Controllers
             INotificationService notificationService,
             ICloudinaryService cloudinaryService,
             IGamificationService gamificationService,
-            IDogProgressionService dogProgressionService)
+            IDogProgressionService dogProgressionService,
+            IOsmWalkPlannerService osmWalkPlannerService)
         {
             _context = context;
             _userManager = userManager;
@@ -35,6 +37,7 @@ namespace DoggyDrop.Controllers
             _cloudinaryService = cloudinaryService;
             _gamificationService = gamificationService;
             _dogProgressionService = dogProgressionService;
+            _osmWalkPlannerService = osmWalkPlannerService;
         }
 
         [HttpGet]
@@ -224,6 +227,20 @@ namespace DoggyDrop.Controllers
             var bins = await _context.TrashBins
                 .Where(bin => bin.IsApproved)
                 .ToListAsync();
+            var route = hasCurrentLocation
+                ? await _osmWalkPlannerService.PlanAsync(
+                    start.Latitude,
+                    start.Longitude,
+                    safeDistanceKm,
+                    bins,
+                    selectedWalkStyle,
+                    selectedDogEnergy,
+                    includeBins,
+                    includePark,
+                    includeWater,
+                    includeDogFriendly,
+                    HttpContext.RequestAborted)
+                : null;
 
             var model = new WalkPlannerViewModel
             {
@@ -243,7 +260,7 @@ namespace DoggyDrop.Controllers
                 Styles = styles,
                 WalkStyle = selectedWalkStyle,
                 DogEnergy = selectedDogEnergy,
-                Route = BuildPlannedRoute(
+                Route = route ?? BuildPlannedRoute(
                     areaKey,
                     start,
                     hasCurrentLocation,
@@ -366,7 +383,21 @@ namespace DoggyDrop.Controllers
             var bins = await _context.TrashBins
                 .Where(bin => bin.IsApproved)
                 .ToListAsync();
-            var route = BuildPlannedRoute(areaKey, start, hasCurrentLocation, safeDistanceKm, bins, selectedWalkStyle, selectedDogEnergy, includeBins, includePark, includeWater, includeDogFriendly);
+            var route = hasCurrentLocation
+                ? await _osmWalkPlannerService.PlanAsync(
+                    start.Latitude,
+                    start.Longitude,
+                    safeDistanceKm,
+                    bins,
+                    selectedWalkStyle,
+                    selectedDogEnergy,
+                    includeBins,
+                    includePark,
+                    includeWater,
+                    includeDogFriendly,
+                    HttpContext.RequestAborted)
+                : null;
+            route ??= BuildPlannedRoute(areaKey, start, hasCurrentLocation, safeDistanceKm, bins, selectedWalkStyle, selectedDogEnergy, includeBins, includePark, includeWater, includeDogFriendly);
 
             var plan = new PlannedWalk
             {

@@ -135,6 +135,11 @@ builder.Services.AddScoped<IDogProgressionService, DogProgressionService>();
 builder.Services.AddScoped<ISeasonalEventService, SeasonalEventService>();
 builder.Services.AddScoped<ILocalLeaderboardService, LocalLeaderboardService>();
 builder.Services.AddScoped<IMapStampService, MapStampService>();
+builder.Services.AddHttpClient<IOsmWalkPlannerService, OsmWalkPlannerService>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(9);
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("DoggyDrop/1.0 (https://doggydrop.app)");
+});
 
 builder.Services.AddControllersWithViews();
 builder.Services.AddRazorPages();
