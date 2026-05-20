@@ -12,12 +12,6 @@
     var selectedDog = Model.Dogs.FirstOrDefault(dog => dog.Id == Model.SelectedDogId) ?? Model.Dogs.FirstOrDefault();
 }
 
-@section Styles {
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-          integrity="sha256-p4NxAoJBhIINfQXh6ULpR5txR9wra5I3BcVsTPY1p3A="
-          crossorigin="" />
-}
-
 <section class="app-page walk-planner-page">
     <header class="app-page__header walk-planner-hero">
         <div>
@@ -133,7 +127,27 @@
                     </div>
                 </div>
                 <div class="walk-planner-map-frame">
-                    <div id="plannerMap"></div>
+                    <svg id="plannerRouteMap" class="walk-planner-route-map" viewBox="0 0 100 100" role="img" aria-label="Predvidena pot sprehoda">
+                        <defs>
+                            <linearGradient id="plannerRouteBackground" x1="0" y1="0" x2="1" y2="1">
+                                <stop offset="0" stop-color="#f4fbf2" />
+                                <stop offset="0.55" stop-color="#e8f4e6" />
+                                <stop offset="1" stop-color="#fdf8eb" />
+                            </linearGradient>
+                            <filter id="plannerRouteShadow" x="-20%" y="-20%" width="140%" height="140%">
+                                <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#1f2d29" flood-opacity="0.18" />
+                            </filter>
+                        </defs>
+                        <rect width="100" height="100" rx="6" fill="url(#plannerRouteBackground)" />
+                        <path d="M8 22 C24 14 36 26 50 18 S75 20 92 10" class="walk-planner-route-landmark" />
+                        <path d="M6 72 C23 66 36 75 50 68 S76 62 94 73" class="walk-planner-route-landmark walk-planner-route-landmark--soft" />
+                        <g class="walk-planner-route-grid">
+                            <path d="M20 8 V92 M40 8 V92 M60 8 V92 M80 8 V92 M8 25 H92 M8 50 H92 M8 75 H92" />
+                        </g>
+                        <polyline id="plannerRouteLine" class="walk-planner-route-line" points="" />
+                        <g id="plannerStopLayer"></g>
+                    </svg>
+                    <span class="walk-planner-map-note">Hiter prikaz poti</span>
                 </div>
                 <div class="walk-planner-start">
                     <form asp-controller="Walks" asp-action="SavePlan" method="post">
@@ -191,9 +205,6 @@
 </section>
 
 @section Scripts {
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-            crossorigin=""></script>
     <script>
         const plannerPoints = @routePointsJson;
         const plannerStops = @stopsJson;
@@ -267,57 +278,73 @@
                 requestPlannerLocation("auto");
             }
 
-            if (!plannerPoints.length || !document.getElementById("plannerMap")) {
+            drawPlannerRoutePreview();
+        });
+
+        function drawPlannerRoutePreview() {
+            const svg = document.getElementById("plannerRouteMap");
+            const line = document.getElementById("plannerRouteLine");
+            const stopLayer = document.getElementById("plannerStopLayer");
+            if (!plannerPoints.length || !svg || !line || !stopLayer) {
                 return;
             }
 
-            const routePoints = plannerPoints.map(point => [point.Latitude ?? point.latitude, point.Longitude ?? point.longitude]);
-            const map = L.map("plannerMap", { zoomControl: true }).setView(routePoints[0], 15);
+            const routePoints = plannerPoints
+                .map(readCoordinate)
+                .filter(Boolean);
+            const stopPoints = plannerStops
+                .map(stop => ({ ...stop, point: readCoordinate(stop) }))
+                .filter(stop => stop.point);
+            const allPoints = routePoints.concat(stopPoints.map(stop => stop.point));
+            if (allPoints.length === 0) {
+                return;
+            }
 
-            L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
-                subdomains: "abcd",
-                maxZoom: 20,
-                attribution: "&copy; OpenStreetMap contributors &copy; CARTO"
-            }).addTo(map);
-
-            const line = L.polyline(routePoints, { color: "#2f6d5f", weight: 6, opacity: 0.9 }).addTo(map);
-
-            plannerStops.forEach(stop => {
-                const lat = stop.Latitude ?? stop.latitude;
-                const lng = stop.Longitude ?? stop.longitude;
-                const label = stop.Label ?? stop.label;
-                const name = stop.Name ?? stop.name;
-                if (typeof lat !== "number" || typeof lng !== "number") {
-                    return;
-                }
-
-                L.marker([lat, lng], { icon: buildPlannerIcon(stop.Type ?? stop.type) })
-                    .addTo(map)
-                    .bindPopup(`<strong>${escapeHtml(name)}</strong><br>${escapeHtml(label)}`);
+            const bounds = allPoints.reduce((acc, point) => ({
+                minLat: Math.min(acc.minLat, point.lat),
+                maxLat: Math.max(acc.maxLat, point.lat),
+                minLng: Math.min(acc.minLng, point.lng),
+                maxLng: Math.max(acc.maxLng, point.lng)
+            }), {
+                minLat: allPoints[0].lat,
+                maxLat: allPoints[0].lat,
+                minLng: allPoints[0].lng,
+                maxLng: allPoints[0].lng
             });
 
-            map.fitBounds(line.getBounds().pad(0.2), { maxZoom: 16 });
-            window.setTimeout(() => map.invalidateSize(), 120);
-        });
-
-        function buildPlannerIcon(type) {
-            const labels = {
-                start: "S",
-                finish: "C",
-                bin: "B",
-                park: "P",
-                water: "W",
-                cafe: "C",
-                shop: "T"
+            const latRange = Math.max(bounds.maxLat - bounds.minLat, 0.0008);
+            const lngRange = Math.max(bounds.maxLng - bounds.minLng, 0.0008);
+            const project = point => {
+                const x = 10 + ((point.lng - bounds.minLng) / lngRange) * 80;
+                const y = 90 - ((point.lat - bounds.minLat) / latRange) * 80;
+                return { x: Math.max(8, Math.min(92, x)), y: Math.max(8, Math.min(92, y)) };
             };
 
-            return L.divIcon({
-                className: "",
-                html: `<span class="planner-marker planner-marker--${escapeHtml(type || "stop")}">${labels[type] || "."}</span>`,
-                iconSize: [38, 38],
-                iconAnchor: [19, 19],
-                popupAnchor: [0, -18]
+            const projectedRoute = routePoints.map(project);
+            line.setAttribute("points", projectedRoute.map(point => `${point.x.toFixed(2)},${point.y.toFixed(2)}`).join(" "));
+
+            stopLayer.innerHTML = "";
+            stopPoints.forEach(stop => {
+                const point = project(stop.point);
+                const type = stop.Type ?? stop.type ?? "stop";
+                const order = stop.Order ?? stop.order ?? "";
+                const marker = document.createElementNS("http://www.w3.org/2000/svg", "g");
+                marker.setAttribute("class", `walk-planner-route-stop walk-planner-route-stop--${escapeHtml(type)}`);
+                marker.setAttribute("transform", `translate(${point.x.toFixed(2)} ${point.y.toFixed(2)})`);
+                marker.innerHTML = `
+                    <circle r="4.4"></circle>
+                    <text y="1.6">${escapeHtml(order)}</text>
+                `;
+                stopLayer.appendChild(marker);
             });
+        }
+
+        function readCoordinate(item) {
+            const lat = item?.Latitude ?? item?.latitude;
+            const lng = item?.Longitude ?? item?.longitude;
+            return typeof lat === "number" && typeof lng === "number"
+                ? { lat, lng }
+                : null;
         }
 
         function escapeHtml(value) {
@@ -365,9 +392,9 @@
 
     .walk-planner-toolbar {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(220px, 0.9fr);
-        gap: 10px;
-        align-items: start;
+        grid-template-columns: minmax(0, 1fr) minmax(180px, auto);
+        gap: 12px;
+        align-items: end;
     }
 
     .walk-planner-form div,
@@ -452,6 +479,7 @@
         border: 1px solid rgba(47, 109, 95, 0.18) !important;
         background: #eef7ed !important;
         color: #2f6d5f !important;
+        padding-inline: 16px;
     }
 
     .walk-planner-location__button:disabled {
@@ -510,6 +538,9 @@
     }
 
     .walk-planner-advanced summary {
+        display: inline-flex;
+        align-items: center;
+        min-height: 36px;
         color: #2f6d5f;
         cursor: pointer;
         font-weight: 900;
@@ -603,25 +634,91 @@
         border-radius: 8px;
         border: 1px solid rgba(31, 45, 41, 0.14);
         background: #eaf4ea;
-        height: clamp(320px, 42vw, 460px);
-        min-height: 320px;
-        max-height: 460px;
+        height: clamp(260px, 35vw, 380px);
+        min-height: 260px;
+        max-height: 380px;
         box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.42);
     }
 
-    #plannerMap {
+    .walk-planner-route-map {
         position: absolute;
         inset: 0;
         width: 100%;
         height: 100%;
-        min-height: 320px;
-        background: #eaf4ea;
+        display: block;
     }
 
-    #plannerMap .leaflet-container,
-    #plannerMap .leaflet-pane,
-    #plannerMap .leaflet-tile-pane {
-        max-width: 100%;
+    .walk-planner-map-note {
+        position: absolute;
+        right: 12px;
+        bottom: 10px;
+        padding: 5px 9px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.84);
+        color: #65716d;
+        font-size: 0.72rem;
+        font-weight: 900;
+        letter-spacing: 0;
+    }
+
+    .walk-planner-route-grid path {
+        fill: none;
+        stroke: rgba(47, 109, 95, 0.08);
+        stroke-width: 0.45;
+    }
+
+    .walk-planner-route-landmark {
+        fill: none;
+        stroke: rgba(47, 109, 95, 0.14);
+        stroke-linecap: round;
+        stroke-width: 1.2;
+    }
+
+    .walk-planner-route-landmark--soft {
+        stroke: rgba(189, 143, 68, 0.18);
+    }
+
+    .walk-planner-route-line {
+        fill: none;
+        stroke: #2f6d5f;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-width: 3.4;
+        filter: url(#plannerRouteShadow);
+    }
+
+    .walk-planner-route-stop circle {
+        fill: #ffffff;
+        stroke: #2f6d5f;
+        stroke-width: 2.2;
+    }
+
+    .walk-planner-route-stop text {
+        fill: #21342f;
+        font-size: 4px;
+        font-weight: 950;
+        text-anchor: middle;
+        dominant-baseline: middle;
+    }
+
+    .walk-planner-route-stop--start circle,
+    .walk-planner-route-stop--finish circle {
+        fill: #21342f;
+        stroke: #ffffff;
+    }
+
+    .walk-planner-route-stop--start text,
+    .walk-planner-route-stop--finish text {
+        fill: #ffffff;
+    }
+
+    .walk-planner-route-stop--bin circle {
+        fill: #2f6d5f;
+        stroke: #ffffff;
+    }
+
+    .walk-planner-route-stop--bin text {
+        fill: #ffffff;
     }
 
     .walk-planner-start {
@@ -655,28 +752,6 @@
         background: #eef7ed !important;
         color: #2f6d5f !important;
     }
-
-    .planner-marker {
-        display: grid;
-        width: 38px;
-        height: 38px;
-        place-items: center;
-        border: 3px solid #ffffff;
-        border-radius: 14px;
-        background: #2f6d5f;
-        box-shadow: 0 10px 20px rgba(31, 45, 41, 0.25);
-        color: #ffffff;
-        font-size: 0.8rem;
-        font-weight: 950;
-    }
-
-    .planner-marker--bin { background: #2f6d5f; }
-    .planner-marker--park { background: #467b42; }
-    .planner-marker--water { background: #2f7da5; }
-    .planner-marker--cafe,
-    .planner-marker--shop { background: #b66b2f; }
-    .planner-marker--start,
-    .planner-marker--finish { background: #21342f; }
 
     .walk-planner-stops {
         display: grid;
@@ -785,13 +860,14 @@
         }
 
         .walk-planner-map-frame {
-            height: min(78vw, 360px);
-            min-height: 280px;
-            max-height: 360px;
+            height: min(68vw, 330px);
+            min-height: 240px;
+            max-height: 330px;
         }
 
-        #plannerMap {
-            min-height: 280px;
+        .walk-planner-map-note {
+            right: 9px;
+            bottom: 8px;
         }
 
         .walk-planner-stops article {
