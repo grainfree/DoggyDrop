@@ -32,6 +32,9 @@ namespace DoggyDrop.ViewModels
 
         public string? CurrentPhotoUrl { get; set; }
 
+        [StringLength(40)]
+        public string MapIconKey { get; set; } = "dog-face";
+
         public IFormFile? Photo { get; set; }
     }
 }

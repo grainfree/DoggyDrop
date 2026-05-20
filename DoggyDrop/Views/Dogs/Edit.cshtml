@@ -2,6 +2,25 @@
 
 @{
     ViewData["Title"] = "Uredi psa";
+    var dogIconOptions = new[]
+    {
+        ("dog-face", "Klasik"),
+        ("beagle", "Beagle"),
+        ("retriever", "Retriever"),
+        ("terrier", "Terier"),
+        ("poodle", "Pudelj"),
+        ("husky", "Husky"),
+        ("bulldog", "Bulldog"),
+        ("dachshund", "Jazbečar"),
+        ("shepherd", "Ovčar"),
+        ("spaniel", "Španjel"),
+        ("shiba", "Shiba"),
+        ("dalmatian", "Dalmatinec"),
+        ("puppy", "Mladič"),
+        ("senior", "Senior"),
+        ("small-dog", "Mali pes"),
+        ("big-dog", "Velik pes")
+    };
 }
 
 <section class="app-page dog-form-page">
@@ -75,6 +94,27 @@
             <textarea asp-for="Character" class="form-control" rows="3"></textarea>
             <span asp-validation-for="Character" class="text-danger small"></span>
         </div>
+
+        <section class="dog-icon-picker">
+            <div class="dog-icon-picker__header">
+                <label class="form-label">Ikona na zemljevidu</label>
+                <span>Ta marker se uporablja na pasjem sloju zemljevida.</span>
+            </div>
+            <div class="dog-icon-picker__grid">
+                @foreach (var option in dogIconOptions)
+                {
+                    var isSelected = string.Equals(Model.MapIconKey, option.Item1, StringComparison.OrdinalIgnoreCase);
+                    <label class="dog-icon-option @(isSelected ? "is-active" : "")">
+                        <input asp-for="MapIconKey" type="radio" value="@option.Item1" checked="@isSelected" />
+                        <span class="dog-map-icon dog-map-icon--@option.Item1" aria-hidden="true">
+                            <span></span>
+                        </span>
+                        <strong>@option.Item2</strong>
+                    </label>
+                }
+            </div>
+            <span asp-validation-for="MapIconKey" class="text-danger small"></span>
+        </section>
 
         <section class="dog-social-settings">
             <div>
@@ -169,6 +209,146 @@
         gap: 12px;
     }
 
+    .dog-icon-picker {
+        display: grid;
+        gap: 10px;
+        margin: 4px 0 18px;
+    }
+
+    .dog-icon-picker__header {
+        display: grid;
+        gap: 2px;
+    }
+
+    .dog-icon-picker__header .form-label {
+        margin: 0;
+    }
+
+    .dog-icon-picker__header span {
+        color: #65716d;
+        font-size: 0.86rem;
+        font-weight: 700;
+    }
+
+    .dog-icon-picker__grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 8px;
+    }
+
+    .dog-icon-option {
+        display: grid;
+        gap: 7px;
+        place-items: center;
+        min-height: 92px;
+        padding: 10px 8px;
+        border: 1px solid rgba(31, 45, 41, 0.1);
+        border-radius: 8px;
+        background: #f8faf7;
+        color: #21342f;
+        cursor: pointer;
+    }
+
+    .dog-icon-option input {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .dog-icon-option strong {
+        font-size: 0.76rem;
+        font-weight: 900;
+        text-align: center;
+    }
+
+    .dog-icon-option.is-active {
+        border-color: #2f6d5f;
+        background: #e7f3ed;
+        box-shadow: inset 0 0 0 2px rgba(47, 109, 95, 0.12);
+    }
+
+    .dog-map-icon {
+        position: relative;
+        display: inline-grid;
+        width: 44px;
+        height: 44px;
+        place-items: center;
+        border: 3px solid #ffffff;
+        border-radius: 999px;
+        background: #f3c879;
+        box-shadow: 0 8px 18px rgba(31, 45, 41, 0.18);
+    }
+
+    .dog-map-icon::before,
+    .dog-map-icon::after {
+        position: absolute;
+        top: 7px;
+        width: 13px;
+        height: 19px;
+        border-radius: 12px 12px 12px 4px;
+        background: #8d5b32;
+        content: "";
+    }
+
+    .dog-map-icon::before {
+        left: -4px;
+        transform: rotate(-26deg);
+    }
+
+    .dog-map-icon::after {
+        right: -4px;
+        transform: rotate(26deg);
+    }
+
+    .dog-map-icon span {
+        position: relative;
+        width: 18px;
+        height: 13px;
+        border-radius: 0 0 14px 14px;
+        background: rgba(255, 255, 255, 0.72);
+    }
+
+    .dog-map-icon span::before,
+    .dog-map-icon span::after {
+        position: absolute;
+        top: -8px;
+        width: 4px;
+        height: 4px;
+        border-radius: 999px;
+        background: #21342f;
+        content: "";
+    }
+
+    .dog-map-icon span::before { left: 2px; }
+    .dog-map-icon span::after { right: 2px; }
+
+    .dog-map-icon--beagle { background: #d99a53; }
+    .dog-map-icon--retriever { background: #e6bd62; }
+    .dog-map-icon--terrier { background: #f3f0df; }
+    .dog-map-icon--poodle { background: #f5e9ef; }
+    .dog-map-icon--husky { background: #dce8ef; }
+    .dog-map-icon--bulldog { background: #c88b62; }
+    .dog-map-icon--dachshund { background: #9a6032; }
+    .dog-map-icon--shepherd { background: #b37b42; }
+    .dog-map-icon--spaniel { background: #d48357; }
+    .dog-map-icon--shiba { background: #e08a3e; }
+    .dog-map-icon--dalmatian { background: #f7f7f2; }
+    .dog-map-icon--puppy { background: #f2d58a; }
+    .dog-map-icon--senior { background: #d9d2c4; }
+    .dog-map-icon--small-dog { width: 38px; height: 38px; }
+    .dog-map-icon--big-dog { width: 50px; height: 50px; }
+
+    .dog-map-icon--poodle::before,
+    .dog-map-icon--poodle::after,
+    .dog-map-icon--husky::before,
+    .dog-map-icon--husky::after,
+    .dog-map-icon--dalmatian::before,
+    .dog-map-icon--dalmatian::after,
+    .dog-map-icon--terrier::before,
+    .dog-map-icon--terrier::after {
+        background: #6d6258;
+    }
+
     .dog-social-settings {
         margin: 18px 0;
         padding: 14px;
@@ -210,6 +390,10 @@
         .dog-form__grid {
             grid-template-columns: 1fr;
             gap: 0;
+        }
+
+        .dog-icon-picker__grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
         }
 
         .dog-form__actions .btn,

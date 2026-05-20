@@ -38,6 +38,7 @@ namespace DoggyDrop.Controllers.Api
                     dog.Size,
                     dog.Character,
                     dog.PhotoUrl,
+                    dog.MapIconKey,
                     dog.NearbyVisibility,
                     dog.LastKnownLatitude,
                     dog.LastKnownLongitude
@@ -127,6 +128,7 @@ namespace DoggyDrop.Controllers.Api
                     dog.Size,
                     dog.Character,
                     dog.PhotoUrl,
+                    dog.MapIconKey,
                     Latitude = dog.LastKnownLatitude!.Value,
                     Longitude = dog.LastKnownLongitude!.Value,
                     OwnerName = dog.Owner != null && !string.IsNullOrWhiteSpace(dog.Owner.DisplayName)
@@ -152,6 +154,7 @@ namespace DoggyDrop.Controllers.Api
                     dog.Size,
                     dog.Character,
                     dog.PhotoUrl,
+                    dog.MapIconKey,
                     dog.Latitude,
                     dog.Longitude,
                     dog.OwnerName,

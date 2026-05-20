@@ -125,7 +125,8 @@ namespace DoggyDrop.Controllers
                     .Select(dog => new
                     {
                         dog.Id,
-                        dog.Name
+                        dog.Name,
+                        dog.MapIconKey
                     })
                     .ToListAsync();
 

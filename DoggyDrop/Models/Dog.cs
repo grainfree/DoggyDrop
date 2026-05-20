@@ -28,6 +28,9 @@ namespace DoggyDrop.Models
 
         public string? PhotoUrl { get; set; }
 
+        [MaxLength(40)]
+        public string MapIconKey { get; set; } = "dog-face";
+
         [MaxLength(30)]
         public string NearbyVisibility { get; set; } = "Invisible";
 

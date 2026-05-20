@@ -167,6 +167,7 @@ namespace DoggyDrop.Controllers
                 Size = dog.Size,
                 Character = dog.Character,
                 NearbyVisibility = dog.NearbyVisibility,
+                MapIconKey = NormalizeMapIconKey(dog.MapIconKey),
                 ApproximateLocation = GetApproximateLocationKey(dog.LastKnownLatitude, dog.LastKnownLongitude),
                 CurrentPhotoUrl = dog.PhotoUrl
             });
@@ -206,6 +207,7 @@ namespace DoggyDrop.Controllers
                 Gender = model.Gender,
                 Size = model.Size,
                 Character = model.Character,
+                MapIconKey = NormalizeMapIconKey(model.MapIconKey),
                 PhotoUrl = photoUrl,
                 OwnerId = userId,
                 CreatedAt = DateTime.UtcNow
@@ -260,6 +262,7 @@ namespace DoggyDrop.Controllers
             dog.Gender = model.Gender;
             dog.Size = model.Size;
             dog.Character = model.Character;
+            dog.MapIconKey = NormalizeMapIconKey(model.MapIconKey);
             dog.NearbyVisibility = NormalizeVisibility(model.NearbyVisibility);
             ApplyApproximateLocation(dog, model.ApproximateLocation);
 
@@ -414,6 +417,29 @@ namespace DoggyDrop.Controllers
         private static string NormalizeVisibility(string? visibility)
         {
             return visibility is "Visible" or "FriendsOnly" ? visibility : "Invisible";
+        }
+
+        private static string NormalizeMapIconKey(string? iconKey)
+        {
+            return iconKey is
+                "dog-face" or
+                "beagle" or
+                "retriever" or
+                "terrier" or
+                "poodle" or
+                "husky" or
+                "bulldog" or
+                "dachshund" or
+                "shepherd" or
+                "spaniel" or
+                "shiba" or
+                "dalmatian" or
+                "puppy" or
+                "senior" or
+                "small-dog" or
+                "big-dog"
+                ? iconKey
+                : "dog-face";
         }
 
         private static void ApplyApproximateLocation(Dog dog, string? locationKey)

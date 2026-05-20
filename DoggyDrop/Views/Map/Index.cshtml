@@ -665,18 +665,86 @@
     }
 
     .map-dog-marker {
-        display: grid;
+        position: relative;
+        display: inline-grid;
         width: 42px;
         height: 42px;
         place-items: center;
         border: 3px solid #ffffff;
-        border-radius: 16px;
-        background: #5c6bc0;
+        border-radius: 999px;
+        background: #f3c879;
         box-shadow: 0 12px 24px rgba(31, 45, 41, 0.28);
-        color: #ffffff;
-        font-size: 17px;
-        font-weight: 950;
-        line-height: 1;
+        transform: rotate(-6deg);
+    }
+
+    .map-dog-marker::before,
+    .map-dog-marker::after {
+        position: absolute;
+        top: 6px;
+        width: 12px;
+        height: 18px;
+        border-radius: 12px 12px 12px 4px;
+        background: #8d5b32;
+        content: "";
+    }
+
+    .map-dog-marker::before {
+        left: -4px;
+        transform: rotate(-26deg);
+    }
+
+    .map-dog-marker::after {
+        right: -4px;
+        transform: rotate(26deg);
+    }
+
+    .map-dog-marker__face {
+        position: relative;
+        width: 18px;
+        height: 13px;
+        border-radius: 0 0 14px 14px;
+        background: rgba(255, 255, 255, 0.72);
+    }
+
+    .map-dog-marker__face::before,
+    .map-dog-marker__face::after {
+        position: absolute;
+        top: -8px;
+        width: 4px;
+        height: 4px;
+        border-radius: 999px;
+        background: #21342f;
+        content: "";
+    }
+
+    .map-dog-marker__face::before { left: 2px; }
+    .map-dog-marker__face::after { right: 2px; }
+
+    .map-dog-marker--beagle { background: #d99a53; }
+    .map-dog-marker--retriever { background: #e6bd62; }
+    .map-dog-marker--terrier { background: #f3f0df; }
+    .map-dog-marker--poodle { background: #f5e9ef; }
+    .map-dog-marker--husky { background: #dce8ef; }
+    .map-dog-marker--bulldog { background: #c88b62; }
+    .map-dog-marker--dachshund { background: #9a6032; }
+    .map-dog-marker--shepherd { background: #b37b42; }
+    .map-dog-marker--spaniel { background: #d48357; }
+    .map-dog-marker--shiba { background: #e08a3e; }
+    .map-dog-marker--dalmatian { background: #f7f7f2; }
+    .map-dog-marker--puppy { background: #f2d58a; }
+    .map-dog-marker--senior { background: #d9d2c4; }
+    .map-dog-marker--small-dog { width: 36px; height: 36px; }
+    .map-dog-marker--big-dog { width: 48px; height: 48px; }
+
+    .map-dog-marker--poodle::before,
+    .map-dog-marker--poodle::after,
+    .map-dog-marker--husky::before,
+    .map-dog-marker--husky::after,
+    .map-dog-marker--dalmatian::before,
+    .map-dog-marker--dalmatian::after,
+    .map-dog-marker--terrier::before,
+    .map-dog-marker--terrier::after {
+        background: #6d6258;
     }
 
     #directionsPanel {
@@ -2136,13 +2204,26 @@ else if (needsDogOnboarding)
             popupAnchor: [0, -24]
         });
 
-        const dogIcon = L.divIcon({
-            className: "",
-            html: "<span class=\"map-dog-marker\">D</span>",
-            iconSize: [42, 42],
-            iconAnchor: [21, 21],
-            popupAnchor: [0, -22]
-        });
+        function createDogIcon(dog) {
+            const key = normalizeDogIconKey(dog?.mapIconKey ?? dog?.MapIconKey);
+            const size = key === "big-dog" ? 48 : key === "small-dog" ? 36 : 42;
+            const anchor = Math.round(size / 2);
+            return L.divIcon({
+                className: "",
+                html: `<span class="map-dog-marker map-dog-marker--${escapeAttribute(key)}" aria-label="Pes"><span class="map-dog-marker__face"></span></span>`,
+                iconSize: [size, size],
+                iconAnchor: [anchor, anchor],
+                popupAnchor: [0, -anchor]
+            });
+        }
+
+        function normalizeDogIconKey(value) {
+            const allowed = new Set([
+                "dog-face", "beagle", "retriever", "terrier", "poodle", "husky", "bulldog", "dachshund",
+                "shepherd", "spaniel", "shiba", "dalmatian", "puppy", "senior", "small-dog", "big-dog"
+            ]);
+            return allowed.has(value) ? value : "dog-face";
+        }
 
         function createPlaceIcon(type) {
             const label = type === "park" ? "P" : type === "water" ? "W" : "C";
@@ -2494,7 +2575,7 @@ else if (needsDogOnboarding)
                 const dogs = await response.json();
                 dogLayer.clearLayers();
                 dogs.forEach(dog => {
-                    L.marker([dog.latitude, dog.longitude], { icon: dogIcon })
+                    L.marker([dog.latitude, dog.longitude], { icon: createDogIcon(dog) })
                         .addTo(dogLayer)
                         .bindPopup(buildDogPopupContent(dog));
                 });
