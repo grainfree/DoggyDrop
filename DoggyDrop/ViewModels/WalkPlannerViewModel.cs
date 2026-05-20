@@ -37,6 +37,8 @@ namespace DoggyDrop.ViewModels
         public IReadOnlyList<WalkPlannerArea> Areas { get; set; } = [];
 
         public IReadOnlyList<PlannerStyleOption> Styles { get; set; } = [];
+
+        public IReadOnlyList<QuickWalkTemplate> Presets { get; set; } = [];
     }
 
     public class WalkPlannerArea

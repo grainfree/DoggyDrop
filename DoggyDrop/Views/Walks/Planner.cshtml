@@ -8,6 +8,7 @@
     var stopsJson = Html.Raw(JsonSerializer.Serialize(Model.Route?.Stops ?? []));
     var latitudeValue = Model.Latitude?.ToString("0.######", CultureInfo.InvariantCulture) ?? string.Empty;
     var longitudeValue = Model.Longitude?.ToString("0.######", CultureInfo.InvariantCulture) ?? string.Empty;
+    var binStop = Model.Route?.Stops.FirstOrDefault(stop => stop.Type == "bin");
 }
 
 @section Styles {
@@ -20,92 +21,92 @@
     <header class="app-page__header walk-planner-hero">
         <div>
             <h1 class="app-page__title">Planer sprehoda</h1>
-            <p class="app-page__lead">Izberi dolžino poti, AI planer pa iz realnih košev, OSM točk in peš routinga predlaga krog iz tvoje lokacije.</p>
+            <p class="app-page__lead">Izberi hiter predlog. GPS je privzet, koši v bližini pa se samodejno vključijo v pot.</p>
         </div>
         <a class="btn btn-outline-secondary rounded-pill" asp-controller="Walks" asp-action="Index">Sprehodi</a>
     </header>
 
-    <form class="walk-planner-form" asp-controller="Walks" asp-action="Planner" method="get" id="walkPlannerForm">
-        <div>
-            <label for="dogId">Pes</label>
-            <select id="dogId" name="dogId">
-                @foreach (var dog in Model.Dogs)
-                {
-                    <option value="@dog.Id" selected="@(Model.SelectedDogId == dog.Id)">@dog.Name</option>
-                }
-            </select>
+    <form class="walk-planner-form walk-planner-form--quick" asp-controller="Walks" asp-action="Planner" method="get" id="walkPlannerForm">
+        <input type="hidden" id="plannerLatitude" name="latitude" value="@latitudeValue" />
+        <input type="hidden" id="plannerLongitude" name="longitude" value="@longitudeValue" />
+        <input type="hidden" id="distanceKm" name="distanceKm" value="@Model.TargetDistanceKm.ToString(CultureInfo.InvariantCulture)" />
+        <input type="hidden" id="walkStyle" name="walkStyle" value="@Model.WalkStyle" />
+        <input type="hidden" id="includeBins" name="includeBins" value="@Model.IncludeBins.ToString().ToLowerInvariant()" />
+        <input type="hidden" id="includePark" name="includePark" value="@Model.IncludePark.ToString().ToLowerInvariant()" />
+        <input type="hidden" id="includeWater" name="includeWater" value="@Model.IncludeWater.ToString().ToLowerInvariant()" />
+        <input type="hidden" id="includeDogFriendly" name="includeDogFriendly" value="@Model.IncludeDogFriendly.ToString().ToLowerInvariant()" />
+
+        <div class="walk-planner-toolbar">
+            <div>
+                <label for="dogId">Pes</label>
+                <select id="dogId" name="dogId">
+                    @foreach (var dog in Model.Dogs)
+                    {
+                        <option value="@dog.Id" selected="@(Model.SelectedDogId == dog.Id)">@dog.Name</option>
+                    }
+                </select>
+            </div>
+            <div>
+                <label for="dogEnergy">Energija</label>
+                <select id="dogEnergy" name="dogEnergy">
+                    <option value="auto" selected="@(Model.DogEnergy == "auto")">Auto</option>
+                    <option value="low" selected="@(Model.DogEnergy == "low")">Mirna</option>
+                    <option value="high" selected="@(Model.DogEnergy == "high")">Aktivna</option>
+                </select>
+            </div>
+            <div class="walk-planner-location">
+                <label>Izhodišče</label>
+                <button type="button" id="usePlannerLocation" class="walk-planner-location__button">Moja lokacija</button>
+                <span id="plannerLocationStatus">
+                    @(Model.UsesCurrentLocation ? "GPS je aktiven. Predlog je iz tvoje lokacije." : "GPS se bo poskusil vklopiti samodejno.")
+                </span>
+            </div>
         </div>
-        <div class="walk-planner-location">
-            <label>Izhodišče</label>
-            <input type="hidden" id="plannerLatitude" name="latitude" value="@latitudeValue" />
-            <input type="hidden" id="plannerLongitude" name="longitude" value="@longitudeValue" />
-            <button type="button" id="usePlannerLocation" class="walk-planner-location__button">
-                Uporabi mojo lokacijo
-            </button>
-            <span id="plannerLocationStatus">
-                @(Model.UsesCurrentLocation ? "Izhodišče: tvoja trenutna lokacija" : "Izhodišče: izberi GPS ali uporabi fallback območje")
-            </span>
+
+        <div class="walk-planner-presets" aria-label="Hitri predlogi sprehoda">
+            @foreach (var preset in Model.Presets)
+            {
+                var isActive = Math.Abs(Model.TargetDistanceKm - preset.DistanceKm) < 0.05
+                    && string.Equals(Model.WalkStyle, preset.WalkStyle, StringComparison.OrdinalIgnoreCase);
+                <button type="button"
+                        class="walk-planner-preset @(isActive ? "is-active" : "")"
+                        data-distance="@preset.DistanceKm.ToString(CultureInfo.InvariantCulture)"
+                        data-style="@preset.WalkStyle"
+                        data-bins="@preset.IncludeBins.ToString().ToLowerInvariant()"
+                        data-park="@preset.IncludePark.ToString().ToLowerInvariant()"
+                        data-water="@preset.IncludeWater.ToString().ToLowerInvariant()"
+                        data-dog-friendly="@preset.IncludeDogFriendly.ToString().ToLowerInvariant()">
+                    <strong>@preset.Title</strong>
+                    <span>@preset.Subtitle</span>
+                    <em>@preset.DistanceKm.ToString("0.#") km</em>
+                </button>
+            }
         </div>
-        <div class="walk-planner-fallback">
-            <label for="area">Fallback območje</label>
-            <select id="area" name="area">
-                @foreach (var area in Model.Areas)
-                {
-                    <option value="@area.Key" selected="@(Model.AreaKey == area.Key)">@area.Name</option>
-                }
-            </select>
-        </div>
-        <div>
-            <label for="distanceKm">Dolžina</label>
-            <select id="distanceKm" name="distanceKm">
-                @foreach (var distance in new[] { 1.5, 2.5, 3.5, 5.0, 7.5, 10.0 })
-                {
-                    <option value="@distance.ToString(System.Globalization.CultureInfo.InvariantCulture)"
-                            selected="@(Math.Abs(Model.TargetDistanceKm - distance) < 0.05)">
-                        @distance.ToString("0.#") km
-                    </option>
-                }
-            </select>
-        </div>
-        <div>
-            <label for="walkStyle">Tip poti</label>
-            <select id="walkStyle" name="walkStyle">
-                @foreach (var style in Model.Styles)
-                {
-                    <option value="@style.Key" selected="@(Model.WalkStyle == style.Key)">@style.Name</option>
-                }
-            </select>
-        </div>
-        <div>
-            <label for="dogEnergy">Energija psa</label>
-            <select id="dogEnergy" name="dogEnergy">
-                <option value="auto" selected="@(Model.DogEnergy == "auto")">Auto</option>
-                <option value="low" selected="@(Model.DogEnergy == "low")">Mirna</option>
-                <option value="high" selected="@(Model.DogEnergy == "high")">Aktivna</option>
-            </select>
-        </div>
-        <label class="walk-planner-check">
-            <input type="hidden" name="includeBins" value="false" />
-            <input type="checkbox" name="includeBins" value="true" checked="@Model.IncludeBins" />
-            <span>Kosi</span>
-        </label>
-        <label class="walk-planner-check">
-            <input type="hidden" name="includePark" value="false" />
-            <input type="checkbox" name="includePark" value="true" checked="@Model.IncludePark" />
-            <span>Park</span>
-        </label>
-        <label class="walk-planner-check">
-            <input type="hidden" name="includeWater" value="false" />
-            <input type="checkbox" name="includeWater" value="true" checked="@Model.IncludeWater" />
-            <span>Voda</span>
-        </label>
-        <label class="walk-planner-check">
-            <input type="hidden" name="includeDogFriendly" value="false" />
-            <input type="checkbox" name="includeDogFriendly" value="true" checked="@Model.IncludeDogFriendly" />
-            <span>Dog-friendly</span>
-        </label>
-        <button type="submit">Ustvari pot</button>
+
+        <details class="walk-planner-advanced">
+            <summary>Rezervno območje, če GPS ni dovoljen</summary>
+            <div class="walk-planner-advanced__grid">
+                <div>
+                    <label for="area">Fallback območje</label>
+                    <select id="area" name="area">
+                        @foreach (var area in Model.Areas)
+                        {
+                            <option value="@area.Key" selected="@(Model.AreaKey == area.Key)">@area.Name</option>
+                        }
+                    </select>
+                </div>
+                <button type="submit">Ustvari iz fallback območja</button>
+            </div>
+        </details>
     </form>
+
+    @if (binStop != null)
+    {
+        <aside class="walk-planner-nearby-bin">
+            <strong>Koš je vključen v pot</strong>
+            <span>@binStop.Name je na predlagani trasi, če ga med sprehodom potrebuješ.</span>
+        </aside>
+    }
 
     @if (Model.Route != null)
     {
@@ -131,7 +132,7 @@
                         <input type="hidden" name="area" value="@Model.AreaKey" />
                         <input type="hidden" name="latitude" value="@latitudeValue" />
                         <input type="hidden" name="longitude" value="@longitudeValue" />
-                        <input type="hidden" name="distanceKm" value="@Model.TargetDistanceKm.ToString(System.Globalization.CultureInfo.InvariantCulture)" />
+                        <input type="hidden" name="distanceKm" value="@Model.TargetDistanceKm.ToString(CultureInfo.InvariantCulture)" />
                         <input type="hidden" name="walkStyle" value="@Model.WalkStyle" />
                         <input type="hidden" name="dogEnergy" value="@Model.DogEnergy" />
                         <input type="hidden" name="includeBins" value="@Model.IncludeBins.ToString().ToLowerInvariant()" />
@@ -151,12 +152,12 @@
                             {
                                 <input type="hidden" name="plannedWalkId" value="@Model.Route.SavedPlanId.Value" />
                             }
-                            <button type="submit">Zacni ta sprehod</button>
+                            <button type="submit">Začni ta sprehod</button>
                         </form>
                     }
                     else
                     {
-                        <a asp-controller="Dogs" asp-action="Create">Dodaj psa za zacetek sprehoda</a>
+                        <a asp-controller="Dogs" asp-action="Create">Dodaj psa za začetek sprehoda</a>
                     }
                 </div>
             </article>
@@ -193,31 +194,68 @@
             const longitudeInput = document.getElementById("plannerLongitude");
             const locationStatus = document.getElementById("plannerLocationStatus");
             const locationButton = document.getElementById("usePlannerLocation");
+            const distanceInput = document.getElementById("distanceKm");
+            const styleInput = document.getElementById("walkStyle");
+            const includeBinsInput = document.getElementById("includeBins");
+            const includeParkInput = document.getElementById("includePark");
+            const includeWaterInput = document.getElementById("includeWater");
+            const includeDogFriendlyInput = document.getElementById("includeDogFriendly");
+            const dogSelect = document.getElementById("dogId");
+            const energySelect = document.getElementById("dogEnergy");
 
-            if (locationButton && latitudeInput && longitudeInput && locationStatus) {
-                locationButton.addEventListener("click", function () {
-                    if (!navigator.geolocation) {
-                        locationStatus.textContent = "Brskalnik ne podpira GPS lokacije. Uporabljeno bo fallback območje.";
-                        return;
-                    }
-
-                    locationButton.disabled = true;
-                    locationStatus.textContent = "Iščem tvojo lokacijo...";
-
-                    navigator.geolocation.getCurrentPosition(
-                        position => {
-                            latitudeInput.value = position.coords.latitude.toFixed(6);
-                            longitudeInput.value = position.coords.longitude.toFixed(6);
-                            locationStatus.textContent = "Izhodišče: tvoja trenutna lokacija";
-                            plannerForm?.requestSubmit();
-                        },
-                        () => {
-                            locationButton.disabled = false;
-                            locationStatus.textContent = "Lokacije ni bilo mogoče pridobiti. Preveri dovoljenje za lokacijo ali uporabi fallback območje.";
-                        },
-                        { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
-                    );
+            document.querySelectorAll(".walk-planner-preset").forEach(button => {
+                button.addEventListener("click", function () {
+                    distanceInput.value = button.dataset.distance;
+                    styleInput.value = button.dataset.style;
+                    includeBinsInput.value = button.dataset.bins;
+                    includeParkInput.value = button.dataset.park;
+                    includeWaterInput.value = button.dataset.water;
+                    includeDogFriendlyInput.value = button.dataset.dogFriendly;
+                    plannerForm?.requestSubmit();
                 });
+            });
+
+            dogSelect?.addEventListener("change", () => plannerForm?.requestSubmit());
+            energySelect?.addEventListener("change", () => plannerForm?.requestSubmit());
+
+            function requestPlannerLocation(source) {
+                if (!navigator.geolocation || !locationStatus || !latitudeInput || !longitudeInput) {
+                    if (locationStatus) {
+                        locationStatus.textContent = "Brskalnik ne podpira GPS lokacije. Uporabljeno bo fallback območje.";
+                    }
+                    return;
+                }
+
+                if (locationButton) {
+                    locationButton.disabled = true;
+                }
+                locationStatus.textContent = source === "auto" ? "Iščem tvojo lokacijo..." : "Osvežujem lokacijo...";
+
+                navigator.geolocation.getCurrentPosition(
+                    position => {
+                        latitudeInput.value = position.coords.latitude.toFixed(6);
+                        longitudeInput.value = position.coords.longitude.toFixed(6);
+                        locationStatus.textContent = "GPS je aktiven. Predlog je iz tvoje lokacije.";
+                        sessionStorage.setItem("doggydropPlannerGpsTried", "true");
+                        plannerForm?.requestSubmit();
+                    },
+                    () => {
+                        if (locationButton) {
+                            locationButton.disabled = false;
+                        }
+                        sessionStorage.setItem("doggydropPlannerGpsTried", "true");
+                        locationStatus.textContent = "GPS ni dovoljen. Uporabljen bo rezervni mestni predlog.";
+                    },
+                    { enableHighAccuracy: true, timeout: 9000, maximumAge: 60000 }
+                );
+            }
+
+            if (locationButton) {
+                locationButton.addEventListener("click", () => requestPlannerLocation("manual"));
+            }
+
+            if (!latitudeInput?.value && !longitudeInput?.value && sessionStorage.getItem("doggydropPlannerGpsTried") !== "true") {
+                requestPlannerLocation("auto");
             }
 
             if (!plannerPoints.length || !document.getElementById("plannerMap")) {
@@ -265,7 +303,7 @@
 
             return L.divIcon({
                 className: "",
-                html: `<span class="planner-marker planner-marker--${escapeHtml(type || "stop")}">${labels[type] || "•"}</span>`,
+                html: `<span class="planner-marker planner-marker--${escapeHtml(type || "stop")}">${labels[type] || "."}</span>`,
                 iconSize: [38, 38],
                 iconAnchor: [19, 19],
                 popupAnchor: [0, -18]
@@ -293,7 +331,8 @@
 
     .walk-planner-form,
     .walk-planner-map-card,
-    .walk-planner-stops {
+    .walk-planner-stops,
+    .walk-planner-nearby-bin {
         border: 1px solid rgba(31, 45, 41, 0.1);
         border-radius: 8px;
         background: #ffffff;
@@ -302,37 +341,22 @@
 
     .walk-planner-form {
         display: grid;
-        grid-template-columns: repeat(5, minmax(0, 1fr));
-        gap: 10px;
+        gap: 14px;
         margin-bottom: 14px;
         padding: 14px;
     }
 
+    .walk-planner-toolbar {
+        display: grid;
+        grid-template-columns: minmax(150px, 1fr) minmax(120px, 0.7fr) minmax(220px, 1.2fr);
+        gap: 10px;
+        align-items: start;
+    }
+
     .walk-planner-form div,
-    .walk-planner-check {
+    .walk-planner-location {
         display: grid;
         gap: 6px;
-    }
-
-    .walk-planner-location {
-        grid-column: span 2;
-    }
-
-    .walk-planner-location__button {
-        border: 1px solid rgba(47, 109, 95, 0.18) !important;
-        background: #eef7ed !important;
-        color: #2f6d5f !important;
-    }
-
-    .walk-planner-location__button:disabled {
-        opacity: 0.72;
-    }
-
-    #plannerLocationStatus {
-        color: #65716d;
-        font-size: 0.78rem;
-        font-weight: 800;
-        line-height: 1.25;
     }
 
     .walk-planner-form label {
@@ -354,25 +378,104 @@
         color: #21342f;
     }
 
-    .walk-planner-check {
-        grid-template-columns: auto 1fr;
-        align-items: center;
-        min-height: 42px;
-        padding: 8px 10px;
+    .walk-planner-location__button {
+        border: 1px solid rgba(47, 109, 95, 0.18) !important;
+        background: #eef7ed !important;
+        color: #2f6d5f !important;
+    }
+
+    .walk-planner-location__button:disabled {
+        opacity: 0.72;
+    }
+
+    #plannerLocationStatus {
+        color: #65716d;
+        font-size: 0.78rem;
+        font-weight: 800;
+        line-height: 1.25;
+    }
+
+    .walk-planner-presets {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .walk-planner-preset {
+        display: grid;
+        align-content: start;
+        gap: 6px;
+        min-height: 136px;
+        padding: 14px;
+        border: 1px solid rgba(47, 109, 95, 0.15);
         border-radius: 8px;
-        background: #f4f7f3;
+        background: #f7faf5;
+        color: #21342f;
+        text-align: left;
+        cursor: pointer;
     }
 
-    .walk-planner-check input {
-        width: 18px;
-        height: 18px;
-        accent-color: #2f6d5f;
+    .walk-planner-preset.is-active {
+        border-color: #2f6d5f;
+        background: #e7f3ed;
+        box-shadow: inset 0 0 0 2px rgba(47, 109, 95, 0.12);
     }
 
-    .walk-planner-form button {
+    .walk-planner-preset strong {
+        font-size: 1rem;
+        font-weight: 950;
+    }
+
+    .walk-planner-preset span {
+        color: #65716d;
+        font-size: 0.84rem;
+        line-height: 1.25;
+    }
+
+    .walk-planner-preset em {
+        align-self: end;
+        color: #2f6d5f;
+        font-style: normal;
+        font-weight: 950;
+    }
+
+    .walk-planner-advanced summary {
+        color: #2f6d5f;
+        cursor: pointer;
+        font-weight: 900;
+    }
+
+    .walk-planner-advanced__grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 10px;
+        align-items: end;
+        padding-top: 10px;
+    }
+
+    .walk-planner-advanced button {
         border: 0;
         background: #2f6d5f;
         color: #ffffff;
+        padding: 0 16px;
+    }
+
+    .walk-planner-nearby-bin {
+        display: grid;
+        gap: 3px;
+        margin-bottom: 14px;
+        padding: 12px 14px;
+        background: #fff8e8;
+        color: #4b3b20;
+    }
+
+    .walk-planner-nearby-bin strong {
+        font-weight: 950;
+    }
+
+    .walk-planner-nearby-bin span {
+        color: #746850;
+        font-weight: 800;
     }
 
     .walk-planner-layout {
@@ -534,10 +637,17 @@
         line-height: 1.35;
     }
 
+    @@media (max-width: 1100px) {
+        .walk-planner-presets {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
     @@media (max-width: 900px) {
         .walk-planner-layout,
-        .walk-planner-form,
-        .walk-planner-start {
+        .walk-planner-toolbar,
+        .walk-planner-start,
+        .walk-planner-advanced__grid {
             grid-template-columns: 1fr;
         }
     }
@@ -547,6 +657,14 @@
         .walk-planner-summary {
             align-items: stretch;
             flex-direction: column;
+        }
+
+        .walk-planner-presets {
+            grid-template-columns: 1fr;
+        }
+
+        .walk-planner-preset {
+            min-height: 112px;
         }
 
         .walk-planner-summary strong,

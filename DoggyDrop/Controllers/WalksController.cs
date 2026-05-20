@@ -258,6 +258,7 @@ namespace DoggyDrop.Controllers
                 IncludeDogFriendly = includeDogFriendly,
                 Areas = areas,
                 Styles = styles,
+                Presets = BuildQuickWalkTemplates(),
                 WalkStyle = selectedWalkStyle,
                 DogEnergy = selectedDogEnergy,
                 Route = route ?? BuildPlannedRoute(
@@ -1752,8 +1753,8 @@ namespace DoggyDrop.Controllers
             [
                 new QuickWalkTemplate
                 {
-                    Title = "Quick potty",
-                    Subtitle = "Najhitrejsa pot do kosa in nazaj.",
+                    Title = "Hitro lulanje",
+                    Subtitle = "Kratek krog do najbližjega koša in nazaj.",
                     WalkStyle = "quick",
                     DistanceKm = 1.5,
                     IncludeBins = true,
@@ -1763,8 +1764,19 @@ namespace DoggyDrop.Controllers
                 },
                 new QuickWalkTemplate
                 {
-                    Title = "Park loop",
-                    Subtitle = "Vec vohanja in en dober park stop.",
+                    Title = "Klasičen krog",
+                    Subtitle = "Uravnotežen sprehod s košem, zeleno točko in malo ritma.",
+                    WalkStyle = "balanced",
+                    DistanceKm = 3.5,
+                    IncludeBins = true,
+                    IncludePark = true,
+                    IncludeWater = true,
+                    IncludeDogFriendly = false
+                },
+                new QuickWalkTemplate
+                {
+                    Title = "Park & vohanje",
+                    Subtitle = "Počasnejši tempo, več smrčkanja in park, če je blizu.",
                     WalkStyle = "park",
                     DistanceKm = 3.5,
                     IncludeBins = true,
@@ -1774,8 +1786,8 @@ namespace DoggyDrop.Controllers
                 },
                 new QuickWalkTemplate
                 {
-                    Title = "City walk",
-                    Subtitle = "Mestni krog z vodo in socialnim stopom.",
+                    Title = "Mestna šapa",
+                    Subtitle = "Krog z vodo in dog-friendly postankom, ko se gre v urbano.",
                     WalkStyle = "city",
                     DistanceKm = 4.5,
                     IncludeBins = true,
@@ -1785,8 +1797,8 @@ namespace DoggyDrop.Controllers
                 },
                 new QuickWalkTemplate
                 {
-                    Title = "Trail mode",
-                    Subtitle = "Daljsi aktivni sprehod z rezervnim kosom.",
+                    Title = "Raziskovanje",
+                    Subtitle = "Daljša pot z rezervnim košem in več odkrivanja.",
                     WalkStyle = "long",
                     DistanceKm = 6.5,
                     IncludeBins = true,
