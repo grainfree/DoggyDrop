@@ -12,6 +12,12 @@
     var selectedDog = Model.Dogs.FirstOrDefault(dog => dog.Id == Model.SelectedDogId) ?? Model.Dogs.FirstOrDefault();
 }
 
+@section Styles {
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIINfQXh6ULpR5txR9wra5I3BcVsTPY1p3A="
+          crossorigin="" />
+}
+
 <section class="app-page walk-planner-page">
     <header class="app-page__header walk-planner-hero">
         <div>
@@ -127,27 +133,8 @@
                     </div>
                 </div>
                 <div class="walk-planner-map-frame">
-                    <svg id="plannerRouteMap" class="walk-planner-route-map" viewBox="0 0 100 100" role="img" aria-label="Predvidena pot sprehoda">
-                        <defs>
-                            <linearGradient id="plannerRouteBackground" x1="0" y1="0" x2="1" y2="1">
-                                <stop offset="0" stop-color="#f4fbf2" />
-                                <stop offset="0.55" stop-color="#e8f4e6" />
-                                <stop offset="1" stop-color="#fdf8eb" />
-                            </linearGradient>
-                            <filter id="plannerRouteShadow" x="-20%" y="-20%" width="140%" height="140%">
-                                <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#1f2d29" flood-opacity="0.18" />
-                            </filter>
-                        </defs>
-                        <rect width="100" height="100" rx="6" fill="url(#plannerRouteBackground)" />
-                        <path d="M8 22 C24 14 36 26 50 18 S75 20 92 10" class="walk-planner-route-landmark" />
-                        <path d="M6 72 C23 66 36 75 50 68 S76 62 94 73" class="walk-planner-route-landmark walk-planner-route-landmark--soft" />
-                        <g class="walk-planner-route-grid">
-                            <path d="M20 8 V92 M40 8 V92 M60 8 V92 M80 8 V92 M8 25 H92 M8 50 H92 M8 75 H92" />
-                        </g>
-                        <polyline id="plannerRouteLine" class="walk-planner-route-line" points="" />
-                        <g id="plannerStopLayer"></g>
-                    </svg>
-                    <span class="walk-planner-map-note">Hiter prikaz poti</span>
+                    <div id="plannerRouteMap" class="walk-planner-route-map" role="img" aria-label="Predvidena pot sprehoda"></div>
+                    <span class="walk-planner-map-note">Predogled na zemljevidu</span>
                 </div>
                 <div class="walk-planner-start">
                     <form asp-controller="Walks" asp-action="SavePlan" method="post">
@@ -211,6 +198,9 @@
 </section>
 
 @section Scripts {
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+            crossorigin=""></script>
     <script>
         const plannerPoints = @routePointsJson;
         const plannerStops = @stopsJson;
@@ -227,6 +217,7 @@
             const includeParkInput = document.getElementById("includePark");
             const includeWaterInput = document.getElementById("includeWater");
             const includeDogFriendlyInput = document.getElementById("includeDogFriendly");
+            const storedLocation = readStoredPlannerLocation();
 
             document.querySelectorAll(".walk-planner-preset").forEach(button => {
                 button.addEventListener("click", function () {
@@ -241,7 +232,13 @@
             });
 
             document.querySelectorAll("input[name='dogId'][type='radio']").forEach(input => {
-                input.addEventListener("change", () => plannerForm?.requestSubmit());
+                input.addEventListener("change", () => {
+                    document.querySelectorAll(".walk-planner-dog-chip").forEach(chip => {
+                        const radio = chip.querySelector("input");
+                        chip.classList.toggle("is-active", radio?.checked === true);
+                    });
+                    plannerForm?.requestSubmit();
+                });
             });
 
             function requestPlannerLocation(source) {
@@ -262,6 +259,11 @@
                         latitudeInput.value = position.coords.latitude.toFixed(6);
                         longitudeInput.value = position.coords.longitude.toFixed(6);
                         locationStatus.textContent = "GPS je aktiven. Predlog je iz tvoje lokacije.";
+                        localStorage.setItem("doggydropPlannerLocation", JSON.stringify({
+                            latitude: latitudeInput.value,
+                            longitude: longitudeInput.value,
+                            savedAt: Date.now()
+                        }));
                         sessionStorage.setItem("doggydropPlannerGpsTried", "true");
                         plannerForm?.requestSubmit();
                     },
@@ -280,6 +282,16 @@
                 locationButton.addEventListener("click", () => requestPlannerLocation("manual"));
             }
 
+            if (!latitudeInput?.value && !longitudeInput?.value && storedLocation) {
+                latitudeInput.value = storedLocation.latitude;
+                longitudeInput.value = storedLocation.longitude;
+                if (locationStatus) {
+                    locationStatus.textContent = "Lokacija je shranjena. Predlog je iz tvoje zadnje GPS točke.";
+                }
+                plannerForm?.requestSubmit();
+                return;
+            }
+
             if (!latitudeInput?.value && !longitudeInput?.value && sessionStorage.getItem("doggydropPlannerGpsTried") !== "true") {
                 requestPlannerLocation("auto");
             }
@@ -288,10 +300,8 @@
         });
 
         function drawPlannerRoutePreview() {
-            const svg = document.getElementById("plannerRouteMap");
-            const line = document.getElementById("plannerRouteLine");
-            const stopLayer = document.getElementById("plannerStopLayer");
-            if (!plannerPoints.length || !svg || !line || !stopLayer) {
+            const mapElement = document.getElementById("plannerRouteMap");
+            if (!plannerPoints.length || !mapElement || typeof L === "undefined") {
                 return;
             }
 
@@ -306,43 +316,73 @@
                 return;
             }
 
-            const bounds = allPoints.reduce((acc, point) => ({
-                minLat: Math.min(acc.minLat, point.lat),
-                maxLat: Math.max(acc.maxLat, point.lat),
-                minLng: Math.min(acc.minLng, point.lng),
-                maxLng: Math.max(acc.maxLng, point.lng)
-            }), {
-                minLat: allPoints[0].lat,
-                maxLat: allPoints[0].lat,
-                minLng: allPoints[0].lng,
-                maxLng: allPoints[0].lng
-            });
+            const center = routePoints[0] ?? allPoints[0];
+            const map = L.map(mapElement, {
+                zoomControl: false,
+                attributionControl: true,
+                scrollWheelZoom: false,
+                tap: true
+            }).setView([center.lat, center.lng], 15);
 
-            const latRange = Math.max(bounds.maxLat - bounds.minLat, 0.0008);
-            const lngRange = Math.max(bounds.maxLng - bounds.minLng, 0.0008);
-            const project = point => {
-                const x = 10 + ((point.lng - bounds.minLng) / lngRange) * 80;
-                const y = 90 - ((point.lat - bounds.minLat) / latRange) * 80;
-                return { x: Math.max(8, Math.min(92, x)), y: Math.max(8, Math.min(92, y)) };
-            };
+            L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+                maxZoom: 20,
+                attribution: '&copy; OpenStreetMap &copy; CARTO'
+            }).addTo(map);
 
-            const projectedRoute = routePoints.map(project);
-            line.setAttribute("points", projectedRoute.map(point => `${point.x.toFixed(2)},${point.y.toFixed(2)}`).join(" "));
+            const latLngs = routePoints.map(point => [point.lat, point.lng]);
+            if (latLngs.length > 1) {
+                L.polyline(latLngs, {
+                    color: "#24695a",
+                    weight: 6,
+                    opacity: 0.88,
+                    lineCap: "round",
+                    lineJoin: "round"
+                }).addTo(map);
 
-            stopLayer.innerHTML = "";
+                L.polyline(latLngs, {
+                    color: "#ffffff",
+                    weight: 2,
+                    opacity: 0.72,
+                    dashArray: "8 12",
+                    lineCap: "round"
+                }).addTo(map);
+            }
+
             stopPoints.forEach(stop => {
-                const point = project(stop.point);
                 const type = stop.Type ?? stop.type ?? "stop";
                 const order = stop.Order ?? stop.order ?? "";
-                const marker = document.createElementNS("http://www.w3.org/2000/svg", "g");
-                marker.setAttribute("class", `walk-planner-route-stop walk-planner-route-stop--${escapeHtml(type)}`);
-                marker.setAttribute("transform", `translate(${point.x.toFixed(2)} ${point.y.toFixed(2)})`);
-                marker.innerHTML = `
-                    <circle r="4.4"></circle>
-                    <text y="1.6">${escapeHtml(order)}</text>
-                `;
-                stopLayer.appendChild(marker);
+                const name = stop.Name ?? stop.name ?? "Postanek";
+                const label = stop.Label ?? stop.label ?? "";
+                const icon = L.divIcon({
+                    className: "",
+                    iconSize: [34, 34],
+                    iconAnchor: [17, 17],
+                    html: `<span class="walk-planner-leaflet-stop walk-planner-leaflet-stop--${escapeHtml(type)}">${escapeHtml(order)}</span>`
+                });
+                L.marker([stop.point.lat, stop.point.lng], { icon })
+                    .bindPopup(`<strong>${escapeHtml(name)}</strong><br><span>${escapeHtml(label)}</span>`)
+                    .addTo(map);
             });
+
+            const bounds = L.latLngBounds(allPoints.map(point => [point.lat, point.lng]));
+            map.fitBounds(bounds, { padding: [24, 24], maxZoom: 16 });
+            setTimeout(() => map.invalidateSize(), 120);
+        }
+
+        function readStoredPlannerLocation() {
+            try {
+                const raw = localStorage.getItem("doggydropPlannerLocation");
+                if (!raw) {
+                    return null;
+                }
+                const parsed = JSON.parse(raw);
+                if (!parsed?.latitude || !parsed?.longitude || Date.now() - Number(parsed.savedAt ?? 0) > 12 * 60 * 60 * 1000) {
+                    return null;
+                }
+                return parsed;
+            } catch {
+                return null;
+            }
         }
 
         function readCoordinate(item) {
@@ -367,7 +407,7 @@
 <style>
     .walk-planner-page {
         width: 100%;
-        max-width: 1120px;
+        max-width: 1040px;
         margin: 0 auto;
         padding-bottom: 110px;
     }
@@ -391,16 +431,16 @@
 
     .walk-planner-form {
         display: grid;
-        gap: 14px;
-        margin-bottom: 14px;
-        padding: 14px;
+        gap: 12px;
+        margin-bottom: 12px;
+        padding: 12px;
     }
 
     .walk-planner-toolbar {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(180px, auto);
+        grid-template-columns: minmax(0, 1fr) auto;
         gap: 12px;
-        align-items: end;
+        align-items: center;
     }
 
     .walk-planner-form div,
@@ -416,11 +456,14 @@
     }
 
     .walk-planner-dogs {
-        display: grid;
+        display: flex;
+        flex-wrap: wrap;
         gap: 8px;
+        align-items: center;
     }
 
     .walk-planner-dogs > span {
+        display: none;
         color: #21342f;
         font-size: 0.82rem;
         font-weight: 900;
@@ -437,7 +480,7 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        min-height: 42px;
+        min-height: 40px;
         width: fit-content;
         max-width: 100%;
         padding: 10px 14px;
@@ -482,6 +525,7 @@
     }
 
     .walk-planner-location__button {
+        display: none;
         border: 1px solid rgba(47, 109, 95, 0.18) !important;
         background: #eef7ed !important;
         color: #2f6d5f !important;
@@ -493,6 +537,12 @@
     }
 
     #plannerLocationStatus {
+        display: inline-flex;
+        align-items: center;
+        min-height: 40px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: #eef7ed;
         color: #65716d;
         font-size: 0.78rem;
         font-weight: 800;
@@ -500,19 +550,26 @@
     }
 
     .walk-planner-presets {
-        display: grid;
-        grid-template-columns: repeat(5, minmax(0, 1fr));
+        display: flex;
         gap: 10px;
+        overflow-x: auto;
+        padding: 2px 2px 8px;
+        scrollbar-width: none;
+    }
+
+    .walk-planner-presets::-webkit-scrollbar {
+        display: none;
     }
 
     .walk-planner-preset {
         display: grid;
         align-content: start;
         gap: 6px;
-        min-height: 136px;
+        flex: 0 0 min(220px, 76vw);
+        min-height: 118px;
         padding: 14px;
         border: 1px solid rgba(47, 109, 95, 0.15);
-        border-radius: 8px;
+        border-radius: 14px;
         background: #f7faf5;
         color: #21342f;
         text-align: left;
@@ -546,8 +603,10 @@
     .walk-planner-advanced summary {
         display: inline-flex;
         align-items: center;
-        min-height: 36px;
+        min-height: 30px;
+        padding-left: 2px;
         color: #2f6d5f;
+        font-size: 0.88rem;
         cursor: pointer;
         font-weight: 900;
     }
@@ -587,17 +646,17 @@
 
     .walk-planner-layout {
         display: grid;
-        grid-template-columns: minmax(0, 720px) minmax(280px, 340px);
+        grid-template-columns: minmax(0, 660px) minmax(260px, 320px);
         justify-content: center;
         gap: 14px;
         width: 100%;
-        max-width: 1080px;
+        max-width: 1000px;
         margin: 0 auto;
     }
 
     .walk-planner-map-card,
     .walk-planner-stops {
-        padding: 14px;
+        padding: 12px;
     }
 
     .walk-planner-map-card {
@@ -623,6 +682,7 @@
     .walk-planner-summary p {
         margin: 4px 0 0;
         color: #65716d;
+        font-size: 0.94rem;
     }
 
     .walk-planner-summary strong,
@@ -637,12 +697,12 @@
     .walk-planner-map-frame {
         position: relative;
         overflow: hidden;
-        border-radius: 8px;
+        border-radius: 16px;
         border: 1px solid rgba(31, 45, 41, 0.14);
         background: #eaf4ea;
-        height: clamp(260px, 35vw, 380px);
-        min-height: 260px;
-        max-height: 380px;
+        height: clamp(300px, 42vw, 430px);
+        min-height: 300px;
+        max-height: 430px;
         box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.42);
     }
 
@@ -652,6 +712,44 @@
         width: 100%;
         height: 100%;
         display: block;
+    }
+
+    .walk-planner-route-map .leaflet-control-attribution {
+        border-radius: 999px 0 0 0;
+        background: rgba(255, 255, 255, 0.78);
+        color: #65716d;
+        font-size: 0.64rem;
+    }
+
+    .walk-planner-leaflet-stop {
+        display: grid;
+        width: 34px;
+        height: 34px;
+        place-items: center;
+        border: 3px solid #ffffff;
+        border-radius: 999px;
+        background: #2f6d5f;
+        box-shadow: 0 10px 22px rgba(31, 45, 41, 0.22);
+        color: #ffffff;
+        font-size: 0.82rem;
+        font-weight: 950;
+    }
+
+    .walk-planner-leaflet-stop--start,
+    .walk-planner-leaflet-stop--finish {
+        background: #1f2d29;
+    }
+
+    .walk-planner-leaflet-stop--bin {
+        background: #24695a;
+    }
+
+    .walk-planner-leaflet-stop--park {
+        background: #477a42;
+    }
+
+    .walk-planner-leaflet-stop--water {
+        background: #2f7da5;
     }
 
     .walk-planner-map-note {
@@ -765,6 +863,7 @@
         gap: 10px;
         min-width: 0;
         overflow: visible;
+        max-height: none;
     }
 
     .walk-planner-stops article {
@@ -812,7 +911,7 @@
 
     @@media (max-width: 1100px) {
         .walk-planner-presets {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+            margin-right: -12px;
         }
 
         .walk-planner-layout {
@@ -845,12 +944,13 @@
             flex-direction: column;
         }
 
-        .walk-planner-presets {
-            grid-template-columns: 1fr;
+        .walk-planner-page {
+            padding-inline: 10px;
         }
 
         .walk-planner-preset {
-            min-height: 112px;
+            flex-basis: 78vw;
+            min-height: 108px;
         }
 
         .walk-planner-map-card,
@@ -866,9 +966,9 @@
         }
 
         .walk-planner-map-frame {
-            height: min(68vw, 330px);
-            min-height: 240px;
-            max-height: 330px;
+            height: min(78vw, 360px);
+            min-height: 280px;
+            max-height: 360px;
         }
 
         .walk-planner-map-note {
@@ -884,6 +984,15 @@
         .walk-planner-stops article > span {
             width: 30px;
             height: 30px;
+        }
+
+        .walk-planner-toolbar {
+            grid-template-columns: 1fr;
+        }
+
+        #plannerLocationStatus {
+            justify-content: center;
+            text-align: center;
         }
     }
 </style>

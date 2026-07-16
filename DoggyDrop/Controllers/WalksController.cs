@@ -227,7 +227,7 @@ namespace DoggyDrop.Controllers
             var bins = await _context.TrashBins
                 .Where(bin => bin.IsApproved)
                 .ToListAsync();
-            var route = BuildPlannedRoute(
+            var route = await BuildPlannerRouteAsync(
                 areaKey,
                 start,
                 hasCurrentLocation,
@@ -376,7 +376,7 @@ namespace DoggyDrop.Controllers
             var bins = await _context.TrashBins
                 .Where(bin => bin.IsApproved)
                 .ToListAsync();
-            var route = BuildPlannedRoute(areaKey, start, hasCurrentLocation, safeDistanceKm, bins, selectedWalkStyle, selectedDogEnergy, includeBins, includePark, includeWater, includeDogFriendly);
+            var route = await BuildPlannerRouteAsync(areaKey, start, hasCurrentLocation, safeDistanceKm, bins, selectedWalkStyle, selectedDogEnergy, includeBins, includePark, includeWater, includeDogFriendly);
 
             var plan = new PlannedWalk
             {
@@ -478,7 +478,7 @@ namespace DoggyDrop.Controllers
             var bins = await _context.TrashBins
                 .Where(bin => bin.IsApproved)
                 .ToListAsync();
-            var route = BuildPlannedRoute(areaKey, start, hasCurrentLocation, safeDistanceKm, bins, selectedWalkStyle, selectedDogEnergy, includeBins, includePark, includeWater, includeDogFriendly);
+            var route = await BuildPlannerRouteAsync(areaKey, start, hasCurrentLocation, safeDistanceKm, bins, selectedWalkStyle, selectedDogEnergy, includeBins, includePark, includeWater, includeDogFriendly);
 
             var plan = new PlannedWalk
             {
@@ -1556,6 +1556,54 @@ namespace DoggyDrop.Controllers
                 new PlannerStyleOption { Key = "city", Name = "City walk", Description = "Mestni krog z vodo in dog-friendly postankom." },
                 new PlannerStyleOption { Key = "long", Name = "Long walk", Description = "Daljsa trasa z rezervnim kosom in dodatnimi stopi." }
             ];
+        }
+
+        private async Task<PlannedWalkRoute> BuildPlannerRouteAsync(
+            string areaKey,
+            PlannerAreaCenter area,
+            bool usesCurrentLocation,
+            double targetDistanceKm,
+            IReadOnlyList<TrashBin> bins,
+            string walkStyle,
+            string dogEnergy,
+            bool includeBins,
+            bool includePark,
+            bool includeWater,
+            bool includeDogFriendly)
+        {
+            if (usesCurrentLocation)
+            {
+                var osmRoute = await _osmWalkPlannerService.PlanAsync(
+                    area.Latitude,
+                    area.Longitude,
+                    targetDistanceKm,
+                    bins,
+                    walkStyle,
+                    dogEnergy,
+                    includeBins,
+                    includePark,
+                    includeWater,
+                    includeDogFriendly,
+                    HttpContext.RequestAborted);
+
+                if (osmRoute != null)
+                {
+                    return osmRoute;
+                }
+            }
+
+            return BuildPlannedRoute(
+                areaKey,
+                area,
+                usesCurrentLocation,
+                targetDistanceKm,
+                bins,
+                walkStyle,
+                dogEnergy,
+                includeBins,
+                includePark,
+                includeWater,
+                includeDogFriendly);
         }
 
         private static PlannedWalkRoute BuildPlannedRoute(

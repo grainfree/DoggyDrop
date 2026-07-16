@@ -67,7 +67,7 @@ namespace DoggyDrop.Services
             CancellationToken cancellationToken)
         {
             var query = FormattableString.Invariant($"""
-                [out:json][timeout:8];
+                [out:json][timeout:5];
                 (
                   node(around:{radiusMeters},{latitude},{longitude})["leisure"="park"];
                   way(around:{radiusMeters},{latitude},{longitude})["leisure"="park"];
