@@ -62,6 +62,27 @@
         }
     </header>
 
+    <article class="active-walk-map-card">
+        <div class="active-walk-map-card__header">
+            <div>
+                <h2>GPS pot</h2>
+                <p id="gpsStatus">GPS se ni zagnan.</p>
+            </div>
+            <button type="button" id="trackingToggle" class="btn btn-success rounded-pill fw-semibold">Začni sledenje</button>
+        </div>
+        <div id="gpsSecurityWarning" class="gps-security-warning" hidden>
+            GPS na telefonu deluje samo prek HTTPS povezave. Lokalni LAN naslov na http:// ne more zahtevati dovoljenja za lokacijo.
+        </div>
+        <div id="binProximityToast" class="active-walk-bin-toast" hidden>
+            <div>
+                <strong>Koš je blizu</strong>
+                <span id="binProximityText">Planirani koš je na tvoji poti.</span>
+            </div>
+            <button type="button" id="dismissBinProximityToast" aria-label="Zapri obvestilo">×</button>
+        </div>
+        <div id="walkMap"></div>
+    </article>
+
     <div class="active-walk-metrics">
         <article>
             <strong id="duration">00:00</strong>
@@ -99,27 +120,6 @@
             </div>
         </article>
     }
-
-    <article class="active-walk-map-card">
-        <div class="active-walk-map-card__header">
-            <div>
-                <h2>GPS pot</h2>
-                <p id="gpsStatus">GPS se ni zagnan.</p>
-            </div>
-            <button type="button" id="trackingToggle" class="btn btn-success rounded-pill fw-semibold">Začni sledenje</button>
-        </div>
-        <div id="gpsSecurityWarning" class="gps-security-warning" hidden>
-            GPS na telefonu deluje samo prek HTTPS povezave. Lokalni LAN naslov na http:// ne more zahtevati dovoljenja za lokacijo.
-        </div>
-        <div id="binProximityToast" class="active-walk-bin-toast" hidden>
-            <div>
-                <strong>Koš je blizu</strong>
-                <span id="binProximityText">Planirani koš je na tvoji poti.</span>
-            </div>
-            <button type="button" id="dismissBinProximityToast" aria-label="Zapri obvestilo">×</button>
-        </div>
-        <div id="walkMap"></div>
-    </article>
 
     <article class="active-walk-media-card">
         <div class="active-walk-media-card__header">
@@ -270,6 +270,7 @@
         let watchId = null;
         let isTracking = false;
         let isSending = false;
+        let mapResizeObserver = null;
         let distanceMeters = @Model.DistanceMeters.ToString(System.Globalization.CultureInfo.InvariantCulture);
         let lastApproachStopId = null;
         let lastCompletedByProximityStopId = null;
@@ -365,7 +366,10 @@
                 : plannedPoints.length > 0
                     ? plannedPoints[0]
                     : [46.5547, 15.6459];
-            map = L.map("walkMap").setView(fallback, routePoints.length > 0 ? 17 : 14);
+            map = L.map("walkMap", {
+                preferCanvas: true,
+                zoomControl: true
+            }).setView(fallback, routePoints.length > 0 ? 17 : 14);
 
             L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
                 maxZoom: 19,
@@ -398,11 +402,13 @@
             routeLine = L.polyline(routePoints, { color: "#2f6d5f", weight: 6, opacity: 0.9 }).addTo(map);
 
             if (routePoints.length > 0) {
-                userMarker = L.marker(routePoints[routePoints.length - 1]).addTo(map);
+                userMarker = L.marker(routePoints[routePoints.length - 1], { icon: createCurrentLocationIcon() }).addTo(map);
                 map.fitBounds(routeLine.getBounds().pad(0.2), { maxZoom: 17 });
             } else if (plannedRouteLine) {
                 map.fitBounds(plannedRouteLine.getBounds().pad(0.2), { maxZoom: 16 });
             }
+
+            scheduleMapRefresh();
         }
 
         function createPlannedStopIcon(type) {
@@ -425,6 +431,40 @@
             });
         }
 
+        function createCurrentLocationIcon() {
+            return L.divIcon({
+                className: "",
+                html: '<span class="active-user-marker"><span></span></span>',
+                iconSize: [34, 34],
+                iconAnchor: [17, 17]
+            });
+        }
+
+        function scheduleMapRefresh() {
+            const mapElement = document.getElementById("walkMap");
+            const refreshMapSize = function () {
+                if (!map) {
+                    return;
+                }
+
+                map.invalidateSize({ pan: false });
+                if (currentPosition) {
+                    map.setView(currentPosition, Math.max(map.getZoom(), 17), { animate: false });
+                }
+            };
+
+            requestAnimationFrame(refreshMapSize);
+            window.setTimeout(refreshMapSize, 200);
+            window.setTimeout(refreshMapSize, 700);
+            window.addEventListener("load", refreshMapSize, { once: true });
+            window.addEventListener("resize", refreshMapSize);
+
+            if (mapElement && "ResizeObserver" in window && !mapResizeObserver) {
+                mapResizeObserver = new ResizeObserver(refreshMapSize);
+                mapResizeObserver.observe(mapElement);
+            }
+        }
+
         function toggleTracking() {
             if (isTracking) {
                 stopTracking();
@@ -445,13 +485,17 @@
                 return;
             }
 
-            watchId = navigator.geolocation.watchPosition(handlePosition, handleGpsError, {
+            const geoOptions = {
                 enableHighAccuracy: true,
                 maximumAge: 0,
                 timeout: 12000
-            });
+            };
+
+            navigator.geolocation.getCurrentPosition(handlePosition, handleGpsError, geoOptions);
+            watchId = navigator.geolocation.watchPosition(handlePosition, handleGpsError, geoOptions);
 
             isTracking = true;
+            document.querySelector(".active-walk-page")?.classList.add("is-tracking");
             trackingToggle.textContent = "Ustavi sledenje";
             trackingToggle.classList.remove("btn-success");
             trackingToggle.classList.add("btn-warning");
@@ -465,6 +509,7 @@
             }
 
             isTracking = false;
+            document.querySelector(".active-walk-page")?.classList.remove("is-tracking");
             trackingToggle.textContent = "Nadaljuj sledenje";
             trackingToggle.classList.remove("btn-warning");
             trackingToggle.classList.add("btn-success");
@@ -519,12 +564,13 @@
             if (userMarker) {
                 userMarker.setLatLng([lat, lng]);
             } else {
-                userMarker = L.marker([lat, lng]).addTo(map);
+                userMarker = L.marker([lat, lng], { icon: createCurrentLocationIcon() }).addTo(map);
             }
 
             currentPosition = [lat, lng];
             updateNextStopCard();
             evaluateStopProximity();
+            map.invalidateSize({ pan: false });
             map.setView([lat, lng], Math.max(map.getZoom(), 17));
         }
 
@@ -918,6 +964,7 @@
     }
 
     .active-walk-map-card {
+        margin-top: 14px;
         padding: 14px;
     }
 
@@ -1331,10 +1378,53 @@
     }
 
     #walkMap {
-        height: 420px;
+        height: clamp(420px, 58svh, 620px);
         width: 100%;
         overflow: hidden;
         border-radius: 8px;
+        background: #eef6ef;
+        isolation: isolate;
+    }
+
+    .active-user-marker {
+        position: relative;
+        display: grid;
+        width: 34px;
+        height: 34px;
+        place-items: center;
+        border: 3px solid #ffffff;
+        border-radius: 999px;
+        background: #2f6d5f;
+        box-shadow: 0 10px 22px rgba(31, 45, 41, 0.28);
+    }
+
+    .active-user-marker::before {
+        position: absolute;
+        inset: -9px;
+        border-radius: inherit;
+        background: rgba(47, 109, 95, 0.22);
+        content: "";
+        animation: activeUserPulse 1.8s ease-out infinite;
+    }
+
+    .active-user-marker span {
+        position: relative;
+        width: 10px;
+        height: 10px;
+        border-radius: inherit;
+        background: #ffffff;
+    }
+
+    @@keyframes activeUserPulse {
+        0% {
+            opacity: 0.8;
+            transform: scale(0.72);
+        }
+
+        100% {
+            opacity: 0;
+            transform: scale(1.6);
+        }
     }
 
     .active-planned-marker {
@@ -1404,7 +1494,7 @@
         }
 
         #walkMap {
-            height: 360px;
+            height: clamp(360px, 56svh, 540px);
         }
 
         .active-walk-photo-upload,
