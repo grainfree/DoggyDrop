@@ -238,7 +238,8 @@ namespace DoggyDrop.Controllers
                 includeBins,
                 includePark,
                 includeWater,
-                includeDogFriendly);
+                includeDogFriendly,
+                preferExternalRouting: false);
 
             var model = new WalkPlannerViewModel
             {
@@ -376,7 +377,7 @@ namespace DoggyDrop.Controllers
             var bins = await _context.TrashBins
                 .Where(bin => bin.IsApproved)
                 .ToListAsync();
-            var route = await BuildPlannerRouteAsync(areaKey, start, hasCurrentLocation, safeDistanceKm, bins, selectedWalkStyle, selectedDogEnergy, includeBins, includePark, includeWater, includeDogFriendly);
+            var route = await BuildPlannerRouteAsync(areaKey, start, hasCurrentLocation, safeDistanceKm, bins, selectedWalkStyle, selectedDogEnergy, includeBins, includePark, includeWater, includeDogFriendly, preferExternalRouting: true);
 
             var plan = new PlannedWalk
             {
@@ -478,7 +479,7 @@ namespace DoggyDrop.Controllers
             var bins = await _context.TrashBins
                 .Where(bin => bin.IsApproved)
                 .ToListAsync();
-            var route = await BuildPlannerRouteAsync(areaKey, start, hasCurrentLocation, safeDistanceKm, bins, selectedWalkStyle, selectedDogEnergy, includeBins, includePark, includeWater, includeDogFriendly);
+            var route = await BuildPlannerRouteAsync(areaKey, start, hasCurrentLocation, safeDistanceKm, bins, selectedWalkStyle, selectedDogEnergy, includeBins, includePark, includeWater, includeDogFriendly, preferExternalRouting: true);
 
             var plan = new PlannedWalk
             {
@@ -1569,9 +1570,10 @@ namespace DoggyDrop.Controllers
             bool includeBins,
             bool includePark,
             bool includeWater,
-            bool includeDogFriendly)
+            bool includeDogFriendly,
+            bool preferExternalRouting)
         {
-            if (usesCurrentLocation)
+            if (usesCurrentLocation && preferExternalRouting)
             {
                 var osmRoute = await _osmWalkPlannerService.PlanAsync(
                     area.Latitude,

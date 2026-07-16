@@ -10,6 +10,10 @@
     var longitudeValue = Model.Longitude?.ToString("0.######", CultureInfo.InvariantCulture) ?? string.Empty;
     var binStop = Model.Route?.Stops.FirstOrDefault(stop => stop.Type == "bin");
     var selectedDog = Model.Dogs.FirstOrDefault(dog => dog.Id == Model.SelectedDogId) ?? Model.Dogs.FirstOrDefault();
+    var selectedPreset = Model.Presets.FirstOrDefault(preset =>
+        Math.Abs(Model.TargetDistanceKm - preset.DistanceKm) < 0.05
+        && string.Equals(Model.WalkStyle, preset.WalkStyle, StringComparison.OrdinalIgnoreCase))
+        ?? Model.Presets.FirstOrDefault();
 }
 
 @section Styles {
@@ -92,6 +96,7 @@
                         aria-label="@($"{preset.Title}, {preset.DistanceKm:0.#} km")"
                         data-distance="@preset.DistanceKm.ToString(CultureInfo.InvariantCulture)"
                         data-style="@preset.WalkStyle"
+                        data-title="@preset.Title"
                         data-bins="@preset.IncludeBins.ToString().ToLowerInvariant()"
                         data-park="@preset.IncludePark.ToString().ToLowerInvariant()"
                         data-water="@preset.IncludeWater.ToString().ToLowerInvariant()"
@@ -132,7 +137,11 @@
             <article class="walk-planner-map-card">
                 <div class="walk-planner-summary">
                     <div>
-                        <h2>@Model.Route.Title</h2>
+                        <div class="walk-planner-selected-purpose" id="selectedWalkPurpose">
+                            <span>Namen</span>
+                            <strong>@(selectedPreset?.Title ?? "Sprehod")</strong>
+                            <em>@Model.TargetDistanceKm.ToString("0.#") km</em>
+                        </div>
                         <p>@Model.Route.Summary</p>
                         @if (binStop != null)
                         {
@@ -229,17 +238,27 @@
             const includeParkInput = document.getElementById("includePark");
             const includeWaterInput = document.getElementById("includeWater");
             const includeDogFriendlyInput = document.getElementById("includeDogFriendly");
+            const selectedWalkPurpose = document.getElementById("selectedWalkPurpose");
             const storedLocation = readStoredPlannerLocation();
 
             document.querySelectorAll(".walk-planner-preset").forEach(button => {
                 button.addEventListener("click", function () {
+                    document.querySelectorAll(".walk-planner-preset").forEach(item => item.classList.remove("is-active"));
+                    button.classList.add("is-active");
+                    plannerForm?.classList.add("is-loading");
+                    if (selectedWalkPurpose) {
+                        const title = button.dataset.title || button.getAttribute("aria-label") || "Sprehod";
+                        const distance = button.dataset.distance || "";
+                        selectedWalkPurpose.querySelector("strong").textContent = title;
+                        selectedWalkPurpose.querySelector("em").textContent = distance ? `${Number(distance).toLocaleString("sl-SI", { maximumFractionDigits: 1 })} km` : "";
+                    }
                     distanceInput.value = button.dataset.distance;
                     styleInput.value = button.dataset.style;
                     includeBinsInput.value = button.dataset.bins;
                     includeParkInput.value = button.dataset.park;
                     includeWaterInput.value = button.dataset.water;
                     includeDogFriendlyInput.value = button.dataset.dogFriendly;
-                    plannerForm?.requestSubmit();
+                    requestAnimationFrame(() => plannerForm?.requestSubmit());
                 });
             });
 
@@ -468,6 +487,11 @@
         gap: 8px;
         margin-bottom: 8px;
         padding: 10px;
+    }
+
+    .walk-planner-form.is-loading .walk-planner-presets {
+        opacity: 0.82;
+        pointer-events: none;
     }
 
     .walk-planner-toolbar {
@@ -702,6 +726,43 @@
         margin: 0;
         font-size: 1rem;
         font-weight: 950;
+    }
+
+    .walk-planner-selected-purpose {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 8px;
+        width: fit-content;
+        max-width: 100%;
+        min-height: 34px;
+        padding: 5px 9px;
+        border-radius: 999px;
+        background: #eef7ed;
+        color: #21342f;
+    }
+
+    .walk-planner-selected-purpose span {
+        color: #65716d;
+        font-size: 0.72rem;
+        font-weight: 900;
+        text-transform: uppercase;
+    }
+
+    .walk-planner-selected-purpose strong {
+        overflow: hidden;
+        font-size: 0.9rem;
+        font-weight: 950;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .walk-planner-selected-purpose em {
+        color: #2f6d5f;
+        font-size: 0.82rem;
+        font-style: normal;
+        font-weight: 950;
+        white-space: nowrap;
     }
 
     .walk-planner-summary p {
