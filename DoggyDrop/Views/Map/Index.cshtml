@@ -1888,19 +1888,28 @@
         width: min(330px, calc(100vw - 36px));
         max-height: calc(100vh - 170px);
         overflow: auto;
-        padding: 14px;
+        padding: 8px;
         border: 1px solid rgba(31, 45, 41, 0.10);
-        border-radius: 8px;
+        border-radius: 18px;
         background: rgba(255, 255, 255, 0.94);
         box-shadow: 0 16px 34px rgba(31, 45, 41, 0.16);
         backdrop-filter: blur(14px);
+        transition: width 0.18s ease, border-radius 0.18s ease;
     }
 
     .map-community-heat[hidden] {
         display: none;
     }
 
-    .map-community-heat__head,
+    .map-community-heat.is-collapsed {
+        width: auto;
+        max-height: none;
+        overflow: visible;
+        padding: 0;
+        border-radius: 999px;
+    }
+
+    .map-community-heat__toggle,
     .map-community-heat__stats {
         display: flex;
         align-items: center;
@@ -1908,16 +1917,79 @@
         gap: 10px;
     }
 
-    .map-community-heat__head strong {
+    .map-community-heat__toggle {
+        width: 100%;
+        min-height: 48px;
+        padding: 5px 6px 5px 4px;
+        border: 0;
+        border-radius: 999px;
+        background: transparent;
+        color: inherit;
+        text-align: left;
+    }
+
+    .map-community-heat.is-collapsed .map-community-heat__toggle {
+        width: 52px;
+        min-height: 52px;
+        justify-content: center;
+        padding: 0;
+    }
+
+    .map-community-heat__icon {
+        display: grid;
+        flex: 0 0 auto;
+        width: 38px;
+        height: 38px;
+        place-items: center;
+        border-radius: 999px;
+        background: #2f6d5f;
+        color: #ffffff;
+        box-shadow: 0 10px 24px rgba(47, 109, 95, 0.24);
+    }
+
+    .map-community-heat__label {
+        display: grid;
+        min-width: 0;
+    }
+
+    .map-community-heat__toggle strong {
         color: #1f2d29;
         font-weight: 950;
     }
 
-    .map-community-heat__head span,
+    .map-community-heat__toggle small,
     .map-community-heat__stats span {
         color: #65716d;
         font-size: 0.78rem;
         font-weight: 850;
+    }
+
+    .map-community-heat__badge {
+        display: grid;
+        min-width: 24px;
+        height: 24px;
+        place-items: center;
+        padding: 0 7px;
+        border-radius: 999px;
+        background: #f3b85b;
+        color: #1f2d29;
+        font-size: 0.74rem;
+        font-weight: 950;
+    }
+
+    .map-community-heat.is-collapsed .map-community-heat__label,
+    .map-community-heat.is-collapsed .map-community-heat__body {
+        display: none;
+    }
+
+    .map-community-heat.is-collapsed .map-community-heat__badge {
+        position: absolute;
+        top: -5px;
+        right: -5px;
+        min-width: 22px;
+        height: 22px;
+        padding: 0 6px;
+        border: 2px solid #ffffff;
     }
 
     .map-community-heat__stats {
@@ -2073,6 +2145,12 @@
             width: min(280px, calc(100vw - 16px));
             max-height: min(168px, calc(100vh - 250px));
             padding: 10px;
+        }
+
+        .map-community-heat.is-collapsed {
+            width: auto;
+            max-height: none;
+            padding: 0;
         }
 
         .map-community-heat__stats {
@@ -2536,13 +2614,144 @@
         }
     }
 
-    .map-quick-intro,
-    .map-first-walk-card,
-    .map-first-dog-card,
-    .map-explore-panel--nearby,
-    .map-notification-preview,
+    .map-quick-intro {
+        top: 84px;
+        width: min(380px, calc(100vw - 36px));
+        padding: 18px;
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.95);
+        box-shadow: 0 18px 40px rgba(20, 40, 35, 0.15);
+    }
+
+    .map-quick-intro h1 {
+        max-width: 14ch;
+        font-size: clamp(1.55rem, 4vw, 2.2rem);
+        line-height: 1.02;
+    }
+
+    .map-quick-intro p {
+        max-width: 32ch;
+        font-size: 0.92rem;
+    }
+
+    .map-quick-intro__eyebrow {
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: #e7f2ec;
+    }
+
     .map-status-pill {
+        top: auto;
+        left: 18px;
+        bottom: 232px;
+        transform: none;
+        border-radius: 999px;
+    }
+
+    .map-founder-prompt {
+        top: 330px;
+        border-radius: 16px;
+    }
+
+    .map-action-stack {
+        right: 18px;
+        bottom: 100px;
+        width: min(280px, calc(100vw - 36px));
+    }
+
+    .map-action-button {
+        grid-template-columns: 40px minmax(0, 1fr);
+        min-height: 56px;
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.96);
+    }
+
+    .map-action-button::after {
+        justify-self: end;
+        color: #7a8a84;
+        font-family: "bootstrap-icons";
+        font-size: 0.9rem;
+        content: "\F285";
+    }
+
+    .map-action-button > span:not(.map-action-button__icon) {
+        grid-column: 2;
+        justify-self: start;
+        text-align: left;
+    }
+
+    .map-action-button--primary {
+        background: linear-gradient(135deg, #24695a, #3a826d);
+    }
+
+    .map-action-button--primary::after {
+        color: rgba(255, 255, 255, 0.76);
+    }
+
+    .map-explore-panel--nearby {
+        top: 84px;
+        right: 18px;
+        width: min(380px, calc(100vw - 36px));
+        max-height: min(430px, calc(100vh - 210px));
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.95);
+        box-shadow: 0 18px 40px rgba(20, 40, 35, 0.15);
+    }
+
+    .map-notification-preview {
         display: none !important;
+    }
+
+    @@media (max-width: 575.98px) {
+        .map-quick-intro {
+            top: 68px;
+            right: 10px;
+            left: 10px;
+            width: auto;
+            padding: 13px;
+            border-radius: 14px;
+        }
+
+        .map-quick-intro h1 {
+            max-width: none;
+            font-size: 1.14rem;
+        }
+
+        .map-quick-intro p {
+            max-width: none;
+            margin-top: 6px;
+            font-size: 0.76rem;
+        }
+
+        .map-explore-panel--nearby,
+        .map-founder-prompt,
+        .map-status-pill {
+            display: none !important;
+        }
+
+        .map-action-stack {
+            right: 8px;
+            bottom: 86px;
+            left: 8px;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            width: auto;
+        }
+
+        .map-action-button {
+            grid-template-columns: 1fr;
+            min-height: 58px;
+            border-radius: 14px;
+        }
+
+        .map-action-button::after {
+            display: none;
+        }
+
+        .map-action-button > span:not(.map-action-button__icon) {
+            grid-column: 1;
+            justify-self: center;
+            text-align: center;
+        }
     }
 </style>
 
@@ -2558,10 +2767,10 @@
 <section class="map-quick-intro" aria-label="DoggyDrop zemljevid">
     <div class="map-quick-intro__eyebrow">
         <i class="bi bi-heart-pulse-fill" aria-hidden="true"></i>
-        <span>DoggyDrop mapa</span>
+        <span>Walk cockpit</span>
     </div>
-    <h1>Odkrij bližnje sprehode, parke in pasje koše.</h1>
-    <p>Tukaj najhitreje začneš sprehod, najdeš najbližji koš in odpreš predloge poti okoli sebe.</p>
+    <h1>Naj bo vsak sprehod malo lažji.</h1>
+    <p>Začni pot, najdi bližnji koš, preveri parke in hitro shrani nove uporabne točke.</p>
 </section>
 
 @if (showFirstWalkPrompt)
@@ -2797,18 +3006,24 @@ else if (needsDogOnboarding)
     <a asp-controller="Map" asp-action="Add">Dodaj prvi koš</a>
 </aside>
 
-<aside id="communityHeatPanel" class="map-community-heat">
-    <div class="map-community-heat__head">
-        <strong>Community heat</strong>
-        <span id="communityHeatRange">Today</span>
-    </div>
-    <div class="map-community-heat__stats">
-        <span><b id="communityActiveWalkers">0</b> active</span>
-        <span><b id="communityPopularParks">0</b> parks</span>
-        <span><b id="communityTrendingRoutes">0</b> routes</span>
-    </div>
-    <div id="communityEvents" class="map-community-heat__events">
-        <p>Ko se nabere aktivnost, bodo tukaj zasijale popularne lokacije.</p>
+<aside id="communityHeatPanel" class="map-community-heat is-collapsed" aria-expanded="false">
+    <button type="button" id="communityHeatToggle" class="map-community-heat__toggle" aria-label="Prikaži community heat">
+        <span class="map-community-heat__icon" aria-hidden="true"><i class="bi bi-fire"></i></span>
+        <span class="map-community-heat__label">
+            <strong>Community heat</strong>
+            <small id="communityHeatRange">Today</small>
+        </span>
+        <span id="communityHeatBadge" class="map-community-heat__badge">0</span>
+    </button>
+    <div class="map-community-heat__body">
+        <div class="map-community-heat__stats">
+            <span><b id="communityActiveWalkers">0</b> active</span>
+            <span><b id="communityPopularParks">0</b> parks</span>
+            <span><b id="communityTrendingRoutes">0</b> routes</span>
+        </div>
+        <div id="communityEvents" class="map-community-heat__events">
+            <p>Ko se nabere aktivnost, bodo tukaj zasijale popularne lokacije.</p>
+        </div>
     </div>
 </aside>
 
@@ -2904,6 +3119,8 @@ else if (needsDogOnboarding)
         const nearbyDogsList = document.getElementById("nearbyDogsList");
         const nearbyDogsCount = document.getElementById("nearbyDogsCount");
         const communityHeatPanel = document.getElementById("communityHeatPanel");
+        const communityHeatToggle = document.getElementById("communityHeatToggle");
+        const communityHeatBadge = document.getElementById("communityHeatBadge");
         const communityHeatRangeLabel = document.getElementById("communityHeatRange");
         const communityActiveWalkers = document.getElementById("communityActiveWalkers");
         const communityPopularParks = document.getElementById("communityPopularParks");
@@ -3143,6 +3360,11 @@ else if (needsDogOnboarding)
                     button.classList.add("is-active");
                     loadCommunityHeatmap();
                 });
+            });
+            communityHeatToggle?.addEventListener("click", () => {
+                const isCollapsed = communityHeatPanel.classList.toggle("is-collapsed");
+                communityHeatPanel.setAttribute("aria-expanded", (!isCollapsed).toString());
+                communityHeatToggle.setAttribute("aria-label", isCollapsed ? "Prikaži community heat" : "Skrij community heat");
             });
             document.getElementById("parkCountLabel").textContent = `(${placeGroups.parks.length})`;
             applySavedMapSettings();
@@ -3482,6 +3704,10 @@ else if (needsDogOnboarding)
             communityActiveWalkers.textContent = Number(data.activeWalkers || 0).toString();
             communityPopularParks.textContent = Number(data.popularParks || 0).toString();
             communityTrendingRoutes.textContent = Number(data.trendingRoutes || 0).toString();
+            if (communityHeatBadge) {
+                const heatCount = hotspots.length || Number(data.activeWalkers || 0) + Number(data.popularParks || 0) + Number(data.trendingRoutes || 0);
+                communityHeatBadge.textContent = heatCount > 99 ? "99+" : heatCount.toString();
+            }
 
             const events = Array.isArray(data.events) ? data.events : [];
             communityEvents.innerHTML = events.length
