@@ -365,8 +365,21 @@
             });
 
             const bounds = L.latLngBounds(allPoints.map(point => [point.lat, point.lng]));
-            map.fitBounds(bounds, { padding: [24, 24], maxZoom: 16 });
-            setTimeout(() => map.invalidateSize(), 120);
+            const fitMap = () => {
+                map.invalidateSize({ pan: false });
+                map.fitBounds(bounds, { padding: [24, 24], maxZoom: 16 });
+            };
+
+            requestAnimationFrame(fitMap);
+            setTimeout(fitMap, 120);
+            setTimeout(fitMap, 450);
+            window.addEventListener("load", fitMap, { once: true });
+            window.addEventListener("resize", fitMap);
+
+            if ("ResizeObserver" in window) {
+                const resizeObserver = new ResizeObserver(fitMap);
+                resizeObserver.observe(mapElement);
+            }
         }
 
         function readStoredPlannerLocation() {
@@ -696,10 +709,13 @@
 
     .walk-planner-map-frame {
         position: relative;
+        display: block;
         overflow: hidden;
         border-radius: 16px;
         border: 1px solid rgba(31, 45, 41, 0.14);
         background: #eaf4ea;
+        width: 100%;
+        aspect-ratio: 4 / 3;
         height: clamp(300px, 42vw, 430px);
         min-height: 300px;
         max-height: 430px;
@@ -709,9 +725,34 @@
     .walk-planner-route-map {
         position: absolute;
         inset: 0;
+        z-index: 1;
         width: 100%;
         height: 100%;
+        min-height: 100%;
         display: block;
+    }
+
+    .walk-planner-route-map.leaflet-container {
+        width: 100%;
+        height: 100%;
+        border-radius: inherit;
+        background: #eaf4ea;
+        font-family: inherit;
+    }
+
+    .walk-planner-route-map .leaflet-pane,
+    .walk-planner-route-map .leaflet-tile,
+    .walk-planner-route-map .leaflet-marker-icon,
+    .walk-planner-route-map .leaflet-marker-shadow,
+    .walk-planner-route-map .leaflet-tile-container,
+    .walk-planner-route-map .leaflet-pane > svg,
+    .walk-planner-route-map .leaflet-pane > canvas,
+    .walk-planner-route-map .leaflet-zoom-box,
+    .walk-planner-route-map .leaflet-image-layer,
+    .walk-planner-route-map .leaflet-layer {
+        position: absolute;
+        left: 0;
+        top: 0;
     }
 
     .walk-planner-route-map .leaflet-control-attribution {
