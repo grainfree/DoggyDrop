@@ -14,6 +14,7 @@
         Math.Abs(Model.TargetDistanceKm - preset.DistanceKm) < 0.05
         && string.Equals(Model.WalkStyle, preset.WalkStyle, StringComparison.OrdinalIgnoreCase))
         ?? Model.Presets.FirstOrDefault();
+    var showDogChooser = Model.Dogs.Count != 1 || selectedDog == null;
 }
 
 @section Styles {
@@ -41,38 +42,39 @@
         <input type="hidden" id="includeWater" name="includeWater" value="@Model.IncludeWater.ToString().ToLowerInvariant()" />
         <input type="hidden" id="includeDogFriendly" name="includeDogFriendly" value="@Model.IncludeDogFriendly.ToString().ToLowerInvariant()" />
         <input type="hidden" id="dogEnergy" name="dogEnergy" value="auto" />
+        <input type="hidden" id="area" name="area" value="@Model.AreaKey" />
+        @if (Model.Dogs.Count == 1 && selectedDog != null)
+        {
+            <input type="hidden" id="dogId" name="dogId" value="@selectedDog.Id" />
+        }
 
         <div class="walk-planner-toolbar">
-            <div class="walk-planner-dogs">
-                <span>Za koga greva?</span>
-                @if (Model.Dogs.Count == 0)
-                {
-                    <a class="walk-planner-dog-chip walk-planner-dog-chip--empty" asp-controller="Dogs" asp-action="Create">Dodaj psa</a>
-                }
-                else if (Model.Dogs.Count == 1 && selectedDog != null)
-                {
-                    <input type="hidden" id="dogId" name="dogId" value="@selectedDog.Id" />
-                    <strong class="walk-planner-dog-chip is-active">@selectedDog.Name</strong>
-                }
-                else
-                {
-                    <div class="walk-planner-dog-options" role="radiogroup" aria-label="Izberi psa">
-                        @foreach (var dog in Model.Dogs)
-                        {
-                            var isSelected = Model.SelectedDogId == dog.Id || (!Model.SelectedDogId.HasValue && dog.Id == selectedDog?.Id);
-                            <label class="walk-planner-dog-chip @(isSelected ? "is-active" : "")">
-                                <input type="radio" name="dogId" value="@dog.Id" checked="@isSelected" />
-                                <span>@dog.Name</span>
-                            </label>
-                        }
-                    </div>
-                }
-            </div>
-            <div class="walk-planner-location">
-                <label>Izhodišče</label>
+            @if (showDogChooser)
+            {
+                <div class="walk-planner-dogs">
+                    @if (Model.Dogs.Count == 0)
+                    {
+                        <a class="walk-planner-dog-chip walk-planner-dog-chip--empty" asp-controller="Dogs" asp-action="Create">Dodaj psa</a>
+                    }
+                    else
+                    {
+                        <div class="walk-planner-dog-options" role="radiogroup" aria-label="Izberi psa">
+                            @foreach (var dog in Model.Dogs)
+                            {
+                                var isSelected = Model.SelectedDogId == dog.Id || (!Model.SelectedDogId.HasValue && dog.Id == selectedDog?.Id);
+                                <label class="walk-planner-dog-chip @(isSelected ? "is-active" : "")">
+                                    <input type="radio" name="dogId" value="@dog.Id" checked="@isSelected" />
+                                    <span>@dog.Name</span>
+                                </label>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+            <div class="walk-planner-location" hidden>
                 <button type="button" id="usePlannerLocation" class="walk-planner-location__button">Moja lokacija</button>
-                <span id="plannerLocationStatus" hidden="@Model.UsesCurrentLocation">@(Model.UsesCurrentLocation ? "" : "Dovoli lokacijo za predlog iz tvoje bližine.")</span>
             </div>
+            <span id="plannerLocationStatus" class="walk-planner-location-alert" hidden>@(Model.UsesCurrentLocation ? "" : "Dovoli lokacijo za predlog iz tvoje bližine.")</span>
         </div>
 
         <div class="walk-planner-presets" aria-label="Hitri predlogi sprehoda">
@@ -103,22 +105,6 @@
                 </button>
             }
         </div>
-
-        <details class="walk-planner-advanced">
-            <summary>Rezervno območje, če GPS ni dovoljen</summary>
-            <div class="walk-planner-advanced__grid">
-                <div>
-                    <label for="area">Fallback območje</label>
-                    <select id="area" name="area">
-                        @foreach (var area in Model.Areas)
-                        {
-                            <option value="@area.Key" selected="@(Model.AreaKey == area.Key)">@area.Name</option>
-                        }
-                    </select>
-                </div>
-                <button type="submit">Ustvari iz fallback območja</button>
-            </div>
-        </details>
     </form>
 
     @if (binStop != null)
@@ -417,6 +403,7 @@
             const fitMap = () => {
                 map.invalidateSize({ pan: false });
                 map.fitBounds(bounds, { padding: [24, 24], maxZoom: 16 });
+                drawRouteSketchOverlay(mapElement, map, previewRoutePoints);
             };
 
             requestAnimationFrame(fitMap);
@@ -434,6 +421,41 @@
         function readTargetDistanceKm() {
             const value = Number(document.getElementById("distanceKm")?.value || "3");
             return Number.isFinite(value) ? Math.max(1, Math.min(value, 8)) : 3;
+        }
+
+        function drawRouteSketchOverlay(mapElement, map, points) {
+            const frame = mapElement.closest(".walk-planner-map-frame") ?? mapElement;
+            frame.querySelector(".walk-planner-route-sketch")?.remove();
+            if (!points || points.length < 2) {
+                return;
+            }
+
+            const width = mapElement.clientWidth || frame.clientWidth;
+            const height = mapElement.clientHeight || frame.clientHeight;
+            if (!width || !height) {
+                return;
+            }
+
+            const projected = points
+                .map(point => map.latLngToContainerPoint([point.lat, point.lng]))
+                .filter(point => Number.isFinite(point.x) && Number.isFinite(point.y));
+            if (projected.length < 2) {
+                return;
+            }
+
+            const routePath = projected
+                .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`)
+                .join(" ");
+            const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+            svg.setAttribute("class", "walk-planner-route-sketch");
+            svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+            svg.setAttribute("aria-hidden", "true");
+            svg.innerHTML = `
+                <path class="walk-planner-route-sketch__halo" d="${routePath}" />
+                <path class="walk-planner-route-sketch__line" d="${routePath}" />
+                <path class="walk-planner-route-sketch__dash" d="${routePath}" />
+            `;
+            frame.appendChild(svg);
         }
 
         function buildPreviewLoop(center, distanceKm, stops) {
@@ -483,8 +505,10 @@
         function readCoordinate(item) {
             const lat = item?.Latitude ?? item?.latitude;
             const lng = item?.Longitude ?? item?.longitude;
-            return typeof lat === "number" && typeof lng === "number"
-                ? { lat, lng }
+            const parsedLat = Number(lat);
+            const parsedLng = Number(lng);
+            return Number.isFinite(parsedLat) && Number.isFinite(parsedLng)
+                ? { lat: parsedLat, lng: parsedLng }
                 : null;
         }
 
@@ -656,6 +680,15 @@
         font-size: 0.78rem;
         font-weight: 800;
         line-height: 1.25;
+    }
+
+    #plannerLocationStatus[hidden] {
+        display: none !important;
+    }
+
+    .walk-planner-location-alert {
+        grid-column: 1 / -1;
+        justify-self: center;
     }
 
     .walk-planner-presets {
@@ -934,6 +967,7 @@
 
     .walk-planner-map-note {
         position: absolute;
+        z-index: 470;
         right: 12px;
         bottom: 10px;
         padding: 5px 9px;
@@ -943,6 +977,39 @@
         font-size: 0.72rem;
         font-weight: 900;
         letter-spacing: 0;
+    }
+
+    .walk-planner-route-sketch {
+        position: absolute;
+        inset: 0;
+        z-index: 450;
+        width: 100%;
+        height: 100%;
+        overflow: visible;
+        pointer-events: none;
+    }
+
+    .walk-planner-route-sketch path {
+        fill: none;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+    }
+
+    .walk-planner-route-sketch__halo {
+        stroke: rgba(255, 255, 255, 0.96);
+        stroke-width: 13;
+    }
+
+    .walk-planner-route-sketch__line {
+        stroke: #24695a;
+        stroke-width: 7;
+        filter: drop-shadow(0 8px 13px rgba(31, 45, 41, 0.22));
+    }
+
+    .walk-planner-route-sketch__dash {
+        stroke: #f1b75f;
+        stroke-width: 2.4;
+        stroke-dasharray: 7 12;
     }
 
     .walk-planner-route-grid path {
