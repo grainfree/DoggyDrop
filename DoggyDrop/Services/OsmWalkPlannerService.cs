@@ -1,6 +1,7 @@
 using DoggyDrop.Models;
 using DoggyDrop.ViewModels;
 using System.Globalization;
+using System.Net.Http.Json;
 using System.Text.Json;
 
 namespace DoggyDrop.Services
@@ -8,16 +9,27 @@ namespace DoggyDrop.Services
     public class OsmWalkPlannerService : IOsmWalkPlannerService
     {
         private const string OverpassUrl = "https://overpass-api.de/api/interpreter";
+        private const string OpenRouteServiceDirectionsUrl = "https://api.openrouteservice.org/v2/directions/foot-walking/geojson";
         private const string OsrmBaseUrl = "https://router.project-osrm.org/route/v1/foot/";
         private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
         private readonly HttpClient _httpClient;
         private readonly ILogger<OsmWalkPlannerService> _logger;
+        private readonly string? _openRouteServiceApiKey;
 
-        public OsmWalkPlannerService(HttpClient httpClient, ILogger<OsmWalkPlannerService> logger)
+        public OsmWalkPlannerService(
+            HttpClient httpClient,
+            ILogger<OsmWalkPlannerService> logger,
+            IConfiguration configuration)
         {
             _httpClient = httpClient;
             _logger = logger;
+            _openRouteServiceApiKey = GetConfiguredValue(
+                configuration,
+                "OpenRouteService:ApiKey",
+                "OpenRouteService__ApiKey",
+                "OPENROUTESERVICE_API_KEY",
+                "ORS_API_KEY");
         }
 
         public async Task<PlannedWalkRoute?> PlanAsync(
@@ -39,13 +51,15 @@ namespace DoggyDrop.Services
                 var radiusMeters = Math.Clamp((int)Math.Round(effectiveDistanceKm * 650), 900, 4500);
                 var osmPlaces = await FetchOsmPlacesAsync(startLatitude, startLongitude, radiusMeters, cancellationToken);
                 var stops = BuildStops(startLatitude, startLongitude, effectiveDistanceKm, bins, osmPlaces, walkStyle, includeBins, includePark, includeWater, includeDogFriendly);
-                var route = await FetchOsrmRouteAsync(stops, cancellationToken) ?? BuildFallbackLoop(startLatitude, startLongitude, effectiveDistanceKm, stops);
+                var route = await FetchOpenRouteServiceRouteAsync(stops, cancellationToken)
+                    ?? await FetchOsrmRouteAsync(stops, cancellationToken)
+                    ?? BuildFallbackLoop(startLatitude, startLongitude, effectiveDistanceKm, stops);
                 var estimatedDistanceKm = route.DistanceKm > 0 ? route.DistanceKm : EstimateRouteDistance(route.Points);
 
                 return new PlannedWalkRoute
                 {
                     Title = $"{effectiveDistanceKm:0.#} km AI walk - Moja lokacija",
-                    Summary = BuildSummary(stops, effectiveDistanceKm, walkStyle, dogEnergy, route.UsedOsrm),
+                    Summary = BuildSummary(stops, effectiveDistanceKm, walkStyle, dogEnergy, route.RoutingProvider),
                     TargetDistanceKm = effectiveDistanceKm,
                     EstimatedDistanceKm = estimatedDistanceKm,
                     EstimatedMinutes = Math.Max(10, (int)Math.Round(estimatedDistanceKm / GetSpeedKmPerHour(dogEnergy, walkStyle) * 60)),
@@ -329,6 +343,62 @@ namespace DoggyDrop.Services
             return orderedStops;
         }
 
+        private async Task<RouteGeometry?> FetchOpenRouteServiceRouteAsync(
+            IReadOnlyList<PlannedWalkRouteStop> stops,
+            CancellationToken cancellationToken)
+        {
+            if (stops.Count < 2 || string.IsNullOrWhiteSpace(_openRouteServiceApiKey))
+            {
+                return null;
+            }
+
+            var coordinates = stops
+                .Select(stop => new[]
+                {
+                    Math.Round(stop.Longitude, 6),
+                    Math.Round(stop.Latitude, 6)
+                })
+                .ToList();
+
+            var payload = new
+            {
+                coordinates,
+                preference = "recommended",
+                instructions = false,
+                elevation = false
+            };
+
+            using var request = new HttpRequestMessage(HttpMethod.Post, OpenRouteServiceDirectionsUrl)
+            {
+                Content = JsonContent.Create(payload, options: JsonOptions)
+            };
+            request.Headers.TryAddWithoutValidation("Authorization", _openRouteServiceApiKey);
+
+            using var response = await _httpClient.SendAsync(request, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogInformation("OpenRouteService returned {StatusCode}.", response.StatusCode);
+                return null;
+            }
+
+            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+            var result = await JsonSerializer.DeserializeAsync<OpenRouteServiceResponse>(stream, JsonOptions, cancellationToken);
+            var feature = result?.Features?.FirstOrDefault();
+            var coordinatesResult = feature?.Geometry?.Coordinates;
+            if (coordinatesResult == null || coordinatesResult.Count < 2)
+            {
+                return null;
+            }
+
+            var points = coordinatesResult
+                .Where(point => point.Count >= 2)
+                .Select(point => new PlannedWalkPoint { Latitude = point[1], Longitude = point[0] })
+                .ToList();
+            var distanceKm = (feature?.Properties?.Summary?.Distance ?? 0) / 1000d;
+
+            return new RouteGeometry(points, distanceKm, "openrouteservice");
+        }
+
         private async Task<RouteGeometry?> FetchOsrmRouteAsync(
             IReadOnlyList<PlannedWalkRouteStop> stops,
             CancellationToken cancellationToken)
@@ -363,7 +433,7 @@ namespace DoggyDrop.Services
                     .Select(point => new PlannedWalkPoint { Latitude = point[1], Longitude = point[0] })
                     .ToList(),
                 (route?.Distance ?? 0) / 1000d,
-                true);
+                "osrm");
         }
 
         private static RouteGeometry BuildFallbackLoop(
@@ -394,7 +464,7 @@ namespace DoggyDrop.Services
                 new PlannedWalkPoint { Latitude = latitude, Longitude = longitude }
             ]);
 
-            return new RouteGeometry(generated, EstimateRouteDistance(generated), false);
+            return new RouteGeometry(generated, EstimateRouteDistance(generated), "fallback");
         }
 
         private static string BuildSummary(
@@ -402,17 +472,17 @@ namespace DoggyDrop.Services
             double targetDistanceKm,
             string walkStyle,
             string dogEnergy,
-            bool usedOsrm)
+            string routingProvider)
         {
             var parts = new List<string>();
             if (stops.Any(stop => stop.Type == "bin"))
             {
-                parts.Add("pasji koš");
+                parts.Add("pasji kos");
             }
 
             if (stops.Any(stop => stop.Type == "park"))
             {
-                parts.Add("OSM zelena točka");
+                parts.Add("OSM zelena tocka");
             }
 
             if (stops.Any(stop => stop.Type == "water"))
@@ -428,18 +498,23 @@ namespace DoggyDrop.Services
             var intro = walkStyle switch
             {
                 "quick" => "Hiter krog iz tvoje lokacije",
-                "park" => "Sproščen sprehod z več vohanja",
+                "park" => "Sproscen sprehod z vec vohanja",
                 "city" => "Mestni krog z uporabnimi postanki",
-                "long" => "Daljši raziskovalni sprehod",
-                _ => "Uravnotežen krog iz tvoje lokacije"
+                "long" => "Daljsi raziskovalni sprehod",
+                _ => "Uravnotezen krog iz tvoje lokacije"
             };
             var energyNote = dogEnergy switch
             {
-                "low" => "Tempo je mirnejši.",
+                "low" => "Tempo je mirnejsi.",
                 "high" => "Tempo je bolj aktiven.",
-                _ => "Tempo je srednje živahen."
+                _ => "Tempo je srednje zivahen."
             };
-            var routeNote = usedOsrm ? " Pot je zrisana z OSRM peš routingom." : " Pot je začasni krog, ker routing ni odgovoril.";
+            var routeNote = routingProvider switch
+            {
+                "openrouteservice" => " Pot je zrisana po dejanskih OSM pespoteh.",
+                "osrm" => " Pot je zrisana z OSRM pes routingom.",
+                _ => " Pot je zacasni krog, ker routing ni odgovoril."
+            };
             return parts.Count == 0
                 ? $"{intro} {targetDistanceKm:0.#} km. {energyNote}{routeNote}"
                 : $"{intro} {targetDistanceKm:0.#} km: {string.Join(", ", parts)}. {energyNote}{routeNote}";
@@ -548,6 +623,20 @@ namespace DoggyDrop.Services
 
         private static double ToRadians(double degrees) => degrees * Math.PI / 180;
 
+        private static string? GetConfiguredValue(IConfiguration configuration, params string[] keys)
+        {
+            foreach (var key in keys)
+            {
+                var value = configuration[key];
+                if (!string.IsNullOrWhiteSpace(value))
+                {
+                    return value;
+                }
+            }
+
+            return null;
+        }
+
         private sealed record OsmPlace(
             string Name,
             string Type,
@@ -556,7 +645,36 @@ namespace DoggyDrop.Services
             double DistanceKm,
             IReadOnlyDictionary<string, string> Tags);
 
-        private sealed record RouteGeometry(IReadOnlyList<PlannedWalkPoint> Points, double DistanceKm, bool UsedOsrm);
+        private sealed record RouteGeometry(IReadOnlyList<PlannedWalkPoint> Points, double DistanceKm, string RoutingProvider);
+
+        private sealed class OpenRouteServiceResponse
+        {
+            public List<OpenRouteServiceFeature>? Features { get; set; }
+        }
+
+        private sealed class OpenRouteServiceFeature
+        {
+            public OpenRouteServiceGeometry? Geometry { get; set; }
+
+            public OpenRouteServiceProperties? Properties { get; set; }
+        }
+
+        private sealed class OpenRouteServiceGeometry
+        {
+            public List<List<double>>? Coordinates { get; set; }
+        }
+
+        private sealed class OpenRouteServiceProperties
+        {
+            public OpenRouteServiceSummary? Summary { get; set; }
+        }
+
+        private sealed class OpenRouteServiceSummary
+        {
+            public double Distance { get; set; }
+
+            public double Duration { get; set; }
+        }
 
         private sealed class OverpassResponse
         {
