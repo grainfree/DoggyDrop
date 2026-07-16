@@ -32,6 +32,11 @@
     var userDisplayName = (ViewBag.UserDisplayName as string) ?? "pasjeljubec";
     var showFirstWalkPrompt = TempData["ShowFirstWalkPrompt"] as bool? == true;
     var firstDogName = TempData["FirstDogName"] as string;
+    var activeWalk = ViewBag.ActiveWalk as DoggyDrop.Models.Walk;
+    var hasActiveWalk = activeWalk != null;
+    var activeWalkStartedAt = activeWalk?.StartedAt.ToString("O");
+    var activeWalkDistanceKm = activeWalk == null ? "0.00" : (activeWalk.DistanceMeters / 1000d).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
+    var activeWalkPointCount = activeWalk?.Points?.Count ?? 0;
 }
 
 @section Styles {
@@ -772,6 +777,10 @@
         width: min(240px, calc(100vw - 32px));
     }
 
+    .map-action-stack--with-active {
+        bottom: 304px;
+    }
+
     .map-action-button {
         display: grid;
         grid-template-columns: 42px minmax(0, 1fr) 42px;
@@ -1288,6 +1297,133 @@
         box-shadow: 0 0 0 6px rgba(47, 159, 111, 0.12);
     }
 
+    .map-active-walk-card {
+        position: fixed;
+        left: 50%;
+        bottom: calc(98px + env(safe-area-inset-bottom));
+        z-index: 1120;
+        width: min(680px, calc(100vw - 28px));
+        padding: 14px;
+        border: 1px solid rgba(47, 109, 95, 0.18);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.96);
+        box-shadow: 0 18px 44px rgba(31, 45, 41, 0.22);
+        color: #21342f;
+        transform: translateX(-50%);
+        backdrop-filter: blur(18px);
+    }
+
+    .map-active-walk-card__top,
+    .map-active-walk-card__metrics,
+    .map-active-walk-card__actions {
+        display: grid;
+        gap: 10px;
+    }
+
+    .map-active-walk-card__top {
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: start;
+    }
+
+    .map-active-walk-card__eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        color: #2f6d5f;
+        font-size: 0.76rem;
+        font-weight: 950;
+        text-transform: uppercase;
+    }
+
+    .map-active-walk-card__eyebrow::before {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: #20b26b;
+        box-shadow: 0 0 0 7px rgba(32, 178, 107, 0.13);
+        content: "";
+    }
+
+    .map-active-walk-card h2 {
+        margin: 5px 0 0;
+        color: #17322c;
+        font-size: clamp(1.35rem, 4vw, 1.9rem);
+        font-weight: 950;
+        line-height: 1.05;
+    }
+
+    .map-active-walk-card p {
+        margin: 5px 0 0;
+        color: #65716d;
+        font-size: 0.88rem;
+        font-weight: 800;
+        line-height: 1.35;
+    }
+
+    .map-active-walk-card__metrics {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        margin: 12px 0;
+    }
+
+    .map-active-walk-card__metrics article {
+        padding: 10px;
+        border-radius: 8px;
+        background: #eef7ed;
+        text-align: center;
+    }
+
+    .map-active-walk-card__metrics strong,
+    .map-active-walk-card__metrics span {
+        display: block;
+    }
+
+    .map-active-walk-card__metrics strong {
+        color: #17322c;
+        font-size: 1.04rem;
+        font-weight: 950;
+    }
+
+    .map-active-walk-card__metrics span {
+        color: #65716d;
+        font-size: 0.74rem;
+        font-weight: 900;
+        text-transform: uppercase;
+    }
+
+    .map-active-walk-card__actions {
+        grid-template-columns: 1.25fr 1fr 1fr;
+    }
+
+    .map-active-walk-card__actions a,
+    .map-active-walk-card__actions button {
+        display: inline-flex;
+        min-height: 44px;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        border: 1px solid rgba(47, 109, 95, 0.16);
+        border-radius: 999px;
+        background: #ffffff;
+        color: #2f6d5f;
+        font-weight: 950;
+        text-decoration: none;
+    }
+
+    .map-active-walk-card__actions .is-primary {
+        border: 0;
+        background: #2f6d5f;
+        color: #ffffff;
+    }
+
+    .map-active-walk-card__actions .is-danger {
+        border-color: rgba(155, 59, 47, 0.22);
+        color: #9b3b2f;
+    }
+
+    .map-active-walk-card__actions form {
+        margin: 0;
+    }
+
     .map-founder-prompt {
         position: fixed;
         left: 18px;
@@ -1565,9 +1701,41 @@
         .map-action-stack {
             left: 8px;
             right: 8px;
-            bottom: 86px;
+            bottom: @(hasActiveWalk ? "284px" : "86px");
             grid-template-columns: repeat(4, minmax(0, 1fr));
             width: auto;
+        }
+
+        .map-active-walk-card {
+            left: 8px;
+            right: 8px;
+            bottom: calc(86px + env(safe-area-inset-bottom));
+            width: auto;
+            padding: 12px;
+            transform: none;
+        }
+
+        .map-active-walk-card__top {
+            grid-template-columns: 1fr;
+        }
+
+        .map-active-walk-card__metrics {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 7px;
+            margin: 10px 0;
+        }
+
+        .map-active-walk-card__metrics article {
+            padding: 8px 6px;
+        }
+
+        .map-active-walk-card__actions {
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .map-active-walk-card__actions .is-primary {
+            grid-column: 1 / -1;
         }
 
         .map-action-button {
@@ -1976,10 +2144,59 @@ else if (needsDogOnboarding)
     </div>
 </aside>
 
-<div class="map-action-stack">
-    <a class="map-action-button map-action-button--primary" asp-controller="Walks" asp-action="Planner">
+@if (hasActiveWalk)
+{
+    <aside class="map-active-walk-card" aria-label="Aktiven sprehod">
+        <div class="map-active-walk-card__top">
+            <div>
+                <span class="map-active-walk-card__eyebrow">Aktiven sprehod</span>
+                <h2>@(activeWalk?.Dog?.Name ?? "Sprehod") je na poti</h2>
+                <p>
+                    @(activeWalk?.PlannedWalk != null
+                        ? $"{activeWalk.PlannedWalk.Title} · začetek {activeWalk.StartedAt.ToLocalTime():HH:mm}"
+                        : $"Začetek {activeWalk!.StartedAt.ToLocalTime():HH:mm}")
+                </p>
+            </div>
+        </div>
+
+        <div class="map-active-walk-card__metrics">
+            <article>
+                <strong id="homeActiveWalkDuration">00:00</strong>
+                <span>čas</span>
+            </article>
+            <article>
+                <strong>@activeWalkDistanceKm km</strong>
+                <span>razdalja</span>
+            </article>
+            <article>
+                <strong>@activeWalkPointCount</strong>
+                <span>GPS</span>
+            </article>
+        </div>
+
+        <div class="map-active-walk-card__actions">
+            <a class="is-primary" asp-controller="Walks" asp-action="Active" asp-route-id="@activeWalk!.Id">
+                <i class="bi bi-play-circle-fill" aria-hidden="true"></i>
+                <span>Odpri sprehod</span>
+            </a>
+            <a asp-controller="Map" asp-action="Add">
+                <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                <span>Dodaj koš</span>
+            </a>
+            <form asp-controller="Walks" asp-action="Finish" asp-route-id="@activeWalk.Id" method="post">
+                <button type="submit" class="is-danger" onclick="return confirm('Zaključim trenutni sprehod?');">
+                    <i class="bi bi-stop-circle-fill" aria-hidden="true"></i>
+                    <span>Zaključi</span>
+                </button>
+            </form>
+        </div>
+    </aside>
+}
+
+<div class="map-action-stack @(hasActiveWalk ? "map-action-stack--with-active" : "")">
+    <a class="map-action-button map-action-button--primary" asp-controller="Walks" asp-action="@(hasActiveWalk ? "Active" : "Planner")" asp-route-id="@(hasActiveWalk ? activeWalk!.Id : null)">
         <span class="map-action-button__icon" aria-hidden="true"><i class="bi bi-play-fill"></i></span>
-        <span>Start walk</span>
+        <span>@(hasActiveWalk ? "Sprehod" : "Start walk")</span>
     </a>
     <a class="map-action-button" asp-controller="Map" asp-action="Add">
         <span class="map-action-button__icon" aria-hidden="true"><i class="bi bi-plus-lg"></i></span>
@@ -2122,6 +2339,8 @@ else if (needsDogOnboarding)
         const communityEvents = document.getElementById("communityEvents");
         const mapFounderPrompt = document.getElementById("mapFounderPrompt");
         const mapFounderPromptText = document.getElementById("mapFounderPromptText");
+        const activeWalkStartedAt = @Html.Raw(hasActiveWalk ? $"new Date(\"{activeWalkStartedAt}\")" : "null");
+        const homeActiveWalkDuration = document.getElementById("homeActiveWalkDuration");
 
         const placeGroups = {
             parks: [
@@ -2236,7 +2455,29 @@ else if (needsDogOnboarding)
             });
         }
 
-        document.addEventListener("DOMContentLoaded", initMap);
+        document.addEventListener("DOMContentLoaded", function () {
+            initActiveWalkCard();
+            initMap();
+        });
+
+        function initActiveWalkCard() {
+            if (!activeWalkStartedAt || !homeActiveWalkDuration) {
+                return;
+            }
+
+            const update = () => {
+                const diffSeconds = Math.max(0, Math.floor((Date.now() - activeWalkStartedAt.getTime()) / 1000));
+                const hours = Math.floor(diffSeconds / 3600);
+                const minutes = Math.floor((diffSeconds % 3600) / 60);
+                const seconds = diffSeconds % 60;
+                homeActiveWalkDuration.textContent = hours > 0
+                    ? `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`
+                    : `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+            };
+
+            update();
+            window.setInterval(update, 1000);
+        }
 
         function initMap() {
             map = L.map("map").setView([46.5547, 15.6459], 14);

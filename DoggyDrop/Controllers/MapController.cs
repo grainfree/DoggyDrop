@@ -129,8 +129,14 @@ namespace DoggyDrop.Controllers
                         dog.MapIconKey
                     })
                     .ToListAsync();
+                var activeWalk = await _context.Walks
+                    .Include(walk => walk.Dog)
+                    .Include(walk => walk.PlannedWalk)
+                    .Include(walk => walk.Points)
+                    .FirstOrDefaultAsync(walk => walk.OwnerId == userId && walk.Status == "Active");
 
                 ViewBag.MyDogs = myDogs;
+                ViewBag.ActiveWalk = activeWalk;
                 ViewBag.NeedsDogOnboarding = myDogs.Count == 0;
                 ViewBag.UserDisplayName = (await _userManager.GetUserAsync(User))?.DisplayName
                     ?? User.Identity?.Name
@@ -139,6 +145,7 @@ namespace DoggyDrop.Controllers
             else
             {
                 ViewBag.MyDogs = Array.Empty<object>();
+                ViewBag.ActiveWalk = null;
                 ViewBag.NeedsDogOnboarding = false;
                 ViewBag.UserDisplayName = "pasjeljubec";
             }
