@@ -1,11 +1,12 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using DoggyDrop.Models;
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 
 namespace DoggyDrop.Data
 {
-    public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
+    public class ApplicationDbContext : IdentityDbContext<ApplicationUser>, IDataProtectionKeyContext
 
     {
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
@@ -58,6 +59,8 @@ namespace DoggyDrop.Data
         public DbSet<DogXpEvent> DogXpEvents { get; set; }
 
         public DbSet<FounderBadge> FounderBadges { get; set; }
+
+        public DbSet<DataProtectionKey> DataProtectionKeys { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
