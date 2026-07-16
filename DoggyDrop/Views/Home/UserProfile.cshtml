@@ -27,6 +27,10 @@
             <p>@Model.Email</p>
             <div class="profile-hero__actions" aria-label="Profil akcije">
                 <a asp-controller="Home" asp-action="Settings">Nastavitve</a>
+                @if (User.IsInRole("Admin"))
+                {
+                    <a asp-controller="Map" asp-action="Manage">Admin koši</a>
+                }
                 <form asp-area="Identity"
                       asp-page="/Account/Logout"
                       asp-route-returnUrl="/Identity/Account/Login"

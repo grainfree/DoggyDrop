@@ -13,6 +13,9 @@
     var unreadNotificationCount = isSignedIn && !string.IsNullOrWhiteSpace(currentUserId)
         ? await DbContext.UserNotifications.CountAsync(n => n.UserId == currentUserId && !n.IsRead)
         : 0;
+    var pendingAdminBinCount = isSignedIn && User.IsInRole("Admin")
+        ? await DbContext.TrashBins.CountAsync(b => !b.IsApproved)
+        : 0;
     var profileUrl = isSignedIn
         ? Url.Action("UserProfile", "Home")
         : "/Identity/Account/Login";
@@ -167,7 +170,7 @@
                     {
                         <a asp-controller="Map" asp-action="Manage">
                             <strong>Admin</strong>
-                            <span>Predlogi</span>
+                            <span>@pendingAdminBinCount v čakalni vrsti</span>
                         </a>
                         <a asp-controller="MediaMigration" asp-action="Index">
                             <strong>Migracija slik</strong>

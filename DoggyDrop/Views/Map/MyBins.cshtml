@@ -103,8 +103,9 @@
                             {
                                 <a asp-controller="Map" asp-action="Index">Na zemljevid</a>
                             }
-                            <a asp-action="Reject" asp-route-id="@bin.Id" asp-route-returnTo="mybins"
-                               onclick="return confirm('Si preprican, da zelis izbrisati ta kos?');">Izbrisi</a>
+                            <form asp-action="Reject" asp-route-id="@bin.Id" asp-route-returnTo="mybins" method="post">
+                                <button type="submit" onclick="return confirm('Si preprican, da zelis izbrisati ta kos?');">Izbrisi</button>
+                            </form>
                         </div>
                     </div>
                 </article>
@@ -155,7 +156,8 @@
 
     .my-bins-hero a,
     .my-bins-empty a,
-    .my-bin-card__actions a {
+    .my-bin-card__actions a,
+    .my-bin-card__actions button {
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -341,7 +343,12 @@
         gap: 8px;
     }
 
-    .my-bin-card__actions a {
+    .my-bin-card__actions form {
+        margin: 0;
+    }
+
+    .my-bin-card__actions a,
+    .my-bin-card__actions button {
         min-height: 36px;
         padding: 8px 13px;
         border: 1px solid rgba(47, 109, 95, 0.16);

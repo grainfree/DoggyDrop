@@ -1,60 +1,346 @@
-﻿@model IEnumerable<DoggyDrop.Models.TrashBin>
+@model IEnumerable<DoggyDrop.Models.TrashBin>
 
 @{
-    ViewData["Title"] = "Upravljanje košev";
+    ViewData["Title"] = "Admin koši";
+    var pendingBins = Model.ToList();
 }
 
-<h2>Koši v čakalni vrsti</h2>
+<section class="app-page admin-bins-page">
+    <header class="admin-bins-hero">
+        <div>
+            <span>Admin čakalnica</span>
+            <h1>Predlogi košev</h1>
+            <p>Preglej nove lokacije, popravi podatke po potrebi in potrdi samo koše, ki so uporabni za sprehode.</p>
+        </div>
+        <a asp-controller="Map" asp-action="Index">Na zemljevid</a>
+    </header>
 
-@if (!Model.Any())
-{
-    <div class="alert alert-info">
-        Trenutno ni nobenih novih predlogov za potrditev.
+    <div class="admin-bins-summary">
+        <article>
+            <strong>@pendingBins.Count</strong>
+            <span>čaka na pregled</span>
+        </article>
+        <article>
+            <strong>@pendingBins.Count(bin => !string.IsNullOrWhiteSpace(bin.FullImageUrl))</strong>
+            <span>s fotografijo</span>
+        </article>
+        <article>
+            <strong>@pendingBins.Count(bin => bin.User != null)</strong>
+            <span>znan avtor</span>
+        </article>
     </div>
-}
-else
-{
-    <table class="table table-bordered table-striped">
-        <thead class="table-dark">
-            <tr>
-                <th>Ime</th>
-                <th>Lokacija</th>
-                <th>Datum</th>
-                <th>Predlagal</th>
-                <th>Slika</th>
-                <th>Akcije</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var bin in Model)
-            {
-                <tr>
-                    <td>@bin.Name</td>
-                    <td>@bin.Latitude, @bin.Longitude</td>
-                    <td>@bin.DateAdded.ToString("dd.MM.yyyy")</td>
-                    <td>
-                        @((bin.User != null)
-                            ? (bin.User.DisplayName ?? bin.User.Email)
-                            : "neznano")
-                    </td>
 
-                    <td>
-                        @if (!string.IsNullOrEmpty(bin.FullImageUrl))
+    @if (pendingBins.Count == 0)
+    {
+        <article class="admin-bins-empty">
+            <strong>Vse je pregledano.</strong>
+            <p>Ko uporabnik doda nov koš, se bo prikazal tukaj, dokler ga ne potrdiš ali zavrneš.</p>
+            <a asp-controller="Map" asp-action="Index">Nazaj na mapo</a>
+        </article>
+    }
+    else
+    {
+        <div class="admin-bin-list">
+            @foreach (var bin in pendingBins)
+            {
+                var imageUrl = bin.FullImageUrl;
+                var proposer = bin.User != null
+                    ? (bin.User.DisplayName ?? bin.User.Email ?? "Neznan uporabnik")
+                    : "Neznan uporabnik";
+                var osmUrl = $"https://www.openstreetmap.org/?mlat={bin.Latitude.ToString(System.Globalization.CultureInfo.InvariantCulture)}&mlon={bin.Longitude.ToString(System.Globalization.CultureInfo.InvariantCulture)}#map=18/{bin.Latitude.ToString(System.Globalization.CultureInfo.InvariantCulture)}/{bin.Longitude.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
+
+                <article class="admin-bin-card">
+                    <div class="admin-bin-card__media">
+                        @if (!string.IsNullOrWhiteSpace(imageUrl))
                         {
-                            <img src="@bin.FullImageUrl" alt="Slika koša" style="max-width: 100px;" />
+                            <img src="@imageUrl" alt="@bin.Name" loading="lazy" />
                         }
-                    </td>
-                    <td>
-                        <a href="/Map/Edit/@bin.Id" class="btn btn-warning btn-sm me-2">✏️ Uredi</a>
-                        <a href="/Map/Approve/@bin.Id" class="btn btn-success btn-sm me-2">✅ Potrdi</a>
-                        <a href="/Map/Reject/@bin.Id" class="btn btn-danger btn-sm me-2">🗑️ Zavrni</a>
-                        <a href="/Map/Delete/@bin.Id" class="btn btn-danger btn-sm"
-                           onclick="return confirm('❗ Ali si prepričan, da želiš izbrisati ta koš?');">
-                            🗑️ Izbriši
-                        </a>
-                    </td>
-                </tr>
+                        else
+                        {
+                            <span aria-hidden="true"><i class="bi bi-trash3-fill"></i></span>
+                        }
+                    </div>
+
+                    <div class="admin-bin-card__body">
+                        <div class="admin-bin-card__top">
+                            <div>
+                                <h2>@bin.Name</h2>
+                                <p>Predlagal: @proposer</p>
+                            </div>
+                            <time datetime="@bin.DateAdded.ToString("O")">@bin.DateAdded.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</time>
+                        </div>
+
+                        <div class="admin-bin-card__location">
+                            <span>@bin.Latitude.ToString("0.000000"), @bin.Longitude.ToString("0.000000")</span>
+                            <a href="@osmUrl" target="_blank" rel="noopener">Odpri lokacijo</a>
+                        </div>
+
+                        <div class="admin-bin-card__actions" aria-label="Admin akcije za @bin.Name">
+                            <a asp-controller="Map" asp-action="Edit" asp-route-id="@bin.Id">Uredi</a>
+
+                            <form asp-controller="Map" asp-action="Approve" asp-route-id="@bin.Id" method="post">
+                                <button type="submit" class="is-primary">Potrdi</button>
+                            </form>
+
+                            <form asp-controller="Map" asp-action="Reject" asp-route-id="@bin.Id" method="post">
+                                <button type="submit" onclick="return confirm('Zavrnem ta predlog koša?');">Zavrni</button>
+                            </form>
+
+                            <form asp-controller="Map" asp-action="Delete" asp-route-id="@bin.Id" method="post">
+                                <button type="submit" class="is-danger" onclick="return confirm('Trajno izbrišem ta koš?');">Izbriši</button>
+                            </form>
+                        </div>
+                    </div>
+                </article>
             }
-        </tbody>
-    </table>
-}
+        </div>
+    }
+</section>
+
+<style>
+    .admin-bins-hero,
+    .admin-bins-summary article,
+    .admin-bins-empty,
+    .admin-bin-card {
+        border: 1px solid rgba(31, 45, 41, 0.1);
+        border-radius: 8px;
+        background: #ffffff;
+        box-shadow: 0 12px 28px rgba(31, 45, 41, 0.08);
+    }
+
+    .admin-bins-hero {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 20px;
+    }
+
+    .admin-bins-hero span {
+        color: #2f6d5f;
+        font-size: 0.78rem;
+        font-weight: 900;
+        text-transform: uppercase;
+    }
+
+    .admin-bins-hero h1 {
+        margin: 4px 0 8px;
+        font-size: clamp(2rem, 8vw, 3.2rem);
+        font-weight: 950;
+        line-height: 1;
+    }
+
+    .admin-bins-hero p,
+    .admin-bins-empty p {
+        max-width: 620px;
+        margin: 0;
+        color: #65716d;
+        font-weight: 750;
+    }
+
+    .admin-bins-hero a,
+    .admin-bins-empty a,
+    .admin-bin-card__actions a,
+    .admin-bin-card__actions button {
+        display: inline-flex;
+        min-height: 42px;
+        align-items: center;
+        justify-content: center;
+        padding: 10px 16px;
+        border-radius: 999px;
+        font-weight: 900;
+        text-decoration: none;
+    }
+
+    .admin-bins-hero a,
+    .admin-bins-empty a,
+    .admin-bin-card__actions .is-primary {
+        border: 0;
+        background: #2f6d5f;
+        color: #ffffff;
+    }
+
+    .admin-bins-summary {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        margin: 14px 0;
+    }
+
+    .admin-bins-summary article {
+        padding: 16px;
+    }
+
+    .admin-bins-summary strong,
+    .admin-bins-summary span,
+    .admin-bins-empty strong {
+        display: block;
+    }
+
+    .admin-bins-summary strong {
+        font-size: 1.55rem;
+        font-weight: 950;
+    }
+
+    .admin-bins-summary span {
+        color: #65716d;
+        font-weight: 800;
+    }
+
+    .admin-bins-empty {
+        padding: 22px;
+    }
+
+    .admin-bins-empty strong {
+        margin-bottom: 6px;
+        font-size: 1.3rem;
+        font-weight: 950;
+    }
+
+    .admin-bins-empty a {
+        margin-top: 14px;
+    }
+
+    .admin-bin-list {
+        display: grid;
+        gap: 12px;
+    }
+
+    .admin-bin-card {
+        display: grid;
+        grid-template-columns: minmax(180px, 260px) 1fr;
+        overflow: hidden;
+    }
+
+    .admin-bin-card__media {
+        display: grid;
+        min-height: 220px;
+        place-items: center;
+        background: linear-gradient(135deg, #e7f3e5, #fff3dd);
+        color: #2f6d5f;
+        font-size: 3rem;
+    }
+
+    .admin-bin-card__media img {
+        width: 100%;
+        height: 100%;
+        max-height: 320px;
+        object-fit: cover;
+    }
+
+    .admin-bin-card__body {
+        display: grid;
+        gap: 14px;
+        align-content: start;
+        padding: 18px;
+    }
+
+    .admin-bin-card__top {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+    }
+
+    .admin-bin-card__top h2 {
+        margin: 0;
+        font-size: 1.35rem;
+        font-weight: 950;
+    }
+
+    .admin-bin-card__top p {
+        margin: 5px 0 0;
+        color: #65716d;
+        font-weight: 800;
+    }
+
+    .admin-bin-card__top time {
+        color: #2f6d5f;
+        font-size: 0.85rem;
+        font-weight: 900;
+        white-space: nowrap;
+    }
+
+    .admin-bin-card__location {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .admin-bin-card__location span {
+        padding: 8px 10px;
+        border-radius: 8px;
+        background: #f3f5f2;
+        color: #40514b;
+        font-size: 0.84rem;
+        font-weight: 850;
+    }
+
+    .admin-bin-card__location a {
+        color: #2f6d5f;
+        font-weight: 900;
+        text-decoration: none;
+    }
+
+    .admin-bin-card__actions {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 8px;
+    }
+
+    .admin-bin-card__actions form {
+        margin: 0;
+    }
+
+    .admin-bin-card__actions a,
+    .admin-bin-card__actions button {
+        width: 100%;
+        border: 1px solid rgba(47, 109, 95, 0.16);
+        background: #ffffff;
+        color: #2f6d5f;
+    }
+
+    .admin-bin-card__actions .is-danger {
+        border-color: rgba(155, 59, 47, 0.22);
+        color: #9b3b2f;
+    }
+
+    @@media (max-width: 767.98px) {
+        .admin-bins-hero {
+            align-items: stretch;
+            flex-direction: column;
+        }
+
+        .admin-bins-summary {
+            grid-template-columns: 1fr;
+        }
+
+        .admin-bin-card {
+            grid-template-columns: 1fr;
+        }
+
+        .admin-bin-card__media {
+            min-height: 0;
+            aspect-ratio: 4 / 3;
+        }
+
+        .admin-bin-card__media img {
+            max-height: none;
+        }
+
+        .admin-bin-card__top,
+        .admin-bin-card__location {
+            align-items: stretch;
+            flex-direction: column;
+        }
+
+        .admin-bin-card__top time {
+            white-space: normal;
+        }
+
+        .admin-bin-card__actions {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+</style>

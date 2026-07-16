@@ -239,6 +239,8 @@ namespace DoggyDrop.Controllers
         }
 
         // ✅ Potrdi predlog
+        [HttpPost]
+        [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Approve(int id)
         {
@@ -274,14 +276,22 @@ namespace DoggyDrop.Controllers
         }
 
         // ❌ Zavrni ali izbriši predlog z dinamičnim redirectom
+        [HttpPost]
+        [ValidateAntiForgeryToken]
         [Authorize]
-        public IActionResult Reject(int id, string? returnTo)
+        public async Task<IActionResult> Reject(int id, string? returnTo)
         {
-            var bin = _context.TrashBins.Find(id);
+            var bin = await _context.TrashBins.FindAsync(id);
             if (bin != null)
             {
+                var userId = _userManager.GetUserId(User);
+                if (!User.IsInRole("Admin") && bin.UserId != userId)
+                {
+                    return Forbid();
+                }
+
                 _context.TrashBins.Remove(bin);
-                _context.SaveChanges();
+                await _context.SaveChangesAsync();
             }
 
             if (!string.IsNullOrEmpty(returnTo) && returnTo.ToLower() == "mybins")
@@ -291,6 +301,8 @@ namespace DoggyDrop.Controllers
         }
 
         // 🔥 Admin ročno brisanje
+        [HttpPost]
+        [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Delete(int id)
         {
