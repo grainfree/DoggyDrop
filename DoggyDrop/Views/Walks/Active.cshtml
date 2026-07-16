@@ -1378,12 +1378,104 @@
     }
 
     #walkMap {
+        position: relative;
         height: clamp(420px, 58svh, 620px);
         width: 100%;
         overflow: hidden;
         border-radius: 8px;
         background: #eef6ef;
+        contain: layout paint;
         isolation: isolate;
+        transform: translateZ(0);
+    }
+
+    #walkMap.leaflet-container {
+        width: 100%;
+        height: clamp(420px, 58svh, 620px);
+        background: #eef6ef;
+        font-family: inherit;
+        outline-offset: 1px;
+    }
+
+    #walkMap .leaflet-pane,
+    #walkMap .leaflet-tile,
+    #walkMap .leaflet-marker-icon,
+    #walkMap .leaflet-marker-shadow,
+    #walkMap .leaflet-tile-container,
+    #walkMap .leaflet-pane > svg,
+    #walkMap .leaflet-pane > canvas,
+    #walkMap .leaflet-zoom-box,
+    #walkMap .leaflet-image-layer,
+    #walkMap .leaflet-layer {
+        position: absolute;
+        left: 0;
+        top: 0;
+    }
+
+    #walkMap .leaflet-map-pane,
+    #walkMap .leaflet-tile-pane,
+    #walkMap .leaflet-overlay-pane,
+    #walkMap .leaflet-shadow-pane,
+    #walkMap .leaflet-marker-pane,
+    #walkMap .leaflet-tooltip-pane,
+    #walkMap .leaflet-popup-pane {
+        position: absolute;
+        left: 0;
+        top: 0;
+    }
+
+    #walkMap .leaflet-tile,
+    #walkMap .leaflet-marker-icon,
+    #walkMap .leaflet-marker-shadow {
+        user-select: none;
+        -webkit-user-drag: none;
+    }
+
+    #walkMap .leaflet-tile {
+        width: 256px;
+        height: 256px;
+        filter: saturate(0.9) contrast(0.96) brightness(1.04);
+        visibility: hidden;
+    }
+
+    #walkMap .leaflet-tile-loaded {
+        visibility: inherit;
+    }
+
+    #walkMap .leaflet-control {
+        position: relative;
+        z-index: 800;
+        pointer-events: auto;
+    }
+
+    #walkMap .leaflet-top,
+    #walkMap .leaflet-bottom {
+        position: absolute;
+        z-index: 1000;
+        pointer-events: none;
+    }
+
+    #walkMap .leaflet-top {
+        top: 0;
+    }
+
+    #walkMap .leaflet-right {
+        right: 0;
+    }
+
+    #walkMap .leaflet-bottom {
+        bottom: 0;
+    }
+
+    #walkMap .leaflet-left {
+        left: 0;
+    }
+
+    #walkMap .leaflet-control-attribution {
+        border-radius: 999px 0 0 0;
+        background: rgba(255, 255, 255, 0.78);
+        color: #65716d;
+        font-size: 0.64rem;
     }
 
     .active-user-marker {
@@ -1494,6 +1586,10 @@
         }
 
         #walkMap {
+            height: clamp(360px, 56svh, 540px);
+        }
+
+        #walkMap.leaflet-container {
             height: clamp(360px, 56svh, 540px);
         }
 
