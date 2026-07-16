@@ -71,9 +71,7 @@
             <div class="walk-planner-location">
                 <label>Izhodišče</label>
                 <button type="button" id="usePlannerLocation" class="walk-planner-location__button">Moja lokacija</button>
-                <span id="plannerLocationStatus">
-                    @(Model.UsesCurrentLocation ? "GPS je aktiven. Predlog je iz tvoje lokacije." : "GPS se bo poskusil vklopiti samodejno.")
-                </span>
+                <span id="plannerLocationStatus" hidden="@Model.UsesCurrentLocation">@(Model.UsesCurrentLocation ? "" : "Dovoli lokacijo za predlog iz tvoje bližine.")</span>
             </div>
         </div>
 
@@ -275,7 +273,8 @@
             function requestPlannerLocation(source) {
                 if (!navigator.geolocation || !locationStatus || !latitudeInput || !longitudeInput) {
                     if (locationStatus) {
-                        locationStatus.textContent = "Brskalnik ne podpira GPS lokacije. Uporabljeno bo fallback območje.";
+                        locationStatus.textContent = "Lokacija ni dovoljena, zato predlog ni iz tvoje bližine.";
+                        locationStatus.hidden = false;
                     }
                     return;
                 }
@@ -283,13 +282,15 @@
                 if (locationButton) {
                     locationButton.disabled = true;
                 }
-                locationStatus.textContent = source === "auto" ? "Iščem tvojo lokacijo..." : "Osvežujem lokacijo...";
+                locationStatus.textContent = "";
+                locationStatus.hidden = true;
 
                 navigator.geolocation.getCurrentPosition(
                     position => {
                         latitudeInput.value = position.coords.latitude.toFixed(6);
                         longitudeInput.value = position.coords.longitude.toFixed(6);
-                        locationStatus.textContent = "GPS je aktiven. Predlog je iz tvoje lokacije.";
+                        locationStatus.textContent = "";
+                        locationStatus.hidden = true;
                         localStorage.setItem("doggydropPlannerLocation", JSON.stringify({
                             latitude: latitudeInput.value,
                             longitude: longitudeInput.value,
@@ -303,7 +304,8 @@
                             locationButton.disabled = false;
                         }
                         sessionStorage.setItem("doggydropPlannerGpsTried", "true");
-                        locationStatus.textContent = "GPS ni dovoljen. Uporabljen bo rezervni mestni predlog.";
+                        locationStatus.textContent = "Lokacija ni dovoljena, zato predlog ni iz tvoje bližine.";
+                        locationStatus.hidden = false;
                     },
                     { enableHighAccuracy: true, timeout: 9000, maximumAge: 60000 }
                 );
@@ -317,7 +319,8 @@
                 latitudeInput.value = storedLocation.latitude;
                 longitudeInput.value = storedLocation.longitude;
                 if (locationStatus) {
-                    locationStatus.textContent = "Lokacija je shranjena. Predlog je iz tvoje zadnje GPS točke.";
+                    locationStatus.textContent = "";
+                    locationStatus.hidden = true;
                 }
                 plannerForm?.requestSubmit();
                 return;
@@ -332,7 +335,7 @@
 
         function drawPlannerRoutePreview() {
             const mapElement = document.getElementById("plannerRouteMap");
-            if (!plannerPoints.length || !mapElement || typeof L === "undefined") {
+            if ((!plannerPoints.length && !plannerStops.length) || !mapElement || typeof L === "undefined") {
                 return;
             }
 
@@ -342,12 +345,15 @@
             const stopPoints = plannerStops
                 .map(stop => ({ ...stop, point: readCoordinate(stop) }))
                 .filter(stop => stop.point);
-            const allPoints = routePoints.concat(stopPoints.map(stop => stop.point));
+            const center = routePoints[0] ?? stopPoints[0]?.point;
+            const previewRoutePoints = routePoints.length >= 4
+                ? routePoints
+                : buildPreviewLoop(center, readTargetDistanceKm(), stopPoints.map(stop => stop.point));
+            const allPoints = previewRoutePoints.concat(stopPoints.map(stop => stop.point));
             if (allPoints.length === 0) {
                 return;
             }
 
-            const center = routePoints[0] ?? allPoints[0];
             const map = L.map(mapElement, {
                 zoomControl: false,
                 attributionControl: true,
@@ -360,23 +366,35 @@
                 attribution: '&copy; OpenStreetMap &copy; CARTO'
             }).addTo(map);
 
-            const latLngs = routePoints.map(point => [point.lat, point.lng]);
+            const latLngs = previewRoutePoints.map(point => [point.lat, point.lng]);
             if (latLngs.length > 1) {
-                L.polyline(latLngs, {
-                    color: "#24695a",
-                    weight: 6,
-                    opacity: 0.88,
+                const routeHalo = L.polyline(latLngs, {
+                    color: "#ffffff",
+                    weight: 11,
+                    opacity: 0.92,
                     lineCap: "round",
                     lineJoin: "round"
                 }).addTo(map);
 
-                L.polyline(latLngs, {
-                    color: "#ffffff",
+                const routeLine = L.polyline(latLngs, {
+                    color: "#24695a",
+                    weight: 6,
+                    opacity: 0.94,
+                    lineCap: "round",
+                    lineJoin: "round"
+                }).addTo(map);
+
+                const routeDash = L.polyline(latLngs, {
+                    color: "#f3b85b",
                     weight: 2,
-                    opacity: 0.72,
-                    dashArray: "8 12",
+                    opacity: 0.9,
+                    dashArray: "5 12",
                     lineCap: "round"
                 }).addTo(map);
+
+                routeHalo.bringToFront();
+                routeLine.bringToFront();
+                routeDash.bringToFront();
             }
 
             stopPoints.forEach(stop => {
@@ -411,6 +429,39 @@
                 const resizeObserver = new ResizeObserver(fitMap);
                 resizeObserver.observe(mapElement);
             }
+        }
+
+        function readTargetDistanceKm() {
+            const value = Number(document.getElementById("distanceKm")?.value || "3");
+            return Number.isFinite(value) ? Math.max(1, Math.min(value, 8)) : 3;
+        }
+
+        function buildPreviewLoop(center, distanceKm, stops) {
+            if (!center) {
+                return [];
+            }
+
+            const radiusKm = Math.max(0.18, distanceKm / (2 * Math.PI));
+            const latDelta = radiusKm / 111;
+            const lngDelta = radiusKm / (111 * Math.cos(center.lat * Math.PI / 180));
+            const loop = [
+                { lat: center.lat, lng: center.lng },
+                { lat: center.lat + latDelta * 0.82, lng: center.lng + lngDelta * 0.38 },
+                { lat: center.lat + latDelta * 0.38, lng: center.lng + lngDelta * 0.95 },
+                { lat: center.lat - latDelta * 0.42, lng: center.lng + lngDelta * 0.82 },
+                { lat: center.lat - latDelta * 0.88, lng: center.lng + lngDelta * 0.06 },
+                { lat: center.lat - latDelta * 0.36, lng: center.lng - lngDelta * 0.84 },
+                { lat: center.lat + latDelta * 0.48, lng: center.lng - lngDelta * 0.74 },
+                { lat: center.lat, lng: center.lng }
+            ];
+
+            stops
+                .filter(Boolean)
+                .filter(point => Math.abs(point.lat - center.lat) > 0.00005 || Math.abs(point.lng - center.lng) > 0.00005)
+                .slice(0, 2)
+                .forEach((point, index) => loop.splice(index + 2, 0, point));
+
+            return loop;
         }
 
         function readStoredPlannerLocation() {
