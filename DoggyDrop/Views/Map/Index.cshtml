@@ -1300,12 +1300,12 @@
     .map-active-walk-card {
         position: fixed;
         left: 50%;
-        bottom: calc(98px + env(safe-area-inset-bottom));
+        bottom: calc(92px + env(safe-area-inset-bottom));
         z-index: 1120;
-        width: min(680px, calc(100vw - 28px));
-        padding: 14px;
+        width: min(720px, calc(100vw - 24px));
+        padding: 10px 14px 14px;
         border: 1px solid rgba(47, 109, 95, 0.18);
-        border-radius: 8px;
+        border-radius: 24px 24px 8px 8px;
         background: rgba(255, 255, 255, 0.96);
         box-shadow: 0 18px 44px rgba(31, 45, 41, 0.22);
         color: #21342f;
@@ -1313,9 +1313,17 @@
         backdrop-filter: blur(18px);
     }
 
+    .map-active-walk-card__grabber {
+        width: 46px;
+        height: 5px;
+        margin: 0 auto 10px;
+        border-radius: 999px;
+        background: rgba(47, 109, 95, 0.18);
+    }
+
     .map-active-walk-card__top,
     .map-active-walk-card__metrics,
-    .map-active-walk-card__actions {
+    .map-active-walk-card__quick-grid {
         display: grid;
         gap: 10px;
     }
@@ -1323,6 +1331,22 @@
     .map-active-walk-card__top {
         grid-template-columns: minmax(0, 1fr) auto;
         align-items: start;
+    }
+
+    .map-active-walk-card__map-link {
+        display: inline-flex;
+        min-height: 42px;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        padding: 9px 13px;
+        border-radius: 999px;
+        background: #eef7ed;
+        color: #2f6d5f;
+        font-size: 0.86rem;
+        font-weight: 950;
+        text-decoration: none;
+        white-space: nowrap;
     }
 
     .map-active-walk-card__eyebrow {
@@ -1362,7 +1386,7 @@
 
     .map-active-walk-card__metrics {
         grid-template-columns: repeat(3, minmax(0, 1fr));
-        margin: 12px 0;
+        margin: 12px 0 10px;
     }
 
     .map-active-walk-card__metrics article {
@@ -1390,38 +1414,299 @@
         text-transform: uppercase;
     }
 
-    .map-active-walk-card__actions {
-        grid-template-columns: 1.25fr repeat(3, 1fr);
-    }
-
-    .map-active-walk-card__actions a,
-    .map-active-walk-card__actions button {
-        display: inline-flex;
-        min-height: 44px;
+    .map-active-walk-card__primary {
+        display: flex;
+        width: 100%;
+        min-height: 62px;
         align-items: center;
         justify-content: center;
-        gap: 8px;
-        border: 1px solid rgba(47, 109, 95, 0.16);
-        border-radius: 999px;
-        background: #ffffff;
-        color: #2f6d5f;
-        font-weight: 950;
-        text-decoration: none;
-    }
-
-    .map-active-walk-card__actions .is-primary {
+        gap: 12px;
         border: 0;
+        border-radius: 18px;
         background: #2f6d5f;
         color: #ffffff;
+        box-shadow: 0 16px 32px rgba(47, 109, 95, 0.24);
+        font-weight: 950;
     }
 
-    .map-active-walk-card__actions .is-danger {
+    .map-active-walk-card__primary i {
+        display: grid;
+        width: 42px;
+        height: 42px;
+        place-items: center;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.16);
+        font-size: 1.25rem;
+    }
+
+    .map-active-walk-card__primary span,
+    .map-active-walk-card__primary small {
+        display: block;
+        text-align: left;
+    }
+
+    .map-active-walk-card__primary small {
+        opacity: 0.84;
+        font-size: 0.78rem;
+        font-weight: 850;
+    }
+
+    .map-active-walk-card__quick-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        margin-top: 10px;
+    }
+
+    .map-active-walk-card__quick-grid a,
+    .map-active-walk-card__quick-grid button,
+    .map-active-walk-card__photo-label {
+        display: inline-flex;
+        min-height: 58px;
+        width: 100%;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        gap: 5px;
+        border: 1px solid rgba(47, 109, 95, 0.16);
+        border-radius: 16px;
+        background: #ffffff;
+        color: #2f6d5f;
+        font-size: 0.82rem;
+        font-weight: 950;
+        text-decoration: none;
+        text-align: center;
+    }
+
+    .map-active-walk-card__quick-grid i {
+        font-size: 1.15rem;
+    }
+
+    .map-active-walk-card__quick-grid .is-danger {
         border-color: rgba(155, 59, 47, 0.22);
         color: #9b3b2f;
     }
 
-    .map-active-walk-card__actions form {
+    .map-active-walk-card__quick-grid form,
+    .map-active-walk-card__photo-label {
         margin: 0;
+    }
+
+    .map-active-walk-card__photo-label {
+        cursor: pointer;
+    }
+
+    .map-active-walk-card__photo-label input {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .map-active-walk-card {
+        display: none !important;
+    }
+
+    .map-active-walk-sheet {
+        position: fixed;
+        left: 50%;
+        bottom: calc(92px + env(safe-area-inset-bottom));
+        z-index: 1130;
+        width: min(720px, calc(100vw - 24px));
+        padding: 10px 14px 14px;
+        border: 1px solid rgba(47, 109, 95, 0.18);
+        border-radius: 24px 24px 8px 8px;
+        background: rgba(255, 255, 255, 0.97);
+        box-shadow: 0 18px 44px rgba(31, 45, 41, 0.23);
+        color: #21342f;
+        transform: translateX(-50%);
+        backdrop-filter: blur(18px);
+    }
+
+    .map-active-walk-sheet__grabber {
+        width: 46px;
+        height: 5px;
+        margin: 0 auto 10px;
+        border-radius: 999px;
+        background: rgba(47, 109, 95, 0.18);
+    }
+
+    .map-active-walk-sheet__top {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 10px;
+        align-items: start;
+    }
+
+    .map-active-walk-sheet__live {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        color: #2f6d5f;
+        font-size: 0.76rem;
+        font-weight: 950;
+        text-transform: uppercase;
+    }
+
+    .map-active-walk-sheet__live::before {
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: #20b26b;
+        box-shadow: 0 0 0 7px rgba(32, 178, 107, 0.13);
+        content: "";
+    }
+
+    .map-active-walk-sheet h2 {
+        margin: 5px 0 0;
+        color: #17322c;
+        font-size: clamp(1.35rem, 4vw, 1.9rem);
+        font-weight: 950;
+        line-height: 1.05;
+    }
+
+    .map-active-walk-sheet p {
+        margin: 5px 0 0;
+        color: #65716d;
+        font-size: 0.88rem;
+        font-weight: 800;
+        line-height: 1.35;
+    }
+
+    .map-active-walk-sheet__map-link {
+        display: inline-flex;
+        min-height: 42px;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        padding: 9px 13px;
+        border-radius: 999px;
+        background: #eef7ed;
+        color: #2f6d5f;
+        font-size: 0.86rem;
+        font-weight: 950;
+        text-decoration: none;
+        white-space: nowrap;
+    }
+
+    .map-active-walk-sheet__metrics {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+        margin: 12px 0 10px;
+    }
+
+    .map-active-walk-sheet__metrics article {
+        padding: 10px;
+        border-radius: 8px;
+        background: #eef7ed;
+        text-align: center;
+    }
+
+    .map-active-walk-sheet__metrics strong,
+    .map-active-walk-sheet__metrics span {
+        display: block;
+    }
+
+    .map-active-walk-sheet__metrics strong {
+        color: #17322c;
+        font-size: 1.04rem;
+        font-weight: 950;
+    }
+
+    .map-active-walk-sheet__metrics span {
+        color: #65716d;
+        font-size: 0.74rem;
+        font-weight: 900;
+        text-transform: uppercase;
+    }
+
+    .map-active-walk-sheet__primary {
+        display: flex;
+        width: 100%;
+        min-height: 62px;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        border: 0;
+        border-radius: 18px;
+        background: #2f6d5f;
+        color: #ffffff;
+        box-shadow: 0 16px 32px rgba(47, 109, 95, 0.24);
+        font-weight: 950;
+    }
+
+    .map-active-walk-sheet__primary i {
+        display: grid;
+        width: 42px;
+        height: 42px;
+        place-items: center;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.16);
+        font-size: 1.25rem;
+    }
+
+    .map-active-walk-sheet__primary span,
+    .map-active-walk-sheet__primary small {
+        display: block;
+        text-align: left;
+    }
+
+    .map-active-walk-sheet__primary small {
+        opacity: 0.84;
+        font-size: 0.78rem;
+        font-weight: 850;
+    }
+
+    .map-active-walk-sheet__actions {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 10px;
+    }
+
+    .map-active-walk-sheet__actions a,
+    .map-active-walk-sheet__actions button,
+    .map-active-walk-sheet__photo-label {
+        display: inline-flex;
+        min-height: 58px;
+        width: 100%;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        gap: 5px;
+        border: 1px solid rgba(47, 109, 95, 0.16);
+        border-radius: 16px;
+        background: #ffffff;
+        color: #2f6d5f;
+        font-size: 0.82rem;
+        font-weight: 950;
+        text-align: center;
+        text-decoration: none;
+    }
+
+    .map-active-walk-sheet__actions i {
+        font-size: 1.15rem;
+    }
+
+    .map-active-walk-sheet__actions form {
+        margin: 0;
+    }
+
+    .map-active-walk-sheet__actions .is-danger {
+        border-color: rgba(155, 59, 47, 0.22);
+        color: #9b3b2f;
+    }
+
+    .map-active-walk-sheet__photo-label {
+        cursor: pointer;
+    }
+
+    .map-active-walk-sheet__photo-label input {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        opacity: 0;
+        pointer-events: none;
     }
 
     .map-founder-prompt {
@@ -1711,12 +1996,22 @@
             right: 8px;
             bottom: calc(86px + env(safe-area-inset-bottom));
             width: auto;
-            padding: 12px;
+            padding: 9px 12px 12px;
+            border-radius: 24px 24px 8px 8px;
             transform: none;
         }
 
         .map-active-walk-card__top {
             grid-template-columns: 1fr;
+            gap: 8px;
+        }
+
+        .map-active-walk-card h2 {
+            font-size: 1.32rem;
+        }
+
+        .map-active-walk-card p {
+            font-size: 0.82rem;
         }
 
         .map-active-walk-card__metrics {
@@ -1729,13 +2024,68 @@
             padding: 8px 6px;
         }
 
-        .map-active-walk-card__actions {
+        .map-active-walk-card__primary {
+            min-height: 60px;
+            border-radius: 18px;
+        }
+
+        .map-active-walk-card__quick-grid {
             grid-template-columns: 1fr 1fr;
             gap: 8px;
         }
 
-        .map-active-walk-card__actions .is-primary {
-            grid-column: 1 / -1;
+        .map-active-walk-card__quick-grid a,
+        .map-active-walk-card__quick-grid button,
+        .map-active-walk-card__photo-label {
+            min-height: 54px;
+        }
+
+        .map-active-walk-sheet {
+            left: 8px;
+            right: 8px;
+            bottom: calc(86px + env(safe-area-inset-bottom));
+            width: auto;
+            padding: 9px 12px 12px;
+            border-radius: 24px 24px 8px 8px;
+            transform: none;
+        }
+
+        .map-active-walk-sheet__top {
+            grid-template-columns: 1fr;
+            gap: 8px;
+        }
+
+        .map-active-walk-sheet h2 {
+            font-size: 1.32rem;
+        }
+
+        .map-active-walk-sheet p {
+            font-size: 0.82rem;
+        }
+
+        .map-active-walk-sheet__metrics {
+            gap: 7px;
+            margin: 10px 0;
+        }
+
+        .map-active-walk-sheet__metrics article {
+            padding: 8px 6px;
+        }
+
+        .map-active-walk-sheet__primary {
+            min-height: 60px;
+            border-radius: 18px;
+        }
+
+        .map-active-walk-sheet__actions {
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .map-active-walk-sheet__actions a,
+        .map-active-walk-sheet__actions button,
+        .map-active-walk-sheet__photo-label {
+            min-height: 54px;
         }
 
         .map-action-button {
@@ -2146,6 +2496,75 @@ else if (needsDogOnboarding)
 
 @if (hasActiveWalk)
 {
+    <aside class="map-active-walk-sheet" aria-label="Aktiven sprehod">
+        <div class="map-active-walk-sheet__grabber" aria-hidden="true"></div>
+        <div class="map-active-walk-sheet__top">
+            <div>
+                <span class="map-active-walk-sheet__live">V živo</span>
+                <h2>@(activeWalk?.Dog?.Name ?? "Sprehod") je na poti</h2>
+                <p>
+                    @(activeWalk?.PlannedWalk != null
+                        ? $"{activeWalk.PlannedWalk.Title} · začetek {activeWalk.StartedAt.ToLocalTime():HH:mm}"
+                        : $"Začetek {activeWalk!.StartedAt.ToLocalTime():HH:mm}")
+                </p>
+            </div>
+            <a class="map-active-walk-sheet__map-link" asp-controller="Walks" asp-action="Active" asp-route-id="@activeWalk!.Id">
+                <i class="bi bi-map-fill" aria-hidden="true"></i>
+                <span>Zemljevid poti</span>
+            </a>
+        </div>
+
+        <div class="map-active-walk-sheet__metrics">
+            <article>
+                <strong id="homeActiveWalkDuration">00:00</strong>
+                <span>čas</span>
+            </article>
+            <article>
+                <strong>@activeWalkDistanceKm km</strong>
+                <span>razdalja</span>
+            </article>
+            <article>
+                <strong>@activeWalkPointCount</strong>
+                <span>GPS</span>
+            </article>
+        </div>
+
+        <button type="button" class="map-active-walk-sheet__primary" onclick="findNearestTrashBin()">
+            <i class="bi bi-geo-alt-fill" aria-hidden="true"></i>
+            <span>
+                <span>Poišči najbližji koš</span>
+                <small>Hitro preveri, kam z vrečko med sprehodom</small>
+            </span>
+        </button>
+
+        <div class="map-active-walk-sheet__actions">
+            <a asp-controller="Walks" asp-action="Active" asp-route-id="@activeWalk.Id">
+                <i class="bi bi-activity" aria-hidden="true"></i>
+                <span>Sledenje</span>
+            </a>
+            <form asp-controller="Walks" asp-action="AddPhoto" asp-route-id="@activeWalk.Id" method="post" enctype="multipart/form-data">
+                <label class="map-active-walk-sheet__photo-label">
+                    <i class="bi bi-camera-fill" aria-hidden="true"></i>
+                    <span>Fotografija</span>
+                    <input type="file" name="photo" accept="image/*" capture="environment" onchange="if (this.files.length) this.form.submit();" />
+                </label>
+            </form>
+            <a asp-controller="Map" asp-action="Add">
+                <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                <span>Dodaj koš</span>
+            </a>
+            <form asp-controller="Walks" asp-action="Finish" asp-route-id="@activeWalk.Id" method="post">
+                <button type="submit" class="is-danger" onclick="return confirm('Zaključim trenutni sprehod?');">
+                    <i class="bi bi-stop-circle-fill" aria-hidden="true"></i>
+                    <span>Zaključi</span>
+                </button>
+            </form>
+        </div>
+    </aside>
+}
+
+@if (hasActiveWalk)
+{
     <aside class="map-active-walk-card" aria-label="Aktiven sprehod">
         <div class="map-active-walk-card__top">
             <div>
@@ -2161,7 +2580,7 @@ else if (needsDogOnboarding)
 
         <div class="map-active-walk-card__metrics">
             <article>
-                <strong id="homeActiveWalkDuration">00:00</strong>
+                <strong id="homeActiveWalkDurationLegacy">00:00</strong>
                 <span>čas</span>
             </article>
             <article>
