@@ -350,9 +350,11 @@
         width: 100%;
         min-height: 34px;
         margin-top: 8px;
+        border: 0;
         border-radius: 8px;
         background: #eef7ed;
         color: #1f5d4f;
+        cursor: pointer;
         font-size: 0.74rem;
         font-weight: 900;
         text-decoration: none;
@@ -872,10 +874,19 @@
         text-decoration: none;
     }
 
-    .nearest-bin-card__actions a {
+    .nearest-bin-card__actions a,
+    .nearest-bin-card__actions .nearest-bin-card__navigate {
         border: 0;
         background: #2f6d5f;
         color: #ffffff;
+    }
+
+    .nearest-bin-card__note {
+        margin: 0 0 10px;
+        color: #60716b;
+        font-size: 0.78rem;
+        font-weight: 800;
+        line-height: 1.25;
     }
 
     .map-action-stack {
@@ -3100,6 +3111,8 @@ else if (needsDogOnboarding)
         let map;
         let userMarker;
         let routeLine;
+        let navigationWatchId = null;
+        let activeNavigationBin = null;
         let binLayer;
         let dogLayer;
         let parkLayer;
@@ -3480,7 +3493,7 @@ else if (needsDogOnboarding)
                                 ${place.address ? escapeHtml(place.address) : "Lokacija na zemljevidu"}
                             </div>
                             ${buildParkVisitControls(place)}
-                            <a class="bin-popup__nav" href="${buildNavigationUrl(place.latitude, place.longitude)}" target="_blank" rel="noopener">Odpri navigacijo</a>
+                            <button type="button" class="bin-popup__nav" onclick="navigateToPlaceInApp(${Number(place.latitude)}, ${Number(place.longitude)})">Odpri navigacijo</button>
                         </div>
                     `);
                 placeMarkers.set(getPlaceKey(place), marker);
@@ -3773,7 +3786,7 @@ else if (needsDogOnboarding)
                         <button type="button" class="bin-popup__button" onclick="sendBinAction(${Number(bin.id)}, 'useful')">Koristen</button>
                         <button type="button" class="bin-popup__button" onclick="sendBinAction(${Number(bin.id)}, 'not-useful')">Ni OK</button>
                     </div>
-                    <a class="bin-popup__nav" href="${buildNavigationUrl(bin.latitude, bin.longitude)}" target="_blank" rel="noopener">Odpri navigacijo</a>
+                    <button type="button" class="bin-popup__nav" onclick="navigateToBinInApp(${Number(bin.id)})">Odpri navigacijo</button>
                     <div class="bin-popup__feedback" id="binFeedback${Number(bin.id)}"></div>
                 </div>
             `;
@@ -3809,7 +3822,7 @@ else if (needsDogOnboarding)
                     <button type="button" class="map-bin-detail__button map-bin-detail__button--primary" onclick="sendBinAction(${Number(bin.id)}, 'used')">Označi uporabo</button>
                     <button type="button" class="map-bin-detail__button" onclick="sendBinAction(${Number(bin.id)}, 'full')">Poln koš</button>
                     <button type="button" class="map-bin-detail__button" onclick="sendBinAction(${Number(bin.id)}, 'missing')">Manjka</button>
-                    <a class="map-bin-detail__link" href="${buildNavigationUrl(bin.latitude, bin.longitude)}" target="_blank" rel="noopener">Navigacija</a>
+                    <button type="button" class="map-bin-detail__link" onclick="navigateToBinInApp(${Number(bin.id)})">Navigacija</button>
                 </div>
                 <div class="map-bin-detail__feedback" id="binFeedback${Number(bin.id)}"></div>
             `;
@@ -4099,25 +4112,10 @@ else if (needsDogOnboarding)
                     return response.json();
                 })
                 .then(nearestBin => {
-                    if (routeLine) {
-                        routeLine.remove();
-                    }
-
-                    routeLine = L.polyline(
-                        [
-                            [userLocation.lat, userLocation.lng],
-                            [nearestBin.latitude, nearestBin.longitude]
-                        ],
-                        { color: "#00796B", weight: 6, opacity: 0.9 }
-                    ).addTo(map);
-
-                    map.fitBounds(routeLine.getBounds().pad(0.25));
-
                     const distance = formatDistance(nearestBin.distanceMeters);
                     const walkingMinutes = Math.max(1, Math.round(nearestBin.distanceMeters / 83));
                     const panel = document.getElementById("directionsPanel");
                     const imageUrl = nearestBin.imageUrl || nearestBin.ImageUrl || "";
-                    const navigationUrl = buildNavigationUrl(nearestBin.latitude, nearestBin.longitude);
                     panel.style.display = "block";
                     panel.innerHTML = `
                         <article class="nearest-bin-card">
@@ -4135,11 +4133,11 @@ else if (needsDogOnboarding)
                                     <span><b>${Number(nearestBin.reliabilityScore || 0)}/100</b>OK</span>
                                 </div>
                                 <div class="nearest-bin-card__actions">
-                                    <a href="${navigationUrl}" target="_blank" rel="noopener">
+                                    <button type="button" class="nearest-bin-card__navigate" onclick="startInAppBinNavigation(${Number(nearestBin.id || nearestBin.Id || 0)})">
                                         <i class="bi bi-sign-turn-right-fill" aria-hidden="true"></i>
-                                        <span>Navigacija</span>
-                                    </a>
-                                    <button type="button" onclick="document.getElementById('directionsPanel').style.display='none';" aria-label="Zapri predlog">
+                                        <span>Začni pot</span>
+                                    </button>
+                                    <button type="button" onclick="stopInAppNavigation(true);" aria-label="Zapri predlog">
                                         <i class="bi bi-x-lg" aria-hidden="true"></i>
                                         <span>Zapri</span>
                                     </button>
@@ -4147,6 +4145,7 @@ else if (needsDogOnboarding)
                             </div>
                         </article>
                     `;
+                    startInAppBinNavigation(Number(nearestBin.id || nearestBin.Id || 0), nearestBin);
                     renderNearbySuggestions();
                 })
                 .catch(error => alert(error.message));
@@ -4207,6 +4206,301 @@ else if (needsDogOnboarding)
 
         function refreshRoute() {
             findNearestTrashBin();
+        }
+
+        function navigateToBinInApp(binId) {
+            const bin = bins.find(item => Number(item.id ?? item.Id) === Number(binId));
+            if (!bin) {
+                return;
+            }
+
+            const beginNavigation = () => {
+                closeBinDetail();
+                const panel = document.getElementById("directionsPanel");
+                panel.style.display = "block";
+                panel.innerHTML = `
+                    <article class="nearest-bin-card">
+                        <div class="nearest-bin-card__image">
+                            ${bin.image
+                                ? `<img src="${escapeAttribute(bin.image)}" alt="${escapeAttribute(bin.name || "Kos")}" loading="lazy">`
+                                : `<i class="bi bi-trash3-fill" aria-hidden="true"></i>`}
+                        </div>
+                        <div class="nearest-bin-card__body">
+                            <span class="nearest-bin-card__kicker">Navigacija v aplikaciji</span>
+                            <h3>${escapeHtml(bin.name || "Pasji kos")}</h3>
+                            <p class="nearest-bin-card__note">Racunam pes pot do izbranega kosa ...</p>
+                        </div>
+                    </article>
+                `;
+                startInAppBinNavigation(binId, {
+                    id: bin.id,
+                    name: bin.name,
+                    latitude: bin.latitude,
+                    longitude: bin.longitude,
+                    imageUrl: bin.image,
+                    reliabilityScore: bin.reliabilityScore
+                });
+            };
+
+            if (userLocation) {
+                beginNavigation();
+                return;
+            }
+
+            if (!navigator.geolocation || !window.isSecureContext) {
+                alert("Za navigacijo v aplikaciji potrebujem GPS dovoljenje.");
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(position => {
+                userLocation = {
+                    lat: position.coords.latitude,
+                    lng: position.coords.longitude
+                };
+
+                if (userMarker) {
+                    userMarker.setLatLng([userLocation.lat, userLocation.lng]);
+                } else {
+                    userMarker = L.marker([userLocation.lat, userLocation.lng], { icon: userIcon })
+                        .addTo(map)
+                        .bindPopup("Tvoja lokacija");
+                }
+
+                beginNavigation();
+            }, () => alert("Lokacije ni bilo mogoce pridobiti."), {
+                enableHighAccuracy: true,
+                maximumAge: 0,
+                timeout: 10000
+            });
+        }
+
+        function navigateToPlaceInApp(latitude, longitude) {
+            const allPlaces = getExploreItems();
+            const place = allPlaces.find(item =>
+                Math.abs(Number(item.latitude) - Number(latitude)) < 0.000001 &&
+                Math.abs(Number(item.longitude) - Number(longitude)) < 0.000001);
+            const target = {
+                id: 0,
+                name: place?.name || "Izbrana lokacija",
+                latitude,
+                longitude,
+                imageUrl: "",
+                reliabilityScore: 100
+            };
+
+            const beginNavigation = () => {
+                const panel = document.getElementById("directionsPanel");
+                panel.style.display = "block";
+                panel.innerHTML = `
+                    <article class="nearest-bin-card">
+                        <div class="nearest-bin-card__image">
+                            <i class="bi bi-signpost-split-fill" aria-hidden="true"></i>
+                        </div>
+                        <div class="nearest-bin-card__body">
+                            <span class="nearest-bin-card__kicker">Navigacija v aplikaciji</span>
+                            <h3>${escapeHtml(target.name)}</h3>
+                            <p class="nearest-bin-card__note">Racunam pes pot do izbrane lokacije ...</p>
+                        </div>
+                    </article>
+                `;
+                map.closePopup();
+                startInAppBinNavigation(0, target);
+            };
+
+            if (userLocation) {
+                beginNavigation();
+                return;
+            }
+
+            if (!navigator.geolocation || !window.isSecureContext) {
+                alert("Za navigacijo v aplikaciji potrebujem GPS dovoljenje.");
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(position => {
+                userLocation = {
+                    lat: position.coords.latitude,
+                    lng: position.coords.longitude
+                };
+
+                if (userMarker) {
+                    userMarker.setLatLng([userLocation.lat, userLocation.lng]);
+                } else {
+                    userMarker = L.marker([userLocation.lat, userLocation.lng], { icon: userIcon })
+                        .addTo(map)
+                        .bindPopup("Tvoja lokacija");
+                }
+
+                beginNavigation();
+            }, () => alert("Lokacije ni bilo mogoce pridobiti."), {
+                enableHighAccuracy: true,
+                maximumAge: 0,
+                timeout: 10000
+            });
+        }
+
+        async function startInAppBinNavigation(binId, providedBin = null) {
+            const bin = providedBin || bins.find(item => Number(item.id ?? item.Id) === Number(binId));
+            if (!bin || !userLocation) {
+                return;
+            }
+
+            activeNavigationBin = bin;
+            await drawInAppRouteToBin(bin);
+            updateDirectionsPanelForNavigation(bin);
+
+            if (navigationWatchId !== null) {
+                navigator.geolocation.clearWatch(navigationWatchId);
+                navigationWatchId = null;
+            }
+
+            if (navigator.geolocation && window.isSecureContext) {
+                navigationWatchId = navigator.geolocation.watchPosition(async position => {
+                    userLocation = {
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude
+                    };
+
+                    if (userMarker) {
+                        userMarker.setLatLng([userLocation.lat, userLocation.lng]);
+                    }
+
+                    await drawInAppRouteToBin(bin, false);
+                    updateDirectionsPanelForNavigation(bin);
+                }, () => {
+                    updateDirectionsPanelForNavigation(bin, "GPS trenutno ni osvezen, prikazana je zadnja znana pot.");
+                }, {
+                    enableHighAccuracy: true,
+                    maximumAge: 6000,
+                    timeout: 12000
+                });
+            }
+        }
+
+        function stopInAppNavigation(hidePanel = false) {
+            if (navigationWatchId !== null) {
+                navigator.geolocation.clearWatch(navigationWatchId);
+                navigationWatchId = null;
+            }
+
+            activeNavigationBin = null;
+
+            if (hidePanel) {
+                const panel = document.getElementById("directionsPanel");
+                panel.style.display = "none";
+            }
+        }
+
+        async function drawInAppRouteToBin(bin, fitRoute = true) {
+            if (routeLine) {
+                routeLine.remove();
+                routeLine = null;
+            }
+
+            const route = await fetchWalkingRoute(userLocation, {
+                lat: bin.latitude ?? bin.Latitude,
+                lng: bin.longitude ?? bin.Longitude
+            });
+
+            routeLine = L.polyline(route.points, {
+                color: "#2f6d5f",
+                weight: 7,
+                opacity: 0.95,
+                lineCap: "round",
+                lineJoin: "round"
+            }).addTo(map);
+
+            if (fitRoute) {
+                map.fitBounds(routeLine.getBounds().pad(0.28), { maxZoom: 17 });
+            }
+
+            activeNavigationBin = {
+                ...bin,
+                routeDistanceMeters: route.distanceMeters,
+                routeDurationSeconds: route.durationSeconds,
+                routeIsFallback: route.isFallback
+            };
+        }
+
+        async function fetchWalkingRoute(origin, destination) {
+            const fallbackDistance = getDistanceMeters(origin.lat, origin.lng, destination.lat, destination.lng);
+            const fallback = {
+                points: [[origin.lat, origin.lng], [destination.lat, destination.lng]],
+                distanceMeters: fallbackDistance,
+                durationSeconds: fallbackDistance / 1.35,
+                isFallback: true
+            };
+
+            try {
+                const url = `https://router.project-osrm.org/route/v1/foot/${origin.lng},${origin.lat};${destination.lng},${destination.lat}?overview=full&geometries=geojson&steps=false`;
+                const response = await fetch(url);
+                if (!response.ok) {
+                    return fallback;
+                }
+
+                const data = await response.json();
+                const route = data.routes?.[0];
+                const coordinates = route?.geometry?.coordinates;
+                if (!coordinates || coordinates.length < 2) {
+                    return fallback;
+                }
+
+                return {
+                    points: coordinates.map(point => [point[1], point[0]]),
+                    distanceMeters: route.distance || fallbackDistance,
+                    durationSeconds: route.duration || fallbackDistance / 1.35,
+                    isFallback: false
+                };
+            } catch {
+                return fallback;
+            }
+        }
+
+        function updateDirectionsPanelForNavigation(bin, statusText = null) {
+            const panel = document.getElementById("directionsPanel");
+            if (!panel || panel.style.display === "none" || !userLocation) {
+                return;
+            }
+
+            const destinationLat = bin.latitude ?? bin.Latitude;
+            const destinationLng = bin.longitude ?? bin.Longitude;
+            const distanceMeters = activeNavigationBin?.routeDistanceMeters
+                ?? getDistanceMeters(userLocation.lat, userLocation.lng, destinationLat, destinationLng);
+            const walkingMinutes = Math.max(1, Math.round((activeNavigationBin?.routeDurationSeconds ?? distanceMeters / 1.35) / 60));
+            const imageUrl = bin.imageUrl || bin.ImageUrl || "";
+            const routeNote = statusText
+                ?? (activeNavigationBin?.routeIsFallback ? "Prikazana je priblizna smer, ker pes routing trenutno ni odgovoril." : "Pot je narisana v DoggyDrop zemljevidu.");
+
+            panel.style.display = "block";
+            panel.innerHTML = `
+                <article class="nearest-bin-card nearest-bin-card--navigating">
+                    <div class="nearest-bin-card__image">
+                        ${imageUrl
+                            ? `<img src="${escapeAttribute(imageUrl)}" alt="${escapeAttribute(bin.name || bin.Name || "Kos")}" loading="lazy">`
+                            : `<i class="bi bi-trash3-fill" aria-hidden="true"></i>`}
+                    </div>
+                    <div class="nearest-bin-card__body">
+                        <span class="nearest-bin-card__kicker">Navigacija v aplikaciji</span>
+                        <h3>${escapeHtml(bin.name || bin.Name || "Pasji kos")}</h3>
+                        <div class="nearest-bin-card__meta">
+                            <span><b>~${walkingMinutes} min</b>hoje</span>
+                            <span><b>${formatDistance(distanceMeters)}</b>po poti</span>
+                            <span><b>${Number(bin.reliabilityScore || bin.ReliabilityScore || 0)}/100</b>OK</span>
+                        </div>
+                        <p class="nearest-bin-card__note">${escapeHtml(routeNote)}</p>
+                        <div class="nearest-bin-card__actions">
+                            <button type="button" class="nearest-bin-card__navigate" onclick="map.setView([${Number(destinationLat)}, ${Number(destinationLng)}], 18, { animate: true });">
+                                <i class="bi bi-crosshair" aria-hidden="true"></i>
+                                <span>Pokaži cilj</span>
+                            </button>
+                            <button type="button" onclick="stopInAppNavigation(true);" aria-label="Koncaj navigacijo">
+                                <i class="bi bi-x-lg" aria-hidden="true"></i>
+                                <span>Koncaj</span>
+                            </button>
+                        </div>
+                    </div>
+                </article>
+            `;
         }
 
         function openFilterPanel() {
@@ -4438,10 +4732,6 @@ else if (needsDogOnboarding)
 
         function getPlaceKey(place) {
             return `${place.type}-${place.latitude}-${place.longitude}`;
-        }
-
-        function buildNavigationUrl(latitude, longitude) {
-            return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${latitude},${longitude}`)}`;
         }
 
         function normalizeSearch(value) {

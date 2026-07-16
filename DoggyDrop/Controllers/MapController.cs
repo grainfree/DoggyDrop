@@ -350,6 +350,7 @@ namespace DoggyDrop.Controllers
 
             return Json(new
             {
+                nearest.Id,
                 nearest.Name,
                 nearest.Latitude,
                 nearest.Longitude,
@@ -380,6 +381,7 @@ namespace DoggyDrop.Controllers
 
             return Json(new
             {
+                best.Bin.Id,
                 best.Bin.Name,
                 best.Bin.Latitude,
                 best.Bin.Longitude,
@@ -398,6 +400,7 @@ namespace DoggyDrop.Controllers
                 .ToList()
                 .Select(b => new
                 {
+                    b.Id,
                     b.Name,
                     b.Latitude,
                     b.Longitude,
