@@ -758,18 +758,123 @@
         bottom: 238px;
         transform: translateX(-50%);
         z-index: 1180;
-        max-width: min(520px, calc(100vw - 32px));
-        padding: 12px 16px;
-        border-radius: 12px;
-        background: rgba(255, 255, 255, 0.94);
-        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.16);
-        font-size: 16px;
+        width: min(520px, calc(100vw - 32px));
         display: none;
     }
 
     #directionsPanel.directions-panel--active-walk {
         bottom: calc(382px + env(safe-area-inset-bottom));
         max-width: min(520px, calc(100vw - 24px));
+    }
+
+    .nearest-bin-card {
+        display: grid;
+        grid-template-columns: 86px minmax(0, 1fr);
+        gap: 12px;
+        padding: 12px;
+        border: 1px solid rgba(47, 109, 95, 0.16);
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.97);
+        box-shadow: 0 18px 38px rgba(31, 45, 41, 0.20);
+        backdrop-filter: blur(18px);
+    }
+
+    .nearest-bin-card__image {
+        display: grid;
+        width: 86px;
+        aspect-ratio: 1;
+        place-items: center;
+        overflow: hidden;
+        border-radius: 14px;
+        background: linear-gradient(135deg, #e7f3e5, #fff3dd);
+        color: #2f6d5f;
+        font-size: 1.65rem;
+    }
+
+    .nearest-bin-card__image img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .nearest-bin-card__body {
+        min-width: 0;
+    }
+
+    .nearest-bin-card__kicker {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: #2f6d5f;
+        font-size: 0.72rem;
+        font-weight: 950;
+        text-transform: uppercase;
+    }
+
+    .nearest-bin-card__kicker::before {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: #20b26b;
+        content: "";
+    }
+
+    .nearest-bin-card h3 {
+        margin: 3px 0 8px;
+        color: #17322c;
+        font-size: 1.08rem;
+        font-weight: 950;
+        line-height: 1.1;
+    }
+
+    .nearest-bin-card__meta {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 6px;
+        margin-bottom: 10px;
+    }
+
+    .nearest-bin-card__meta span {
+        padding: 7px 6px;
+        border-radius: 10px;
+        background: #eef7ed;
+        color: #40514b;
+        font-size: 0.74rem;
+        font-weight: 900;
+        text-align: center;
+    }
+
+    .nearest-bin-card__meta b {
+        display: block;
+        color: #17322c;
+        font-size: 0.9rem;
+    }
+
+    .nearest-bin-card__actions {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 8px;
+    }
+
+    .nearest-bin-card__actions a,
+    .nearest-bin-card__actions button {
+        display: inline-flex;
+        min-height: 40px;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        border: 1px solid rgba(47, 109, 95, 0.16);
+        border-radius: 999px;
+        background: #ffffff;
+        color: #2f6d5f;
+        font-weight: 950;
+        text-decoration: none;
+    }
+
+    .nearest-bin-card__actions a {
+        border: 0;
+        background: #2f6d5f;
+        color: #ffffff;
     }
 
     .map-action-stack {
@@ -2114,6 +2219,44 @@
 
         #directionsPanel {
             bottom: @(hasActiveWalk ? "384px" : "332px");
+            left: 8px;
+            right: 8px;
+            width: auto;
+            transform: none;
+        }
+
+        .nearest-bin-card {
+            grid-template-columns: 74px minmax(0, 1fr);
+            gap: 10px;
+            padding: 10px;
+            border-radius: 16px;
+        }
+
+        .nearest-bin-card__image {
+            width: 74px;
+            border-radius: 12px;
+        }
+
+        .nearest-bin-card h3 {
+            font-size: 1rem;
+        }
+
+        .nearest-bin-card__meta {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 5px;
+        }
+
+        .nearest-bin-card__meta span {
+            padding: 6px 4px;
+            font-size: 0.68rem;
+        }
+
+        .nearest-bin-card__actions {
+            grid-template-columns: 1fr 42px;
+        }
+
+        .nearest-bin-card__actions button span {
+            display: none;
         }
 
         .map-explore-panel {
@@ -3746,12 +3889,36 @@ else if (needsDogOnboarding)
                     const distance = formatDistance(nearestBin.distanceMeters);
                     const walkingMinutes = Math.max(1, Math.round(nearestBin.distanceMeters / 83));
                     const panel = document.getElementById("directionsPanel");
+                    const imageUrl = nearestBin.imageUrl || nearestBin.ImageUrl || "";
+                    const navigationUrl = buildNavigationUrl(nearestBin.latitude, nearestBin.longitude);
                     panel.style.display = "block";
                     panel.innerHTML = `
-                        <strong>Predlagan kos:</strong> ${escapeHtml(nearestBin.name)}<br>
-                        <strong>Cas hoje:</strong> priblizno ${walkingMinutes} min<br>
-                        <strong>Razdalja:</strong> ${distance}<br>
-                        <strong>Zanesljivost:</strong> ${Number(nearestBin.reliabilityScore || 0)}/100
+                        <article class="nearest-bin-card">
+                            <div class="nearest-bin-card__image">
+                                ${imageUrl
+                                    ? `<img src="${escapeAttribute(imageUrl)}" alt="${escapeAttribute(nearestBin.name || "Koš")}" loading="lazy">`
+                                    : `<i class="bi bi-trash3-fill" aria-hidden="true"></i>`}
+                            </div>
+                            <div class="nearest-bin-card__body">
+                                <span class="nearest-bin-card__kicker">Najbližji uporaben koš</span>
+                                <h3>${escapeHtml(nearestBin.name || "Pasji koš")}</h3>
+                                <div class="nearest-bin-card__meta">
+                                    <span><b>~${walkingMinutes} min</b>hoje</span>
+                                    <span><b>${distance}</b>stran</span>
+                                    <span><b>${Number(nearestBin.reliabilityScore || 0)}/100</b>OK</span>
+                                </div>
+                                <div class="nearest-bin-card__actions">
+                                    <a href="${navigationUrl}" target="_blank" rel="noopener">
+                                        <i class="bi bi-sign-turn-right-fill" aria-hidden="true"></i>
+                                        <span>Navigacija</span>
+                                    </a>
+                                    <button type="button" onclick="document.getElementById('directionsPanel').style.display='none';" aria-label="Zapri predlog">
+                                        <i class="bi bi-x-lg" aria-hidden="true"></i>
+                                        <span>Zapri</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </article>
                     `;
                     renderNearbySuggestions();
                 })
