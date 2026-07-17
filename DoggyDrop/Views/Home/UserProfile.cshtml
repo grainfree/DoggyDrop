@@ -11,15 +11,21 @@
 
 <section class="app-page profile-page">
     <header class="profile-hero">
-        <div class="profile-hero__avatar profile-hero__avatar--@Model.Gamification.AvatarFlameTier">
-            @if (!string.IsNullOrWhiteSpace(Model.ProfileImageUrl))
-            {
-                <img src="@Model.ProfileImageUrl" alt="@displayName" />
-            }
-            else
-            {
-                <span>@initials</span>
-            }
+        <div class="profile-hero__media">
+            <div class="profile-hero__avatar profile-hero__avatar--@Model.Gamification.AvatarFlameTier">
+                @if (!string.IsNullOrWhiteSpace(Model.ProfileImageUrl))
+                {
+                    <img src="@Model.ProfileImageUrl" alt="@displayName" />
+                }
+                else
+                {
+                    <span>@initials</span>
+                }
+            </div>
+            <div class="profile-hero__level">
+                <strong>@Model.Gamification.Level</strong>
+                <span>level</span>
+            </div>
         </div>
         <div class="profile-hero__text">
             <span>DoggyDrop profil</span>
@@ -39,7 +45,48 @@
                 </form>
             </div>
         </div>
+        <div class="profile-hero__summary" aria-label="Povzetek profila">
+            <article>
+                <strong>@Model.TotalDistanceKm.ToString("0.0")</strong>
+                <span>km</span>
+            </article>
+            <article>
+                <strong>@Model.TotalWalks</strong>
+                <span>sprehodov</span>
+            </article>
+            <article>
+                <strong>@Model.Gamification.CurrentStreakDays</strong>
+                <span>streak</span>
+            </article>
+        </div>
     </header>
+
+    <div class="profile-stats">
+        <article>
+            <strong>@Model.TotalDistanceKm.ToString("0.0") km</strong>
+            <span>Skupaj</span>
+        </article>
+        <article>
+            <strong>@Model.TotalWalks</strong>
+            <span>Sprehodi</span>
+        </article>
+        <article>
+            <strong>@Model.WalksThisWeek</strong>
+            <span>Ta teden</span>
+        </article>
+        <article>
+            <strong>@Model.TotalDogs</strong>
+            <span>Psi</span>
+        </article>
+        <article>
+            <strong>@Model.TotalBins</strong>
+            <span>Koši</span>
+        </article>
+        <article>
+            <strong>@($"{totalHours:0}h {totalMinutes:00}m")</strong>
+            <span>Aktivno</span>
+        </article>
+    </div>
 
     <article class="profile-panel profile-xp">
         <div class="profile-xp__top">
@@ -167,33 +214,6 @@
             </div>
         }
     </article>
-
-    <div class="profile-stats">
-        <article>
-            <strong>@Model.TotalDistanceKm.ToString("0.0") km</strong>
-            <span>Skupaj</span>
-        </article>
-        <article>
-            <strong>@Model.TotalWalks</strong>
-            <span>Sprehodi</span>
-        </article>
-        <article>
-            <strong>@Model.WalksThisWeek</strong>
-            <span>Ta teden</span>
-        </article>
-        <article>
-            <strong>@Model.TotalDogs</strong>
-            <span>Psi</span>
-        </article>
-        <article>
-            <strong>@Model.TotalBins</strong>
-            <span>Kosi</span>
-        </article>
-        <article>
-            <strong>@($"{totalHours:0}h {totalMinutes:00}m")</strong>
-            <span>Aktivno</span>
-        </article>
-    </div>
 
     <article class="profile-panel profile-activity">
         <div class="profile-panel__header">
@@ -1090,6 +1110,324 @@
         .profile-hero__actions form,
         .profile-hero__actions button {
             width: 100%;
+        }
+    }
+
+    .profile-page {
+        max-width: 1120px;
+        padding-bottom: 34px;
+    }
+
+    .profile-page .profile-hero,
+    .profile-page .profile-stats article,
+    .profile-page .profile-panel {
+        border-color: rgba(20, 40, 35, 0.09);
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.96);
+        box-shadow: 0 18px 38px rgba(20, 40, 35, 0.08);
+    }
+
+    .profile-page .profile-hero {
+        position: relative;
+        grid-template-columns: auto minmax(0, 1fr) minmax(260px, 0.7fr);
+        gap: 22px;
+        overflow: hidden;
+        padding: 24px;
+        background:
+            radial-gradient(circle at 18% 18%, rgba(232, 137, 62, 0.12), transparent 24%),
+            linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(229, 242, 235, 0.96));
+    }
+
+    .profile-page .profile-hero::after {
+        position: absolute;
+        right: -90px;
+        bottom: -120px;
+        width: 260px;
+        height: 260px;
+        border-radius: 999px;
+        background: rgba(36, 105, 90, 0.08);
+        content: "";
+    }
+
+    .profile-hero__media {
+        position: relative;
+        align-self: stretch;
+    }
+
+    .profile-page .profile-hero__avatar {
+        width: 132px;
+        border-radius: 18px;
+        background: linear-gradient(145deg, #e3f0e9, #fff0df);
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.74), 0 18px 34px rgba(20, 40, 35, 0.13);
+        font-size: 3.1rem;
+    }
+
+    .profile-hero__level {
+        position: absolute;
+        right: -12px;
+        bottom: -12px;
+        display: grid;
+        width: 58px;
+        aspect-ratio: 1;
+        place-items: center;
+        border: 4px solid #ffffff;
+        border-radius: 16px;
+        background: #24695a;
+        color: #ffffff;
+        box-shadow: 0 14px 26px rgba(36, 105, 90, 0.24);
+        text-align: center;
+    }
+
+    .profile-hero__level strong,
+    .profile-hero__level span {
+        display: block;
+        line-height: 1;
+    }
+
+    .profile-hero__level strong {
+        font-size: 1.35rem;
+        font-weight: 950;
+    }
+
+    .profile-hero__level span {
+        font-size: 0.66rem;
+        font-weight: 900;
+        text-transform: uppercase;
+    }
+
+    .profile-page .profile-hero__text {
+        position: relative;
+        z-index: 1;
+        align-self: center;
+        min-width: 0;
+    }
+
+    .profile-page .profile-hero__text > span {
+        display: inline-flex;
+        width: fit-content;
+        padding: 7px 11px;
+        border-radius: 999px;
+        background: #e3f0e9;
+        color: #24695a;
+        text-transform: none;
+    }
+
+    .profile-page .profile-hero__text h1 {
+        margin: 10px 0 5px;
+        color: #142823;
+        font-size: clamp(2rem, 5vw, 3.4rem);
+        letter-spacing: 0;
+    }
+
+    .profile-page .profile-hero__text p {
+        overflow: hidden;
+        max-width: 100%;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .profile-page .profile-hero__actions a,
+    .profile-page .profile-hero__actions button {
+        min-height: 44px;
+        border-radius: 12px;
+        background: #ffffff;
+    }
+
+    .profile-page .profile-hero__actions a:first-child {
+        border-color: #24695a;
+        background: #24695a;
+        color: #ffffff;
+    }
+
+    .profile-hero__summary {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+        align-self: center;
+    }
+
+    .profile-hero__summary article {
+        min-width: 0;
+        padding: 14px 12px;
+        border: 1px solid rgba(20, 40, 35, 0.08);
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.78);
+        text-align: center;
+    }
+
+    .profile-hero__summary strong,
+    .profile-hero__summary span {
+        display: block;
+    }
+
+    .profile-hero__summary strong {
+        color: #142823;
+        font-size: 1.45rem;
+        font-weight: 950;
+        line-height: 1;
+    }
+
+    .profile-hero__summary span {
+        margin-top: 4px;
+        color: #5f706a;
+        font-size: 0.78rem;
+        font-weight: 900;
+        text-transform: uppercase;
+    }
+
+    .profile-page .profile-stats {
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        margin: 14px 0;
+    }
+
+    .profile-page .profile-stats article {
+        padding: 14px;
+        background: #ffffff;
+    }
+
+    .profile-page .profile-stats strong {
+        color: #142823;
+        font-size: 1.08rem;
+        line-height: 1.1;
+    }
+
+    .profile-page .profile-stats span {
+        margin-top: 3px;
+        color: #5f706a;
+        font-size: 0.78rem;
+        font-weight: 850;
+    }
+
+    .profile-page .profile-panel {
+        padding: 20px;
+    }
+
+    .profile-page .profile-xp {
+        background:
+            linear-gradient(135deg, rgba(255,255,255,0.98), rgba(227, 240, 233, 0.96)),
+            #ffffff;
+    }
+
+    .profile-page .profile-achievement__bar {
+        height: 9px;
+        background: rgba(36, 105, 90, 0.12);
+    }
+
+    .profile-page .profile-achievement__bar span {
+        background: linear-gradient(90deg, #24695a, #e8893e);
+    }
+
+    .profile-page .profile-panel__header h2 {
+        color: #142823;
+        font-size: 1.16rem;
+    }
+
+    .profile-page .profile-panel__header span,
+    .profile-page .profile-panel__header a {
+        color: #24695a;
+    }
+
+    .profile-page .profile-streak,
+    .profile-page .profile-goal-card,
+    .profile-page .profile-challenge,
+    .profile-page .profile-achievement,
+    .profile-page .profile-seasonal-card,
+    .profile-page .profile-stamp,
+    .profile-page .profile-bin-summary div {
+        border-radius: 12px;
+    }
+
+    .profile-page .profile-dog {
+        padding: 10px;
+        border: 1px solid rgba(20, 40, 35, 0.08);
+        border-radius: 12px;
+        background: #f8fbf8;
+    }
+
+    .profile-page .profile-dog__avatar {
+        border-radius: 12px;
+    }
+
+    .profile-page .profile-form {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-items: end;
+    }
+
+    .profile-page .profile-form .text-danger {
+        grid-column: 1 / -1;
+    }
+
+    .profile-page .profile-form .btn {
+        justify-self: stretch;
+        min-height: 44px;
+        border-radius: 12px;
+    }
+
+    @@media (max-width: 920px) {
+        .profile-page .profile-hero {
+            grid-template-columns: auto minmax(0, 1fr);
+        }
+
+        .profile-hero__summary {
+            grid-column: 1 / -1;
+        }
+
+        .profile-page .profile-stats {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+    }
+
+    @@media (max-width: 575.98px) {
+        .profile-page {
+            padding-bottom: 24px;
+        }
+
+        .profile-page .profile-hero {
+            grid-template-columns: 1fr;
+            padding: 18px;
+        }
+
+        .profile-hero__media {
+            width: 118px;
+        }
+
+        .profile-page .profile-hero__avatar {
+            width: 118px;
+        }
+
+        .profile-page .profile-hero__text h1 {
+            font-size: 2rem;
+        }
+
+        .profile-page .profile-hero__text p {
+            white-space: normal;
+        }
+
+        .profile-hero__summary,
+        .profile-page .profile-stats {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .profile-hero__summary article {
+            padding: 12px 8px;
+        }
+
+        .profile-hero__summary strong {
+            font-size: 1.15rem;
+        }
+
+        .profile-page .profile-stats strong {
+            font-size: 0.95rem;
+        }
+
+        .profile-page .profile-stats span {
+            font-size: 0.72rem;
+        }
+
+        .profile-page .profile-form {
+            grid-template-columns: 1fr;
         }
     }
 </style>

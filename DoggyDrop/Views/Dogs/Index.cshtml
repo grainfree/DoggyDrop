@@ -2,15 +2,41 @@
 
 @{
     ViewData["Title"] = "Psi";
+    var visibleDogs = Model.Count(dog => dog.NearbyVisibility == "Visible");
+    var friendsOnlyDogs = Model.Count(dog => dog.NearbyVisibility == "FriendsOnly");
+    var dogsWithPhotos = Model.Count(dog => !string.IsNullOrWhiteSpace(dog.PhotoUrl));
+    var dogsWithDetails = Model.Count(dog =>
+        !string.IsNullOrWhiteSpace(dog.Breed)
+        || dog.AgeYears.HasValue
+        || !string.IsNullOrWhiteSpace(dog.Size)
+        || !string.IsNullOrWhiteSpace(dog.Character));
 }
 
 <section class="app-page dogs-page">
     <header class="app-page__header dogs-hero">
         <div>
+            <span class="dogs-hero__eyebrow">Dog pack</span>
             <h1 class="app-page__title">Moji psi</h1>
             <p class="app-page__lead">Dodaj pse, ki jih boš kasneje povezal s sprehodi, značkami in statistiko.</p>
         </div>
-        <a class="btn btn-success rounded-pill fw-semibold" asp-controller="Dogs" asp-action="Create">Dodaj psa</a>
+        <div class="dogs-hero__actions">
+            <a class="btn btn-success rounded-pill fw-semibold" asp-controller="Dogs" asp-action="Create">Dodaj psa</a>
+            <a class="btn btn-outline-secondary rounded-pill" asp-controller="Walks" asp-action="Index">Sprehodi</a>
+        </div>
+        <div class="dogs-hero__pulse" aria-label="Povzetek psov">
+            <article>
+                <strong>@Model.Count</strong>
+                <span>profilov</span>
+            </article>
+            <article>
+                <strong>@visibleDogs</strong>
+                <span>vidni v blizini</span>
+            </article>
+            <article>
+                <strong>@dogsWithPhotos</strong>
+                <span>s fotografijo</span>
+            </article>
+        </div>
     </header>
 
     @if (TempData["SuccessMessage"] != null)
@@ -29,6 +55,21 @@
     }
     else
     {
+        <section class="dog-overview-strip" aria-label="Pregled pasjih profilov">
+            <article>
+                <span>Urejeni profili</span>
+                <strong>@dogsWithDetails / @Model.Count</strong>
+            </article>
+            <article>
+                <span>Samo prijatelji</span>
+                <strong>@friendsOnlyDogs</strong>
+            </article>
+            <article>
+                <span>Naslednji korak</span>
+                <strong>Start walk</strong>
+            </article>
+        </section>
+
         <div class="dog-grid">
             @foreach (var dog in Model)
             {
@@ -42,6 +83,20 @@
                         {
                             <span>@dog.Name.Substring(0, 1).ToUpperInvariant()</span>
                         }
+                        <div class="dog-card__status">
+                            @if (dog.NearbyVisibility == "Visible")
+                            {
+                                <span>Live</span>
+                            }
+                            else if (dog.NearbyVisibility == "FriendsOnly")
+                            {
+                                <span>Friends</span>
+                            }
+                            else
+                            {
+                                <span>Private</span>
+                            }
+                        </div>
                     </div>
                     <div class="dog-card__body">
                         <h2>@dog.Name</h2>
@@ -72,6 +127,10 @@
                         {
                             <p class="dog-card__character">@dog.Character</p>
                         }
+                        <div class="dog-card__footer">
+                            <span>Odpri profil</span>
+                            <i class="bi bi-chevron-right" aria-hidden="true"></i>
+                        </div>
                     </div>
                 </a>
             }
@@ -213,6 +272,292 @@
 
         .dogs-hero .btn {
             width: 100%;
+        }
+    }
+
+    .dogs-page {
+        max-width: 1120px;
+        padding-bottom: 34px;
+    }
+
+    .dogs-page .dogs-hero {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto minmax(230px, 0.42fr);
+        align-items: stretch;
+        gap: 14px;
+        margin-bottom: 14px;
+        padding: 20px;
+        border: 1px solid rgba(36, 105, 90, 0.12);
+        border-radius: 22px;
+        background:
+            linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(241, 248, 241, 0.95)),
+            radial-gradient(circle at 92% 0%, rgba(232, 137, 62, 0.14), transparent 34%);
+        box-shadow: 0 22px 42px rgba(20, 40, 35, 0.10);
+    }
+
+    .dogs-hero__eyebrow {
+        display: inline-flex;
+        align-items: center;
+        min-height: 26px;
+        margin-bottom: 8px;
+        padding: 5px 10px;
+        border-radius: 999px;
+        background: rgba(36, 105, 90, 0.10);
+        color: #24695a;
+        font-size: 0.74rem;
+        font-weight: 950;
+        letter-spacing: 0;
+        text-transform: uppercase;
+    }
+
+    .dogs-page .app-page__title {
+        margin-bottom: 6px;
+        color: #142823;
+        font-size: clamp(1.55rem, 2.4vw, 2.2rem);
+        letter-spacing: 0;
+    }
+
+    .dogs-page .app-page__lead {
+        max-width: 520px;
+        color: #5d6c66;
+        font-size: 0.96rem;
+        line-height: 1.45;
+    }
+
+    .dogs-page .dogs-hero__actions {
+        display: grid;
+        align-content: center;
+        gap: 8px;
+        min-width: 150px;
+    }
+
+    .dogs-page .dogs-hero__actions .btn {
+        min-height: 42px;
+        border-radius: 14px !important;
+        box-shadow: none;
+    }
+
+    .dogs-hero__pulse {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+        align-content: stretch;
+    }
+
+    .dogs-hero__pulse article {
+        display: grid;
+        align-content: center;
+        min-height: 82px;
+        padding: 12px;
+        border: 1px solid rgba(36, 105, 90, 0.10);
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.72);
+    }
+
+    .dogs-hero__pulse strong {
+        color: #24695a;
+        font-size: 1.25rem;
+        font-weight: 950;
+        line-height: 1;
+    }
+
+    .dogs-hero__pulse span {
+        margin-top: 5px;
+        color: #5d6c66;
+        font-size: 0.73rem;
+        font-weight: 850;
+        line-height: 1.25;
+    }
+
+    .dog-overview-strip {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+        margin-bottom: 14px;
+    }
+
+    .dog-overview-strip article,
+    .dogs-page .dog-card,
+    .dogs-page .dog-empty-state {
+        border-color: rgba(20, 40, 35, 0.08);
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.96);
+        box-shadow: 0 14px 32px rgba(20, 40, 35, 0.07);
+    }
+
+    .dog-overview-strip article {
+        min-height: 72px;
+        padding: 14px;
+    }
+
+    .dog-overview-strip span,
+    .dog-overview-strip strong {
+        display: block;
+    }
+
+    .dog-overview-strip span {
+        color: #68766f;
+        font-size: 0.76rem;
+        font-weight: 850;
+    }
+
+    .dog-overview-strip strong {
+        margin-top: 5px;
+        color: #142823;
+        font-size: 1.02rem;
+        font-weight: 950;
+    }
+
+    .dogs-page .dog-grid {
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 14px;
+    }
+
+    .dogs-page .dog-card:hover,
+    .dogs-page .dog-card:focus {
+        transform: translateY(-2px);
+        box-shadow: 0 22px 42px rgba(20, 40, 35, 0.12);
+    }
+
+    .dogs-page .dog-card__photo {
+        position: relative;
+        aspect-ratio: 1.06;
+        margin: 12px 12px 0;
+        border-radius: 14px;
+        background:
+            linear-gradient(135deg, #e8f1eb, #fff3dd),
+            radial-gradient(circle at 80% 0%, rgba(232, 137, 62, 0.18), transparent 35%);
+        color: #24695a;
+    }
+
+    .dog-card__status {
+        position: absolute;
+        right: 10px;
+        bottom: 10px;
+    }
+
+    .dog-card__status span {
+        display: inline-flex;
+        align-items: center;
+        min-height: 28px;
+        padding: 5px 10px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.90);
+        color: #24695a;
+        font-size: 0.72rem;
+        font-weight: 950;
+        box-shadow: 0 10px 22px rgba(20, 40, 35, 0.12);
+    }
+
+    .dogs-page .dog-card__body {
+        padding: 14px 14px 16px;
+    }
+
+    .dogs-page .dog-card__body h2 {
+        color: #142823;
+        font-size: 1.18rem;
+        font-weight: 950;
+        letter-spacing: 0;
+    }
+
+    .dogs-page .dog-card__meta span {
+        padding: 7px 9px;
+        border-radius: 12px;
+        background: rgba(36, 105, 90, 0.10);
+        color: #24695a;
+        font-weight: 850;
+    }
+
+    .dog-card__footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-top: 14px;
+        padding-top: 12px;
+        border-top: 1px solid rgba(20, 40, 35, 0.08);
+        color: #24695a;
+        font-size: 0.82rem;
+        font-weight: 950;
+    }
+
+    .dog-card__footer i {
+        font-size: 0.9rem;
+    }
+
+    .dogs-page .dog-empty-state {
+        padding: 42px 22px;
+    }
+
+    .dogs-page .dog-empty-state__icon {
+        background: linear-gradient(135deg, #24695a, #e8893e);
+        box-shadow: 0 18px 28px rgba(36, 105, 90, 0.22);
+    }
+
+    @@media (max-width: 980px) {
+        .dogs-page .dogs-hero {
+            grid-template-columns: 1fr;
+        }
+
+        .dogs-page .dogs-hero__actions {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            min-width: 0;
+        }
+    }
+
+    @@media (max-width: 575.98px) {
+        .dogs-page {
+            padding-bottom: 26px;
+        }
+
+        .dogs-page .dogs-hero {
+            gap: 12px;
+            padding: 16px;
+            border-radius: 18px;
+        }
+
+        .dogs-page .app-page__title {
+            font-size: 1.65rem;
+        }
+
+        .dogs-page .dogs-hero__actions {
+            grid-template-columns: 1fr;
+        }
+
+        .dogs-hero__pulse {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .dogs-hero__pulse article {
+            min-height: 70px;
+            padding: 10px 8px;
+        }
+
+        .dogs-hero__pulse strong {
+            font-size: 1.05rem;
+        }
+
+        .dogs-hero__pulse span {
+            font-size: 0.66rem;
+        }
+
+        .dog-overview-strip {
+            grid-template-columns: 1fr;
+            gap: 8px;
+        }
+
+        .dog-overview-strip article {
+            min-height: auto;
+            padding: 12px;
+        }
+
+        .dogs-page .dog-grid {
+            grid-template-columns: 1fr;
+            gap: 12px;
+        }
+
+        .dogs-page .dog-card__photo {
+            aspect-ratio: 1.18;
         }
     }
 </style>

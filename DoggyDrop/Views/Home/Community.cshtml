@@ -7,12 +7,23 @@
 <section class="app-page community-page">
     <header class="app-page__header community-hero">
         <div>
+            <span class="community-hero__eyebrow">DoggyDrop live</span>
             <h1 class="app-page__title">Skupnost</h1>
             <p class="app-page__lead">Nedavni sprehodi, aktivni psi in bolj živ DoggyDrop community feed.</p>
         </div>
         <div class="community-hero__actions">
             <a class="btn btn-success rounded-pill fw-semibold" asp-controller="Playdates" asp-action="Index">Playdates</a>
             <a class="btn btn-outline-secondary rounded-pill fw-semibold" asp-controller="Friends" asp-action="Index">Prijatelji</a>
+        </div>
+        <div class="community-hero__pulse" aria-label="Povzetek skupnosti">
+            <article>
+                <strong>@Model.KilometersThisWeek.ToString("0.0")</strong>
+                <span>km ta teden</span>
+            </article>
+            <article>
+                <strong>@Model.ActiveDogsThisWeek</strong>
+                <span>aktivnih psov</span>
+            </article>
         </div>
     </header>
 
@@ -763,6 +774,286 @@
         .community-avatar--large {
             width: 100%;
             max-width: 120px;
+        }
+    }
+
+    .community-page {
+        max-width: 1120px;
+        padding-bottom: 34px;
+    }
+
+    .community-page .community-hero {
+        position: relative;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto minmax(230px, 0.45fr);
+        align-items: center;
+        overflow: hidden;
+        padding: 24px;
+        border: 1px solid rgba(20, 40, 35, 0.09);
+        border-radius: 16px;
+        background:
+            radial-gradient(circle at 16% 16%, rgba(232, 137, 62, 0.13), transparent 24%),
+            linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(229, 242, 235, 0.96));
+        box-shadow: 0 18px 38px rgba(20, 40, 35, 0.08);
+    }
+
+    .community-page .community-hero::after {
+        position: absolute;
+        right: -100px;
+        bottom: -130px;
+        width: 280px;
+        height: 280px;
+        border-radius: 999px;
+        background: rgba(36, 105, 90, 0.08);
+        content: "";
+    }
+
+    .community-hero__eyebrow {
+        display: inline-flex;
+        width: fit-content;
+        margin-bottom: 10px;
+        padding: 7px 11px;
+        border-radius: 999px;
+        background: #e3f0e9;
+        color: #24695a;
+        font-size: 0.78rem;
+        font-weight: 950;
+    }
+
+    .community-page .community-hero .app-page__title {
+        color: #142823;
+        font-size: clamp(2rem, 5vw, 3.5rem);
+        letter-spacing: 0;
+    }
+
+    .community-page .community-hero .app-page__lead {
+        max-width: 620px;
+    }
+
+    .community-page .community-hero__actions {
+        position: relative;
+        z-index: 1;
+        justify-content: flex-end;
+    }
+
+    .community-page .community-hero__actions .btn {
+        min-height: 44px;
+        border-radius: 12px !important;
+        padding-inline: 16px;
+    }
+
+    .community-hero__pulse {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .community-hero__pulse article {
+        min-width: 0;
+        padding: 14px 12px;
+        border: 1px solid rgba(20, 40, 35, 0.08);
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.78);
+        text-align: center;
+    }
+
+    .community-hero__pulse strong,
+    .community-hero__pulse span {
+        display: block;
+    }
+
+    .community-hero__pulse strong {
+        color: #142823;
+        font-size: 1.55rem;
+        font-weight: 950;
+        line-height: 1;
+    }
+
+    .community-hero__pulse span {
+        margin-top: 4px;
+        color: #5f706a;
+        font-size: 0.76rem;
+        font-weight: 900;
+        text-transform: uppercase;
+    }
+
+    .community-page .community-stats {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        margin: 14px 0;
+    }
+
+    .community-page .community-stats article,
+    .community-page .community-section,
+    .community-page .community-empty,
+    .community-page .community-feed-card {
+        border-color: rgba(20, 40, 35, 0.09);
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.96);
+        box-shadow: 0 18px 38px rgba(20, 40, 35, 0.08);
+    }
+
+    .community-page .community-stats article {
+        padding: 16px;
+    }
+
+    .community-page .community-stats strong {
+        color: #142823;
+        font-size: 1.2rem;
+    }
+
+    .community-page .community-section {
+        padding: 20px;
+    }
+
+    .community-page .community-section__header h2 {
+        color: #142823;
+        font-size: 1.18rem;
+    }
+
+    .community-page .community-section__header span {
+        color: #24695a;
+    }
+
+    .community-page .community-local-grid {
+        grid-template-columns: repeat(5, minmax(170px, 1fr));
+        overflow-x: auto;
+        padding-bottom: 4px;
+    }
+
+    .community-page .community-local-grid article,
+    .community-page .community-local-entry > strong,
+    .community-page .community-empty,
+    .community-page .community-photo-card,
+    .community-page .community-bin-card,
+    .community-page .community-avatar,
+    .community-page .community-feed-card__cover {
+        border-radius: 12px;
+    }
+
+    .community-page .community-local-grid article {
+        background: #f8fbf8;
+    }
+
+    .community-page .community-photo-feed,
+    .community-page .community-bin-gallery {
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+
+    .community-page .community-photo-card {
+        min-height: 260px;
+        box-shadow: 0 18px 34px rgba(20, 40, 35, 0.12);
+    }
+
+    .community-page .community-bin-card {
+        grid-template-rows: 200px auto;
+        box-shadow: 0 18px 34px rgba(20, 40, 35, 0.10);
+    }
+
+    .community-page .community-leader {
+        padding: 10px;
+        border: 1px solid rgba(20, 40, 35, 0.08);
+        border-radius: 12px;
+        background: #f8fbf8;
+    }
+
+    .community-page .community-feed-card {
+        grid-template-columns: 72px minmax(0, 1fr);
+        padding: 16px;
+    }
+
+    .community-page .community-avatar,
+    .community-page .community-avatar--large {
+        border-radius: 14px;
+    }
+
+    .community-page .community-feed-card__meta {
+        flex-wrap: wrap;
+        justify-content: flex-start;
+    }
+
+    .community-page .community-feed-card__meta span {
+        display: inline-flex;
+        min-height: 28px;
+        align-items: center;
+        padding: 5px 9px;
+        border-radius: 999px;
+        background: #e3f0e9;
+        color: #24695a;
+        font-size: 0.78rem;
+    }
+
+    .community-page .community-empty--founder {
+        border-color: rgba(232, 137, 62, 0.24);
+        background: linear-gradient(180deg, #fff8ee, #ffffff);
+    }
+
+    .community-page .community-empty .btn {
+        border-radius: 12px !important;
+    }
+
+    @@media (max-width: 920px) {
+        .community-page .community-hero {
+            grid-template-columns: 1fr;
+        }
+
+        .community-page .community-hero__actions {
+            justify-content: flex-start;
+        }
+
+        .community-hero__pulse {
+            max-width: 420px;
+        }
+    }
+
+    @@media (max-width: 575.98px) {
+        .community-page {
+            padding-bottom: 24px;
+        }
+
+        .community-page .community-hero {
+            padding: 18px;
+        }
+
+        .community-page .community-hero .app-page__title {
+            font-size: 2rem;
+        }
+
+        .community-hero__pulse,
+        .community-page .community-stats {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .community-hero__pulse article {
+            padding: 12px 8px;
+        }
+
+        .community-hero__pulse strong {
+            font-size: 1.1rem;
+        }
+
+        .community-hero__pulse span,
+        .community-page .community-stats span {
+            font-size: 0.68rem;
+        }
+
+        .community-page .community-stats strong {
+            font-size: 0.95rem;
+        }
+
+        .community-page .community-feed-card {
+            grid-template-columns: 1fr;
+        }
+
+        .community-page .community-avatar,
+        .community-page .community-avatar--large {
+            width: 72px;
+        }
+
+        .community-page .community-local-grid {
+            grid-template-columns: 1fr;
+            overflow-x: visible;
         }
     }
 </style>

@@ -1,19 +1,19 @@
 :root {
-  --dd-bg: #f4f7f1;
+  --dd-bg: #eef3ed;
   --dd-surface: rgba(255, 255, 255, 0.92);
   --dd-surface-strong: #ffffff;
-  --dd-text: #17322c;
-  --dd-muted: #62756f;
-  --dd-border: rgba(23, 50, 44, 0.10);
-  --dd-primary: #2f6d5f;
-  --dd-primary-strong: #225549;
-  --dd-primary-soft: #e9f5ef;
-  --dd-accent: #ef8f42;
-  --dd-accent-soft: #fff1e2;
-  --dd-shadow: 0 18px 38px rgba(23, 50, 44, 0.12);
-  --dd-radius-sm: 10px;
-  --dd-radius-md: 16px;
-  --dd-radius-lg: 22px;
+  --dd-text: #142823;
+  --dd-muted: #5f706a;
+  --dd-border: rgba(20, 40, 35, 0.11);
+  --dd-primary: #24695a;
+  --dd-primary-strong: #184e43;
+  --dd-primary-soft: #e3f0e9;
+  --dd-accent: #e8893e;
+  --dd-accent-soft: #fff0df;
+  --dd-shadow: 0 18px 38px rgba(20, 40, 35, 0.13);
+  --dd-radius-sm: 8px;
+  --dd-radius-md: 12px;
+  --dd-radius-lg: 16px;
 }
 
 html {
@@ -35,10 +35,7 @@ body {
   min-height: 100vh;
   margin: 0;
   padding-bottom: calc(76px + env(safe-area-inset-bottom));
-  background:
-    radial-gradient(circle at top left, rgba(239, 143, 66, 0.10), transparent 24%),
-    radial-gradient(circle at top right, rgba(47, 109, 95, 0.10), transparent 28%),
-    var(--dd-bg);
+  background: linear-gradient(180deg, #f7faf6 0%, var(--dd-bg) 100%);
   color: var(--dd-text);
   font-family: "Nunito", "Segoe UI", "DejaVu Sans", "Noto Sans", Arial, sans-serif;
   text-rendering: optimizeLegibility;
@@ -121,10 +118,10 @@ body {
   position: sticky;
   top: 0;
   z-index: 1100;
-  border-bottom: 1px solid rgba(23, 50, 44, 0.06);
-  background: rgba(244, 247, 241, 0.84);
-  box-shadow: 0 10px 28px rgba(23, 50, 44, 0.08);
-  backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(20, 40, 35, 0.08);
+  background: rgba(247, 250, 246, 0.92);
+  box-shadow: 0 10px 24px rgba(20, 40, 35, 0.07);
+  backdrop-filter: blur(18px);
 }
 
 .app-topbar__inner {
@@ -163,9 +160,9 @@ body {
 }
 
 .app-logo {
-  height: 40px;
+  height: 42px;
   width: auto;
-  filter: drop-shadow(0 6px 14px rgba(47, 109, 95, 0.12));
+  filter: drop-shadow(0 6px 14px rgba(36, 105, 90, 0.13));
 }
 
 .app-topbar__actions {
@@ -184,9 +181,9 @@ body {
   height: 42px;
   place-items: center;
   border: 1px solid var(--dd-border);
-  border-radius: 999px;
+  border-radius: 14px;
   background: rgba(255, 255, 255, 0.88);
-  box-shadow: 0 10px 24px rgba(23, 50, 44, 0.10);
+  box-shadow: 0 10px 22px rgba(20, 40, 35, 0.09);
   color: var(--dd-text);
   font-weight: 950;
   line-height: 1;
@@ -229,7 +226,7 @@ body {
 }
 
 .app-avatar-button {
-  background: linear-gradient(135deg, var(--dd-primary), #3e806f);
+  background: linear-gradient(135deg, var(--dd-primary), #3a826d);
   color: #ffffff;
 }
 
@@ -613,6 +610,16 @@ body {
   font-size: 0.82rem;
 }
 
+#pwaPrompt {
+  right: auto !important;
+  bottom: calc(92px + env(safe-area-inset-bottom)) !important;
+  left: 20px !important;
+  max-width: min(360px, calc(100vw - 40px)) !important;
+  border: 1px solid rgba(20, 40, 35, 0.1) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 18px 34px rgba(20, 40, 35, 0.16);
+}
+
 .app-content {
   padding-top: 18px;
   padding-bottom: 24px;
@@ -639,9 +646,9 @@ body {
   min-height: 64px;
   padding: 8px;
   border: 1px solid rgba(23, 50, 44, 0.08);
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.90);
-  box-shadow: 0 20px 44px rgba(23, 50, 44, 0.18);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 20px 42px rgba(20, 40, 35, 0.16);
   transform: translateX(-50%);
   backdrop-filter: blur(14px);
 }
@@ -654,7 +661,7 @@ body {
   justify-content: center;
   flex-direction: column;
   gap: 3px;
-  border-radius: 16px;
+  border-radius: 12px;
   color: #667672;
   font-size: 0.72rem;
   font-weight: 800;
@@ -671,8 +678,8 @@ body {
 
 .app-bottom-nav__item.is-active {
   color: #ffffff;
-  background: linear-gradient(135deg, var(--dd-primary), #3b7b6a);
-  box-shadow: 0 14px 24px rgba(47, 109, 95, 0.24);
+  background: linear-gradient(135deg, var(--dd-primary), #347967);
+  box-shadow: 0 14px 24px rgba(36, 105, 90, 0.24);
   transform: translateY(-1px);
 }
 
@@ -898,5 +905,13 @@ body {
     right: 10px;
     left: 10px;
     width: auto;
+  }
+
+  #pwaPrompt {
+    right: 12px !important;
+    bottom: calc(250px + env(safe-area-inset-bottom)) !important;
+    left: 12px !important;
+    max-width: none !important;
+    font-size: 0.88rem;
   }
 }
