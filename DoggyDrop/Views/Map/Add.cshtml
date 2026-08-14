@@ -15,7 +15,6 @@
             <h1 class="app-page__title">Dodaj kos</h1>
             <p class="app-page__lead">Oznaci lokacijo, dodaj fotografijo in pomagaj drugim lastnikom psov.</p>
         </div>
-        <a class="btn btn-outline-secondary rounded-pill" asp-controller="Map" asp-action="Index">Zemljevid</a>
     </header>
 
     @if (TempData["SuccessMessage"] != null)
@@ -26,29 +25,15 @@
     <form asp-action="Add" method="post" enctype="multipart/form-data" class="add-bin-form">
         <div asp-validation-summary="All" class="text-danger small mb-3"></div>
 
-        <article class="add-bin-panel">
-            <h2>Podatki</h2>
-            <div class="mb-3">
-                <label asp-for="Name" class="form-label">Ime lokacije</label>
-                <input asp-for="Name" class="form-control" placeholder="Npr. park ob drevoredu" />
-                <span asp-validation-for="Name" class="text-danger small"></span>
-            </div>
-
-            <div>
-                <label asp-for="ImageFile" class="form-label">Fotografija kosa</label>
-                <input asp-for="ImageFile" id="ImageFile" type="file" accept="image/*" capture="environment" class="form-control" />
-                <span asp-validation-for="ImageFile" class="text-danger small"></span>
-                <img id="preview" src="#" class="add-bin-preview" alt="Predogled fotografije" hidden />
-            </div>
-        </article>
-
-        <article class="add-bin-panel">
+        <article class="add-bin-panel add-bin-location-panel">
             <div class="add-bin-panel__header">
                 <div>
                     <h2>Lokacija</h2>
-                    <p id="locationStatus">Premakni marker ali klikni na zemljevid.</p>
+                    <p id="locationStatus" hidden></p>
                 </div>
-                <button type="button" id="useMyLocation" class="btn btn-outline-success rounded-pill">Moja lokacija</button>
+                <button type="button" id="useMyLocation" class="add-bin-locate-button" aria-label="Uporabi mojo lokacijo">
+                    <i class="bi bi-crosshair" aria-hidden="true"></i>
+                </button>
             </div>
 
             <div id="map"></div>
@@ -56,6 +41,24 @@
             <div class="add-bin-coordinates">
                 <span>Lat: <strong id="latText">-</strong></span>
                 <span>Lng: <strong id="lngText">-</strong></span>
+            </div>
+        </article>
+
+        <article class="add-bin-panel add-bin-details-panel">
+            <h2>Podatki o lokaciji</h2>
+            <div class="add-bin-fields">
+                <div class="add-bin-name-field">
+                    <label asp-for="Name" class="form-label">Ime lokacije</label>
+                    <input asp-for="Name" class="form-control" placeholder="Npr. park ob drevoredu" />
+                    <span asp-validation-for="Name" class="text-danger small"></span>
+                </div>
+
+                <div class="add-bin-photo-field">
+                    <label asp-for="ImageFile" class="form-label">Fotografija kosa</label>
+                    <input asp-for="ImageFile" id="ImageFile" type="file" accept="image/*" capture="environment" class="form-control" />
+                    <span asp-validation-for="ImageFile" class="text-danger small"></span>
+                    <img id="preview" src="#" class="add-bin-preview" alt="Predogled fotografije" hidden />
+                </div>
             </div>
         </article>
 
@@ -85,12 +88,19 @@
     <script>
         let map;
         let marker;
+        const selectedLocationIcon = L.divIcon({
+            className: "",
+            html: `<span class="add-bin-location-marker"><i class="bi bi-trash3-fill" aria-hidden="true"></i></span>`,
+            iconSize: [42, 48],
+            iconAnchor: [21, 46]
+        });
 
         document.addEventListener("DOMContentLoaded", function () {
             initMap();
             initImagePreview();
             initLoadingState();
-            document.getElementById("useMyLocation").addEventListener("click", useCurrentLocation);
+            document.getElementById("useMyLocation").addEventListener("click", () => useCurrentLocation(false));
+            useCurrentLocation(true);
         });
 
         function initMap() {
@@ -111,31 +121,38 @@
             setTimeout(() => map.invalidateSize(), 300);
         }
 
-        function useCurrentLocation() {
+        function setLocationStatus(message) {
             const status = document.getElementById("locationStatus");
+            status.textContent = message;
+            status.hidden = !message;
+        }
 
+        function useCurrentLocation(isAutomatic = false) {
             if (!navigator.geolocation) {
-                status.textContent = "Ta brskalnik ne podpira lokacije.";
+                setLocationStatus("Ta brskalnik ne podpira lokacije. Lokacijo lahko oznacis na zemljevidu.");
                 return;
             }
 
             if (!window.isSecureContext) {
-                status.textContent = "GPS na telefonu zahteva HTTPS. Lokacijo lahko izberes rocno.";
+                setLocationStatus("GPS na telefonu zahteva HTTPS. Lokacijo lahko oznacis na zemljevidu.");
                 return;
             }
 
-            status.textContent = "Iskanje tvoje lokacije...";
+            if (!isAutomatic) {
+                setLocationStatus("Iskanje tvoje lokacije...");
+            }
+
             navigator.geolocation.getCurrentPosition(function (position) {
                 const lat = position.coords.latitude;
                 const lng = position.coords.longitude;
                 map.setView([lat, lng], 17);
                 setSelectedLocation(lat, lng);
-                status.textContent = "Lokacija nastavljena.";
+                setLocationStatus("");
             }, function () {
-                status.textContent = "Lokacije ni bilo mogoce pridobiti.";
+                setLocationStatus("Lokacije ni bilo mogoce pridobiti. Lokacijo lahko oznacis na zemljevidu.");
             }, {
                 enableHighAccuracy: true,
-                maximumAge: 0,
+                maximumAge: 30000,
                 timeout: 10000
             });
         }
@@ -152,7 +169,7 @@
             if (marker) {
                 marker.setLatLng([lat, lng]);
             } else {
-                marker = L.marker([lat, lng], { draggable: true }).addTo(map);
+                marker = L.marker([lat, lng], { draggable: true, icon: selectedLocationIcon }).addTo(map);
                 marker.on("dragend", function () {
                     const position = marker.getLatLng();
                     setSelectedLocation(position.lat, position.lng);
@@ -219,12 +236,21 @@
         gap: 14px;
     }
 
+    .add-bin-form > .text-danger:empty {
+        display: none;
+    }
+
     .add-bin-panel {
         padding: 18px;
         border: 1px solid rgba(31, 45, 41, 0.1);
-        border-radius: 8px;
+        border-radius: 14px;
         background: #ffffff;
         box-shadow: 0 12px 28px rgba(31, 45, 41, 0.08);
+    }
+
+    .add-bin-location-panel {
+        display: grid;
+        gap: 12px;
     }
 
     .add-bin-panel h2 {
@@ -250,29 +276,84 @@
         color: #65716d;
     }
 
+    .add-bin-locate-button {
+        display: inline-grid;
+        width: 44px;
+        height: 44px;
+        min-width: 44px;
+        place-items: center;
+        border: 1px solid rgba(47, 109, 95, 0.16);
+        border-radius: 999px;
+        background: #eff8f1;
+        color: #2f6d5f;
+        box-shadow: 0 10px 20px rgba(23, 50, 44, 0.1);
+    }
+
+    .add-bin-locate-button:focus,
+    .add-bin-locate-button:hover {
+        background: #dff2e5;
+        color: #245c4f;
+    }
+
+    .add-bin-fields {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 14px;
+    }
+
     .add-bin-preview {
         width: 100%;
-        max-height: 280px;
+        max-height: 220px;
         object-fit: cover;
         margin-top: 12px;
-        border-radius: 8px;
+        border-radius: 14px;
     }
 
     #map {
         position: relative;
         z-index: 1;
-        height: 360px;
+        height: 400px;
         width: 100%;
         overflow: hidden;
-        border-radius: 8px;
+        border-radius: 14px;
         background: #eef3ea;
+    }
+
+    .add-bin-location-marker {
+        position: relative;
+        display: grid;
+        width: 42px;
+        height: 42px;
+        place-items: center;
+        border: 3px solid #ffffff;
+        border-radius: 16px 16px 16px 4px;
+        background: linear-gradient(135deg, #2f6d5f, #55c4aa);
+        color: #ffffff;
+        font-size: 1.18rem;
+        box-shadow: 0 12px 22px rgba(23, 50, 44, 0.28);
+        transform: rotate(-45deg);
+    }
+
+    .add-bin-location-marker i {
+        transform: rotate(45deg);
+    }
+
+    .add-bin-location-marker::after {
+        content: "";
+        position: absolute;
+        right: -6px;
+        bottom: -6px;
+        width: 14px;
+        height: 14px;
+        border: 3px solid #ffffff;
+        border-radius: 999px;
+        background: #ffd56a;
     }
 
     .add-bin-coordinates {
         display: flex;
         flex-wrap: wrap;
         gap: 10px;
-        margin-top: 12px;
         color: #65716d;
         font-size: 0.86rem;
         font-weight: 800;
@@ -306,21 +387,110 @@
     }
 
     @@media (max-width: 575.98px) {
-        .add-bin-hero,
-        .add-bin-panel__header,
-        .add-bin-actions {
-            align-items: stretch;
-            flex-direction: column;
+        .add-bin-page {
+            height: calc(100svh - 74px);
+            overflow: hidden;
+            padding: 2px 8px calc(76px + env(safe-area-inset-bottom));
         }
 
-        .add-bin-hero .btn,
-        .add-bin-panel__header .btn,
-        .add-bin-actions .btn {
-            width: 100%;
+        .add-bin-hero {
+            margin-bottom: 8px;
+        }
+
+        .add-bin-hero .app-page__title {
+            font-size: 1.35rem;
+        }
+
+        .add-bin-hero .app-page__lead {
+            display: none;
+        }
+
+        .add-bin-form {
+            height: calc(100svh - 152px - env(safe-area-inset-bottom));
+            grid-template-rows: minmax(230px, 42svh) minmax(0, 1fr) auto;
+            gap: 8px;
+        }
+
+        .add-bin-panel {
+            padding: 10px;
+            border-radius: 18px;
+        }
+
+        .add-bin-panel h2 {
+            margin-bottom: 8px;
+            font-size: 0.95rem;
+        }
+
+        .add-bin-panel__header {
+            margin-bottom: 0;
+        }
+
+        .add-bin-locate-button {
+            width: 40px;
+            height: 40px;
+            min-width: 40px;
         }
 
         #map {
-            height: 330px;
+            height: 100%;
+            min-height: 0;
+            border-radius: 16px;
+        }
+
+        .add-bin-location-panel {
+            min-height: 0;
+            grid-template-rows: auto minmax(0, 1fr) auto;
+        }
+
+        .add-bin-coordinates {
+            display: none;
+        }
+
+        .add-bin-details-panel {
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        .add-bin-fields {
+            grid-template-columns: 1fr;
+            gap: 8px;
+        }
+
+        .add-bin-details-panel .form-label {
+            margin-bottom: 4px;
+            font-size: 0.78rem;
+        }
+
+        .add-bin-details-panel .form-control {
+            min-height: 40px;
+            padding: 8px 12px;
+            font-size: 0.9rem;
+        }
+
+        .add-bin-preview {
+            max-height: 72px;
+            margin-top: 6px;
+            border-radius: 12px;
+        }
+
+        .add-bin-actions {
+            display: grid;
+            grid-template-columns: 0.82fr 1.18fr;
+            gap: 8px;
+        }
+
+        .add-bin-actions .btn {
+            width: 100%;
+            min-width: 0;
+            min-height: 46px;
+            padding: 10px 12px;
+        }
+
+        .add-bin-loading {
+            position: fixed;
+            inset: 0;
+            z-index: 5000;
+            background: rgba(255, 255, 255, 0.86);
         }
     }
 </style>
