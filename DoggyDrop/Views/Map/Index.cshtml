@@ -1023,15 +1023,20 @@
         bottom: 96px;
         z-index: 1250;
         display: grid;
+        grid-template-rows: auto auto auto minmax(0, 1fr);
         width: min(430px, calc(100vw - 32px));
         max-height: min(520px, calc(100vh - 180px));
+        min-height: 0;
         padding: 10px 14px 14px;
         border: 1px solid rgba(31, 45, 41, 0.12);
         border-radius: 22px 22px 14px 14px;
         background: rgba(255, 255, 255, 0.96);
         box-shadow: 0 12px 28px rgba(31, 45, 41, 0.16);
+        overflow: hidden;
         transform: translateX(-50%);
         backdrop-filter: blur(14px);
+        overscroll-behavior: contain;
+        touch-action: pan-y;
     }
 
     .map-explore-panel--nearby {
@@ -1192,8 +1197,11 @@
     .map-explore-list {
         display: grid;
         gap: 8px;
+        min-height: 0;
         overflow: auto;
         padding-right: 2px;
+        overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
     }
 
     .map-explore-item {
@@ -3471,6 +3479,8 @@ else if (needsDogOnboarding)
             document.getElementById("filterClose").addEventListener("click", closeFilterPanel);
             document.getElementById("exploreToggle").addEventListener("click", openExplorePanel);
             document.getElementById("exploreClose").addEventListener("click", closeExplorePanel);
+            keepMapGesturesOutOfPanel("explorePanel");
+            keepMapGesturesOutOfPanel("nearbySuggestionsPanel");
             document.getElementById("exploreSearch").addEventListener("input", renderExploreList);
             document.querySelectorAll("[data-explore-filter]").forEach(button => {
                 button.addEventListener("click", () => {
@@ -3539,6 +3549,19 @@ else if (needsDogOnboarding)
                 enableHighAccuracy: false,
                 timeout: 5000,
                 maximumAge: 300000
+            });
+        }
+
+        function keepMapGesturesOutOfPanel(panelId) {
+            const panel = document.getElementById(panelId);
+            if (!panel || !window.L?.DomEvent) {
+                return;
+            }
+
+            L.DomEvent.disableClickPropagation(panel);
+            L.DomEvent.disableScrollPropagation(panel);
+            ["touchstart", "touchmove", "pointerdown", "wheel"].forEach(eventName => {
+                panel.addEventListener(eventName, event => event.stopPropagation(), { passive: true });
             });
         }
 
