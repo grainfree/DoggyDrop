@@ -1381,13 +1381,17 @@
 
     @@media (max-width: 720px) {
         .walk-planner-page {
+            height: calc(100svh - 64px);
+            min-height: 0;
+            padding-bottom: 0;
             padding-inline: 0;
+            overflow: hidden;
         }
 
         .walk-planner-form {
             top: 72px;
             width: calc(100vw - 20px);
-            margin-bottom: -70px;
+            margin-bottom: -62px;
             padding: 8px;
             border-radius: 18px;
         }
@@ -1409,20 +1413,22 @@
 
         .walk-planner-map-card {
             width: 100vw;
-            min-height: calc(100svh - 64px);
+            height: calc(100svh - 64px);
+            min-height: 0;
             border-radius: 0;
         }
 
         .walk-planner-map-frame {
-            height: calc(100svh - 64px);
-            min-height: calc(100svh - 64px);
+            height: 100%;
+            min-height: 0;
         }
 
         .walk-planner-summary {
             left: 10px;
             right: 10px;
-            bottom: calc(86px + env(safe-area-inset-bottom, 0px));
-            padding: 12px;
+            bottom: calc(152px + env(safe-area-inset-bottom, 0px));
+            padding: 9px 10px;
+            border-radius: 16px;
         }
 
         .walk-planner-summary p,
@@ -1433,15 +1439,74 @@
         .walk-planner-start {
             left: 10px;
             right: 10px;
-            bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+            bottom: calc(86px + env(safe-area-inset-bottom, 0px));
         }
 
         .walk-planner-start {
             grid-template-columns: 0.72fr 1fr;
         }
 
+        .walk-planner-start button,
+        .walk-planner-start a {
+            min-height: 48px;
+            border-radius: 15px;
+            font-size: 0.92rem;
+        }
+
+        .walk-planner-nearby-bin {
+            display: none;
+        }
+
         .walk-planner-stops {
             display: none;
+        }
+    }
+
+    @@media (max-width: 390px), (max-height: 720px) {
+        .walk-planner-form {
+            top: 66px;
+            width: calc(100vw - 16px);
+            margin-bottom: -56px;
+            padding: 6px;
+        }
+
+        .walk-planner-presets {
+            gap: 5px;
+        }
+
+        .walk-planner-preset {
+            min-height: 44px;
+            border-radius: 14px;
+        }
+
+        .walk-planner-preset i {
+            width: 32px;
+            height: 32px;
+            font-size: 0.98rem;
+        }
+
+        .walk-planner-summary {
+            bottom: calc(140px + env(safe-area-inset-bottom, 0px));
+            padding: 8px;
+        }
+
+        .walk-planner-selected-purpose {
+            min-height: 30px;
+            padding: 4px 8px;
+        }
+
+        .walk-planner-selected-purpose span {
+            display: none;
+        }
+
+        .walk-planner-start {
+            bottom: calc(82px + env(safe-area-inset-bottom, 0px));
+        }
+
+        .walk-planner-start button,
+        .walk-planner-start a {
+            min-height: 44px;
+            font-size: 0.86rem;
         }
     }
 </style>
