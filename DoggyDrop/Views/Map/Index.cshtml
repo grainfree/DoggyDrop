@@ -783,6 +783,17 @@
         max-width: min(520px, calc(100vw - 24px));
     }
 
+    body.map-bin-navigation-active .map-quick-intro,
+    body.map-bin-navigation-active .map-active-walk-sheet,
+    body.map-bin-navigation-active .map-active-walk-card,
+    body.map-bin-navigation-active .map-action-stack {
+        display: none !important;
+    }
+
+    body.map-bin-navigation-active #directionsPanel.directions-panel--active-walk {
+        bottom: calc(104px + env(safe-area-inset-bottom));
+    }
+
     .nearest-bin-card {
         display: grid;
         grid-template-columns: 86px minmax(0, 1fr);
@@ -2383,6 +2394,10 @@
             width: auto;
         }
 
+        body.map-bin-navigation-active #directionsPanel.directions-panel--active-walk {
+            bottom: calc(96px + env(safe-area-inset-bottom));
+        }
+
         .nearest-bin-card {
             grid-template-columns: 74px minmax(0, 1fr);
             gap: 10px;
@@ -3220,6 +3235,10 @@ else if (needsDogOnboarding)
             }
 
             panel.classList.toggle("directions-panel--compact", Boolean(isCompact));
+        }
+
+        function setBinNavigationMode(isActive) {
+            document.body.classList.toggle("map-bin-navigation-active", Boolean(isActive));
         }
 
         function focusNavigationDestination(latitude, longitude) {
@@ -4211,6 +4230,7 @@ else if (needsDogOnboarding)
                     const walkingMinutes = Math.max(1, Math.round(nearestBin.distanceMeters / 83));
                     const panel = document.getElementById("directionsPanel");
                     const imageUrl = nearestBin.imageUrl || nearestBin.ImageUrl || "";
+                    setBinNavigationMode(true);
                     setDirectionsPanelCompact(false);
                     panel.style.display = "block";
                     panel.innerHTML = `
@@ -4313,6 +4333,7 @@ else if (needsDogOnboarding)
             const beginNavigation = () => {
                 closeBinDetail();
                 const panel = document.getElementById("directionsPanel");
+                setBinNavigationMode(true);
                 setDirectionsPanelCompact(false);
                 panel.style.display = "block";
                 panel.innerHTML = `
@@ -4387,6 +4408,7 @@ else if (needsDogOnboarding)
 
             const beginNavigation = () => {
                 const panel = document.getElementById("directionsPanel");
+                setBinNavigationMode(true);
                 setDirectionsPanelCompact(false);
                 panel.style.display = "block";
                 panel.innerHTML = `
@@ -4486,6 +4508,7 @@ else if (needsDogOnboarding)
             if (hidePanel) {
                 const panel = document.getElementById("directionsPanel");
                 setDirectionsPanelCompact(false);
+                setBinNavigationMode(false);
                 panel.style.display = "none";
             }
         }
