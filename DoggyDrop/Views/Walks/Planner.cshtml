@@ -403,7 +403,6 @@
             const fitMap = () => {
                 map.invalidateSize({ pan: false });
                 map.fitBounds(bounds, { padding: [24, 24], maxZoom: 16 });
-                drawRouteSketchOverlay(mapElement, map, previewRoutePoints);
             };
 
             requestAnimationFrame(fitMap);
@@ -421,41 +420,6 @@
         function readTargetDistanceKm() {
             const value = Number(document.getElementById("distanceKm")?.value || "3");
             return Number.isFinite(value) ? Math.max(1, Math.min(value, 8)) : 3;
-        }
-
-        function drawRouteSketchOverlay(mapElement, map, points) {
-            const frame = mapElement.closest(".walk-planner-map-frame") ?? mapElement;
-            frame.querySelector(".walk-planner-route-sketch")?.remove();
-            if (!points || points.length < 2) {
-                return;
-            }
-
-            const width = mapElement.clientWidth || frame.clientWidth;
-            const height = mapElement.clientHeight || frame.clientHeight;
-            if (!width || !height) {
-                return;
-            }
-
-            const projected = points
-                .map(point => map.latLngToContainerPoint([point.lat, point.lng]))
-                .filter(point => Number.isFinite(point.x) && Number.isFinite(point.y));
-            if (projected.length < 2) {
-                return;
-            }
-
-            const routePath = projected
-                .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`)
-                .join(" ");
-            const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-            svg.setAttribute("class", "walk-planner-route-sketch");
-            svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
-            svg.setAttribute("aria-hidden", "true");
-            svg.innerHTML = `
-                <path class="walk-planner-route-sketch__halo" d="${routePath}" />
-                <path class="walk-planner-route-sketch__line" d="${routePath}" />
-                <path class="walk-planner-route-sketch__dash" d="${routePath}" />
-            `;
-            frame.appendChild(svg);
         }
 
         function buildPreviewLoop(center, distanceKm, stops) {
@@ -1266,6 +1230,218 @@
         #plannerLocationStatus {
             justify-content: center;
             text-align: center;
+        }
+    }
+
+    .walk-planner-page {
+        max-width: none;
+        min-height: calc(100svh - 64px - 76px);
+        padding: 0 12px 92px;
+    }
+
+    .walk-planner-hero {
+        display: none;
+    }
+
+    .walk-planner-form {
+        position: sticky;
+        top: 76px;
+        z-index: 1050;
+        width: min(760px, calc(100vw - 24px));
+        margin: 0 auto -74px;
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.92);
+        box-shadow: 0 18px 42px rgba(31, 45, 41, 0.18);
+        backdrop-filter: blur(16px);
+    }
+
+    .walk-planner-toolbar {
+        display: none;
+    }
+
+    .walk-planner-presets {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 8px;
+    }
+
+    .walk-planner-preset {
+        min-height: 54px;
+        border-radius: 16px;
+        background: rgba(248, 252, 247, 0.94);
+    }
+
+    .walk-planner-preset i {
+        width: 40px;
+        height: 40px;
+        border-radius: 14px;
+        font-size: 1.18rem;
+    }
+
+    .walk-planner-nearby-bin {
+        position: fixed;
+        left: 50%;
+        top: 154px;
+        z-index: 1051;
+        display: inline-grid;
+        width: min(520px, calc(100vw - 32px));
+        margin: 0;
+        transform: translateX(-50%);
+    }
+
+    .walk-planner-layout {
+        display: block;
+        max-width: none;
+        width: 100%;
+        margin: 0;
+    }
+
+    .walk-planner-map-card {
+        position: relative;
+        width: min(1120px, calc(100vw - 24px));
+        min-height: calc(100svh - 92px - env(safe-area-inset-bottom, 0px));
+        margin: 0 auto;
+        padding: 0;
+        overflow: hidden;
+        border-radius: 24px;
+        background: #eaf4ea;
+    }
+
+    .walk-planner-map-frame {
+        width: 100%;
+        height: calc(100svh - 92px - env(safe-area-inset-bottom, 0px));
+        min-height: 560px;
+        max-height: none;
+        aspect-ratio: auto;
+        border: 0;
+        border-radius: inherit;
+        box-shadow: none;
+    }
+
+    .walk-planner-route-map.leaflet-container {
+        cursor: default;
+    }
+
+    .walk-planner-route-sketch {
+        display: none !important;
+    }
+
+    .walk-planner-map-note {
+        top: 94px;
+        right: 18px;
+        bottom: auto;
+        background: rgba(255, 255, 255, 0.92);
+        color: #2f6d5f;
+    }
+
+    .walk-planner-summary {
+        position: absolute;
+        left: 18px;
+        right: 18px;
+        bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+        z-index: 700;
+        align-items: center;
+        margin: 0;
+        padding: 14px;
+        border: 1px solid rgba(31, 45, 41, 0.1);
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.94);
+        box-shadow: 0 18px 42px rgba(31, 45, 41, 0.2);
+        backdrop-filter: blur(16px);
+    }
+
+    .walk-planner-summary p {
+        display: block;
+        max-width: 680px;
+        font-size: 0.9rem;
+        line-height: 1.35;
+    }
+
+    .walk-planner-start {
+        position: absolute;
+        left: 18px;
+        right: 18px;
+        bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+        z-index: 701;
+        margin: 0;
+        padding: 0;
+    }
+
+    .walk-planner-start button,
+    .walk-planner-start a {
+        min-height: 54px;
+        border-radius: 16px;
+        font-size: 1rem;
+        box-shadow: 0 14px 28px rgba(31, 45, 41, 0.18);
+    }
+
+    .walk-planner-stops {
+        display: none;
+    }
+
+    @@media (max-width: 720px) {
+        .walk-planner-page {
+            padding-inline: 0;
+        }
+
+        .walk-planner-form {
+            top: 72px;
+            width: calc(100vw - 20px);
+            margin-bottom: -70px;
+            padding: 8px;
+            border-radius: 18px;
+        }
+
+        .walk-planner-presets {
+            gap: 6px;
+        }
+
+        .walk-planner-preset {
+            min-height: 50px;
+            padding: 5px;
+        }
+
+        .walk-planner-preset i {
+            width: 36px;
+            height: 36px;
+            font-size: 1.08rem;
+        }
+
+        .walk-planner-map-card {
+            width: 100vw;
+            min-height: calc(100svh - 64px);
+            border-radius: 0;
+        }
+
+        .walk-planner-map-frame {
+            height: calc(100svh - 64px);
+            min-height: calc(100svh - 64px);
+        }
+
+        .walk-planner-summary {
+            left: 10px;
+            right: 10px;
+            bottom: calc(86px + env(safe-area-inset-bottom, 0px));
+            padding: 12px;
+        }
+
+        .walk-planner-summary p,
+        .walk-planner-map-note {
+            display: none;
+        }
+
+        .walk-planner-start {
+            left: 10px;
+            right: 10px;
+            bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+        }
+
+        .walk-planner-start {
+            grid-template-columns: 0.72fr 1fr;
+        }
+
+        .walk-planner-stops {
+            display: none;
         }
     }
 </style>
