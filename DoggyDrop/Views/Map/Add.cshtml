@@ -101,6 +101,9 @@
             initLoadingState();
             document.getElementById("useMyLocation").addEventListener("click", () => useCurrentLocation(false));
             useCurrentLocation(true);
+            window.addEventListener("pageshow", refreshMapSize);
+            window.addEventListener("resize", refreshMapSize);
+            window.addEventListener("orientationchange", () => setTimeout(refreshMapSize, 250));
         });
 
         function initMap() {
@@ -119,6 +122,13 @@
 
             requestAnimationFrame(() => map.invalidateSize());
             setTimeout(() => map.invalidateSize(), 300);
+            setTimeout(() => map.invalidateSize(), 900);
+        }
+
+        function refreshMapSize() {
+            if (map) {
+                map.invalidateSize();
+            }
         }
 
         function setLocationStatus(message) {
@@ -147,6 +157,7 @@
                 const lng = position.coords.longitude;
                 map.setView([lat, lng], 17);
                 setSelectedLocation(lat, lng);
+                refreshMapSize();
                 setLocationStatus("");
             }, function () {
                 setLocationStatus("Lokacije ni bilo mogoce pridobiti. Lokacijo lahko oznacis na zemljevidu.");
@@ -406,8 +417,8 @@
         }
 
         .add-bin-form {
-            height: calc(100svh - 152px - env(safe-area-inset-bottom));
-            grid-template-rows: minmax(230px, 42svh) minmax(0, 1fr) auto;
+            min-height: calc(100svh - 152px - env(safe-area-inset-bottom));
+            grid-template-rows: auto minmax(0, 1fr) auto;
             gap: 8px;
         }
 
@@ -432,14 +443,13 @@
         }
 
         #map {
-            height: 100%;
-            min-height: 0;
+            height: clamp(250px, 42svh, 340px);
+            min-height: 250px;
             border-radius: 16px;
         }
 
         .add-bin-location-panel {
-            min-height: 0;
-            grid-template-rows: auto minmax(0, 1fr) auto;
+            grid-template-rows: auto auto;
         }
 
         .add-bin-coordinates {
