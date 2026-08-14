@@ -278,7 +278,8 @@
     }
 
     .bin-popup__image-frame.is-rotated-landscape,
-    .map-bin-detail__image-frame.is-rotated-landscape {
+    .map-bin-detail__image-frame.is-rotated-landscape,
+    .nearest-bin-card__image.is-rotated-landscape {
         aspect-ratio: 3 / 4;
     }
 
@@ -294,7 +295,8 @@
     }
 
     .bin-popup__image.is-rotated-landscape,
-    .map-bin-detail__image.is-rotated-landscape {
+    .map-bin-detail__image.is-rotated-landscape,
+    .nearest-bin-card__image img.is-rotated-landscape {
         position: absolute;
         top: 50%;
         left: 50%;
@@ -795,6 +797,7 @@
 
     .nearest-bin-card__image {
         display: grid;
+        position: relative;
         width: 86px;
         aspect-ratio: 1;
         place-items: center;
@@ -898,6 +901,53 @@
         font-size: 0.78rem;
         font-weight: 800;
         line-height: 1.25;
+    }
+
+    #directionsPanel.directions-panel--compact {
+        bottom: calc(104px + env(safe-area-inset-bottom));
+        width: min(390px, calc(100vw - 24px));
+    }
+
+    #directionsPanel.directions-panel--compact .nearest-bin-card {
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 10px 10px 14px;
+        border-radius: 999px;
+    }
+
+    #directionsPanel.directions-panel--compact .nearest-bin-card__image,
+    #directionsPanel.directions-panel--compact .nearest-bin-card__kicker,
+    #directionsPanel.directions-panel--compact .nearest-bin-card__meta,
+    #directionsPanel.directions-panel--compact .nearest-bin-card__note {
+        display: none;
+    }
+
+    #directionsPanel.directions-panel--compact .nearest-bin-card__body {
+        min-width: 0;
+    }
+
+    #directionsPanel.directions-panel--compact .nearest-bin-card h3 {
+        margin: 0;
+        overflow: hidden;
+        font-size: 0.96rem;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    #directionsPanel.directions-panel--compact .nearest-bin-card__actions {
+        display: flex;
+        gap: 6px;
+    }
+
+    #directionsPanel.directions-panel--compact .nearest-bin-card__actions button {
+        min-width: 42px;
+        min-height: 42px;
+        padding: 0 13px;
+    }
+
+    #directionsPanel.directions-panel--compact .nearest-bin-card__actions button:not(.nearest-bin-card__navigate) span {
+        display: none;
     }
 
     .map-action-stack {
@@ -2326,6 +2376,13 @@
             transform: none;
         }
 
+        #directionsPanel.directions-panel--compact {
+            bottom: calc(96px + env(safe-area-inset-bottom));
+            left: 12px;
+            right: 12px;
+            width: auto;
+        }
+
         .nearest-bin-card {
             grid-template-columns: 74px minmax(0, 1fr);
             gap: 10px;
@@ -2357,6 +2414,10 @@
         }
 
         .nearest-bin-card__actions button span {
+            display: none;
+        }
+
+        #directionsPanel.directions-panel--compact .nearest-bin-card__actions button span {
             display: none;
         }
 
@@ -3151,6 +3212,26 @@ else if (needsDogOnboarding)
         const communityTrendingRoutes = document.getElementById("communityTrendingRoutes");
         const communityEvents = document.getElementById("communityEvents");
         const mapFounderPrompt = document.getElementById("mapFounderPrompt");
+
+        function setDirectionsPanelCompact(isCompact) {
+            const panel = document.getElementById("directionsPanel");
+            if (!panel) {
+                return;
+            }
+
+            panel.classList.toggle("directions-panel--compact", Boolean(isCompact));
+        }
+
+        function focusNavigationDestination(latitude, longitude) {
+            const lat = Number(latitude);
+            const lng = Number(longitude);
+            if (!Number.isFinite(lat) || !Number.isFinite(lng) || !map) {
+                return;
+            }
+
+            map.setView([lat, lng], 18, { animate: true });
+            setDirectionsPanelCompact(true);
+        }
         const mapFounderPromptText = document.getElementById("mapFounderPromptText");
         const activeWalkStartedAt = @Html.Raw(hasActiveWalk ? $"new Date(\"{activeWalkStartedAt}\")" : "null");
         const homeActiveWalkDuration = document.getElementById("homeActiveWalkDuration");
@@ -3868,7 +3949,7 @@ else if (needsDogOnboarding)
             }
 
             const shouldRotate = image.naturalWidth > image.naturalHeight * 1.15;
-            const frame = image.closest(".bin-popup__image-frame, .map-bin-detail__image-frame");
+            const frame = image.closest(".bin-popup__image-frame, .map-bin-detail__image-frame, .nearest-bin-card__image");
             image.classList.toggle("is-rotated-landscape", shouldRotate);
             frame?.classList.toggle("is-rotated-landscape", shouldRotate);
 
@@ -4130,12 +4211,13 @@ else if (needsDogOnboarding)
                     const walkingMinutes = Math.max(1, Math.round(nearestBin.distanceMeters / 83));
                     const panel = document.getElementById("directionsPanel");
                     const imageUrl = nearestBin.imageUrl || nearestBin.ImageUrl || "";
+                    setDirectionsPanelCompact(false);
                     panel.style.display = "block";
                     panel.innerHTML = `
                         <article class="nearest-bin-card">
                             <div class="nearest-bin-card__image">
                                 ${imageUrl
-                                    ? `<img src="${escapeAttribute(imageUrl)}" alt="${escapeAttribute(nearestBin.name || "Koš")}" loading="lazy">`
+                                    ? `<img src="${escapeAttribute(imageUrl)}" alt="${escapeAttribute(nearestBin.name || "Koš")}" loading="lazy" onload="normalizeBinPhotoOrientation(this)">`
                                     : `<i class="bi bi-trash3-fill" aria-hidden="true"></i>`}
                             </div>
                             <div class="nearest-bin-card__body">
@@ -4231,12 +4313,13 @@ else if (needsDogOnboarding)
             const beginNavigation = () => {
                 closeBinDetail();
                 const panel = document.getElementById("directionsPanel");
+                setDirectionsPanelCompact(false);
                 panel.style.display = "block";
                 panel.innerHTML = `
                     <article class="nearest-bin-card">
                         <div class="nearest-bin-card__image">
                             ${bin.image
-                                ? `<img src="${escapeAttribute(bin.image)}" alt="${escapeAttribute(bin.name || "Kos")}" loading="lazy">`
+                                ? `<img src="${escapeAttribute(bin.image)}" alt="${escapeAttribute(bin.name || "Kos")}" loading="lazy" onload="normalizeBinPhotoOrientation(this)">`
                                 : `<i class="bi bi-trash3-fill" aria-hidden="true"></i>`}
                         </div>
                         <div class="nearest-bin-card__body">
@@ -4304,6 +4387,7 @@ else if (needsDogOnboarding)
 
             const beginNavigation = () => {
                 const panel = document.getElementById("directionsPanel");
+                setDirectionsPanelCompact(false);
                 panel.style.display = "block";
                 panel.innerHTML = `
                     <article class="nearest-bin-card">
@@ -4401,6 +4485,7 @@ else if (needsDogOnboarding)
 
             if (hidePanel) {
                 const panel = document.getElementById("directionsPanel");
+                setDirectionsPanelCompact(false);
                 panel.style.display = "none";
             }
         }
@@ -4490,7 +4575,7 @@ else if (needsDogOnboarding)
                 <article class="nearest-bin-card nearest-bin-card--navigating">
                     <div class="nearest-bin-card__image">
                         ${imageUrl
-                            ? `<img src="${escapeAttribute(imageUrl)}" alt="${escapeAttribute(bin.name || bin.Name || "Kos")}" loading="lazy">`
+                            ? `<img src="${escapeAttribute(imageUrl)}" alt="${escapeAttribute(bin.name || bin.Name || "Kos")}" loading="lazy" onload="normalizeBinPhotoOrientation(this)">`
                             : `<i class="bi bi-trash3-fill" aria-hidden="true"></i>`}
                     </div>
                     <div class="nearest-bin-card__body">
@@ -4503,9 +4588,9 @@ else if (needsDogOnboarding)
                         </div>
                         <p class="nearest-bin-card__note">${escapeHtml(routeNote)}</p>
                         <div class="nearest-bin-card__actions">
-                            <button type="button" class="nearest-bin-card__navigate" onclick="map.setView([${Number(destinationLat)}, ${Number(destinationLng)}], 18, { animate: true });">
-                                <i class="bi bi-crosshair" aria-hidden="true"></i>
-                                <span>Pokaži cilj</span>
+                            <button type="button" class="nearest-bin-card__navigate" onclick="focusNavigationDestination(${Number(destinationLat)}, ${Number(destinationLng)});" aria-label="Prikaži koš na zemljevidu">
+                                <i class="bi bi-trash3-fill" aria-hidden="true"></i>
+                                <span>Prikaži koš</span>
                             </button>
                             <button type="button" onclick="stopInAppNavigation(true);" aria-label="Koncaj navigacijo">
                                 <i class="bi bi-x-lg" aria-hidden="true"></i>
