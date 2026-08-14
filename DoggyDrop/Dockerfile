@@ -2,6 +2,9 @@
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
 WORKDIR /app
 ENV ASPNETCORE_URLS=http://+:8080
+ENV DOTNET_gcServer=0
+ENV DOTNET_GCHeapHardLimitPercent=70
+ENV DOTNET_EnableDiagnostics=0
 EXPOSE 8080
 
 # 2. Build faza
