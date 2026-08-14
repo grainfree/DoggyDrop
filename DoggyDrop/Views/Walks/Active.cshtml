@@ -81,6 +81,16 @@
             <button type="button" id="dismissBinProximityToast" aria-label="Zapri obvestilo">×</button>
         </div>
         <div id="walkMap"></div>
+        <div class="active-walk-map-controls" aria-label="Kontrole zemljevida">
+            <button type="button" id="recenterWalkMap">
+                <i class="bi bi-crosshair" aria-hidden="true"></i>
+                <span>Moja lokacija</span>
+            </button>
+            <button type="button" id="fitWalkRoute">
+                <i class="bi bi-signpost-split-fill" aria-hidden="true"></i>
+                <span>Celotna pot</span>
+            </button>
+        </div>
     </article>
 
     <div class="active-walk-metrics">
@@ -252,6 +262,8 @@
         const binProximityToast = document.getElementById("binProximityToast");
         const binProximityText = document.getElementById("binProximityText");
         const dismissBinProximityToast = document.getElementById("dismissBinProximityToast");
+        const recenterWalkMapButton = document.getElementById("recenterWalkMap");
+        const fitWalkRouteButton = document.getElementById("fitWalkRoute");
         const autoCompletePreferenceKey = "doggydrop.walk.autoCompleteStops";
         const vibratePreferenceKey = "doggydrop.walk.vibrateOnStop";
         const autoCompleteRadiusMeters = 28;
@@ -283,6 +295,8 @@
             wireStopChecklist();
             wireProximityControls();
             dismissBinProximityToast?.addEventListener("click", hideBinProximityToast);
+            recenterWalkMapButton?.addEventListener("click", recenterWalkMap);
+            fitWalkRouteButton?.addEventListener("click", fitWalkRoute);
             updateNextStopCard();
             validateGpsEnvironment();
             trackingToggle.addEventListener("click", toggleTracking);
@@ -463,6 +477,33 @@
                 mapResizeObserver = new ResizeObserver(refreshMapSize);
                 mapResizeObserver.observe(mapElement);
             }
+        }
+
+        function recenterWalkMap() {
+            if (!map || !currentPosition) {
+                return;
+            }
+
+            map.invalidateSize({ pan: false });
+            map.setView(currentPosition, Math.max(map.getZoom(), 17), { animate: true });
+        }
+
+        function fitWalkRoute() {
+            if (!map) {
+                return;
+            }
+
+            const bounds = L.latLngBounds([]);
+            routePoints.forEach(point => bounds.extend(point));
+            plannedRoutePoints.forEach(point => bounds.extend([point.latitude, point.longitude]));
+
+            if (!bounds.isValid()) {
+                recenterWalkMap();
+                return;
+            }
+
+            map.invalidateSize({ pan: false });
+            map.fitBounds(bounds.pad(0.22), { maxZoom: 17, padding: [36, 36], animate: true });
         }
 
         function toggleTracking() {
@@ -1478,6 +1519,31 @@
         font-size: 0.64rem;
     }
 
+    .active-walk-map-controls {
+        position: absolute;
+        right: 14px;
+        bottom: 14px;
+        z-index: 900;
+        display: flex;
+        gap: 8px;
+    }
+
+    .active-walk-map-controls button {
+        display: inline-flex;
+        min-height: 42px;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        padding: 9px 12px;
+        border: 1px solid rgba(47, 109, 95, 0.16);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.94);
+        color: #2f6d5f;
+        box-shadow: 0 12px 28px rgba(31, 45, 41, 0.16);
+        font-weight: 950;
+        backdrop-filter: blur(14px);
+    }
+
     .active-user-marker {
         position: relative;
         display: grid;
@@ -1569,28 +1635,248 @@
     }
 
     @@media (max-width: 575.98px) {
-        .active-walk-metrics,
+        body:has(.active-walk-page) {
+            overflow: hidden;
+            padding-bottom: 0;
+        }
+
+        body:has(.active-walk-page) .app-topbar,
+        body:has(.active-walk-page) .app-bottom-nav {
+            display: none !important;
+        }
+
+        body:has(.active-walk-page) .app-main {
+            padding: 0 !important;
+        }
+
+        .active-walk-page {
+            position: fixed;
+            inset: 0;
+            z-index: 1020;
+            width: 100vw;
+            height: 100svh;
+            min-height: 0;
+            padding: 0;
+            overflow: hidden;
+            background: #eaf4ea;
+        }
+
+        .active-walk-hero,
+        .active-walk-plan-card,
+        .active-walk-media-card,
+        .active-walk-proximity-card {
+            display: none !important;
+        }
+
+        .active-walk-map-card {
+            position: fixed;
+            inset: 0;
+            z-index: 1;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            border: 0;
+            border-radius: 0;
+            box-shadow: none;
+            background: #eaf4ea;
+        }
+
+        .active-walk-map-card__header {
+            position: absolute;
+            top: calc(12px + env(safe-area-inset-top, 0px));
+            left: 10px;
+            right: 10px;
+            z-index: 910;
+            align-items: center;
+            flex-direction: row;
+            gap: 8px;
+            margin: 0;
+            padding: 10px;
+            border: 1px solid rgba(31, 45, 41, 0.12);
+            border-radius: 18px;
+            background: rgba(255, 255, 255, 0.94);
+            box-shadow: 0 14px 34px rgba(31, 45, 41, 0.18);
+            backdrop-filter: blur(16px);
+        }
+
+        .active-walk-map-card__header h2 {
+            font-size: 1rem;
+        }
+
+        .active-walk-map-card__header p {
+            overflow: hidden;
+            max-width: 54vw;
+            font-size: 0.76rem;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        #trackingToggle {
+            min-height: 42px;
+            padding: 8px 12px;
+            white-space: nowrap;
+        }
+
+        #gpsSecurityWarning {
+            position: absolute;
+            top: calc(84px + env(safe-area-inset-top, 0px));
+            left: 10px;
+            right: 10px;
+            z-index: 910;
+            margin: 0;
+            font-size: 0.76rem;
+        }
+
+        #walkMap,
+        #walkMap.leaflet-container {
+            height: 100svh;
+            min-height: 100svh;
+            border-radius: 0;
+        }
+
+        .active-walk-metrics {
+            position: absolute;
+            top: calc(86px + env(safe-area-inset-top, 0px));
+            left: 10px;
+            right: 10px;
+            z-index: 900;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 7px;
+            margin: 0;
+        }
+
+        .active-walk-metrics article {
+            padding: 8px 6px;
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.92);
+            box-shadow: 0 10px 24px rgba(31, 45, 41, 0.14);
+            text-align: center;
+            backdrop-filter: blur(14px);
+        }
+
+        .active-walk-metrics strong {
+            font-size: 0.9rem;
+        }
+
+        .active-walk-metrics span {
+            font-size: 0.64rem;
+            line-height: 1.1;
+        }
+
+        .active-walk-next-stop-card {
+            position: absolute;
+            left: 10px;
+            right: 10px;
+            bottom: calc(162px + env(safe-area-inset-bottom, 0px));
+            z-index: 900;
+            margin: 0;
+            padding: 10px;
+            border-radius: 18px;
+            background: rgba(255, 255, 255, 0.94);
+            box-shadow: 0 14px 34px rgba(31, 45, 41, 0.18);
+            backdrop-filter: blur(16px);
+        }
+
+        .active-walk-next-stop-card__header {
+            margin-bottom: 6px;
+        }
+
+        .active-walk-next-stop-card__header h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+        }
+
+        .active-walk-next-stop-card__header p {
+            display: none;
+        }
+
+        .active-walk-next-stop-card__body {
+            align-items: center;
+            flex-direction: row;
+        }
+
+        .active-walk-next-stop-card__body small {
+            display: none;
+        }
+
+        .active-walk-next-stop-card__body strong {
+            font-size: 0.98rem;
+        }
+
+        #completeNextStopButton {
+            min-height: 40px;
+            padding-inline: 13px;
+        }
+
+        .active-walk-map-controls {
+            right: 10px;
+            bottom: calc(100px + env(safe-area-inset-bottom, 0px));
+            display: grid;
+            gap: 7px;
+        }
+
+        .active-walk-map-controls button {
+            min-width: 48px;
+            min-height: 48px;
+            padding: 0;
+            border-radius: 16px;
+        }
+
+        .active-walk-map-controls button span {
+            display: none;
+        }
+
+        .active-walk-bin-toast {
+            bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+            border-radius: 16px;
+        }
+
+        .active-walk-finish-card {
+            position: absolute;
+            left: 10px;
+            right: 10px;
+            bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+            z-index: 910;
+            margin: 0;
+            padding: 0;
+            border: 0;
+            background: transparent;
+            box-shadow: none;
+        }
+
+        .active-walk-finish-card h2,
+        .active-walk-finish-card p,
+        .active-walk-finish-card__grid {
+            display: none;
+        }
+
+        .active-walk-actions {
+            display: grid;
+            grid-template-columns: 0.68fr 1fr;
+            gap: 8px;
+            margin: 0;
+        }
+
+        .active-walk-actions .btn {
+            display: inline-flex;
+            min-height: 54px;
+            align-items: center;
+            justify-content: center;
+            border-radius: 17px !important;
+            box-shadow: 0 14px 30px rgba(31, 45, 41, 0.18);
+            font-weight: 950;
+        }
+
         .active-walk-finish-card__grid {
             grid-template-columns: 1fr;
         }
 
-        .active-walk-map-card__header,
         .active-walk-media-card__header,
         .active-walk-plan-card__header,
         .active-walk-next-stop-card__header,
-        .active-walk-proximity-card__header,
-        .active-walk-next-stop-card__body,
-        .active-walk-actions {
+        .active-walk-proximity-card__header {
             align-items: stretch;
             flex-direction: column;
-        }
-
-        #walkMap {
-            height: clamp(360px, 56svh, 540px);
-        }
-
-        #walkMap.leaflet-container {
-            height: clamp(360px, 56svh, 540px);
         }
 
         .active-walk-photo-upload,
