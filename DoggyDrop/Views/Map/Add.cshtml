@@ -245,6 +245,7 @@
     .add-bin-form {
         display: grid;
         gap: 14px;
+        max-width: 100%;
     }
 
     .add-bin-form > .text-danger:empty {
@@ -252,6 +253,8 @@
     }
 
     .add-bin-panel {
+        min-width: 0;
+        max-width: 100%;
         padding: 18px;
         border: 1px solid rgba(31, 45, 41, 0.1);
         border-radius: 14px;
@@ -325,7 +328,9 @@
         z-index: 1;
         height: 400px;
         width: 100%;
+        max-width: 100%;
         overflow: hidden;
+        isolation: isolate;
         border-radius: 14px;
         background: #eef3ea;
     }
@@ -399,9 +404,9 @@
 
     @@media (max-width: 575.98px) {
         .add-bin-page {
-            height: calc(100svh - 58px);
-            overflow: hidden;
-            padding: 0 8px calc(72px + env(safe-area-inset-bottom));
+            min-height: calc(100svh - 58px);
+            overflow: visible;
+            padding: 0 8px calc(92px + env(safe-area-inset-bottom));
         }
 
         .add-bin-hero {
@@ -409,32 +414,30 @@
         }
 
         .add-bin-form {
-            height: calc(100svh - 138px - env(safe-area-inset-bottom));
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
             min-height: 0;
-            grid-template-rows: auto minmax(0, 1fr) 44px;
-            gap: 6px;
-            overflow: hidden;
+            overflow: visible;
         }
 
         .add-bin-form > .text-danger {
             margin-bottom: 0 !important;
-            max-height: 32px;
-            overflow: hidden;
         }
 
         .add-bin-panel {
-            padding: 8px;
+            padding: 10px;
             border-radius: 16px;
         }
 
         .add-bin-panel h2 {
-            margin-bottom: 5px;
-            font-size: 0.86rem;
+            margin-bottom: 6px;
+            font-size: 0.92rem;
         }
 
         .add-bin-panel__header {
-            margin-bottom: 0;
-            min-height: 32px;
+            margin-bottom: 4px;
+            min-height: 36px;
         }
 
         .add-bin-locate-button {
@@ -444,14 +447,15 @@
         }
 
         #map {
-            height: clamp(205px, 35svh, 285px);
-            min-height: 205px;
+            height: clamp(245px, 38svh, 330px);
+            min-height: 245px;
+            width: 100%;
             border-radius: 14px;
         }
 
         .add-bin-location-panel {
             grid-template-rows: auto auto;
-            gap: 6px;
+            gap: 8px;
         }
 
         .add-bin-coordinates {
@@ -459,44 +463,48 @@
         }
 
         .add-bin-details-panel {
-            min-height: 0;
-            overflow: hidden;
+            overflow: visible;
         }
 
         .add-bin-fields {
             grid-template-columns: 1fr;
-            gap: 5px;
+            gap: 8px;
         }
 
         .add-bin-details-panel .form-label {
-            margin-bottom: 2px;
-            font-size: 0.72rem;
+            margin-bottom: 3px;
+            font-size: 0.78rem;
         }
 
         .add-bin-details-panel .form-control {
-            min-height: 34px;
-            padding: 6px 10px;
+            min-height: 40px;
+            padding: 8px 12px;
             border-radius: 12px;
-            font-size: 0.84rem;
+            font-size: 0.9rem;
         }
 
         .add-bin-preview {
-            max-height: 48px;
-            margin-top: 4px;
-            border-radius: 10px;
+            max-height: 86px;
+            margin-top: 6px;
+            border-radius: 12px;
         }
 
         .add-bin-actions {
+            position: sticky;
+            bottom: calc(76px + env(safe-area-inset-bottom));
+            z-index: 20;
             display: grid;
             grid-template-columns: 0.82fr 1.18fr;
-            gap: 6px;
+            gap: 8px;
+            padding: 8px 0 2px;
+            background: linear-gradient(180deg, rgba(247, 250, 246, 0), rgba(247, 250, 246, 0.96) 28%, rgba(247, 250, 246, 0.96));
         }
 
         .add-bin-actions .btn {
             width: 100%;
             min-width: 0;
-            min-height: 44px;
-            padding: 8px 10px;
+            min-height: 46px;
+            padding: 10px 12px;
         }
 
         .add-bin-loading {
