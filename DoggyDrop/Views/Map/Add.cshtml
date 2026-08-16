@@ -1,6 +1,6 @@
 @model DoggyDrop.ViewModels.TrashBinViewModel
 @{
-    ViewData["Title"] = "Dodaj kos";
+    ViewData["Title"] = "Dodaj koš";
 }
 
 @section Styles {
@@ -12,8 +12,8 @@
 <section class="app-page add-bin-page">
     <header class="app-page__header add-bin-hero">
         <div>
-            <h1 class="app-page__title">Dodaj kos</h1>
-            <p class="app-page__lead">Oznaci lokacijo, dodaj fotografijo in pomagaj drugim lastnikom psov.</p>
+            <h1 class="app-page__title">Dodaj koš</h1>
+            <p class="app-page__lead">Označi lokacijo, dodaj fotografijo in pomagaj drugim lastnikom psov.</p>
         </div>
     </header>
 
@@ -66,15 +66,15 @@
         <input type="hidden" asp-for="Longitude" id="Longitude" />
 
         <div class="add-bin-actions">
-            <a class="btn btn-outline-secondary rounded-pill" asp-controller="Map" asp-action="Index">Preklici</a>
-            <button type="submit" class="btn btn-success rounded-pill fw-semibold">Shrani kos</button>
+            <a class="btn btn-outline-secondary rounded-pill" asp-controller="Map" asp-action="Index">Prekliči</a>
+            <button type="submit" class="btn btn-success rounded-pill fw-semibold">Shrani koš</button>
         </div>
 
         <div id="loading" class="add-bin-loading" hidden>
             <div class="spinner-border text-success" role="status">
                 <span class="visually-hidden">Nalagam...</span>
             </div>
-            <p>Kos se shranjuje...</p>
+            <p>Koš se shranjuje...</p>
         </div>
     </form>
 </section>
@@ -139,12 +139,12 @@
 
         function useCurrentLocation(isAutomatic = false) {
             if (!navigator.geolocation) {
-                setLocationStatus("Ta brskalnik ne podpira lokacije. Lokacijo lahko oznacis na zemljevidu.");
+                setLocationStatus("Ta brskalnik ne podpira lokacije. Lokacijo lahko označiš na zemljevidu.");
                 return;
             }
 
             if (!window.isSecureContext) {
-                setLocationStatus("GPS na telefonu zahteva HTTPS. Lokacijo lahko oznacis na zemljevidu.");
+                setLocationStatus("GPS na telefonu zahteva HTTPS. Lokacijo lahko označiš na zemljevidu.");
                 return;
             }
 
@@ -160,7 +160,7 @@
                 refreshMapSize();
                 setLocationStatus("");
             }, function () {
-                setLocationStatus("Lokacije ni bilo mogoce pridobiti. Lokacijo lahko oznacis na zemljevidu.");
+                setLocationStatus("Lokacije ni bilo mogoče pridobiti. Lokacijo lahko označiš na zemljevidu.");
             }, {
                 enableHighAccuracy: true,
                 maximumAge: 30000,
