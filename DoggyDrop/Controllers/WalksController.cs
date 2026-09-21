@@ -23,6 +23,7 @@ namespace DoggyDrop.Controllers
         private readonly IDogProgressionService _dogProgressionService;
         private readonly IOsmWalkPlannerService _osmWalkPlannerService;
         private readonly IGamificationRewardBuilder _rewardBuilder;
+        private readonly IGamificationCalendar _gamificationCalendar;
 
         public WalksController(
             ApplicationDbContext context,
@@ -32,7 +33,8 @@ namespace DoggyDrop.Controllers
             IGamificationService gamificationService,
             IDogProgressionService dogProgressionService,
             IOsmWalkPlannerService osmWalkPlannerService,
-            IGamificationRewardBuilder rewardBuilder)
+            IGamificationRewardBuilder rewardBuilder,
+            IGamificationCalendar gamificationCalendar)
         {
             _context = context;
             _userManager = userManager;
@@ -42,6 +44,7 @@ namespace DoggyDrop.Controllers
             _dogProgressionService = dogProgressionService;
             _osmWalkPlannerService = osmWalkPlannerService;
             _rewardBuilder = rewardBuilder;
+            _gamificationCalendar = gamificationCalendar;
         }
 
         [HttpGet]
@@ -129,6 +132,10 @@ namespace DoggyDrop.Controllers
                 .Include(bin => bin.User)
                 .Where(bin => bin.DateAdded >= contributorWindowStart)
                 .ToListAsync();
+            var canonicalWalkStreak = await _gamificationService.GetStreakAsync(userId!, GamificationStreakConstants.Walk);
+            var activityInsights = ActivityInsightsBuilder.Build(completedWalks);
+            activityInsights.CurrentStreakDays = canonicalWalkStreak.EffectiveCurrentDays;
+            activityInsights.LongestStreakDays = canonicalWalkStreak.LongestDays;
 
             var model = new WalksIndexViewModel
             {
@@ -143,10 +150,23 @@ namespace DoggyDrop.Controllers
                 LongestWalkKm = completedWalks.Count == 0 ? 0 : completedWalks.Max(w => w.DistanceMeters) / 1000,
                 UsedBinsCount = completedWalks.Sum(w => w.UsedBinsCount),
                 WeeklyStats = BuildWeeklyStats(completedWalks),
-                ActivityInsights = ActivityInsightsBuilder.Build(completedWalks),
+                ActivityInsights = activityInsights,
+                WalkStreak = new GamificationStreakViewModel
+                {
+                    StreakType = canonicalWalkStreak.StreakType,
+                    Label = canonicalWalkStreak.Label,
+                    StoredCurrentDays = canonicalWalkStreak.StoredCurrentDays,
+                    CurrentDays = canonicalWalkStreak.EffectiveCurrentDays,
+                    LongestDays = canonicalWalkStreak.LongestDays,
+                    FlameTier = canonicalWalkStreak.FlameTier,
+                    State = canonicalWalkStreak.State,
+                    IsSafeToday = canonicalWalkStreak.IsSafeToday,
+                    IsAtRiskToday = canonicalWalkStreak.IsAtRiskToday,
+                    Guidance = canonicalWalkStreak.Guidance
+                },
                 RecentPlans = recentPlans,
                 Achievements = BuildWalkAchievements(totalBinsAdded, completedWalks.Count, totalDistanceKm, uniqueParkVisits),
-                Gamification = BuildGamificationSummary(completedWalks, weeklyCompletedWalks, recentContributorBins),
+                Gamification = BuildGamificationSummary(completedWalks, weeklyCompletedWalks, recentContributorBins, canonicalWalkStreak),
                 Suggestions = BuildSuggestions(dogId.HasValue
                     ? dogs.FirstOrDefault(d => d.Id == dogId.Value)
                     : dogs.FirstOrDefault()),
@@ -435,7 +455,6 @@ namespace DoggyDrop.Controllers
                 nameof(PlannedWalk),
                 plan.Id.ToString(),
                 "Nova pot");
-            await _gamificationService.RecordStreakActivityAsync(userId, GamificationStreakConstants.Explorer);
             await NotifyFriendsAboutWalkStartAsync(walk.Id, userId, dogId, plan.Title);
 
             TempData["SuccessMessage"] = "Sprehod je zagnan s planirano potjo.";
@@ -527,7 +546,6 @@ namespace DoggyDrop.Controllers
                 nameof(PlannedWalk),
                 plan.Id.ToString(),
                 "Nova pot");
-            await _gamificationService.RecordStreakActivityAsync(userId, GamificationStreakConstants.Explorer);
 
             TempData["SuccessMessage"] = "Plan sprehoda je shranjen.";
             return RedirectToAction(nameof(Planner), new
@@ -1072,7 +1090,7 @@ namespace DoggyDrop.Controllers
             var binsUsed = usedBinsCount.HasValue
                 ? Math.Clamp(usedBinsCount.Value, 0, 50)
                 : walk.UsedBinsCount;
-            var endedAt = DateTime.UtcNow;
+            var endedAt = _gamificationCalendar.UtcNow.UtcDateTime;
 
             await using var transaction = await _context.Database.BeginTransactionAsync();
             var completedRows = await _context.Walks
@@ -1099,10 +1117,11 @@ namespace DoggyDrop.Controllers
             var dogProfile = await _dogProgressionService.EnsureProfileAsync(walk.DogId);
             var previousDogLevel = _dogProgressionService.CalculateLevelInfo(dogProfile.TotalXp);
             var previousDogProfile = _rewardBuilder.Snapshot(dogProfile);
-            var previousWalkStreakDays = await _context.UserStreaks
-                .Where(streak => streak.UserId == userId && streak.StreakType == GamificationStreakConstants.Walk)
-                .Select(streak => streak.CurrentDays)
-                .FirstOrDefaultAsync();
+            var previousWalkStreak = await _context.UserStreaks.AsNoTracking()
+                .FirstOrDefaultAsync(streak => streak.UserId == userId && streak.StreakType == GamificationStreakConstants.Walk);
+            var previousWalkStreakDays = _gamificationService
+                .GetEffectiveStreak(previousWalkStreak, GamificationStreakConstants.Walk)
+                .EffectiveCurrentDays;
             var previousCompletedWalkCount = await _context.Walks
                 .CountAsync(candidate => candidate.OwnerId == userId && candidate.Status == "Completed" && candidate.Id != id);
             var previousTotalDistanceKm = await _context.Walks
@@ -1130,7 +1149,7 @@ namespace DoggyDrop.Controllers
                 nameof(Walk),
                 walk.Id.ToString(),
                 "Zakljucen sprehod");
-            var walkStreak = await _gamificationService.RecordStreakActivityAsync(userId, GamificationStreakConstants.Walk);
+            var walkStreak = await _gamificationService.RecordStreakActivityAtAsync(userId, GamificationStreakConstants.Walk, endedAt);
             var dogXpEvent = await _dogProgressionService.AwardXpAsync(
                 walk.DogId,
                 "CompletedWalk",
@@ -2228,7 +2247,9 @@ namespace DoggyDrop.Controllers
                 WalkId = walk.Id,
                 UserReward = _rewardBuilder.BuildUserReward(userXpEvent, previousUserLevel, currentUserLevel),
                 DogReward = _rewardBuilder.BuildDogReward(walk.Dog ?? new Dog { Id = walk.DogId, Name = "Pes" }, dogXpEvent, previousDogLevel, currentDogLevel, previousDogProfile, currentDogProfile),
-                StreakReward = _rewardBuilder.BuildStreakReward(walkStreak, previousWalkStreakDays),
+                StreakReward = _rewardBuilder.BuildStreakReward(
+                    _gamificationService.GetEffectiveStreak(walkStreak, GamificationStreakConstants.Walk),
+                    previousWalkStreakDays),
                 UnlockedAchievements = unlockedAchievements,
                 NextGoal = BuildWalkNextGoal(currentAchievements, currentTotalDistanceKm, currentUserLevel, walk.DogId)
             };
@@ -2325,15 +2346,9 @@ namespace DoggyDrop.Controllers
         private static GamificationSummaryViewModel BuildGamificationSummary(
             IReadOnlyList<Walk> userCompletedWalks,
             IReadOnlyList<Walk> weeklyCompletedWalks,
-            IReadOnlyList<TrashBin> recentContributorBins)
+            IReadOnlyList<TrashBin> recentContributorBins,
+            GamificationStreakInfo canonicalWalkStreak)
         {
-            var walkedDates = userCompletedWalks
-                .Select(walk => walk.StartedAt.Date)
-                .Distinct()
-                .OrderBy(date => date)
-                .ToList();
-            var currentStreak = CalculateCurrentStreak(walkedDates, DateTime.UtcNow.Date);
-            var longestStreak = CalculateLongestStreak(walkedDates);
             var eightWeekStart = DateTime.UtcNow.Date.AddDays(-55);
             var activeWeeks = userCompletedWalks
                 .Where(walk => walk.StartedAt.Date >= eightWeekStart)
@@ -2343,8 +2358,6 @@ namespace DoggyDrop.Controllers
 
             return new GamificationSummaryViewModel
             {
-                CurrentDailyStreak = currentStreak,
-                LongestDailyStreak = longestStreak,
                 ActiveWeeksLastEight = activeWeeks,
                 WeeklyDistanceLeaders = weeklyCompletedWalks
                     .GroupBy(walk => GetLeaderboardDisplayName(walk.Owner))
@@ -2391,44 +2404,6 @@ namespace DoggyDrop.Controllers
             }
 
             return user?.Email ?? "DoggyDrop uporabnik";
-        }
-
-        private static int CalculateCurrentStreak(IReadOnlyList<DateTime> walkedDates, DateTime today)
-        {
-            if (walkedDates.Count == 0)
-            {
-                return 0;
-            }
-
-            var dateSet = walkedDates.ToHashSet();
-            var cursor = dateSet.Contains(today) ? today : today.AddDays(-1);
-            var streak = 0;
-
-            while (dateSet.Contains(cursor))
-            {
-                streak++;
-                cursor = cursor.AddDays(-1);
-            }
-
-            return streak;
-        }
-
-        private static int CalculateLongestStreak(IReadOnlyList<DateTime> walkedDates)
-        {
-            var longest = 0;
-            var current = 0;
-            DateTime? previous = null;
-
-            foreach (var date in walkedDates)
-            {
-                current = previous.HasValue && date == previous.Value.AddDays(1)
-                    ? current + 1
-                    : 1;
-                longest = Math.Max(longest, current);
-                previous = date;
-            }
-
-            return longest;
         }
 
         private static string GetWeekKey(DateTime date)

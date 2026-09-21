@@ -100,6 +100,19 @@ public sealed class MapControllerParkVisitTests : IDisposable
         Assert.True(streak.GetProperty("increased").GetBoolean());
     }
 
+    [Fact]
+    public async Task AcceptedVisit_UsesCapturedVisitInstantAcrossProcessingMidnight()
+    {
+        var dogId = await SeedAsync();
+        var calendar = new TestGamificationCalendar(new DateTime(2026, 7, 10, 21, 59, 59, DateTimeKind.Utc));
+        calendar.AdvanceAfterNextRead(new DateTime(2026, 7, 10, 22, 0, 1, DateTimeKind.Utc));
+        await using var db = Context();
+        var result = Assert.IsType<JsonResult>(await Controller(db, calendar).ParkVisit(Input(dogId, ParkA)));
+        Assert.NotNull(result.Value);
+        var streak = await db.UserStreaks.SingleAsync(item => item.StreakType == GamificationStreakConstants.Explorer);
+        Assert.Equal(new DateOnly(2026, 7, 10), streak.LastActivityDate);
+    }
+
     [Fact] public async Task FifthUniquePark_ReturnsExistingAchievement()
     {
         var dogId = await SeedAsync();
@@ -238,7 +251,7 @@ public sealed class MapControllerParkVisitTests : IDisposable
         await db.SaveChangesAsync();
         db.UserGamificationProfiles.Add(new UserGamificationProfile { UserId = UserId, TotalXp = userXp, Level = 1 });
         if (dogXp > 0) db.DogProgressionProfiles.Add(new DogProgressionProfile { DogId = dog.Id, TotalXp = dogXp, Level = 1 });
-        if (explorerYesterday) db.UserStreaks.Add(new UserStreak { UserId = UserId, StreakType = GamificationStreakConstants.Explorer, CurrentDays = 1, LongestDays = 1, LastActivityDate = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-1) });
+        if (explorerYesterday) db.UserStreaks.Add(new UserStreak { UserId = UserId, StreakType = GamificationStreakConstants.Explorer, CurrentDays = 1, LongestDays = 1, LastActivityDate = new TestGamificationCalendar().Today.AddDays(-1) });
         await db.SaveChangesAsync();
         return dog.Id;
     }
@@ -274,10 +287,11 @@ public sealed class MapControllerParkVisitTests : IDisposable
     private static ParkVisitInput Input(int dogId, string key) => new() { DogId = dogId, PlaceKey = key };
     private ApplicationDbContext Context() => new(new DbContextOptionsBuilder<ApplicationDbContext>().UseSqlite($"Data Source={_db};Default Timeout=15;Pooling=False").Options);
 
-    private MapController Controller(ApplicationDbContext db)
+    private MapController Controller(ApplicationDbContext db, TestGamificationCalendar? calendar = null)
     {
+        calendar ??= new TestGamificationCalendar();
         var controller = new MapController(db, new TestEnvironment(), UserManager(db), new NoOpImages(), new NoOpEmail(), _notifications,
-            new GamificationService(db, _notifications), new DogProgressionService(db), new MapStampService(), new GamificationRewardBuilder());
+            new GamificationService(db, _notifications, calendar), new DogProgressionService(db), new MapStampService(), new GamificationRewardBuilder(), calendar);
         controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, UserId)], "Test")) } };
         controller.Url = new StubUrl();
         return controller;

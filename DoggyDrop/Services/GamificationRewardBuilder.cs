@@ -43,15 +43,16 @@ public sealed class GamificationRewardBuilder : IGamificationRewardBuilder
             }
         };
 
-    public StreakRewardViewModel? BuildStreakReward(UserStreak? streak, int previousDays, bool includeUnchanged = true)
+    public StreakRewardViewModel? BuildStreakReward(GamificationStreakInfo? streak, int previousDays, bool includeUnchanged = true)
     {
-        if (streak == null || (!includeUnchanged && streak.CurrentDays <= previousDays)) return null;
+        if (streak == null || (!includeUnchanged && streak.StoredCurrentDays <= previousDays)) return null;
         return new StreakRewardViewModel
         {
             PreviousDays = previousDays,
-            CurrentDays = streak.CurrentDays,
-            Increased = streak.CurrentDays > previousDays,
-            MilestoneReached = streak.CurrentDays > previousDays && streak.CurrentDays is 7 or 30 or 100 ? streak.CurrentDays : null
+            CurrentDays = streak.EffectiveCurrentDays,
+            Increased = streak.StoredCurrentDays > previousDays,
+            MilestoneReached = streak.StoredCurrentDays > previousDays && streak.StoredCurrentDays is 7 or 30 or 100 ? streak.StoredCurrentDays : null,
+            State = streak.State
         };
     }
 

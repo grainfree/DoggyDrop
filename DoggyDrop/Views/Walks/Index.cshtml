@@ -1,3 +1,4 @@
+@using DoggyDrop.ViewModels
 @model DoggyDrop.ViewModels.WalksIndexViewModel
 
 @{
@@ -25,8 +26,8 @@
                 <span>ta teden</span>
             </article>
             <article>
-                <strong>@Model.ActivityInsights.CurrentStreakDays</strong>
-                <span>dni streak</span>
+                <strong>@Model.WalkStreak.CurrentDays</strong>
+                <span>dni sprehajalnega niza</span>
             </article>
         </div>
     </header>
@@ -89,9 +90,10 @@
 
     <section class="walk-insights-card">
         <div class="walk-section-header">
-            <h2>Cilji in streak</h2>
-            <span>@Model.ActivityInsights.CurrentStreakDays dni zdaj, rekord @Model.ActivityInsights.LongestStreakDays</span>
+            <h2>Cilji in sprehajalni niz</h2>
+            <span>@SlovenianFormatting.Days(Model.WalkStreak.CurrentDays) · rekord @SlovenianFormatting.Days(Model.WalkStreak.LongestDays)</span>
         </div>
+        <p class="mb-0 mt-3"><strong>@Model.WalkStreak.Label:</strong> @Model.WalkStreak.Guidance</p>
         <div class="walk-goal-grid">
             <article>
                 <strong>Teden</strong>
@@ -132,7 +134,7 @@
     <section class="walk-leaderboards-card">
         <div class="walk-section-header">
             <h2>Leaderboards</h2>
-            <span>@Model.Gamification.CurrentDailyStreak dni daily streak, rekord @Model.Gamification.LongestDailyStreak</span>
+            <span>Sprehajalni niz: @SlovenianFormatting.Days(Model.WalkStreak.CurrentDays)</span>
         </div>
         <div class="walk-leaderboard-grid">
             <article>

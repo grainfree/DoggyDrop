@@ -56,7 +56,7 @@
             </article>
             <article>
                 <strong>@Model.Gamification.CurrentStreakDays</strong>
-                <span>streak</span>
+                <span>sprehajalni niz</span>
             </article>
         </div>
     </header>
@@ -101,7 +101,7 @@
         </div>
         <div class="profile-xp__meta">
             <span>@Model.Gamification.XpRemaining XP do naslednjega levela</span>
-            <span>@Model.Gamification.CurrentStreakDays dni daily streak</span>
+            <span>Sprehajalni niz: @SlovenianFormatting.Days(Model.Gamification.CurrentStreakDays)</span>
         </div>
         <div class="profile-streak-grid">
             @foreach (var streak in Model.Gamification.Streaks)
@@ -109,10 +109,11 @@
                 <div class="profile-streak profile-streak--@streak.FlameTier">
                     <span class="profile-streak__flame" aria-hidden="true"></span>
                     <div>
-                        <strong>@streak.CurrentDays dni</strong>
+                        <strong>@SlovenianFormatting.Days(streak.CurrentDays)</strong>
                         <span>@streak.Label</span>
+                        <small>@streak.Guidance</small>
                     </div>
-                    <em>@streak.LongestDays best</em>
+                    <em>rekord @SlovenianFormatting.Days(streak.LongestDays)</em>
                 </div>
             }
         </div>
@@ -218,7 +219,7 @@
     <article class="profile-panel profile-activity">
         <div class="profile-panel__header">
             <h2>Aktivnost</h2>
-            <span>@Model.ActivityInsights.CurrentStreakDays dni streak</span>
+            <span>@SlovenianFormatting.Days(Model.Gamification.CurrentStreakDays) sprehajalnega niza</span>
         </div>
 
         <div class="profile-goal-grid">

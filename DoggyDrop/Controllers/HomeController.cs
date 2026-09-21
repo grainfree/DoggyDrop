@@ -307,6 +307,7 @@ namespace DoggyDrop.Controllers
             var gamificationProfile = await _gamificationService.EnsureProfileAsync(user.Id);
             var levelInfo = _gamificationService.CalculateLevelInfo(gamificationProfile.TotalXp);
             var streaks = await _gamificationService.GetStreaksAsync(user.Id);
+            var walkStreak = streaks.Single(streak => streak.StreakType == GamificationStreakConstants.Walk);
             var founderBadges = await _context.FounderBadges
                 .Where(badge => badge.UserId == user.Id)
                 .OrderByDescending(badge => badge.UnlockedAt)
@@ -374,17 +375,31 @@ namespace DoggyDrop.Controllers
                     XpIntoLevel = levelInfo.XpIntoLevel,
                     XpForNextLevel = levelInfo.XpForNextLevel,
                     XpRemaining = levelInfo.XpRemaining,
-                    CurrentStreakDays = gamificationProfile.CurrentStreakDays,
-                    LongestStreakDays = gamificationProfile.LongestStreakDays,
+                    CurrentStreakDays = walkStreak.EffectiveCurrentDays,
+                    LongestStreakDays = walkStreak.LongestDays,
                     AvatarFlameTier = GetStrongestFlameTier(streaks),
-                    Streaks = streaks.Select(streak => new GamificationStreakViewModel
+                    Streaks = streaks
+                        .Where(streak => streak.StreakType is GamificationStreakConstants.Walk or GamificationStreakConstants.Explorer)
+                        .Select(streak => new GamificationStreakViewModel
                     {
                         StreakType = streak.StreakType,
                         Label = streak.Label,
-                        CurrentDays = streak.CurrentDays,
+                        StoredCurrentDays = streak.StoredCurrentDays,
+                        CurrentDays = streak.EffectiveCurrentDays,
                         LongestDays = streak.LongestDays,
                         FreezeCredits = streak.FreezeCredits,
-                        FlameTier = streak.FlameTier
+                        FlameTier = streak.FlameTier,
+                        State = streak.State,
+                        IsSafeToday = streak.IsSafeToday,
+                        IsAtRiskToday = streak.IsAtRiskToday,
+                        Guidance = streak.StreakType == GamificationStreakConstants.Walk
+                            ? streak.Guidance
+                            : streak.State switch
+                            {
+                                GamificationStreakState.SafeToday => "Današnji raziskovalni niz je varen.",
+                                GamificationStreakState.AtRiskToday => "Danes obišči park, da ohraniš niz.",
+                                _ => "Začni nov niz z obiskom parka."
+                            }
                     }).ToList()
                 }
             };

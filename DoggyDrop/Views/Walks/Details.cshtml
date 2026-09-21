@@ -1,5 +1,6 @@
 ﻿@model DoggyDrop.Models.Walk
 @using Microsoft.AspNetCore.Identity
+@using DoggyDrop.ViewModels
 @using System.Text.Json
 @inject UserManager<DoggyDrop.Models.ApplicationUser> UserManager
 
@@ -549,7 +550,7 @@
                     <section class="walk-reward-item">
                         <div class="walk-reward-item__top">
                             <span>Niz sprehodov</span>
-                            <strong><i class="bi bi-fire" aria-hidden="true"></i> @rewardResult.StreakReward.CurrentDays dni</strong>
+                            <strong><i class="bi bi-fire" aria-hidden="true"></i> @SlovenianFormatting.Days(rewardResult.StreakReward.CurrentDays)</strong>
                         </div>
                         <h3>@(rewardResult.StreakReward.Increased ? "Niz se nadaljuje" : "Današnji sprehod je zabeležen")</h3>
                         <p>

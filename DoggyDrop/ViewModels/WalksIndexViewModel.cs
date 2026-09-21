@@ -30,6 +30,8 @@ namespace DoggyDrop.ViewModels
 
         public ActivityInsightsViewModel ActivityInsights { get; set; } = new();
 
+        public GamificationStreakViewModel WalkStreak { get; set; } = new();
+
         public IReadOnlyList<PlannedWalkSummaryItem> RecentPlans { get; set; } = [];
 
         public IReadOnlyList<AchievementItem> Achievements { get; set; } = [];
@@ -67,10 +69,6 @@ namespace DoggyDrop.ViewModels
 
     public class GamificationSummaryViewModel
     {
-        public int CurrentDailyStreak { get; set; }
-
-        public int LongestDailyStreak { get; set; }
-
         public int ActiveWeeksLastEight { get; set; }
 
         public IReadOnlyList<LeaderboardEntry> WeeklyDistanceLeaders { get; set; } = [];

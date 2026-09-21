@@ -128,6 +128,8 @@ namespace DoggyDrop.ViewModels
 
         public string Label { get; set; } = string.Empty;
 
+        public int StoredCurrentDays { get; set; }
+
         public int CurrentDays { get; set; }
 
         public int LongestDays { get; set; }
@@ -135,6 +137,14 @@ namespace DoggyDrop.ViewModels
         public int FreezeCredits { get; set; }
 
         public string FlameTier { get; set; } = "none";
+
+        public Services.GamificationStreakState State { get; set; }
+
+        public bool IsSafeToday { get; set; }
+
+        public bool IsAtRiskToday { get; set; }
+
+        public string Guidance { get; set; } = string.Empty;
     }
 
     public class ProfileDogSummary

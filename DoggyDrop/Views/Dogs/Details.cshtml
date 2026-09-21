@@ -1,3 +1,4 @@
+@using DoggyDrop.ViewModels
 @model DoggyDrop.ViewModels.DogDetailsViewModel
 
 @{
@@ -190,7 +191,7 @@
     <article class="dog-profile__section">
         <div class="dog-profile__section-header">
             <h2>Aktivnost psa</h2>
-            <span>@Model.ActivityInsights.CurrentStreakDays dni streak</span>
+            <span>@SlovenianFormatting.Days(Model.ActivityInsights.CurrentStreakDays) v nizu</span>
         </div>
         <div class="dog-profile__goal-grid">
             <div>

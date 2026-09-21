@@ -16,7 +16,10 @@ namespace DoggyDrop.Services
 
         Task<UserXpEvent?> AwardDailyLoginAsync(string? userId);
 
-        Task<UserStreak?> RecordStreakActivityAsync(string? userId, string streakType, DateOnly? activityDate = null);
+        Task<UserStreak?> RecordStreakActivityAsync(string? userId, string streakType);
+        Task<UserStreak?> RecordStreakActivityAtAsync(string? userId, string streakType, DateTime utcEventInstant);
+        GamificationStreakInfo GetEffectiveStreak(UserStreak? streak, string streakType);
+        Task<GamificationStreakInfo> GetStreakAsync(string userId, string streakType);
 
         Task<IReadOnlyList<GamificationStreakInfo>> GetStreaksAsync(string userId);
 

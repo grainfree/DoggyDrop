@@ -23,6 +23,7 @@ namespace DoggyDrop.Controllers
         private readonly IDogProgressionService _dogProgressionService;
         private readonly IMapStampService _mapStampService;
         private readonly IGamificationRewardBuilder _rewardBuilder;
+        private readonly IGamificationCalendar _gamificationCalendar;
         private static readonly IReadOnlyList<FounderArea> FounderAreas =
         [
             new("maribor", "Maribor", 46.5547, 15.6459, 6500),
@@ -46,7 +47,8 @@ namespace DoggyDrop.Controllers
                              IGamificationService gamificationService,
                              IDogProgressionService dogProgressionService,
                              IMapStampService mapStampService,
-                             IGamificationRewardBuilder rewardBuilder)
+                             IGamificationRewardBuilder rewardBuilder,
+                             IGamificationCalendar gamificationCalendar)
         {
             _context = context;
             _environment = environment;
@@ -58,6 +60,7 @@ namespace DoggyDrop.Controllers
             _dogProgressionService = dogProgressionService;
             _mapStampService = mapStampService;
             _rewardBuilder = rewardBuilder;
+            _gamificationCalendar = gamificationCalendar;
         }
 
         // 📍 Prikaz obrazca za dodajanje koša
@@ -185,7 +188,7 @@ namespace DoggyDrop.Controllers
                 return BadRequest(new { message = "Park ni na seznamu podprtih lokacij." });
             }
 
-            var now = DateTime.UtcNow;
+            var now = _gamificationCalendar.UtcNow.UtcDateTime;
             var placeKey = park.PlaceKey;
             var parkName = park.Name;
             await using var transaction = await _context.Database.BeginTransactionAsync();
@@ -218,10 +221,11 @@ namespace DoggyDrop.Controllers
             var dogProfile = await _dogProgressionService.EnsureProfileAsync(dog.Id);
             var dogLevelBefore = _dogProgressionService.CalculateLevelInfo(dogProfile.TotalXp);
             var dogProfileBefore = _rewardBuilder.Snapshot(dogProfile);
-            var explorerDaysBefore = await _context.UserStreaks
-                .Where(streak => streak.UserId == userId && streak.StreakType == GamificationStreakConstants.Explorer)
-                .Select(streak => streak.CurrentDays)
-                .FirstOrDefaultAsync();
+            var explorerStreakBefore = await _context.UserStreaks.AsNoTracking()
+                .FirstOrDefaultAsync(streak => streak.UserId == userId && streak.StreakType == GamificationStreakConstants.Explorer);
+            var explorerDaysBefore = _gamificationService
+                .GetEffectiveStreak(explorerStreakBefore, GamificationStreakConstants.Explorer)
+                .EffectiveCurrentDays;
 
             _context.DogParkVisits.Add(new DogParkVisit
             {
@@ -242,7 +246,7 @@ namespace DoggyDrop.Controllers
                 ? await _gamificationService.AwardXpAsync(userId, GamificationConstants.VisitNewPark,
                     GamificationConstants.VisitNewParkXp, nameof(DogParkVisit), placeKey, "Obiskan nov park")
                 : null;
-            var explorerStreak = await _gamificationService.RecordStreakActivityAsync(userId, GamificationStreakConstants.Explorer);
+            var explorerStreak = await _gamificationService.RecordStreakActivityAtAsync(userId, GamificationStreakConstants.Explorer, now);
             var dogXpEvent = isNewForDog
                 ? await _dogProgressionService.AwardXpAsync(dog.Id, "ParkVisit", 35,
                     new DogProgressionStatBoost { Adventure = 10, Social = 8, Forest = 12 }, nameof(DogParkVisit), $"{dog.Id}:{placeKey}", "Obisk pasjega parka")
@@ -285,7 +289,10 @@ namespace DoggyDrop.Controllers
                 {
                     UserReward = _rewardBuilder.BuildUserReward(userXpEvent, userLevelBefore, userLevelAfter),
                     DogReward = _rewardBuilder.BuildDogReward(dog, dogXpEvent, dogLevelBefore, dogLevelAfter, dogProfileBefore, dogProfileAfter),
-                    StreakReward = _rewardBuilder.BuildStreakReward(explorerStreak, explorerDaysBefore, includeUnchanged: false),
+                    StreakReward = _rewardBuilder.BuildStreakReward(
+                        _gamificationService.GetEffectiveStreak(explorerStreak, GamificationStreakConstants.Explorer),
+                        explorerDaysBefore,
+                        includeUnchanged: false),
                     UnlockedAchievements = achievements,
                     NextGoal = nextGoal
                 },

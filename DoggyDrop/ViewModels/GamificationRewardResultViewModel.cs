@@ -124,6 +124,8 @@ namespace DoggyDrop.ViewModels
         public bool Increased { get; set; }
 
         public int? MilestoneReached { get; set; }
+
+        public Services.GamificationStreakState State { get; set; }
     }
 
     public class RewardAchievementViewModel

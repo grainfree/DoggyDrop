@@ -142,6 +142,45 @@ public sealed class WalksControllerFinishTests : IDisposable
         Assert.DoesNotContain(visibleAchievements, achievement => achievement.Name == "Prvi sprehod");
     }
 
+    [Fact]
+    public async Task SavingPlannedRoute_DoesNotMaintainExplorerStreak()
+    {
+        await SeedAsync(0, status: "Completed");
+        await using var context = CreateContext();
+        var dogId = await context.Dogs.Select(dog => dog.Id).SingleAsync();
+        await CreateController(context).SavePlan(dogId, "maribor", 3, "balanced", "auto", null, null);
+        Assert.False(await context.UserStreaks.AnyAsync(streak => streak.StreakType == GamificationStreakConstants.Explorer));
+    }
+
+    [Fact]
+    public async Task StartingPlannedRoute_DoesNotMaintainExplorerStreak()
+    {
+        await SeedAsync(0, status: "Completed");
+        await using var context = CreateContext();
+        var dogId = await context.Dogs.Select(dog => dog.Id).SingleAsync();
+        await CreateController(context).StartPlanned(dogId, "maribor", 3, "balanced", "auto", null, null);
+        Assert.False(await context.UserStreaks.AnyAsync(streak => streak.StreakType == GamificationStreakConstants.Explorer));
+    }
+
+    [Fact]
+    public async Task FinishAcrossLjubljanaMidnight_UsesCapturedFinishDateOnce()
+    {
+        var walkId = await SeedAsync(1_000);
+        await using var context = CreateContext();
+        var walk = await context.Walks.SingleAsync();
+        walk.StartedAt = new DateTime(2026, 7, 10, 21, 50, 0, DateTimeKind.Utc);
+        await context.SaveChangesAsync();
+        var calendar = new TestGamificationCalendar(new DateTime(2026, 7, 10, 22, 10, 0, DateTimeKind.Utc));
+        var controller = CreateController(context, calendar);
+
+        await controller.Finish(walkId, null, null);
+        await controller.Finish(walkId, null, null);
+
+        var streak = await context.UserStreaks.SingleAsync(item => item.StreakType == GamificationStreakConstants.Walk);
+        Assert.Equal(new DateOnly(2026, 7, 11), streak.LastActivityDate);
+        Assert.Equal(1, streak.CurrentDays);
+    }
+
     private async Task<IActionResult> FinishWithNewContextAsync(int walkId)
     {
         await using var context = CreateContext();
@@ -182,18 +221,20 @@ public sealed class WalksControllerFinishTests : IDisposable
         return new ApplicationDbContext(options);
     }
 
-    private WalksController CreateController(ApplicationDbContext context)
+    private WalksController CreateController(ApplicationDbContext context, TestGamificationCalendar? calendar = null)
     {
         var notifications = new NoOpNotificationService();
+        calendar ??= new TestGamificationCalendar();
         var controller = new WalksController(
             context,
             CreateUserManager(context),
             notifications,
             new NoOpImageService(),
-            new GamificationService(context, notifications),
+            new GamificationService(context, notifications, calendar),
             new DogProgressionService(context),
             new NoOpPlannerService(),
-            new GamificationRewardBuilder());
+            new GamificationRewardBuilder(),
+            calendar);
 
         var httpContext = new DefaultHttpContext
         {

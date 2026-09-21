@@ -8,11 +8,13 @@ namespace DoggyDrop.Services
     {
         private readonly ApplicationDbContext _context;
         private readonly INotificationService _notificationService;
+        private readonly IGamificationCalendar _calendar;
 
-        public GamificationService(ApplicationDbContext context, INotificationService notificationService)
+        public GamificationService(ApplicationDbContext context, INotificationService notificationService, IGamificationCalendar calendar)
         {
             _context = context;
             _notificationService = notificationService;
+            _calendar = calendar;
         }
 
         public async Task<UserGamificationProfile> EnsureProfileAsync(string userId)
@@ -108,11 +110,33 @@ namespace DoggyDrop.Services
                 return null;
             }
 
-            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var capturedNow = _calendar.UtcNow;
+            var today = _calendar.ToLocalDate(capturedNow.UtcDateTime);
+            var utcDate = DateOnly.FromDateTime(capturedNow.UtcDateTime);
             var profile = await EnsureProfileAsync(userId);
             if (profile.LastDailyLoginDate == today)
             {
                 return null;
+            }
+
+            // During the UTC-to-Ljubljana rollout, the legacy UTC reference can
+            // represent this same local day. OccurredAt distinguishes it from a
+            // legitimate reward earned on the previous Ljubljana day.
+            if (utcDate != today)
+            {
+                var legacyCandidates = await _context.UserXpEvents.AsNoTracking()
+                    .Where(item => item.UserId == userId
+                        && item.ActivityType == GamificationConstants.DailyLogin
+                        && item.ReferenceType == "DailyLogin"
+                        && item.ReferenceId == utcDate.ToString("yyyy-MM-dd"))
+                    .ToListAsync();
+                if (legacyCandidates.Any(item => _calendar.ToLocalDate(item.OccurredAt) == today))
+                {
+                    profile.LastDailyLoginDate = today;
+                    profile.UpdatedAt = capturedNow.UtcDateTime;
+                    await _context.SaveChangesAsync();
+                    return null;
+                }
             }
 
             if (profile.LastDailyLoginDate == today.AddDays(-1))
@@ -126,9 +150,9 @@ namespace DoggyDrop.Services
 
             profile.LongestStreakDays = Math.Max(profile.LongestStreakDays, profile.CurrentStreakDays);
             profile.LastDailyLoginDate = today;
-            profile.UpdatedAt = DateTime.UtcNow;
+            profile.UpdatedAt = capturedNow.UtcDateTime;
             await _context.SaveChangesAsync();
-            await RecordStreakActivityAsync(userId, GamificationStreakConstants.Daily, today);
+            await RecordStreakActivityAtAsync(userId, GamificationStreakConstants.Daily, capturedNow.UtcDateTime);
 
             return await AwardXpAsync(
                 userId,
@@ -139,7 +163,27 @@ namespace DoggyDrop.Services
                 "Dnevni obisk");
         }
 
-        public async Task<UserStreak?> RecordStreakActivityAsync(string? userId, string streakType, DateOnly? activityDate = null)
+        public Task<UserStreak?> RecordStreakActivityAsync(string? userId, string streakType) =>
+            RecordStreakActivityCoreAsync(userId, streakType, _calendar.Today);
+
+        public Task<UserStreak?> RecordStreakActivityAtAsync(string? userId, string streakType, DateTime utcEventInstant)
+        {
+            if (utcEventInstant.Kind != DateTimeKind.Utc)
+            {
+                throw new ArgumentException("The event instant must be UTC.", nameof(utcEventInstant));
+            }
+
+            var eventDate = _calendar.ToLocalDate(utcEventInstant);
+            var today = _calendar.Today;
+            if (eventDate > today || eventDate < today.AddDays(-1))
+            {
+                throw new ArgumentOutOfRangeException(nameof(utcEventInstant), "Streak events must belong to today or yesterday in Europe/Ljubljana.");
+            }
+
+            return RecordStreakActivityCoreAsync(userId, streakType, eventDate);
+        }
+
+        private async Task<UserStreak?> RecordStreakActivityCoreAsync(string? userId, string streakType, DateOnly activityDate)
         {
             if (string.IsNullOrWhiteSpace(userId) || string.IsNullOrWhiteSpace(streakType))
             {
@@ -147,7 +191,7 @@ namespace DoggyDrop.Services
             }
 
             var normalizedType = streakType.Trim();
-            var date = activityDate ?? DateOnly.FromDateTime(DateTime.UtcNow);
+            var date = activityDate;
             var streak = await _context.UserStreaks
                 .FirstOrDefaultAsync(item => item.UserId == userId && item.StreakType == normalizedType);
 
@@ -181,7 +225,10 @@ namespace DoggyDrop.Services
             streak.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
 
-            await NotifyStreakMilestonesAsync(userId, streak);
+            if (normalizedType != GamificationStreakConstants.Daily)
+            {
+                await NotifyStreakMilestonesAsync(userId, streak);
+            }
             return streak;
         }
 
@@ -193,11 +240,44 @@ namespace DoggyDrop.Services
 
             return new[]
                 {
-                    BuildStreakInfo(streaks, GamificationStreakConstants.Walk, "Walk streak"),
-                    BuildStreakInfo(streaks, GamificationStreakConstants.Contribution, "Contribution streak"),
-                    BuildStreakInfo(streaks, GamificationStreakConstants.Explorer, "Explorer streak")
+                    BuildStreakInfo(streaks, GamificationStreakConstants.Walk),
+                    BuildStreakInfo(streaks, GamificationStreakConstants.Contribution),
+                    BuildStreakInfo(streaks, GamificationStreakConstants.Explorer)
                 }
                 .ToList();
+        }
+
+        public async Task<GamificationStreakInfo> GetStreakAsync(string userId, string streakType)
+        {
+            var streak = await _context.UserStreaks.AsNoTracking()
+                .FirstOrDefaultAsync(item => item.UserId == userId && item.StreakType == streakType);
+            return GetEffectiveStreak(streak, streakType);
+        }
+
+        public GamificationStreakInfo GetEffectiveStreak(UserStreak? streak, string streakType)
+        {
+            var today = _calendar.Today;
+            var storedDays = Math.Max(0, streak?.CurrentDays ?? 0);
+            var hasValidPositiveStreak = storedDays > 0;
+            var state = streak?.LastActivityDate switch
+            {
+                var date when hasValidPositiveStreak && date == today => GamificationStreakState.SafeToday,
+                var date when hasValidPositiveStreak && date == today.AddDays(-1) => GamificationStreakState.AtRiskToday,
+                _ => GamificationStreakState.Expired
+            };
+            var effectiveDays = state == GamificationStreakState.Expired ? 0 : storedDays;
+
+            return new GamificationStreakInfo
+            {
+                StreakType = streakType,
+                Label = GetStreakLabel(streakType),
+                StoredCurrentDays = storedDays,
+                EffectiveCurrentDays = effectiveDays,
+                LongestDays = Math.Max(Math.Max(0, streak?.LongestDays ?? 0), effectiveDays),
+                FreezeCredits = streak?.FreezeCredits ?? 0,
+                LastActivityDate = streak?.LastActivityDate,
+                State = state
+            };
         }
 
         public async Task<GamificationLevelInfo> GetLevelInfoAsync(string userId)
@@ -252,29 +332,21 @@ namespace DoggyDrop.Services
                 withinHours: 24 * 365);
         }
 
-        private static GamificationStreakInfo BuildStreakInfo(IEnumerable<UserStreak> streaks, string streakType, string label)
+        private GamificationStreakInfo BuildStreakInfo(IEnumerable<UserStreak> streaks, string streakType)
         {
             var streak = streaks.FirstOrDefault(item => item.StreakType == streakType);
-            return new GamificationStreakInfo
-            {
-                StreakType = streakType,
-                Label = label,
-                CurrentDays = streak?.CurrentDays ?? 0,
-                LongestDays = streak?.LongestDays ?? 0,
-                FreezeCredits = streak?.FreezeCredits ?? 0,
-                LastActivityDate = streak?.LastActivityDate
-            };
+            return GetEffectiveStreak(streak, streakType);
         }
 
         private static string GetStreakLabel(string streakType)
         {
             return streakType switch
             {
-                GamificationStreakConstants.Walk => "Walk streak",
-                GamificationStreakConstants.Contribution => "Contribution streak",
-                GamificationStreakConstants.Explorer => "Explorer streak",
-                GamificationStreakConstants.Daily => "Daily streak",
-                _ => "Streak"
+                GamificationStreakConstants.Walk => "Sprehajalni niz",
+                GamificationStreakConstants.Contribution => "Prispevni niz",
+                GamificationStreakConstants.Explorer => "Raziskovalni niz",
+                GamificationStreakConstants.Daily => "Dnevni obisk",
+                _ => "Niz"
             };
         }
     }

@@ -135,6 +135,8 @@ builder.Services.AddTransient<IEmailSender, EmailSender>();
 builder.Services.AddHttpClient();
 builder.Services.AddSingleton<IImageOptimizationService, ImageOptimizationService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<IGamificationCalendar, GamificationCalendar>();
 builder.Services.AddScoped<IGamificationService, GamificationService>();
 builder.Services.AddScoped<IDogProgressionService, DogProgressionService>();
 builder.Services.AddSingleton<IGamificationRewardBuilder, GamificationRewardBuilder>();

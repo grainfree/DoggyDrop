@@ -15,11 +15,13 @@ namespace DoggyDrop.Controllers.Api
     {
         private readonly ApplicationDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly IGamificationService _gamificationService;
 
-        public ActivityApiController(ApplicationDbContext context, UserManager<ApplicationUser> userManager)
+        public ActivityApiController(ApplicationDbContext context, UserManager<ApplicationUser> userManager, IGamificationService gamificationService)
         {
             _context = context;
             _userManager = userManager;
+            _gamificationService = gamificationService;
         }
 
         [HttpGet("summary")]
@@ -50,12 +52,30 @@ namespace DoggyDrop.Controllers.Api
                 weeklyGoalKm: dogId.HasValue ? 7 : 10,
                 monthlyGoalKm: dogId.HasValue ? 30 : 40);
 
+            object? walkStreak = null;
+            if (!dogId.HasValue)
+            {
+                var canonicalWalkStreak = await _gamificationService.GetStreakAsync(userId, GamificationStreakConstants.Walk);
+                insights.CurrentStreakDays = canonicalWalkStreak.EffectiveCurrentDays;
+                insights.LongestStreakDays = canonicalWalkStreak.LongestDays;
+                walkStreak = new
+                {
+                    currentDays = canonicalWalkStreak.EffectiveCurrentDays,
+                    longestDays = canonicalWalkStreak.LongestDays,
+                    state = canonicalWalkStreak.State.ToString(),
+                    canonicalWalkStreak.IsSafeToday,
+                    canonicalWalkStreak.IsAtRiskToday,
+                    canonicalWalkStreak.Guidance
+                };
+            }
+
             return Ok(new
             {
                 totalWalks = walks.Count,
                 totalDistanceKm = walks.Sum(w => w.DistanceMeters) / 1000,
                 totalUsedBins = walks.Sum(w => w.UsedBinsCount),
-                insights
+                insights,
+                walkStreak
             });
         }
     }
