@@ -5,8 +5,10 @@
 
 @{
     ViewData["Title"] = "Povzetek sprehoda";
-    var showFirstWalkCelebration = TempData["ShowFirstWalkCelebration"] as bool? == true;
-    var firstWalkDistanceKm = TempData["FirstWalkDistanceKm"] as string;
+    var showFirstWalkCelebration = TempData[$"FirstWalk:Show:{Model.Id}"] as bool? == true;
+    var firstWalkDistanceKm = TempData[$"FirstWalk:DistanceKm:{Model.Id}"] as string;
+    var rewardResult = ViewBag.WalkRewardResult as DoggyDrop.ViewModels.GamificationRewardResultViewModel;
+    var visibleRewardAchievements = rewardResult?.GetVisibleAchievements(showFirstWalkCelebration) ?? [];
     var currentUserId = UserManager.GetUserId(User);
     var duration = Model.EndedAt.HasValue ? Model.EndedAt.Value - Model.StartedAt : TimeSpan.Zero;
     var distanceKm = Model.DistanceMeters / 1000;
@@ -134,6 +136,241 @@
             font-weight: 900;
         }
 
+        .walk-rewards {
+            margin: 18px 0;
+            overflow: hidden;
+            border: 1px solid rgba(47, 109, 95, 0.16);
+            border-radius: 20px;
+            background: #ffffff;
+            box-shadow: 0 18px 38px rgba(31, 45, 41, 0.09);
+        }
+
+        .walk-rewards__header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            padding: 18px 20px;
+            background: linear-gradient(135deg, rgba(227, 240, 233, 0.95), rgba(255, 240, 223, 0.88));
+        }
+
+        .walk-rewards__header span,
+        .walk-rewards__header h2,
+        .walk-reward-item strong,
+        .walk-reward-item span,
+        .walk-reward-item p,
+        .walk-next-goal strong,
+        .walk-next-goal span,
+        .walk-next-goal p {
+            display: block;
+            margin: 0;
+        }
+
+        .walk-rewards__header span {
+            color: #2f6d5f;
+            font-size: 0.76rem;
+            font-weight: 900;
+            text-transform: uppercase;
+        }
+
+        .walk-rewards__header h2 {
+            margin-top: 3px;
+            color: #1f2d29;
+            font-size: 1.35rem;
+            font-weight: 950;
+        }
+
+        .walk-rewards__header i {
+            color: #ef8f42;
+            font-size: 1.8rem;
+        }
+
+        .walk-rewards__level-up {
+            padding: 20px;
+            background: #2f6d5f;
+            color: #ffffff;
+            text-align: center;
+        }
+
+        .walk-rewards__level-up span,
+        .walk-rewards__level-up strong,
+        .walk-rewards__level-up em {
+            display: block;
+        }
+
+        .walk-rewards__level-up span {
+            font-size: 0.76rem;
+            font-style: normal;
+            font-weight: 950;
+            text-transform: uppercase;
+        }
+
+        .walk-rewards__level-up strong {
+            margin: 4px 0;
+            font-size: 1.65rem;
+            font-weight: 950;
+        }
+
+        .walk-rewards__level-up em {
+            font-size: 0.9rem;
+            font-style: normal;
+            font-weight: 850;
+            opacity: 0.86;
+        }
+
+        .walk-rewards__grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+            padding: 16px;
+        }
+
+        .walk-reward-item {
+            min-width: 0;
+            padding: 16px;
+            border: 1px solid rgba(31, 45, 41, 0.09);
+            border-radius: 14px;
+            background: #f8fbf8;
+        }
+
+        .walk-reward-item--achievement {
+            background: #fff9ef;
+        }
+
+        .walk-reward-item--level-up {
+            border-color: rgba(239, 143, 66, 0.38);
+            background: linear-gradient(145deg, #fff9ef, #f3faf5);
+        }
+
+        .walk-reward-item__level-up-label {
+            margin-top: 10px;
+            color: #c66d28;
+            font-size: 0.78rem;
+            font-weight: 950;
+            text-transform: uppercase;
+        }
+
+        .walk-reward-item__top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .walk-reward-item__top > span {
+            color: #2f6d5f;
+            font-size: 0.76rem;
+            font-weight: 900;
+            text-transform: uppercase;
+        }
+
+        .walk-reward-item__top > strong {
+            color: #ef8f42;
+            font-size: 1.1rem;
+            font-weight: 950;
+        }
+
+        .walk-reward-item h3 {
+            margin: 10px 0 4px;
+            color: #1f2d29;
+            font-size: 1.05rem;
+            font-weight: 950;
+        }
+
+        .walk-reward-item p,
+        .walk-reward-item small {
+            color: #65716d;
+            line-height: 1.45;
+        }
+
+        .walk-reward-item__bar,
+        .walk-next-goal__bar {
+            overflow: hidden;
+            height: 9px;
+            margin-top: 12px;
+            border-radius: 999px;
+            background: rgba(47, 109, 95, 0.12);
+        }
+
+        .walk-reward-item__bar span,
+        .walk-next-goal__bar span {
+            height: 100%;
+            border-radius: inherit;
+            background: linear-gradient(90deg, #2f6d5f, #ef8f42);
+        }
+
+        .walk-reward-item__chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 10px;
+        }
+
+        .walk-reward-item__chips span {
+            padding: 5px 8px;
+            border-radius: 999px;
+            background: rgba(47, 109, 95, 0.1);
+            color: #2f6d5f;
+            font-size: 0.72rem;
+            font-weight: 850;
+        }
+
+        .walk-reward-item__unlock {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+        }
+
+        .walk-reward-item__unlock i {
+            color: #ef8f42;
+            font-size: 1.45rem;
+        }
+
+        .walk-next-goal {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 16px;
+            align-items: center;
+            margin: 0 16px 16px;
+            padding: 16px;
+            border-radius: 14px;
+            background: #1f2d29;
+            color: #ffffff;
+        }
+
+        .walk-next-goal span {
+            color: #f3bd82;
+            font-size: 0.75rem;
+            font-weight: 900;
+            text-transform: uppercase;
+        }
+
+        .walk-next-goal strong {
+            margin-top: 3px;
+            font-size: 1.05rem;
+            font-weight: 950;
+        }
+
+        .walk-next-goal p {
+            margin-top: 5px;
+            color: rgba(255, 255, 255, 0.76);
+            font-size: 0.88rem;
+        }
+
+        .walk-next-goal a {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 42px;
+            padding: 10px 14px;
+            border-radius: 999px;
+            background: #ffffff;
+            color: #1f2d29;
+            font-size: 0.82rem;
+            font-weight: 900;
+            text-decoration: none;
+        }
+
         @@media (max-width: 575.98px) {
             .first-walk-celebration {
                 grid-template-columns: 1fr;
@@ -147,6 +384,24 @@
             }
 
             .first-walk-celebration__actions .btn {
+                width: 100%;
+            }
+
+            .walk-rewards {
+                border-radius: 16px;
+            }
+
+            .walk-rewards__grid {
+                grid-template-columns: 1fr;
+                padding: 12px;
+            }
+
+            .walk-next-goal {
+                grid-template-columns: 1fr;
+                margin: 0 12px 12px;
+            }
+
+            .walk-next-goal a {
                 width: 100%;
             }
         }
@@ -217,6 +472,130 @@
             <span>Povprecni tempo</span>
         </article>
     </div>
+
+    @if (rewardResult?.HasRewards == true)
+    {
+        <article class="walk-rewards" aria-labelledby="walkRewardsTitle">
+            <header class="walk-rewards__header">
+                <div>
+                    <span>Sprehod je uspel</span>
+                    <h2 id="walkRewardsTitle">Tvoje nagrade</h2>
+                </div>
+                <i class="bi bi-stars" aria-hidden="true"></i>
+            </header>
+
+            @if (rewardResult.UserReward?.LeveledUp == true)
+            {
+                <div class="walk-rewards__level-up">
+                    <span>Nov nivo</span>
+                    <strong>Nivo @rewardResult.UserReward.CurrentLevel · @rewardResult.UserReward.LevelTitle</strong>
+                    <em>Odlično napreduješ skozi DoggyDrop.</em>
+                </div>
+            }
+
+            <div class="walk-rewards__grid">
+                @if (rewardResult.UserReward != null)
+                {
+                    <section class="walk-reward-item">
+                        <div class="walk-reward-item__top">
+                            <span>Tvoje izkušnje</span>
+                            <strong>+@rewardResult.UserReward.XpEarned XP</strong>
+                        </div>
+                        <h3>Nivo @rewardResult.UserReward.CurrentLevel · @rewardResult.UserReward.LevelTitle</h3>
+                        <p>@rewardResult.UserReward.XpRemaining XP do naslednjega nivoja</p>
+                        <div class="walk-reward-item__bar" role="progressbar" aria-label="Napredek uporabniškega nivoja" aria-valuemin="0" aria-valuemax="100" aria-valuenow="@rewardResult.UserReward.ProgressPercent">
+                            <span style="width: @rewardResult.UserReward.ProgressPercent%"></span>
+                        </div>
+                    </section>
+                }
+
+                @if (rewardResult.DogReward != null)
+                {
+                    var dogChanges = rewardResult.DogReward.ProgressionChanges.GetVisibleChanges();
+                    <section class="walk-reward-item @(rewardResult.DogReward.LeveledUp || rewardResult.DogReward.ClassChanged ? "walk-reward-item--level-up" : string.Empty)">
+                        <div class="walk-reward-item__top">
+                            <span>@rewardResult.DogReward.DogName</span>
+                            <strong>+@rewardResult.DogReward.XpEarned XP</strong>
+                        </div>
+                        <h3>
+                            Nivo @rewardResult.DogReward.CurrentLevel · @rewardResult.DogReward.CurrentClass
+                        </h3>
+                        @if (rewardResult.DogReward.LeveledUp)
+                        {
+                            <span class="walk-reward-item__level-up-label">Nov nivo za @rewardResult.DogReward.DogName</span>
+                        }
+                        else if (rewardResult.DogReward.ClassChanged)
+                        {
+                            <span class="walk-reward-item__level-up-label">Nov pasji razred</span>
+                        }
+                        <p>@rewardResult.DogReward.XpRemaining XP do naslednjega nivoja</p>
+                        <div class="walk-reward-item__bar" role="progressbar" aria-label="Napredek nivoja psa @rewardResult.DogReward.DogName" aria-valuemin="0" aria-valuemax="100" aria-valuenow="@rewardResult.DogReward.ProgressPercent">
+                            <span style="width: @rewardResult.DogReward.ProgressPercent%"></span>
+                        </div>
+                        @if (dogChanges.Count > 0)
+                        {
+                            <div class="walk-reward-item__chips">
+                                @foreach (var change in dogChanges)
+                                {
+                                    <span>@change</span>
+                                }
+                            </div>
+                        }
+                    </section>
+                }
+
+                @if (rewardResult.StreakReward != null)
+                {
+                    <section class="walk-reward-item">
+                        <div class="walk-reward-item__top">
+                            <span>Niz sprehodov</span>
+                            <strong><i class="bi bi-fire" aria-hidden="true"></i> @rewardResult.StreakReward.CurrentDays dni</strong>
+                        </div>
+                        <h3>@(rewardResult.StreakReward.Increased ? "Niz se nadaljuje" : "Današnji sprehod je zabeležen")</h3>
+                        <p>
+                            @if (rewardResult.StreakReward.MilestoneReached.HasValue)
+                            {
+                                <text>Dosegel si mejnik @rewardResult.StreakReward.MilestoneReached dni zapored.</text>
+                            }
+                            else
+                            {
+                                <text>Nov sprehod jutri bo ohranil tvoj ritem.</text>
+                            }
+                        </p>
+                    </section>
+                }
+
+                @foreach (var achievement in visibleRewardAchievements)
+                {
+                    <section class="walk-reward-item walk-reward-item--achievement">
+                        <div class="walk-reward-item__unlock">
+                            <i class="bi bi-award-fill" aria-hidden="true"></i>
+                            <div>
+                                <span>Nov dosežek</span>
+                                <h3>@achievement.Name</h3>
+                                <p>@achievement.Description</p>
+                            </div>
+                        </div>
+                    </section>
+                }
+            </div>
+
+            @if (rewardResult.NextGoal != null)
+            {
+                <section class="walk-next-goal">
+                    <div>
+                        <span>Kaj sledi?</span>
+                        <strong>@rewardResult.NextGoal.Title</strong>
+                        <p>@rewardResult.NextGoal.Description</p>
+                        <div class="walk-next-goal__bar" role="progressbar" aria-label="Napredek naslednjega cilja" aria-valuemin="0" aria-valuemax="100" aria-valuenow="@rewardResult.NextGoal.ProgressPercent">
+                            <span style="width: @rewardResult.NextGoal.ProgressPercent%"></span>
+                        </div>
+                    </div>
+                    <a href="@rewardResult.NextGoal.ActionUrl">@rewardResult.NextGoal.ActionLabel</a>
+                </section>
+            }
+        </article>
+    }
 
     @if (plannedStops.Count > 0)
     {
