@@ -137,6 +137,7 @@ builder.Services.AddSingleton<IImageOptimizationService, ImageOptimizationServic
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IGamificationService, GamificationService>();
 builder.Services.AddScoped<IDogProgressionService, DogProgressionService>();
+builder.Services.AddSingleton<IGamificationRewardBuilder, GamificationRewardBuilder>();
 builder.Services.AddScoped<ISeasonalEventService, SeasonalEventService>();
 builder.Services.AddScoped<ILocalLeaderboardService, LocalLeaderboardService>();
 builder.Services.AddScoped<IMapStampService, MapStampService>();

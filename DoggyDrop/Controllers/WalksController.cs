@@ -22,6 +22,7 @@ namespace DoggyDrop.Controllers
         private readonly IGamificationService _gamificationService;
         private readonly IDogProgressionService _dogProgressionService;
         private readonly IOsmWalkPlannerService _osmWalkPlannerService;
+        private readonly IGamificationRewardBuilder _rewardBuilder;
 
         public WalksController(
             ApplicationDbContext context,
@@ -30,7 +31,8 @@ namespace DoggyDrop.Controllers
             ICloudinaryService cloudinaryService,
             IGamificationService gamificationService,
             IDogProgressionService dogProgressionService,
-            IOsmWalkPlannerService osmWalkPlannerService)
+            IOsmWalkPlannerService osmWalkPlannerService,
+            IGamificationRewardBuilder rewardBuilder)
         {
             _context = context;
             _userManager = userManager;
@@ -39,6 +41,7 @@ namespace DoggyDrop.Controllers
             _gamificationService = gamificationService;
             _dogProgressionService = dogProgressionService;
             _osmWalkPlannerService = osmWalkPlannerService;
+            _rewardBuilder = rewardBuilder;
         }
 
         [HttpGet]
@@ -1095,7 +1098,7 @@ namespace DoggyDrop.Controllers
             var previousUserLevel = _gamificationService.CalculateLevelInfo(userProfile.TotalXp);
             var dogProfile = await _dogProgressionService.EnsureProfileAsync(walk.DogId);
             var previousDogLevel = _dogProgressionService.CalculateLevelInfo(dogProfile.TotalXp);
-            var previousDogProfile = SnapshotDogProgression(dogProfile);
+            var previousDogProfile = _rewardBuilder.Snapshot(dogProfile);
             var previousWalkStreakDays = await _context.UserStreaks
                 .Where(streak => streak.UserId == userId && streak.StreakType == GamificationStreakConstants.Walk)
                 .Select(streak => streak.CurrentDays)
@@ -2223,55 +2226,9 @@ namespace DoggyDrop.Controllers
             return new GamificationRewardResultViewModel
             {
                 WalkId = walk.Id,
-                UserReward = userXpEvent == null
-                    ? null
-                    : new UserRewardViewModel
-                    {
-                        XpEarned = userXpEvent.XpAmount,
-                        PreviousXp = previousUserLevel.TotalXp,
-                        CurrentXp = currentUserLevel.TotalXp,
-                        PreviousLevel = previousUserLevel.Level,
-                        CurrentLevel = currentUserLevel.Level,
-                        LevelTitle = currentUserLevel.Title,
-                        XpRemaining = currentUserLevel.XpRemaining,
-                        ProgressPercent = currentUserLevel.ProgressPercent
-                    },
-                DogReward = dogXpEvent == null
-                    ? null
-                    : new DogRewardViewModel
-                    {
-                        DogId = walk.DogId,
-                        DogName = walk.Dog?.Name ?? "Pes",
-                        XpEarned = dogXpEvent.XpAmount,
-                        PreviousXp = previousDogLevel.TotalXp,
-                        CurrentXp = currentDogLevel.TotalXp,
-                        PreviousLevel = previousDogLevel.Level,
-                        CurrentLevel = currentDogLevel.Level,
-                        PreviousClass = previousDogProfile.DogClass,
-                        CurrentClass = currentDogProfile.DogClass,
-                        XpRemaining = currentDogLevel.XpRemaining,
-                        ProgressPercent = currentDogLevel.ProgressPercent,
-                        ProgressionChanges = new DogProgressionChangesViewModel
-                        {
-                            Adventure = currentDogProfile.Adventure - previousDogProfile.Adventure,
-                            Social = currentDogProfile.Social - previousDogProfile.Social,
-                            Forest = currentDogProfile.Forest - previousDogProfile.Forest,
-                            City = currentDogProfile.City - previousDogProfile.City,
-                            Water = currentDogProfile.Water - previousDogProfile.Water,
-                            Speed = currentDogProfile.Speed - previousDogProfile.Speed
-                        }
-                    },
-                StreakReward = walkStreak == null
-                    ? null
-                    : new StreakRewardViewModel
-                    {
-                        PreviousDays = previousWalkStreakDays,
-                        CurrentDays = walkStreak.CurrentDays,
-                        Increased = walkStreak.CurrentDays > previousWalkStreakDays,
-                        MilestoneReached = walkStreak.CurrentDays > previousWalkStreakDays && walkStreak.CurrentDays is 7 or 30 or 100
-                            ? walkStreak.CurrentDays
-                            : null
-                    },
+                UserReward = _rewardBuilder.BuildUserReward(userXpEvent, previousUserLevel, currentUserLevel),
+                DogReward = _rewardBuilder.BuildDogReward(walk.Dog ?? new Dog { Id = walk.DogId, Name = "Pes" }, dogXpEvent, previousDogLevel, currentDogLevel, previousDogProfile, currentDogProfile),
+                StreakReward = _rewardBuilder.BuildStreakReward(walkStreak, previousWalkStreakDays),
                 UnlockedAchievements = unlockedAchievements,
                 NextGoal = BuildWalkNextGoal(currentAchievements, currentTotalDistanceKm, currentUserLevel, walk.DogId)
             };
@@ -2309,23 +2266,6 @@ namespace DoggyDrop.Controllers
                 ProgressPercent = currentUserLevel.ProgressPercent,
                 ActionUrl = Url.Action(nameof(Planner), new { dogId }) ?? "/Walks/Planner",
                 ActionLabel = "Načrtuj naslednji sprehod"
-            };
-        }
-
-        private static DogProgressionProfile SnapshotDogProgression(DogProgressionProfile profile)
-        {
-            return new DogProgressionProfile
-            {
-                DogId = profile.DogId,
-                TotalXp = profile.TotalXp,
-                Level = profile.Level,
-                DogClass = profile.DogClass,
-                Adventure = profile.Adventure,
-                Social = profile.Social,
-                Forest = profile.Forest,
-                City = profile.City,
-                Water = profile.Water,
-                Speed = profile.Speed
             };
         }
 

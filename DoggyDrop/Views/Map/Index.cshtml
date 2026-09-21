@@ -28,6 +28,19 @@
 
     var binsJson = Html.Raw(json);
     var myDogsJson = Html.Raw(JsonSerializer.Serialize(ViewBag.MyDogs ?? Array.Empty<object>()));
+    var parkLocationsJson = Html.Raw(JsonSerializer.Serialize(
+        ((IEnumerable<DoggyDrop.Services.ParkLocation>?)ViewBag.ParkLocations ?? [])
+            .Select(park => new
+            {
+                placeKey = park.PlaceKey,
+                name = park.Name,
+                area = park.Area,
+                address = park.Address,
+                latitude = park.Latitude,
+                longitude = park.Longitude,
+                type = park.Type,
+                label = park.Label
+            })));
     var needsDogOnboarding = ViewBag.NeedsDogOnboarding as bool? == true;
     var userDisplayName = (ViewBag.UserDisplayName as string) ?? "pasjeljubec";
     var showFirstWalkPrompt = TempData["ShowFirstWalkPrompt"] as bool? == true;
@@ -51,6 +64,24 @@
         background: #ddd;
         outline-offset: 1px;
     }
+
+    .park-reward-sheet { position: fixed; inset: 0; z-index: 2200; display: grid; align-items: end; background: rgba(20,32,28,.38); }
+    .park-reward-sheet[hidden] { display: none; }
+    .park-reward-sheet__panel { max-height: min(82vh, 680px); overflow-y: auto; padding: 20px; border-radius: 22px 22px 0 0; background: #fff; box-shadow: 0 -12px 40px rgba(20,32,28,.2); }
+    .park-reward-sheet__head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
+    .park-reward-sheet__head span { color:#2f6d5f; font-size:.75rem; font-weight:900; text-transform:uppercase; }
+    .park-reward-sheet__head h2 { margin:3px 0 0; font-size:1.35rem; }
+    .park-reward-sheet__close { border:0; background:#eef5f1; width:40px; height:40px; border-radius:50%; font-size:1.4rem; }
+    .park-reward-sheet__grid { display:grid; gap:10px; margin-top:16px; }
+    .park-reward-card { padding:14px; border:1px solid rgba(31,45,41,.1); border-radius:14px; background:#f8fbf8; }
+    .park-reward-card strong { display:block; color:#1f2d29; }
+    .park-reward-card em { color:#ef8f42; font-style:normal; font-weight:900; }
+    .park-reward-card p { margin:4px 0 0; color:#65716d; font-size:.88rem; }
+    .park-reward-card--stamp { background:#fff9ef; }
+    .park-reward-progress { height:8px; margin-top:10px; overflow:hidden; border-radius:999px; background:rgba(47,109,95,.12); }
+    .park-reward-progress span { display:block; height:100%; background:linear-gradient(90deg,#2f6d5f,#ef8f42); }
+    .park-reward-next { display:block; margin-top:14px; padding:14px; border-radius:14px; background:#1f2d29; color:#fff; text-decoration:none; }
+    body.park-reward-open { overflow: hidden; }
 
     .leaflet-pane,
     .leaflet-tile,
@@ -3194,6 +3225,15 @@ else if (needsDogOnboarding)
         <div id="binDetailBody" class="map-bin-detail__body"></div>
     </section>
 </aside>
+<aside id="parkRewardSheet" class="park-reward-sheet" hidden aria-live="polite">
+    <section class="park-reward-sheet__panel" role="dialog" aria-modal="true" aria-labelledby="parkRewardTitle">
+        <div class="park-reward-sheet__head">
+            <div><span id="parkRewardEyebrow"></span><h2 id="parkRewardTitle"></h2></div>
+            <button type="button" class="park-reward-sheet__close" onclick="closeParkReward()" aria-label="Zapri nagrade">&times;</button>
+        </div>
+        <div id="parkRewardContent" class="park-reward-sheet__grid"></div>
+    </section>
+</aside>
 <div id="directionsPanel" class="@(hasActiveWalk ? "directions-panel--active-walk" : "")"></div>
 
 @section Scripts {
@@ -3264,32 +3304,7 @@ else if (needsDogOnboarding)
         const homeActiveWalkDuration = document.getElementById("homeActiveWalkDuration");
 
         const placeGroups = {
-            parks: [
-                { name: "Pasji park Koseze", area: "Ljubljana", address: "Ob Koseskem bajerju", latitude: 46.0689, longitude: 14.4697, type: "park", label: "Pasji park" },
-                { name: "Pasji park Stepansko naselje", area: "Ljubljana", address: "Ob Pesarski cesti", latitude: 46.0476, longitude: 14.5515, type: "park", label: "Pasji park" },
-                { name: "Pasji park Severni park", area: "Ljubljana", address: "Vilharjeva / Zelezna cesta", latitude: 46.0615, longitude: 14.5210, type: "park", label: "Pasji park" },
-                { name: "Pasji park Tivoli", area: "Ljubljana", address: "Tivoli park", latitude: 46.0567, longitude: 14.4965, type: "park", label: "Pasji park" },
-                { name: "Pasji park Fuzine", area: "Ljubljana", address: "Fuzinski park", latitude: 46.0519, longitude: 14.5650, type: "park", label: "Pasji park" },
-                { name: "Pasji park Bezigrad", area: "Ljubljana", address: "Ob Dunajski cesti", latitude: 46.0742, longitude: 14.5148, type: "park", label: "Pasji park" },
-                { name: "Pasji park Vic", area: "Ljubljana", address: "Ob PST poti", latitude: 46.0415, longitude: 14.4769, type: "park", label: "Pasji park" },
-                { name: "Pasji park Mostec", area: "Ljubljana", address: "Rekreacijsko obmocje Mostec", latitude: 46.0727, longitude: 14.4723, type: "park", label: "Pasji park" },
-                { name: "Pasji park Koper", area: "Obala", address: "Semedela", latitude: 45.5426, longitude: 13.7184, type: "park", label: "Pasji park" },
-                { name: "Pasji park Izola", area: "Obala", address: "Ob obalni promenadi", latitude: 45.5365, longitude: 13.6619, type: "park", label: "Pasji park" },
-                { name: "Pasji park Lucija", area: "Obala", address: "Lucija center", latitude: 45.5056, longitude: 13.6024, type: "park", label: "Pasji park" },
-                { name: "Pasji park Murska Sobota", area: "Prekmurje", address: "Mestni park / sportni del", latitude: 46.6606, longitude: 16.1664, type: "park", label: "Pasji park" },
-                { name: "Pasji park Tabor", area: "Maribor", address: "Ob sportnem parku Tabor", latitude: 46.5487, longitude: 15.6453, type: "park", label: "Pasji park" },
-                { name: "Pasji park Mestni park", area: "Maribor", address: "Ob robu Mestnega parka", latitude: 46.5625, longitude: 15.6480, type: "park", label: "Pasji park" },
-                { name: "Pasji park Pekre", area: "Maribor", address: "Pekre", latitude: 46.5338, longitude: 15.5959, type: "park", label: "Pasji park" },
-                { name: "Pasji park Celje", area: "Celje", address: "Ob Savinji", latitude: 46.2387, longitude: 15.2675, type: "park", label: "Pasji park" },
-                { name: "Pasji park Lava", area: "Celje", address: "Lava", latitude: 46.2289, longitude: 15.2518, type: "park", label: "Pasji park" },
-                { name: "Pasji park Kranj", area: "Kranj", address: "Zlato polje", latitude: 46.2449, longitude: 14.3617, type: "park", label: "Pasji park" },
-                { name: "Pasji park Strazisce", area: "Kranj", address: "Strazisce", latitude: 46.2508, longitude: 14.3325, type: "park", label: "Pasji park" },
-                { name: "Pasji park Novo mesto", area: "Novo mesto", address: "Portoval", latitude: 45.7998, longitude: 15.1771, type: "park", label: "Pasji park" },
-                { name: "Pasji park Nova Gorica", area: "Nova Gorica", address: "Ob sportnem centru", latitude: 45.9561, longitude: 13.6482, type: "park", label: "Pasji park" },
-                { name: "Pasji park Ptuj", area: "Ptuj", address: "Ranca Ptuj", latitude: 46.4216, longitude: 15.8788, type: "park", label: "Pasji park" },
-                { name: "Pasji park Slovenj Gradec", area: "Slovenj Gradec", address: "Sportni park", latitude: 46.5095, longitude: 15.0808, type: "park", label: "Pasji park" },
-                { name: "Pasji park Velenje", area: "Velenje", address: "Ob Velenjskem jezeru", latitude: 46.3622, longitude: 15.1147, type: "park", label: "Pasji park" }
-            ],
+            parks: @parkLocationsJson,
             water: [
                 { name: "Pitnik Lent", latitude: 46.5572, longitude: 15.6467, type: "water", label: "Voda" },
                 { name: "Pitnik Tivoli", latitude: 46.0552, longitude: 14.4958, type: "water", label: "Voda" },
@@ -3633,6 +3648,10 @@ else if (needsDogOnboarding)
                             <button type="button" class="bin-popup__nav" onclick="navigateToPlaceInApp(${Number(place.latitude)}, ${Number(place.longitude)})">Odpri navigacijo</button>
                         </div>
                     `);
+                marker.on("popupopen", () => {
+                    const button = marker.getPopup()?.getElement()?.querySelector("[data-record-park-visit]");
+                    button?.addEventListener("click", () => recordParkVisit(button.dataset.placeKey, button));
+                });
                 placeMarkers.set(getPlaceKey(place), marker);
             });
             return layer;
@@ -3661,13 +3680,13 @@ else if (needsDogOnboarding)
                 <div class="park-visit-box">
                     <label for="parkDog${escapeAttribute(placeKey)}">Obisk parka</label>
                     <select id="parkDog${escapeAttribute(placeKey)}">${options}</select>
-                    <button type="button" onclick="recordParkVisit('${escapeAttribute(placeKey)}')">Zabelezi obisk</button>
+                    <button type="button" data-record-park-visit data-place-key="${escapeAttribute(placeKey)}">Zabelezi obisk</button>
                     <span id="parkVisitFeedback${escapeAttribute(placeKey)}"></span>
                 </div>
             `;
         }
 
-        async function recordParkVisit(placeKey) {
+        async function recordParkVisit(placeKey, triggerButton) {
             const place = [...placeGroups.parks, ...placeGroups.water, ...placeGroups.cafes]
                 .find(candidate => getPlaceKey(candidate) === placeKey);
             const feedback = document.getElementById(`parkVisitFeedback${placeKey}`);
@@ -3675,6 +3694,13 @@ else if (needsDogOnboarding)
 
             if (!place || !dogSelect) {
                 return;
+            }
+
+            if (triggerButton?.disabled) return;
+            if (triggerButton) {
+                triggerButton.disabled = true;
+                triggerButton.setAttribute("aria-busy", "true");
+                triggerButton.textContent = "Shranjujem ...";
             }
 
             if (feedback) {
@@ -3690,12 +3716,7 @@ else if (needsDogOnboarding)
                     },
                     body: JSON.stringify({
                         dogId: Number(dogSelect.value),
-                        parkName: place.name,
-                        area: place.area,
-                        address: place.address,
-                        placeKey,
-                        latitude: place.latitude,
-                        longitude: place.longitude
+                        placeKey
                     })
                 });
 
@@ -3711,15 +3732,104 @@ else if (needsDogOnboarding)
                 const result = await response.json();
                 if (feedback) {
                     feedback.textContent = result.saved
-                        ? `${escapeHtml(result.name)}: obisk shranjen (${result.visitCount}x).`
+                        ? `${result.name}: obisk shranjen (${result.visitCount}x).`
                         : `Obisk je bil ze shranjen pred kratkim (${result.visitCount}x).`;
+                }
+                if (result.saved && result.reward) {
+                    showParkReward(result.reward, triggerButton);
                 }
             } catch (error) {
                 if (feedback) {
                     feedback.textContent = error.message;
                 }
+            } finally {
+                if (triggerButton) {
+                    triggerButton.disabled = false;
+                    triggerButton.removeAttribute("aria-busy");
+                    triggerButton.textContent = "Zabelezi obisk";
+                }
             }
         }
+
+        let parkRewardTrigger = null;
+
+        function closeParkReward() {
+            const sheet = document.getElementById("parkRewardSheet");
+            if (sheet.hidden) return;
+            sheet.hidden = true;
+            document.body.classList.remove("park-reward-open");
+            parkRewardTrigger?.focus();
+            parkRewardTrigger = null;
+        }
+
+        function rewardProgress(label, value) {
+            const safe = Math.max(0, Math.min(100, Number(value) || 0));
+            return `<div class="park-reward-progress" role="progressbar" aria-label="${escapeAttribute(label)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${safe}"><span style="width:${safe}%"></span></div>`;
+        }
+
+        function showParkReward(reward, triggerButton) {
+            const progression = reward.progression || {};
+            const cards = [];
+            if (progression.userReward) {
+                const item = progression.userReward;
+                cards.push(`<div class="park-reward-card"><strong>+${Number(item.xpEarned)} XP · Nivo ${Number(item.currentLevel)}</strong>${item.leveledUp ? `<em>Nov nivo · ${escapeHtml(item.levelTitle)}</em>` : `<p>${Number(item.xpRemaining)} XP do naslednjega nivoja</p>`}${rewardProgress("Napredek uporabniškega nivoja", item.progressPercent)}</div>`);
+            }
+            if (progression.dogReward) {
+                const item = progression.dogReward;
+                const statLabels = { adventure: "Pustolovščina", social: "Družabnost", forest: "Gozd", city: "Mesto", water: "Voda", speed: "Hitrost" };
+                const changes = Object.entries(item.progressionChanges || {}).filter(([, value]) => Number(value) > 0).map(([key, value]) => `${escapeHtml(statLabels[key] || key)} +${Number(value)}`).join(" · ");
+                cards.push(`<div class="park-reward-card"><strong>${escapeHtml(item.dogName)} +${Number(item.xpEarned)} XP · Nivo ${Number(item.currentLevel)}</strong>${item.leveledUp || item.classChanged ? `<em>${item.leveledUp ? "Nov nivo" : "Nov pasji razred"} · ${escapeHtml(item.currentClass)}</em>` : ""}${changes ? `<p>${changes}</p>` : ""}${rewardProgress("Napredek nivoja psa", item.progressPercent)}</div>`);
+            }
+            if (progression.streakReward) cards.push(`<div class="park-reward-card"><strong>Raziskovalni niz: ${Number(progression.streakReward.currentDays)} dni</strong><p>Nov obisk jutri bo ohranil tvoj raziskovalni ritem.</p></div>`);
+            if (reward.stamp) {
+                const stamp = reward.stamp;
+                const title = stamp.isNew ? "Nova značka lokacije" : stamp.wasUpgraded ? "Značka nadgrajena!" : "Značka lokacije";
+                const transition = stamp.wasUpgraded ? `${escapeHtml(stamp.previousRarity)} → ${escapeHtml(stamp.rarity)}` : escapeHtml(stamp.rarity);
+                cards.push(`<div class="park-reward-card park-reward-card--stamp"><strong>${title}</strong><p>${escapeHtml(stamp.locationName)} · ${transition}</p></div>`);
+            }
+            (progression.unlockedAchievements || []).forEach(item => cards.push(`<div class="park-reward-card"><em>Nov dosežek</em><strong>${escapeHtml(item.name)}</strong><p>${escapeHtml(item.description)}</p></div>`));
+            if (progression.nextGoal) {
+                const goal = progression.nextGoal;
+                cards.push(`<a class="park-reward-next" href="${escapeAttribute(goal.actionUrl)}"><strong>${escapeHtml(goal.title)}</strong><p>${escapeHtml(goal.description)}</p>${rewardProgress("Napredek naslednjega cilja", goal.progressPercent)}</a>`);
+            }
+            document.getElementById("parkRewardEyebrow").textContent = reward.isNewUserDiscovery ? "Nov kraj odkrit!" : "Ponovni obisk";
+            document.getElementById("parkRewardTitle").textContent = reward.parkName;
+            if (!reward.isNewUserDiscovery && reward.isNewForDog && progression.dogReward) {
+                cards.unshift(`<div class="park-reward-card"><strong>Prvi obisk za ${escapeHtml(progression.dogReward.dogName)}</strong><p>Ta kraj že poznaš, tvoj pes pa ga je obiskal prvič.</p></div>`);
+            }
+            document.getElementById("parkRewardContent").innerHTML = cards.join("");
+            const sheet = document.getElementById("parkRewardSheet");
+            parkRewardTrigger = triggerButton || document.activeElement;
+            sheet.hidden = false;
+            document.body.classList.add("park-reward-open");
+            sheet.querySelector(".park-reward-sheet__close")?.focus();
+        }
+
+        document.getElementById("parkRewardSheet")?.addEventListener("click", event => {
+            if (event.target.id === "parkRewardSheet") closeParkReward();
+        });
+
+        document.addEventListener("keydown", event => {
+            const sheet = document.getElementById("parkRewardSheet");
+            if (!sheet || sheet.hidden) return;
+            if (event.key === "Escape") {
+                event.preventDefault();
+                closeParkReward();
+                return;
+            }
+            if (event.key !== "Tab") return;
+            const focusable = [...sheet.querySelectorAll('button:not([disabled]), a[href]')];
+            if (focusable.length === 0) return;
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            if (event.shiftKey && document.activeElement === first) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault();
+                first.focus();
+            }
+        });
 
         function wireLayerToggle(inputId, layer, panel) {
             document.getElementById(inputId).addEventListener("change", function (event) {
@@ -4876,7 +4986,7 @@ else if (needsDogOnboarding)
         }
 
         function getPlaceKey(place) {
-            return `${place.type}-${place.latitude}-${place.longitude}`;
+            return place.placeKey || `${place.type}-${place.latitude}-${place.longitude}`;
         }
 
         function normalizeSearch(value) {

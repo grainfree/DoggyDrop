@@ -21,6 +21,8 @@ namespace DoggyDrop.Controllers
         private readonly INotificationService _notificationService;
         private readonly IGamificationService _gamificationService;
         private readonly IDogProgressionService _dogProgressionService;
+        private readonly IMapStampService _mapStampService;
+        private readonly IGamificationRewardBuilder _rewardBuilder;
         private static readonly IReadOnlyList<FounderArea> FounderAreas =
         [
             new("maribor", "Maribor", 46.5547, 15.6459, 6500),
@@ -42,7 +44,9 @@ namespace DoggyDrop.Controllers
                              IEmailSender emailSender,
                              INotificationService notificationService,
                              IGamificationService gamificationService,
-                             IDogProgressionService dogProgressionService)
+                             IDogProgressionService dogProgressionService,
+                             IMapStampService mapStampService,
+                             IGamificationRewardBuilder rewardBuilder)
         {
             _context = context;
             _environment = environment;
@@ -52,6 +56,8 @@ namespace DoggyDrop.Controllers
             _notificationService = notificationService;
             _gamificationService = gamificationService;
             _dogProgressionService = dogProgressionService;
+            _mapStampService = mapStampService;
+            _rewardBuilder = rewardBuilder;
         }
 
         // 📍 Prikaz obrazca za dodajanje koša
@@ -150,6 +156,8 @@ namespace DoggyDrop.Controllers
                 ViewBag.UserDisplayName = "pasjeljubec";
             }
 
+            ViewBag.ParkLocations = ParkLocationCatalog.All;
+
             return View(bins);
         }
 
@@ -171,65 +179,153 @@ namespace DoggyDrop.Controllers
                 return NotFound(new { message = "Pes ni najden." });
             }
 
-            if (string.IsNullOrWhiteSpace(input.ParkName)
-                || string.IsNullOrWhiteSpace(input.PlaceKey)
-                || input.Latitude is < -90 or > 90
-                || input.Longitude is < -180 or > 180)
+            var park = ParkLocationCatalog.Find(input.PlaceKey);
+            if (park == null)
             {
-                return BadRequest(new { message = "Lokacija parka ni veljavna." });
+                return BadRequest(new { message = "Park ni na seznamu podprtih lokacij." });
             }
 
             var now = DateTime.UtcNow;
+            var placeKey = park.PlaceKey;
+            var parkName = park.Name;
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+
+            await LockUserParkProgressionAsync(userId);
+
             var recentDuplicate = await _context.DogParkVisits.AnyAsync(visit =>
                 visit.DogId == dog.Id
-                && visit.PlaceKey == input.PlaceKey
+                && visit.PlaceKey == placeKey
                 && visit.VisitedAt >= now.AddHours(-2));
 
-            if (!recentDuplicate)
+            if (recentDuplicate)
             {
-                _context.DogParkVisits.Add(new DogParkVisit
-                {
-                    DogId = dog.Id,
-                    UserId = userId,
-                    ParkName = input.ParkName.Trim()[..Math.Min(input.ParkName.Trim().Length, 120)],
-                    Area = TrimToLength(input.Area, 80),
-                    Address = TrimToLength(input.Address, 160),
-                    PlaceKey = input.PlaceKey.Trim()[..Math.Min(input.PlaceKey.Trim().Length, 120)],
-                    Latitude = input.Latitude,
-                    Longitude = input.Longitude,
-                    VisitedAt = now
-                });
-
-                await _context.SaveChangesAsync();
-                await NotifyParkAchievementsAsync(userId);
-                await _gamificationService.AwardXpAsync(
-                    userId,
-                    GamificationConstants.VisitNewPark,
-                    GamificationConstants.VisitNewParkXp,
-                    nameof(DogParkVisit),
-                    $"{dog.Id}:{input.PlaceKey}",
-                    "Obiskan nov park");
-                await _gamificationService.RecordStreakActivityAsync(userId, GamificationStreakConstants.Explorer);
-                await _dogProgressionService.AwardXpAsync(
-                    dog.Id,
-                    "ParkVisit",
-                    35,
-                    new DogProgressionStatBoost { Adventure = 10, Social = 8, Forest = 12 },
-                    nameof(DogParkVisit),
-                    $"{dog.Id}:{input.PlaceKey}",
-                    "Obisk pasjega parka");
+                var recentCount = await _context.DogParkVisits.CountAsync(visit => visit.DogId == dog.Id && visit.PlaceKey == placeKey);
+                await transaction.CommitAsync();
+                return Json(new { dog.Name, ParkName = parkName, VisitCount = recentCount, Saved = false, Reward = (ParkVisitRewardResultViewModel?)null });
             }
 
-            var visitCount = await _context.DogParkVisits
-                .CountAsync(visit => visit.DogId == dog.Id && visit.PlaceKey == input.PlaceKey);
+            var visitsBefore = await _context.DogParkVisits
+                .AsNoTracking()
+                .Where(visit => visit.UserId == userId)
+                .ToListAsync();
+            var isNewUserDiscovery = visitsBefore.All(visit => visit.PlaceKey != placeKey);
+            var isNewForDog = visitsBefore.All(visit => visit.DogId != dog.Id || visit.PlaceKey != placeKey);
+            var dogVisitCountBefore = visitsBefore.Count(visit => visit.DogId == dog.Id && visit.PlaceKey == placeKey);
+            var uniqueParksBefore = visitsBefore.Select(visit => visit.PlaceKey).Distinct().Count();
+            var stampBefore = _mapStampService.BuildCollection(visitsBefore).Stamps.FirstOrDefault(stamp => stamp.PlaceKey == placeKey);
+            var userProfile = await _gamificationService.EnsureProfileAsync(userId);
+            var userLevelBefore = _gamificationService.CalculateLevelInfo(userProfile.TotalXp);
+            var dogProfile = await _dogProgressionService.EnsureProfileAsync(dog.Id);
+            var dogLevelBefore = _dogProgressionService.CalculateLevelInfo(dogProfile.TotalXp);
+            var dogProfileBefore = _rewardBuilder.Snapshot(dogProfile);
+            var explorerDaysBefore = await _context.UserStreaks
+                .Where(streak => streak.UserId == userId && streak.StreakType == GamificationStreakConstants.Explorer)
+                .Select(streak => streak.CurrentDays)
+                .FirstOrDefaultAsync();
+
+            _context.DogParkVisits.Add(new DogParkVisit
+            {
+                DogId = dog.Id,
+                UserId = userId,
+                ParkName = parkName,
+                Area = park.Area,
+                Address = park.Address,
+                PlaceKey = placeKey,
+                Latitude = park.Latitude,
+                Longitude = park.Longitude,
+                VisitedAt = now
+            });
+
+            await _context.SaveChangesAsync();
+            await NotifyParkAchievementsAsync(userId);
+            var userXpEvent = isNewUserDiscovery
+                ? await _gamificationService.AwardXpAsync(userId, GamificationConstants.VisitNewPark,
+                    GamificationConstants.VisitNewParkXp, nameof(DogParkVisit), placeKey, "Obiskan nov park")
+                : null;
+            var explorerStreak = await _gamificationService.RecordStreakActivityAsync(userId, GamificationStreakConstants.Explorer);
+            var dogXpEvent = isNewForDog
+                ? await _dogProgressionService.AwardXpAsync(dog.Id, "ParkVisit", 35,
+                    new DogProgressionStatBoost { Adventure = 10, Social = 8, Forest = 12 }, nameof(DogParkVisit), $"{dog.Id}:{placeKey}", "Obisk pasjega parka")
+                : null;
+
+            var userLevelAfter = await _gamificationService.GetLevelInfoAsync(userId);
+            var dogProfileAfter = await _context.DogProgressionProfiles.AsNoTracking().SingleAsync(profile => profile.DogId == dog.Id);
+            var dogLevelAfter = _dogProgressionService.CalculateLevelInfo(dogProfileAfter.TotalXp);
+            var visitsAfter = await _context.DogParkVisits.AsNoTracking().Where(visit => visit.UserId == userId).ToListAsync();
+            var stampAfter = _mapStampService.BuildCollection(visitsAfter).Stamps.Single(stamp => stamp.PlaceKey == placeKey);
+            var uniqueParksAfter = visitsAfter.Select(visit => visit.PlaceKey).Distinct().Count();
+            var achievements = uniqueParksBefore < 5 && uniqueParksAfter >= 5
+                ? new[] { new RewardAchievementViewModel { Name = "Obiskanih 5 parkov", Description = "Obiskal si 5 različnih pasjih parkov." } }
+                : [];
+            var nextGoal = uniqueParksAfter < 5
+                ? new RewardNextGoalViewModel
+                {
+                    Title = "Raziskovalec parkov",
+                    Description = $"Obišči še {5 - uniqueParksAfter} nov park za dosežek Obiskanih 5 parkov.",
+                    ProgressPercent = Math.Clamp((int)Math.Round(uniqueParksAfter / 5d * 100), 0, 100),
+                    ActionUrl = Url.Action(nameof(Index), "Map") ?? "/Map",
+                    ActionLabel = "Razišči zemljevid"
+                }
+                : new RewardNextGoalViewModel
+                {
+                    Title = $"Do nivoja {userLevelAfter.Level + 1}",
+                    Description = $"Manjka ti še {userLevelAfter.XpRemaining} XP do naslednjega nivoja.",
+                    ProgressPercent = userLevelAfter.ProgressPercent,
+                    ActionUrl = Url.Action(nameof(Index), "Map") ?? "/Map",
+                    ActionLabel = "Razišči zemljevid"
+                };
+
+            var reward = new ParkVisitRewardResultViewModel
+            {
+                IsNewUserDiscovery = isNewUserDiscovery,
+                IsNewForDog = isNewForDog,
+                ParkName = parkName,
+                VisitCount = dogVisitCountBefore + 1,
+                Progression = new GamificationRewardResultViewModel
+                {
+                    UserReward = _rewardBuilder.BuildUserReward(userXpEvent, userLevelBefore, userLevelAfter),
+                    DogReward = _rewardBuilder.BuildDogReward(dog, dogXpEvent, dogLevelBefore, dogLevelAfter, dogProfileBefore, dogProfileAfter),
+                    StreakReward = _rewardBuilder.BuildStreakReward(explorerStreak, explorerDaysBefore, includeUnchanged: false),
+                    UnlockedAchievements = achievements,
+                    NextGoal = nextGoal
+                },
+                Stamp = new MapStampRewardViewModel
+                {
+                    LocationName = stampAfter.Name,
+                    Rarity = stampAfter.Rarity,
+                    PreviousRarity = stampBefore?.Rarity,
+                    IsNew = stampBefore == null,
+                    WasUpgraded = stampBefore != null && !string.Equals(stampBefore.Rarity, stampAfter.Rarity, StringComparison.Ordinal)
+                }
+            };
+
+            await transaction.CommitAsync();
 
             return Json(new
             {
                 dog.Name,
-                input.ParkName,
-                VisitCount = visitCount,
-                Saved = !recentDuplicate
+                ParkName = parkName,
+                VisitCount = reward.VisitCount,
+                Saved = true,
+                Reward = reward
             });
+        }
+
+        private async Task LockUserParkProgressionAsync(string userId)
+        {
+            if (_context.Database.IsNpgsql())
+            {
+                // PostgreSQL READ COMMITTED holds this row lock until transaction completion.
+                await _context.Users
+                    .FromSqlInterpolated($"SELECT * FROM \"AspNetUsers\" WHERE \"Id\" = {userId} FOR UPDATE")
+                    .SingleAsync();
+                return;
+            }
+
+            // SQLite functional tests serialize writers at database scope.
+            await _context.Users
+                .Where(user => user.Id == userId)
+                .ExecuteUpdateAsync(update => update.SetProperty(user => user.AccessFailedCount, user => user.AccessFailedCount));
         }
 
         // ✅ Upravljanje - prikaz neodobrenih predlogov
@@ -751,16 +847,6 @@ namespace DoggyDrop.Controllers
     {
         public int DogId { get; set; }
 
-        public string ParkName { get; set; } = string.Empty;
-
-        public string? Area { get; set; }
-
-        public string? Address { get; set; }
-
         public string PlaceKey { get; set; } = string.Empty;
-
-        public double Latitude { get; set; }
-
-        public double Longitude { get; set; }
     }
 }

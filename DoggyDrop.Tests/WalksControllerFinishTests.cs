@@ -192,7 +192,8 @@ public sealed class WalksControllerFinishTests : IDisposable
             new NoOpImageService(),
             new GamificationService(context, notifications),
             new DogProgressionService(context),
-            new NoOpPlannerService());
+            new NoOpPlannerService(),
+            new GamificationRewardBuilder());
 
         var httpContext = new DefaultHttpContext
         {
