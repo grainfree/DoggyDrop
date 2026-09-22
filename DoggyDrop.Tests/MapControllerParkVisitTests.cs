@@ -118,7 +118,9 @@ public sealed class MapControllerParkVisitTests : IDisposable
         var dogId = await SeedAsync();
         foreach (var key in new[] { ParkA, ParkB, ParkC, ParkD }) await SeedPriorVisitAndRewardsAsync(dogId, key, includeRewardEvents: false);
         var achievements = (await VisitAsync(dogId, ParkE)).GetProperty("reward").GetProperty("progression").GetProperty("unlockedAchievements");
-        Assert.Contains(achievements.EnumerateArray(), item => item.GetProperty("name").GetString() == "Obiskanih 5 parkov");
+        Assert.Contains(achievements.EnumerateArray(), item => item.GetProperty("name").GetString() == "Raziskovalec parkov");
+        await using var db = Context();
+        Assert.Single(await db.UserAchievements.Where(item => item.AchievementKey == UserAchievementCatalog.Explorer5Places).ToListAsync());
     }
 
     [Fact] public async Task DogOwnedByAnotherUser_IsRejected()
@@ -237,7 +239,9 @@ public sealed class MapControllerParkVisitTests : IDisposable
         var unlocks = results.Sum(result => result.GetProperty("reward").GetProperty("progression")
             .GetProperty("unlockedAchievements").GetArrayLength());
         Assert.Equal(1, unlocks);
-        Assert.Equal(1, _notifications.Count("Achievement", "Visited 5 parks"));
+        Assert.Equal(1, _notifications.Count($"Achievement:{UserAchievementCatalog.Explorer5Places}", "Raziskovalec parkov"));
+        await using var db = Context();
+        Assert.Single(await db.UserAchievements.Where(item => item.AchievementKey == UserAchievementCatalog.Explorer5Places).ToListAsync());
     }
 
     private async Task<int> SeedAsync(string ownerId = UserId, int userXp = 0, int dogXp = 0, bool explorerYesterday = false)
@@ -291,7 +295,8 @@ public sealed class MapControllerParkVisitTests : IDisposable
     {
         calendar ??= new TestGamificationCalendar();
         var controller = new MapController(db, new TestEnvironment(), UserManager(db), new NoOpImages(), new NoOpEmail(), _notifications,
-            new GamificationService(db, _notifications, calendar), new DogProgressionService(db), new MapStampService(), new GamificationRewardBuilder(), calendar);
+            new GamificationService(db, _notifications, calendar), new DogProgressionService(db), new MapStampService(), new GamificationRewardBuilder(), calendar,
+            new UserAchievementService(db, _notifications));
         controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, UserId)], "Test")) } };
         controller.Url = new StubUrl();
         return controller;

@@ -138,6 +138,7 @@ builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<IGamificationCalendar, GamificationCalendar>();
 builder.Services.AddScoped<IGamificationService, GamificationService>();
+builder.Services.AddScoped<IUserAchievementService, UserAchievementService>();
 builder.Services.AddScoped<IDogProgressionService, DogProgressionService>();
 builder.Services.AddSingleton<IGamificationRewardBuilder, GamificationRewardBuilder>();
 builder.Services.AddScoped<ISeasonalEventService, SeasonalEventService>();

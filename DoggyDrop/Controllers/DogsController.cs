@@ -16,17 +16,20 @@ namespace DoggyDrop.Controllers
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly ICloudinaryService _cloudinaryService;
         private readonly IDogProgressionService _dogProgressionService;
+        private readonly IUserAchievementService _userAchievementService;
 
         public DogsController(
             ApplicationDbContext context,
             UserManager<ApplicationUser> userManager,
             ICloudinaryService cloudinaryService,
-            IDogProgressionService dogProgressionService)
+            IDogProgressionService dogProgressionService,
+            IUserAchievementService userAchievementService)
         {
             _context = context;
             _userManager = userManager;
             _cloudinaryService = cloudinaryService;
             _dogProgressionService = dogProgressionService;
+            _userAchievementService = userAchievementService;
         }
 
         [HttpGet]
@@ -213,9 +216,19 @@ namespace DoggyDrop.Controllers
                 CreatedAt = DateTime.UtcNow
             };
 
-            _context.Dogs.Add(dog);
-            await _context.SaveChangesAsync();
-            await _dogProgressionService.EnsureProfileAsync(dog.Id);
+            await using (var transaction = await _context.Database.BeginTransactionAsync())
+            {
+                _context.Dogs.Add(dog);
+                await _context.SaveChangesAsync();
+                await _userAchievementService.TryUnlockAsync(
+                    userId,
+                    UserAchievementCatalog.DogParent,
+                    dog.CreatedAt,
+                    nameof(Dog),
+                    dog.Id.ToString());
+                await _dogProgressionService.EnsureProfileAsync(dog.Id);
+                await transaction.CommitAsync();
+            }
 
             TempData["SuccessMessage"] = model.IsFirstDog
                 ? $"{dog.Name} je zdaj del DoggyDrop. Cas je za prvi sprehod."

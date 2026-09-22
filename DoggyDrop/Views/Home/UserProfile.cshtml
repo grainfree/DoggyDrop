@@ -287,7 +287,7 @@
                     <div class="profile-achievement @(achievement.IsUnlocked ? "is-unlocked" : "is-locked")">
                         <div class="profile-achievement__top">
                             <strong>@achievement.Name</strong>
-                            <span>@(achievement.IsUnlocked ? "Odklenjeno" : achievement.ProgressText)</span>
+                            <span>@(achievement.IsUnlocked && achievement.UnlockedAt.HasValue ? $"Odklenjeno {achievement.UnlockedAt.Value.ToLocalTime():d. M. yyyy}" : achievement.ProgressText)</span>
                         </div>
                         <p>@achievement.Description</p>
                         <div class="profile-achievement__bar">

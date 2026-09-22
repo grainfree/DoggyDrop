@@ -21,6 +21,7 @@ namespace DoggyDrop.Controllers
         private readonly ISeasonalEventService _seasonalEventService;
         private readonly ILocalLeaderboardService _localLeaderboardService;
         private readonly IMapStampService _mapStampService;
+        private readonly IUserAchievementService _userAchievementService;
 
         public HomeController(
             ILogger<HomeController> logger,
@@ -31,7 +32,8 @@ namespace DoggyDrop.Controllers
             IGamificationService gamificationService,
             ISeasonalEventService seasonalEventService,
             ILocalLeaderboardService localLeaderboardService,
-            IMapStampService mapStampService)
+            IMapStampService mapStampService,
+            IUserAchievementService userAchievementService)
         {
             _logger = logger;
             _userManager = userManager;
@@ -42,6 +44,7 @@ namespace DoggyDrop.Controllers
             _seasonalEventService = seasonalEventService;
             _localLeaderboardService = localLeaderboardService;
             _mapStampService = mapStampService;
+            _userAchievementService = userAchievementService;
         }
 
         public IActionResult Index()
@@ -312,14 +315,16 @@ namespace DoggyDrop.Controllers
                 .Where(badge => badge.UserId == user.Id)
                 .OrderByDescending(badge => badge.UnlockedAt)
                 .ToListAsync();
+            var ownedAchievements = await _userAchievementService.GetOwnedAsync(user.Id);
 
             var model = new UserProfileViewModel
             {
                 Email = user.Email ?? string.Empty,
                 ProfileImageUrl = user.ProfileImageUrl,
                 TotalBins = totalBins,
-                Badges = GetBadges(totalBins, completedWalks.Count, totalDistanceKm, dogs.Count),
-                Achievements = GetAchievements(totalBins, completedWalks.Count, totalDistanceKm, dogs.Count),
+                Achievements = UserAchievementPresentationBuilder.Build(
+                    new UserAchievementProgress(dogs.Count, completedWalks.Count, totalDistanceKm, totalBins, parkVisits.Select(visit => visit.PlaceKey).Distinct().Count()),
+                    ownedAchievements),
                 DisplayName = user.DisplayName,
                 TotalDogs = dogs.Count,
                 TotalWalks = completedWalks.Count,
@@ -432,31 +437,6 @@ namespace DoggyDrop.Controllers
             return RedirectToAction(nameof(UserProfile));
         }
 
-        private static List<string> GetBadges(int totalBins, int totalWalks, double totalDistanceKm, int totalDogs)
-        {
-            var badges = new List<string>();
-            if (totalDogs >= 1) badges.Add("Dog parent");
-            if (totalWalks >= 1) badges.Add("First walk");
-            if (totalDistanceKm >= 10) badges.Add("10 km club");
-            if (totalDistanceKm >= 100) badges.Add("100 km legend");
-            if (totalBins >= 1) badges.Add("Bin helper");
-            if (totalBins >= 10) badges.Add("Bin hero");
-            return badges;
-        }
-
-        private static IReadOnlyList<AchievementItem> GetAchievements(int totalBins, int totalWalks, double totalDistanceKm, int totalDogs)
-        {
-            return
-            [
-                BuildAchievement("Dog parent", "Dodaj prvega psa v profil.", totalDogs, 1, suffix: "psov"),
-                BuildAchievement("First walk", "Zakljuci prvi sprehod.", totalWalks, 1, suffix: "sprehodov"),
-                BuildAchievement("City walker", "Prehodi 10 km skupaj.", totalDistanceKm, 10, suffix: "km"),
-                BuildAchievement("Trail master", "Prehodi 100 km skupaj.", totalDistanceKm, 100, suffix: "km"),
-                BuildAchievement("Bin helper", "Dodaj prvi pasji kos.", totalBins, 1, suffix: "kosev"),
-                BuildAchievement("Bin hero", "Dodaj 10 pasjih kosev.", totalBins, 10, suffix: "kosev")
-            ];
-        }
-
         private static LocalLeaderboardViewModel MapLocalLeaderboards(LocalLeaderboardBoard board)
         {
             return new LocalLeaderboardViewModel
@@ -482,23 +462,6 @@ namespace DoggyDrop.Controllers
                 ScoreText = entry.ScoreText,
                 DogId = entry.DogId
             }).ToList();
-        }
-
-        private static AchievementItem BuildAchievement(string name, string description, double current, double target, string suffix)
-        {
-            var safeTarget = Math.Max(target, 1);
-            var progressPercent = (int)Math.Min(100, Math.Round(current / safeTarget * 100));
-            var currentText = suffix == "km" ? current.ToString("0.0") : Math.Floor(current).ToString("0");
-            var targetText = suffix == "km" ? target.ToString("0") : target.ToString("0");
-
-            return new AchievementItem
-            {
-                Name = name,
-                Description = description,
-                IsUnlocked = current >= target,
-                ProgressPercent = progressPercent,
-                ProgressText = $"{currentText} / {targetText} {suffix}"
-            };
         }
 
         private static string GetStrongestFlameTier(IEnumerable<GamificationStreakInfo> streaks)

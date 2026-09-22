@@ -6,8 +6,6 @@ namespace DoggyDrop.ViewModels
 
         public int TotalBins { get; set; }
 
-        public List<string> Badges { get; set; } = new();
-
         public IReadOnlyList<AchievementItem> Achievements { get; set; } = [];
 
         public string? DisplayName { get; set; }

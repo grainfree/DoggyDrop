@@ -24,6 +24,7 @@ namespace DoggyDrop.Controllers
         private readonly IOsmWalkPlannerService _osmWalkPlannerService;
         private readonly IGamificationRewardBuilder _rewardBuilder;
         private readonly IGamificationCalendar _gamificationCalendar;
+        private readonly IUserAchievementService _userAchievementService;
 
         public WalksController(
             ApplicationDbContext context,
@@ -34,7 +35,8 @@ namespace DoggyDrop.Controllers
             IDogProgressionService dogProgressionService,
             IOsmWalkPlannerService osmWalkPlannerService,
             IGamificationRewardBuilder rewardBuilder,
-            IGamificationCalendar gamificationCalendar)
+            IGamificationCalendar gamificationCalendar,
+            IUserAchievementService userAchievementService)
         {
             _context = context;
             _userManager = userManager;
@@ -45,6 +47,7 @@ namespace DoggyDrop.Controllers
             _osmWalkPlannerService = osmWalkPlannerService;
             _rewardBuilder = rewardBuilder;
             _gamificationCalendar = gamificationCalendar;
+            _userAchievementService = userAchievementService;
         }
 
         [HttpGet]
@@ -122,6 +125,7 @@ namespace DoggyDrop.Controllers
                 .Select(visit => visit.PlaceKey)
                 .Distinct()
                 .CountAsync();
+            var ownedAchievements = await _userAchievementService.GetOwnedAsync(userId!);
             var weeklyCompletedWalks = await _context.Walks
                 .Include(walk => walk.Dog)
                 .Include(walk => walk.Owner)
@@ -165,7 +169,10 @@ namespace DoggyDrop.Controllers
                     Guidance = canonicalWalkStreak.Guidance
                 },
                 RecentPlans = recentPlans,
-                Achievements = BuildWalkAchievements(totalBinsAdded, completedWalks.Count, totalDistanceKm, uniqueParkVisits),
+                Achievements = UserAchievementPresentationBuilder.Build(
+                    new UserAchievementProgress(dogs.Count, completedWalks.Count, totalDistanceKm, totalBinsAdded, uniqueParkVisits),
+                    ownedAchievements,
+                    "walks"),
                 Gamification = BuildGamificationSummary(completedWalks, weeklyCompletedWalks, recentContributorBins, canonicalWalkStreak),
                 Suggestions = BuildSuggestions(dogId.HasValue
                     ? dogs.FirstOrDefault(d => d.Id == dogId.Value)
@@ -1127,20 +1134,8 @@ namespace DoggyDrop.Controllers
             var previousTotalDistanceKm = await _context.Walks
                 .Where(candidate => candidate.OwnerId == userId && candidate.Status == "Completed" && candidate.Id != id)
                 .SumAsync(candidate => candidate.DistanceMeters) / 1000d;
-            var totalBinsAdded = await _context.TrashBins.CountAsync(bin => bin.UserId == userId);
-            var uniqueParkVisits = await _context.DogParkVisits
-                .Where(visit => visit.UserId == userId)
-                .Select(visit => visit.PlaceKey)
-                .Distinct()
-                .CountAsync();
-            var previousAchievements = BuildWalkAchievements(
-                totalBinsAdded,
-                previousCompletedWalkCount,
-                previousTotalDistanceKm,
-                uniqueParkVisits);
             var isFirstCompletedWalk = previousCompletedWalkCount == 0;
 
-            await NotifyWalkAchievementsAsync(userId!, walk.DistanceMeters / 1000);
             var distanceXp = (int)Math.Floor(walk.DistanceMeters / 1000d) * GamificationConstants.WalkDistanceXpPerKm;
             var userXpEvent = await _gamificationService.AwardXpAsync(
                 userId,
@@ -1159,15 +1154,26 @@ namespace DoggyDrop.Controllers
                 walk.Id.ToString(),
                 "Zakljucen sprehod");
 
+            var currentCompletedWalkCount = previousCompletedWalkCount + 1;
+            var currentTotalDistanceKm = previousTotalDistanceKm + walk.DistanceMeters / 1000d;
+            var achievementUnlocks = new List<AchievementUnlockResult>
+            {
+                await _userAchievementService.TryUnlockAsync(userId!, UserAchievementCatalog.WalkFirst, endedAt, nameof(Walk), walk.Id.ToString())
+            };
+            if (currentTotalDistanceKm >= 10)
+                achievementUnlocks.Add(await _userAchievementService.TryUnlockAsync(userId!, UserAchievementCatalog.Walk10Km, endedAt, nameof(Walk), walk.Id.ToString()));
+            if (currentTotalDistanceKm >= 100)
+                achievementUnlocks.Add(await _userAchievementService.TryUnlockAsync(userId!, UserAchievementCatalog.Walk100Km, endedAt, nameof(Walk), walk.Id.ToString()));
+
             var rewardResult = await BuildWalkRewardResultAsync(
                 walk,
                 previousUserLevel,
                 previousDogLevel,
                 previousDogProfile,
                 previousWalkStreakDays,
-                previousAchievements,
                 previousCompletedWalkCount,
                 previousTotalDistanceKm,
+                achievementUnlocks,
                 userXpEvent,
                 dogXpEvent,
                 walkStreak);
@@ -1265,41 +1271,6 @@ namespace DoggyDrop.Controllers
                 "cute-dog" => "cute dog",
                 _ => "tacka"
             };
-        }
-
-        private async Task NotifyWalkAchievementsAsync(string userId, double lastWalkDistanceKm)
-        {
-            var totalWalkCount = await _context.Walks
-                .CountAsync(w => w.OwnerId == userId && w.Status == "Completed");
-            var totalDistanceKm = await _context.Walks
-                .Where(w => w.OwnerId == userId && w.Status == "Completed")
-                .SumAsync(w => w.DistanceMeters) / 1000;
-            var previousDistanceKm = Math.Max(0, totalDistanceKm - lastWalkDistanceKm);
-
-            if (totalWalkCount == 1)
-            {
-                await _notificationService.CreateUniqueRecentAsync(
-                    userId,
-                    "Achievement",
-                    "First walk",
-                    "Zakljucil si svoj prvi DoggyDrop sprehod.",
-                    Url.Action("UserProfile", "Home"),
-                    withinHours: 24 * 365);
-            }
-
-            foreach (var target in new[] { 10, 100 })
-            {
-                if (previousDistanceKm < target && totalDistanceKm >= target)
-                {
-                    await _notificationService.CreateUniqueRecentAsync(
-                        userId,
-                        "Achievement",
-                        $"{target} km walked",
-                        $"Skupaj si dosegel {target} km sprehodov v DoggyDrop.",
-                        Url.Action("UserProfile", "Home"),
-                        withinHours: 24 * 365);
-                }
-            }
         }
 
         private static double GetDistanceMeters(double lat1, double lng1, double lat2, double lng2)
@@ -2204,9 +2175,9 @@ namespace DoggyDrop.Controllers
             DogProgressionLevelInfo previousDogLevel,
             DogProgressionProfile previousDogProfile,
             int previousWalkStreakDays,
-            IReadOnlyList<AchievementItem> previousAchievements,
             int previousCompletedWalkCount,
             double previousTotalDistanceKm,
+            IReadOnlyList<AchievementUnlockResult> achievementUnlocks,
             UserXpEvent? userXpEvent,
             DogXpEvent? dogXpEvent,
             UserStreak? walkStreak)
@@ -2216,31 +2187,15 @@ namespace DoggyDrop.Controllers
                 .AsNoTracking()
                 .FirstAsync(profile => profile.DogId == walk.DogId);
             var currentDogLevel = _dogProgressionService.CalculateLevelInfo(currentDogProfile.TotalXp);
-            var totalBinsAdded = await _context.TrashBins.CountAsync(bin => bin.UserId == walk.OwnerId);
-            var uniqueParkVisits = await _context.DogParkVisits
-                .Where(visit => visit.UserId == walk.OwnerId)
-                .Select(visit => visit.PlaceKey)
-                .Distinct()
-                .CountAsync();
-            var currentCompletedWalkCount = previousCompletedWalkCount + 1;
             var currentTotalDistanceKm = previousTotalDistanceKm + walk.DistanceMeters / 1000d;
-            var currentAchievements = BuildWalkAchievements(
-                totalBinsAdded,
-                currentCompletedWalkCount,
-                currentTotalDistanceKm,
-                uniqueParkVisits);
-            var previouslyUnlockedNames = previousAchievements
-                .Where(achievement => achievement.IsUnlocked)
-                .Select(achievement => achievement.Name)
-                .ToHashSet(StringComparer.Ordinal);
-            var unlockedAchievements = currentAchievements
-                .Where(achievement => achievement.IsUnlocked && !previouslyUnlockedNames.Contains(achievement.Name))
-                .Select(achievement => new RewardAchievementViewModel
+            var ownedKeys = (await _userAchievementService.GetOwnedAsync(walk.OwnerId))
+                .Select(item => item.AchievementKey).ToHashSet(StringComparer.Ordinal);
+            var unlockedAchievements = achievementUnlocks.Where(item => item.NewlyUnlocked)
+                .Select(item =>
                 {
-                    Name = GetRewardAchievementName(achievement.Name),
-                    Description = GetRewardAchievementDescription(achievement.Name, achievement.Description)
-                })
-                .ToList();
+                    var definition = UserAchievementCatalog.Get(item.AchievementKey);
+                    return new RewardAchievementViewModel { Key = definition.Key, Name = definition.DisplayName, Description = definition.Description };
+                }).ToList();
 
             return new GamificationRewardResultViewModel
             {
@@ -2251,30 +2206,29 @@ namespace DoggyDrop.Controllers
                     _gamificationService.GetEffectiveStreak(walkStreak, GamificationStreakConstants.Walk),
                     previousWalkStreakDays),
                 UnlockedAchievements = unlockedAchievements,
-                NextGoal = BuildWalkNextGoal(currentAchievements, currentTotalDistanceKm, currentUserLevel, walk.DogId)
+                NextGoal = BuildWalkNextGoal(ownedKeys, currentTotalDistanceKm, currentUserLevel, walk.DogId)
             };
         }
 
         private RewardNextGoalViewModel BuildWalkNextGoal(
-            IReadOnlyList<AchievementItem> achievements,
+            IReadOnlySet<string> ownedKeys,
             double totalDistanceKm,
             GamificationLevelInfo currentUserLevel,
             int dogId)
         {
-            var nextDistanceAchievement = achievements
-                .Where(achievement => !achievement.IsUnlocked && achievement.Name is "10 km walked" or "100 km walked")
-                .OrderByDescending(achievement => achievement.ProgressPercent)
-                .FirstOrDefault();
-
-            if (nextDistanceAchievement != null)
+            var nextKey = !ownedKeys.Contains(UserAchievementCatalog.Walk10Km)
+                ? UserAchievementCatalog.Walk10Km
+                : !ownedKeys.Contains(UserAchievementCatalog.Walk100Km) ? UserAchievementCatalog.Walk100Km : null;
+            if (nextKey != null)
             {
-                var targetKm = nextDistanceAchievement.Name == "10 km walked" ? 10d : 100d;
+                var definition = UserAchievementCatalog.Get(nextKey);
+                var targetKm = definition.ProgressTarget;
                 var remainingKm = Math.Max(0, targetKm - totalDistanceKm);
                 return new RewardNextGoalViewModel
                 {
                     Title = $"Naslednji cilj: {targetKm:0} km",
                     Description = $"Še {remainingKm:0.0} km do dosežka {targetKm:0} prehojenih kilometrov.",
-                    ProgressPercent = nextDistanceAchievement.ProgressPercent,
+                    ProgressPercent = Math.Clamp((int)Math.Round(totalDistanceKm / targetKm * 100), 0, 100),
                     ActionUrl = Url.Action(nameof(Planner), new { dogId }) ?? "/Walks/Planner",
                     ActionLabel = "Načrtuj naslednji sprehod"
                 };
@@ -2287,59 +2241,6 @@ namespace DoggyDrop.Controllers
                 ProgressPercent = currentUserLevel.ProgressPercent,
                 ActionUrl = Url.Action(nameof(Planner), new { dogId }) ?? "/Walks/Planner",
                 ActionLabel = "Načrtuj naslednji sprehod"
-            };
-        }
-
-        private static string GetRewardAchievementName(string name)
-        {
-            return name switch
-            {
-                "First walk" => "Prvi sprehod",
-                "10 km walked" => "10 prehojenih kilometrov",
-                "100 km walked" => "100 prehojenih kilometrov",
-                "Added 10 bins" => "Dodanih 10 košev",
-                "Visited 5 parks" => "Obiskanih 5 parkov",
-                _ => name
-            };
-        }
-
-        private static string GetRewardAchievementDescription(string name, string fallback)
-        {
-            return name switch
-            {
-                "First walk" => "Zaključil si svoj prvi DoggyDrop sprehod.",
-                "10 km walked" => "Skupaj si prehodil 10 kilometrov.",
-                "100 km walked" => "Skupaj si prehodil 100 kilometrov.",
-                _ => fallback
-            };
-        }
-
-        private static IReadOnlyList<AchievementItem> BuildWalkAchievements(int totalBinsAdded, int totalWalks, double totalDistanceKm, int uniqueParkVisits)
-        {
-            return
-            [
-                BuildAchievement("First walk", "Zakljuci prvi sprehod.", totalWalks, 1, "sprehodov"),
-                BuildAchievement("10 km walked", "Skupaj prehodi 10 km.", totalDistanceKm, 10, "km"),
-                BuildAchievement("100 km walked", "Skupaj prehodi 100 km.", totalDistanceKm, 100, "km"),
-                BuildAchievement("Added 10 bins", "Dodaj 10 pasjih kosev.", totalBinsAdded, 10, "kosev"),
-                BuildAchievement("Visited 5 parks", "Obisci 5 razlicnih pasjih parkov.", uniqueParkVisits, 5, "parkov")
-            ];
-        }
-
-        private static AchievementItem BuildAchievement(string name, string description, double current, double target, string suffix)
-        {
-            var safeTarget = Math.Max(target, 1);
-            var progressPercent = (int)Math.Min(100, Math.Round(current / safeTarget * 100));
-            var currentText = suffix == "km" ? current.ToString("0.0") : Math.Floor(current).ToString("0");
-            var targetText = suffix == "km" ? target.ToString("0") : target.ToString("0");
-
-            return new AchievementItem
-            {
-                Name = name,
-                Description = description,
-                IsUnlocked = current >= target,
-                ProgressPercent = progressPercent,
-                ProgressText = $"{currentText} / {targetText} {suffix}"
             };
         }
 

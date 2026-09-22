@@ -2,6 +2,8 @@ namespace DoggyDrop.ViewModels
 {
     public class AchievementItem
     {
+        public string Key { get; set; } = string.Empty;
+
         public string Name { get; set; } = string.Empty;
 
         public string Description { get; set; } = string.Empty;
@@ -11,5 +13,7 @@ namespace DoggyDrop.ViewModels
         public int ProgressPercent { get; set; }
 
         public string ProgressText { get; set; } = string.Empty;
+
+        public DateTime? UnlockedAt { get; set; }
     }
 }

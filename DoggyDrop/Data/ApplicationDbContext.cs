@@ -60,6 +60,8 @@ namespace DoggyDrop.Data
 
         public DbSet<FounderBadge> FounderBadges { get; set; }
 
+        public DbSet<UserAchievement> UserAchievements { get; set; }
+
         public DbSet<DataProtectionKey> DataProtectionKeys { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
@@ -284,6 +286,19 @@ namespace DoggyDrop.Data
 
             builder.Entity<FounderBadge>()
                 .HasIndex(badge => new { badge.UserId, badge.UnlockedAt });
+
+            builder.Entity<UserAchievement>()
+                .HasOne(achievement => achievement.User)
+                .WithMany(user => user.UserAchievements)
+                .HasForeignKey(achievement => achievement.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<UserAchievement>()
+                .HasIndex(achievement => new { achievement.UserId, achievement.AchievementKey })
+                .IsUnique();
+
+            builder.Entity<UserAchievement>()
+                .HasIndex(achievement => new { achievement.UserId, achievement.UnlockedAt });
 
             builder.Entity<DogProgressionProfile>()
                 .HasOne(profile => profile.Dog)

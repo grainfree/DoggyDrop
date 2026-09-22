@@ -38,6 +38,7 @@ public sealed class WalksControllerFinishTests : IDisposable
         Assert.Single(await context.UserXpEvents.ToListAsync());
         Assert.Single(await context.DogXpEvents.ToListAsync());
         Assert.Single(await context.UserStreaks.ToListAsync());
+        Assert.Single(await context.UserAchievements.Where(item => item.AchievementKey == UserAchievementCatalog.WalkFirst).ToListAsync());
         Assert.True(controller.TempData.ContainsKey($"WalkRewardResult:{walkId}"));
     }
 
@@ -59,6 +60,7 @@ public sealed class WalksControllerFinishTests : IDisposable
         Assert.Single(await verification.UserXpEvents.ToListAsync());
         Assert.Single(await verification.DogXpEvents.ToListAsync());
         Assert.Single(await verification.UserStreaks.ToListAsync());
+        Assert.Single(await verification.UserAchievements.Where(item => item.AchievementKey == UserAchievementCatalog.WalkFirst).ToListAsync());
     }
 
     [Fact]
@@ -75,6 +77,7 @@ public sealed class WalksControllerFinishTests : IDisposable
         Assert.Single(await verification.UserXpEvents.ToListAsync());
         Assert.Single(await verification.DogXpEvents.ToListAsync());
         Assert.Single(await verification.UserStreaks.ToListAsync());
+        Assert.Single(await verification.UserAchievements.Where(item => item.AchievementKey == UserAchievementCatalog.WalkFirst).ToListAsync());
     }
 
     [Fact]
@@ -136,10 +139,59 @@ public sealed class WalksControllerFinishTests : IDisposable
         var reward = System.Text.Json.JsonSerializer.Deserialize<GamificationRewardResultViewModel>(json);
         Assert.NotNull(reward);
         Assert.Equal(walkId, reward.WalkId);
-        Assert.Single(reward.UnlockedAchievements, achievement => achievement.Name == "Prvi sprehod");
+        Assert.Single(reward.UnlockedAchievements, achievement => achievement.Key == UserAchievementCatalog.WalkFirst);
 
         var visibleAchievements = reward.GetVisibleAchievements(showFirstWalkCelebration: true);
-        Assert.DoesNotContain(visibleAchievements, achievement => achievement.Name == "Prvi sprehod");
+        Assert.DoesNotContain(visibleAchievements, achievement => achievement.Key == UserAchievementCatalog.WalkFirst);
+    }
+
+    [Theory]
+    [InlineData(10_000, UserAchievementCatalog.Walk10Km, "Mestni pohodnik")]
+    [InlineData(100_000, UserAchievementCatalog.Walk100Km, "Mojster poti")]
+    public async Task Finish_UnlocksDurableDistanceAchievementAtThreshold(double distanceMeters, string key, string displayName)
+    {
+        var walkId = await SeedAsync(distanceMeters);
+        await using var context = CreateContext();
+        var controller = CreateController(context);
+
+        await controller.Finish(walkId, null, null);
+
+        Assert.True(await context.UserAchievements.AnyAsync(item => item.AchievementKey == key));
+        var json = Assert.IsType<string>(controller.TempData[$"WalkRewardResult:{walkId}"]);
+        var reward = System.Text.Json.JsonSerializer.Deserialize<GamificationRewardResultViewModel>(json)!;
+        Assert.Contains(reward.UnlockedAchievements, item => item.Name == displayName);
+    }
+
+    [Theory]
+    [InlineData(9_990, 10, UserAchievementCatalog.Walk10Km)]
+    [InlineData(99_990, 10, UserAchievementCatalog.Walk100Km)]
+    public async Task Finish_UnlocksDistanceAchievementExactlyAtCumulativeBoundary(double priorMeters, double finishingMeters, string key)
+    {
+        var walkId = await SeedAsync(finishingMeters);
+        await using var context = CreateContext();
+        var dogId = await context.Dogs.Select(item => item.Id).SingleAsync();
+        context.Walks.Add(new Walk { OwnerId = UserId, DogId = dogId, Status = "Completed", DistanceMeters = priorMeters, StartedAt = DateTime.UtcNow.AddHours(-2), EndedAt = DateTime.UtcNow.AddHours(-1) });
+        await context.SaveChangesAsync();
+
+        await CreateController(context).Finish(walkId, null, null);
+
+        Assert.Single(await context.UserAchievements.Where(item => item.AchievementKey == key).ToListAsync());
+    }
+
+    [Fact]
+    public async Task Finish_DoesNotSuggestOwnedTenKilometerGoalWhenCorrectedProgressIsLower()
+    {
+        var walkId = await SeedAsync(1_000);
+        await using var context = CreateContext();
+        context.UserAchievements.Add(new UserAchievement { UserId = UserId, AchievementKey = UserAchievementCatalog.Walk10Km, UnlockedAt = DateTime.UtcNow.AddDays(-1), CreatedAt = DateTime.UtcNow });
+        await context.SaveChangesAsync();
+        var controller = CreateController(context);
+
+        await controller.Finish(walkId, null, null);
+
+        var json = Assert.IsType<string>(controller.TempData[$"WalkRewardResult:{walkId}"]);
+        var reward = System.Text.Json.JsonSerializer.Deserialize<GamificationRewardResultViewModel>(json)!;
+        Assert.Contains("100 km", reward.NextGoal!.Title);
     }
 
     [Fact]
@@ -234,7 +286,8 @@ public sealed class WalksControllerFinishTests : IDisposable
             new DogProgressionService(context),
             new NoOpPlannerService(),
             new GamificationRewardBuilder(),
-            calendar);
+            calendar,
+            new UserAchievementService(context, notifications));
 
         var httpContext = new DefaultHttpContext
         {

@@ -24,6 +24,7 @@ namespace DoggyDrop.Controllers
         private readonly IMapStampService _mapStampService;
         private readonly IGamificationRewardBuilder _rewardBuilder;
         private readonly IGamificationCalendar _gamificationCalendar;
+        private readonly IUserAchievementService _userAchievementService;
         private static readonly IReadOnlyList<FounderArea> FounderAreas =
         [
             new("maribor", "Maribor", 46.5547, 15.6459, 6500),
@@ -48,7 +49,8 @@ namespace DoggyDrop.Controllers
                              IDogProgressionService dogProgressionService,
                              IMapStampService mapStampService,
                              IGamificationRewardBuilder rewardBuilder,
-                             IGamificationCalendar gamificationCalendar)
+                             IGamificationCalendar gamificationCalendar,
+                             IUserAchievementService userAchievementService)
         {
             _context = context;
             _environment = environment;
@@ -61,6 +63,7 @@ namespace DoggyDrop.Controllers
             _mapStampService = mapStampService;
             _rewardBuilder = rewardBuilder;
             _gamificationCalendar = gamificationCalendar;
+            _userAchievementService = userAchievementService;
         }
 
         // 📍 Prikaz obrazca za dodajanje koša
@@ -92,22 +95,34 @@ namespace DoggyDrop.Controllers
                 UserId = _userManager.GetUserId(User)
             };
 
-            _context.TrashBins.Add(newBin);
-            await _context.SaveChangesAsync();
-            await NotifyBinContributionAchievementsAsync(newBin.UserId);
-            await _gamificationService.AwardXpAsync(
-                newBin.UserId,
-                GamificationConstants.AddedTrashBin,
-                GamificationConstants.AddedTrashBinXp,
-                nameof(TrashBin),
-                newBin.Id.ToString(),
-                "Dodan nov kos");
-            await _gamificationService.RecordStreakActivityAsync(newBin.UserId, GamificationStreakConstants.Contribution);
-
-            if (newBin.IsApproved)
+            await using (var transaction = await _context.Database.BeginTransactionAsync())
             {
-                await AwardFounderBadgeIfFirstInAreaAsync(newBin);
-                await NotifyNearbyUsersAboutApprovedBinAsync(newBin, newBin.UserId);
+                _context.TrashBins.Add(newBin);
+                await _context.SaveChangesAsync();
+                await _gamificationService.AwardXpAsync(
+                    newBin.UserId,
+                    GamificationConstants.AddedTrashBin,
+                    GamificationConstants.AddedTrashBinXp,
+                    nameof(TrashBin),
+                    newBin.Id.ToString(),
+                    "Dodan nov kos");
+                await _gamificationService.RecordStreakActivityAsync(newBin.UserId, GamificationStreakConstants.Contribution);
+
+                if (!string.IsNullOrWhiteSpace(newBin.UserId))
+                {
+                    var submissionCount = await _context.TrashBins.CountAsync(bin => bin.UserId == newBin.UserId);
+                    await _userAchievementService.TryUnlockAsync(newBin.UserId, UserAchievementCatalog.BinFirstSubmission, newBin.DateAdded, nameof(TrashBin), newBin.Id.ToString());
+                    if (submissionCount >= 10)
+                        await _userAchievementService.TryUnlockAsync(newBin.UserId, UserAchievementCatalog.Bin10Submissions, newBin.DateAdded, nameof(TrashBin), newBin.Id.ToString());
+                }
+
+                if (newBin.IsApproved)
+                {
+                    await AwardFounderBadgeIfFirstInAreaAsync(newBin);
+                    await NotifyNearbyUsersAboutApprovedBinAsync(newBin, newBin.UserId);
+                }
+
+                await transaction.CommitAsync();
             }
 
             TempData["SuccessMessage"] = User.IsInRole("Admin")
@@ -227,7 +242,7 @@ namespace DoggyDrop.Controllers
                 .GetEffectiveStreak(explorerStreakBefore, GamificationStreakConstants.Explorer)
                 .EffectiveCurrentDays;
 
-            _context.DogParkVisits.Add(new DogParkVisit
+            var visit = new DogParkVisit
             {
                 DogId = dog.Id,
                 UserId = userId,
@@ -238,10 +253,10 @@ namespace DoggyDrop.Controllers
                 Latitude = park.Latitude,
                 Longitude = park.Longitude,
                 VisitedAt = now
-            });
+            };
+            _context.DogParkVisits.Add(visit);
 
             await _context.SaveChangesAsync();
-            await NotifyParkAchievementsAsync(userId);
             var userXpEvent = isNewUserDiscovery
                 ? await _gamificationService.AwardXpAsync(userId, GamificationConstants.VisitNewPark,
                     GamificationConstants.VisitNewParkXp, nameof(DogParkVisit), placeKey, "Obiskan nov park")
@@ -258,8 +273,11 @@ namespace DoggyDrop.Controllers
             var visitsAfter = await _context.DogParkVisits.AsNoTracking().Where(visit => visit.UserId == userId).ToListAsync();
             var stampAfter = _mapStampService.BuildCollection(visitsAfter).Stamps.Single(stamp => stamp.PlaceKey == placeKey);
             var uniqueParksAfter = visitsAfter.Select(visit => visit.PlaceKey).Distinct().Count();
-            var achievements = uniqueParksBefore < 5 && uniqueParksAfter >= 5
-                ? new[] { new RewardAchievementViewModel { Name = "Obiskanih 5 parkov", Description = "Obiskal si 5 različnih pasjih parkov." } }
+            var explorerUnlock = uniqueParksAfter >= 5
+                ? await _userAchievementService.TryUnlockAsync(userId, UserAchievementCatalog.Explorer5Places, now, nameof(DogParkVisit), visit.Id.ToString())
+                : null;
+            var achievements = explorerUnlock?.NewlyUnlocked == true
+                ? new[] { ToRewardAchievement(explorerUnlock.AchievementKey) }
                 : [];
             var nextGoal = uniqueParksAfter < 5
                 ? new RewardNextGoalViewModel
@@ -640,27 +658,6 @@ namespace DoggyDrop.Controllers
             return trimmed.Length <= maxLength ? trimmed : trimmed[..maxLength];
         }
 
-        private async Task NotifyBinContributionAchievementsAsync(string? userId)
-        {
-            if (string.IsNullOrWhiteSpace(userId))
-            {
-                return;
-            }
-
-            var totalBins = await _context.TrashBins.CountAsync(bin => bin.UserId == userId);
-            var previousTotal = Math.Max(0, totalBins - 1);
-            if (previousTotal < 10 && totalBins >= 10)
-            {
-                await _notificationService.CreateUniqueRecentAsync(
-                    userId,
-                    "Achievement",
-                    "Added 10 bins",
-                    "Dosegel si mejnik 10 dodanih pasjih kosev.",
-                    Url.Action("UserProfile", "Home"),
-                    withinHours: 24 * 365);
-            }
-        }
-
         private async Task AwardFounderBadgeIfFirstInAreaAsync(TrashBin bin)
         {
             if (string.IsNullOrWhiteSpace(bin.UserId))
@@ -740,24 +737,10 @@ namespace DoggyDrop.Controllers
             return $"area-{Math.Round(latitude, 2):0.00}-{Math.Round(longitude, 2):0.00}".Replace(',', '.');
         }
 
-        private async Task NotifyParkAchievementsAsync(string userId)
+        private static RewardAchievementViewModel ToRewardAchievement(string key)
         {
-            var uniqueParkVisits = await _context.DogParkVisits
-                .Where(visit => visit.UserId == userId)
-                .Select(visit => visit.PlaceKey)
-                .Distinct()
-                .CountAsync();
-
-            if (uniqueParkVisits >= 5)
-            {
-                await _notificationService.CreateUniqueRecentAsync(
-                    userId,
-                    "Achievement",
-                    "Visited 5 parks",
-                    "Obiskal si 5 razlicnih pasjih parkov.",
-                    Url.Action("Index", "Walks"),
-                    withinHours: 24 * 365);
-            }
+            var definition = UserAchievementCatalog.Get(key);
+            return new RewardAchievementViewModel { Key = definition.Key, Name = definition.DisplayName, Description = definition.Description };
         }
 
         private async Task NotifyNearbyUsersAboutApprovedBinAsync(TrashBin bin, string? excludeUserId)

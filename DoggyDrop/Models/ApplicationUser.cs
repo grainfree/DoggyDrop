@@ -46,5 +46,7 @@ namespace DoggyDrop.Models
         public ICollection<UserStreak>? Streaks { get; set; }
 
         public ICollection<FounderBadge>? FounderBadges { get; set; }
+
+        public ICollection<UserAchievement>? UserAchievements { get; set; }
     }
 }
