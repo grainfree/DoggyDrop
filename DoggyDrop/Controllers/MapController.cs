@@ -159,6 +159,11 @@ namespace DoggyDrop.Controllers
                     .Include(walk => walk.Points)
                     .FirstOrDefaultAsync(walk => walk.OwnerId == userId && walk.Status == "Active");
 
+                if (activeWalk != null && WalkStaleness.IsStale(activeWalk, activeWalk.Points ?? [], DateTime.UtcNow))
+                {
+                    return RedirectToAction("Active", "Walks", new { id = activeWalk.Id });
+                }
+
                 ViewBag.MyDogs = myDogs;
                 ViewBag.ActiveWalk = activeWalk;
                 ViewBag.NeedsDogOnboarding = myDogs.Count == 0;

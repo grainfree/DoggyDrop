@@ -53,7 +53,7 @@ namespace DoggyDrop.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> MarkRead(int id)
+        public async Task<IActionResult> MarkRead(int id, bool returnToInbox = false)
         {
             var userId = _userManager.GetUserId(User);
             var notification = await _context.UserNotifications
@@ -68,7 +68,7 @@ namespace DoggyDrop.Controllers
             notification.ReadAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
 
-            if (!string.IsNullOrWhiteSpace(notification.LinkUrl))
+            if (!returnToInbox && !string.IsNullOrWhiteSpace(notification.LinkUrl) && Url.IsLocalUrl(notification.LinkUrl))
             {
                 return Redirect(notification.LinkUrl);
             }

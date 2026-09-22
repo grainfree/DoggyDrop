@@ -8,7 +8,7 @@
 <section class="app-page walks-page">
     <header class="app-page__header walks-hero">
         <div>
-            <span class="walks-hero__eyebrow">Walk cockpit</span>
+            <span class="walks-hero__eyebrow">Sprehodi</span>
             <h1 class="app-page__title">Sprehodi</h1>
             <p class="app-page__lead">Začni sprehod, spremljaj tedensko aktivnost in hitro izberi naslednjo pot.</p>
         </div>
@@ -40,6 +40,17 @@
     @if (TempData["ErrorMessage"] != null)
     {
         <div class="alert alert-warning">@TempData["ErrorMessage"]</div>
+    }
+
+    @if (Model.InterruptedWalks.Count > 0)
+    {
+        <section class="walk-insights-card" aria-label="Prekinjeni sprehodi">
+            <h2>Prekinjeni sprehodi</h2>
+            @foreach (var walk in Model.InterruptedWalks)
+            {
+                <p><a asp-controller="Walks" asp-action="Interrupted" asp-route-id="@walk.Id">@walk.Dog?.Name · @walk.StartedAt.ToLocalTime().ToString("dd.MM.yyyy") · @(walk.DistanceMeters / 1000d).ToString("0.00") km</a></p>
+            }
+        </section>
     }
 
     <div class="walk-stat-row">
@@ -226,7 +237,7 @@
         <article class="walk-start-card">
             <div class="walk-start-card__header">
                 <div>
-                    <h2>Start walk</h2>
+                    <h2>Začni sprehod</h2>
                     <p>Najprej izberi psa in dolžino. DoggyDrop ti takoj pripravi pot s koši, parkom, vodo in dog-friendly postanki.</p>
                 </div>
                 <span>Hitri plan</span>

@@ -7,23 +7,12 @@
 <section class="app-page community-page">
     <header class="app-page__header community-hero">
         <div>
-            <span class="community-hero__eyebrow">DoggyDrop live</span>
             <h1 class="app-page__title">Skupnost</h1>
-            <p class="app-page__lead">Nedavni sprehodi, aktivni psi in bolj živ DoggyDrop community feed.</p>
+            <p class="app-page__lead">Kaj se dogaja v tvoji pasji skupnosti.</p>
         </div>
         <div class="community-hero__actions">
-            <a class="btn btn-success rounded-pill fw-semibold" asp-controller="Playdates" asp-action="Index">Playdates</a>
-            <a class="btn btn-outline-secondary rounded-pill fw-semibold" asp-controller="Friends" asp-action="Index">Prijatelji</a>
-        </div>
-        <div class="community-hero__pulse" aria-label="Povzetek skupnosti">
-            <article>
-                <strong>@Model.KilometersThisWeek.ToString("0.0")</strong>
-                <span>km ta teden</span>
-            </article>
-            <article>
-                <strong>@Model.ActiveDogsThisWeek</strong>
-                <span>aktivnih psov</span>
-            </article>
+            <a class="btn btn-success rounded-pill fw-semibold" asp-controller="Friends" asp-action="Index">Prijatelji</a>
+            <a class="btn btn-outline-secondary rounded-pill fw-semibold" asp-controller="Playdates" asp-action="Index">Pasja druženja</a>
         </div>
     </header>
 
@@ -49,7 +38,7 @@
         </div>
         <div class="community-local-grid">
             <article>
-                <h3>Most distance</h3>
+                <h3>Največ kilometrov</h3>
                 @foreach (var entry in Model.LocalLeaderboards.MostDistance)
                 {
                     <div class="community-local-entry">
@@ -60,7 +49,7 @@
                 }
             </article>
             <article>
-                <h3>Most discoveries</h3>
+                <h3>Največ odkritij</h3>
                 @foreach (var entry in Model.LocalLeaderboards.MostDiscoveries)
                 {
                     <div class="community-local-entry">
@@ -71,7 +60,7 @@
                 }
             </article>
             <article>
-                <h3>Most helpful</h3>
+                <h3>Največ prispevkov</h3>
                 @foreach (var entry in Model.LocalLeaderboards.MostHelpful)
                 {
                     <div class="community-local-entry">
@@ -82,7 +71,7 @@
                 }
             </article>
             <article>
-                <h3>Best photos</h3>
+                <h3>Najboljše fotografije</h3>
                 @foreach (var entry in Model.LocalLeaderboards.BestPhotos)
                 {
                     <div class="community-local-entry">
@@ -93,7 +82,7 @@
                 }
             </article>
             <article>
-                <h3>Top dog this week</h3>
+                <h3>Pes tedna</h3>
                 @foreach (var entry in Model.LocalLeaderboards.TopDogsThisWeek)
                 {
                     <a class="community-local-entry" asp-controller="Dogs" asp-action="Details" asp-route-id="@entry.DogId">
@@ -115,7 +104,7 @@
         @if (Model.WeeklyLeaders.Count == 0)
         {
             <article class="community-empty community-empty--founder">
-                <h3>Be the first DoggyDrop Explorer here.</h3>
+                <h3>Začni lokalno lestvico</h3>
                 <p>Zaključi prvi sprehod v svojem kraju in odpri tedensko lestvico, preden jo napolni skupnost.</p>
                 <a class="btn btn-success rounded-pill fw-semibold" asp-controller="Walks" asp-action="Planner">Začni prvi sprehod</a>
             </article>
@@ -151,19 +140,19 @@
 
     <section class="community-section">
         <div class="community-section__header">
-            <h2>Playdates</h2>
+            <h2>Pasja druženja</h2>
             <span>Srečanja psov</span>
         </div>
         <article class="community-empty">
             <h3>Povabi pse na sprehod</h3>
-            <p>Ustvari playdate povabilo z lokacijo, energijo in velikostjo psov. To je prvi korak proti dog meetup funkciji.</p>
-            <a class="btn btn-success rounded-pill fw-semibold" asp-controller="Playdates" asp-action="Index">Odpri playdates</a>
+            <p>Povabi druge lastnike psov na skupen sprehod.</p>
+            <a class="btn btn-success rounded-pill fw-semibold" asp-controller="Playdates" asp-action="Index">Odpri druženja</a>
         </article>
     </section>
 
     <section class="community-section">
         <div class="community-section__header">
-            <h2>Feed prijateljev</h2>
+            <h2>Sprehodi prijateljev</h2>
             <span>Prijatelji</span>
         </div>
 
@@ -219,7 +208,7 @@
 
     <section class="community-section">
         <div class="community-section__header">
-            <h2>Photo feed</h2>
+            <h2>Fotografije skupnosti</h2>
             <span>Sprehodi v slikah</span>
         </div>
 
@@ -227,7 +216,7 @@
         {
             <article class="community-empty community-empty--founder">
                 <h3>Prva fotka čaka nate</h3>
-                <p>Dodaj walk photo in postani prvi obraz lokalnega DoggyDrop feeda.</p>
+                <p>Dodaj fotografijo sprehoda in jo deli s skupnostjo.</p>
                 <a class="btn btn-success rounded-pill fw-semibold" asp-controller="Walks" asp-action="Index">Odpri sprehode</a>
             </article>
         }
@@ -251,7 +240,7 @@
                                     new { Type = "paw", Label = "🐾" },
                                     new { Type = "heart", Label = "♥" },
                                     new { Type = "fire", Label = "🔥" },
-                                    new { Type = "cute-dog", Label = "Cute dog" }
+                                    new { Type = "cute-dog", Label = "Prisrčno" }
                                 })
                                 {
                                     var count = photo.ReactionCounts.TryGetValue(reaction.Type, out var reactionCount) ? reactionCount : 0;
@@ -272,15 +261,15 @@
 
     <section class="community-section">
         <div class="community-section__header">
-            <h2>Bin gallery</h2>
-            <span>Pasji koši s fotkami</span>
+            <h2>Galerija košev</h2>
+            <span>Koši s fotografijami</span>
         </div>
 
         @if (Model.BinPhotoGallery.Count == 0)
         {
             <article class="community-empty community-empty--founder">
-                <h3>Be the first bin founder.</h3>
-                <p>Dodaj prvi koš s fotografijo v svoji okolici. Če je to prvo odobreno območje, dobiš trajen founder badge.</p>
+                <h3>Dodaj prvi koš</h3>
+                <p>Dodaj koš s fotografijo v svoji okolici.</p>
                 <a class="btn btn-success rounded-pill fw-semibold" asp-controller="Map" asp-action="Add">Dodaj koš</a>
             </article>
         }
@@ -310,7 +299,7 @@
         @if (Model.RecentWalks.Count == 0)
         {
             <article class="community-empty community-empty--founder">
-                <h3>Be the first DoggyDrop Explorer here.</h3>
+                <h3>Začni zgodbo skupnosti</h3>
                 <p>Zaključi sprehod in DoggyDrop ga bo prikazal kot prvo aktivnost tvoje skupnosti.</p>
                 <a class="btn btn-success rounded-pill fw-semibold" asp-controller="Walks" asp-action="Index">Začni sprehod</a>
             </article>
@@ -1055,5 +1044,40 @@
             grid-template-columns: 1fr;
             overflow-x: visible;
         }
+    }
+
+    .community-page { padding-bottom: 24px; }
+
+    .community-page .community-hero {
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 14px;
+        padding: 18px;
+    }
+
+    .community-page .community-hero::after { display: none; }
+    .community-page .community-hero .app-page__title { font-size: 2rem; }
+    .community-page .community-hero__actions { gap: 8px; }
+    .community-page .community-stats article { padding: 11px; }
+    .community-page .community-section { padding: 16px; }
+    .community-page .community-bin-card { grid-template-rows: 150px auto; }
+    .community-page .community-bin-card div { padding: 10px 12px; }
+    .community-page .community-bin-card img { min-height: 0; }
+
+    @@media (max-width: 575.98px) {
+        .community-page .community-hero { display: block; padding: 12px 14px; }
+        .community-page .community-hero .app-page__title { font-size: 1.55rem; }
+        .community-page .community-hero__actions {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            margin-top: 10px;
+        }
+        .community-page .community-hero__actions .btn { padding: 10px 6px; font-size: 0.84rem; }
+        .community-page .community-stats { gap: 6px; }
+        .community-page .community-stats article { padding: 8px 4px; }
+        .community-page .community-section { padding: 12px; }
+        .community-page .community-bin-gallery { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+        .community-page .community-bin-card { grid-template-rows: 112px auto; }
+        .community-page .community-bin-card strong,
+        .community-page .community-bin-card span { overflow-wrap: anywhere; font-size: 0.78rem; }
     }
 </style>

@@ -833,6 +833,36 @@
         z-index: 1100;
     }
 
+    .nearest-bin-preview {
+        position: fixed;
+        left: 50%;
+        bottom: calc(96px + env(safe-area-inset-bottom));
+        z-index: 1190;
+        width: min(420px, calc(100vw - 24px));
+        padding: 14px;
+        border: 1px solid rgba(47, 109, 95, 0.18);
+        border-radius: 8px;
+        background: #fff;
+        box-shadow: 0 12px 32px rgba(20, 40, 35, 0.22);
+        transform: translateX(-50%);
+    }
+    .nearest-bin-preview[hidden] { display: none; }
+    body.map-nearest-preview-active .map-active-walk-sheet,
+    body.map-nearest-preview-active .map-action-stack { display: none; }
+    .nearest-bin-preview h2 { margin: 4px 0; font-size: 1.1rem; }
+    .nearest-bin-preview p { margin: 0 0 10px; color: #52665e; }
+    .nearest-bin-preview__actions { display: flex; gap: 8px; }
+    .nearest-bin-preview__actions button {
+        min-height: 44px;
+        padding: 8px 12px;
+        border: 1px solid #2f6d5f;
+        border-radius: 8px;
+        background: #2f6d5f;
+        color: #fff;
+        font-weight: 800;
+    }
+    .nearest-bin-preview__actions button:last-child { background: #fff; color: #2f6d5f; }
+
     .navigation-card {
         padding: 12px 14px;
         border: 1px solid #bad3c6;
@@ -1815,6 +1845,75 @@
         backdrop-filter: blur(18px);
     }
 
+    .map-active-walk-sheet__toggle {
+        display: block;
+        width: 100%;
+        min-height: 68px;
+        padding: 4px 0;
+        border: 0;
+        background: transparent;
+        color: inherit;
+        text-align: left;
+        cursor: pointer;
+    }
+
+    .map-active-walk-sheet__toggle:focus-visible {
+        outline: 2px solid #2f6d5f;
+        outline-offset: 2px;
+    }
+
+    .map-active-walk-sheet__toggle .map-active-walk-sheet__grabber {
+        display: block;
+        margin-bottom: 7px;
+    }
+
+    .map-active-walk-sheet__summary {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+    }
+
+    .map-active-walk-sheet__summary > span { min-width: 0; }
+    .map-active-walk-sheet__summary .map-active-walk-sheet__title {
+        display: block;
+        margin-top: 5px;
+        color: #17322c;
+        font-weight: 950;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 1.12rem;
+        line-height: 1.2;
+    }
+
+    .map-active-walk-sheet__summary i { flex: none; font-size: 1.2rem; }
+    .map-active-walk-sheet__compact-metrics {
+        display: block;
+        margin-top: 5px;
+        color: #52665e;
+        font-size: 0.85rem;
+        font-weight: 800;
+    }
+
+    .map-active-walk-sheet__details[hidden] { display: none; }
+    .map-active-walk-sheet__details { padding-top: 10px; }
+
+    body.map-walk-active #map {
+        height: calc(100dvh - 64px - 76px);
+        min-height: 0;
+    }
+
+    body.map-walk-active .leaflet-control-attribution {
+        margin-bottom: calc(var(--active-walk-sheet-height, 112px) + 16px) !important;
+    }
+
+    body.map-walk-active .map-active-walk-sheet.is-expanded {
+        max-height: min(65dvh, calc(100dvh - 64px - 110px));
+        overflow-y: auto;
+        overscroll-behavior: contain;
+    }
+
     .map-active-walk-sheet__grabber {
         width: 46px;
         height: 5px;
@@ -2298,6 +2397,15 @@
     }
 
     @@media (max-width: 575.98px) {
+        body.map-walk-active #map {
+            height: calc(100dvh - 58px - 78px);
+            min-height: 0;
+        }
+
+        body.map-walk-active .map-active-walk-sheet.is-expanded {
+            max-height: min(62dvh, calc(100dvh - 58px - 110px - env(safe-area-inset-bottom)));
+        }
+
         #map {
             height: calc(100vh - 58px - 78px);
             min-height: 480px;
@@ -2320,12 +2428,13 @@
         }
 
         .map-community-heat {
-            top: 112px;
+            top: 176px;
             left: auto;
             right: 8px;
             bottom: auto;
             width: min(280px, calc(100vw - 16px));
-            max-height: min(168px, calc(100vh - 250px));
+            max-height: calc(100svh - 260px - env(safe-area-inset-bottom, 0px));
+            overflow-y: auto;
             padding: 10px;
         }
 
@@ -2425,6 +2534,9 @@
             grid-template-columns: 1fr;
             gap: 8px;
         }
+
+        .map-active-walk-sheet__toggle { min-height: 72px; }
+        .map-active-walk-sheet__summary .map-active-walk-sheet__title { font-size: 1.02rem; }
 
         .map-active-walk-sheet h2 {
             font-size: 1.32rem;
@@ -2961,14 +3073,22 @@
 
 <button type="button" id="filterToggle" class="map-filter-toggle">Filtri</button>
 
+@if (!hasActiveWalk)
+{
 <section class="map-quick-intro" aria-label="DoggyDrop zemljevid">
     <div class="map-quick-intro__eyebrow">
         <i class="bi bi-heart-pulse-fill" aria-hidden="true"></i>
-        <span>Walk cockpit</span>
+        <span>Sprehod</span>
     </div>
     <h1>Naj bo vsak sprehod malo lažji.</h1>
     <p>Začni pot, najdi bližnji koš, preveri parke in hitro shrani nove uporabne točke.</p>
 </section>
+}
+
+@if (hasActiveWalk)
+{
+    <script>document.body.classList.add("map-walk-active");</script>
+}
 
 @if (showFirstWalkPrompt)
 {
@@ -2981,7 +3101,7 @@
         <p>Zdaj lahko v enem tapu predlagava prvo pot, pogledava bližnje parke ali pa samo hitro začnemo hoditi.</p>
         <a class="btn btn-success map-first-walk-card__cta" asp-controller="Walks" asp-action="Planner">
             <i class="bi bi-play-circle-fill" aria-hidden="true"></i>
-            <span>Start walk</span>
+            <span>Začni sprehod</span>
         </a>
         <div class="map-first-walk-card__meta">DoggyDrop bo medtem začel beležiti kilometre, značke in najljubše sprehode.</div>
     </section>
@@ -3032,17 +3152,17 @@ else if (needsDogOnboarding)
         <input id="showWater" type="checkbox" checked />
     </label>
     <label class="map-filter-row">
-        <span>Dog friendly</span>
+        <span>Prijazno psom</span>
         <input id="showCafes" type="checkbox" checked />
     </label>
     <label class="map-filter-row">
-        <span>Community heat</span>
+        <span>Utrip skupnosti</span>
         <input id="showCommunity" type="checkbox" checked />
     </label>
-    <div class="map-heatmap-range" aria-label="Community heatmap obdobje">
-        <button type="button" class="is-active" data-heatmap-range="today">Today</button>
-        <button type="button" data-heatmap-range="week">Week</button>
-        <button type="button" data-heatmap-range="evening">Evening</button>
+    <div class="map-heatmap-range" aria-label="Obdobje utripa skupnosti">
+        <button type="button" class="is-active" data-heatmap-range="today">Danes</button>
+        <button type="button" data-heatmap-range="week">Ta teden</button>
+        <button type="button" data-heatmap-range="evening">Zvečer</button>
     </div>
     <div id="mapLocationWarning" class="map-location-warning" hidden>
         Lokacija na telefonu zahteva HTTPS povezavo. Zemljevid in rocne akcije se vedno delujejo.
@@ -3051,19 +3171,28 @@ else if (needsDogOnboarding)
 
 @if (hasActiveWalk)
 {
-    <aside class="map-active-walk-sheet" aria-label="Aktiven sprehod">
-        <div class="map-active-walk-sheet__grabber" aria-hidden="true"></div>
+    <aside id="homeActiveWalkSheet" class="map-active-walk-sheet" aria-label="Aktiven sprehod">
+        <button id="homeActiveWalkToggle" type="button" class="map-active-walk-sheet__toggle" aria-expanded="false" aria-controls="homeActiveWalkDetails" aria-label="Razširi kontrole sprehoda">
+            <span class="map-active-walk-sheet__grabber" aria-hidden="true"></span>
+            <span class="map-active-walk-sheet__summary">
+                <span>
+                    <span class="map-active-walk-sheet__live">V živo</span>
+                    <span class="map-active-walk-sheet__title">@(activeWalk?.Dog?.Name ?? "Sprehod") je na poti</span>
+                    <span class="map-active-walk-sheet__compact-metrics"><span id="homeActiveWalkDurationCompact">00:00</span> · @activeWalkDistanceKm km · @activeWalkPointCount GPS</span>
+                </span>
+                <i id="homeActiveWalkChevron" class="bi bi-chevron-up" aria-hidden="true"></i>
+            </span>
+        </button>
+        <div id="homeActiveWalkDetails" class="map-active-walk-sheet__details" hidden>
         <div class="map-active-walk-sheet__top">
             <div>
-                <span class="map-active-walk-sheet__live">V živo</span>
-                <h2>@(activeWalk?.Dog?.Name ?? "Sprehod") je na poti</h2>
                 <p>
                     @(activeWalk?.PlannedWalk != null
                         ? $"{activeWalk.PlannedWalk.Title} · začetek {activeWalk.StartedAt.ToLocalTime():HH:mm}"
                         : $"Začetek {activeWalk!.StartedAt.ToLocalTime():HH:mm}")
                 </p>
             </div>
-            <a class="map-active-walk-sheet__map-link" asp-controller="Walks" asp-action="Active" asp-route-id="@activeWalk!.Id">
+            <a class="map-active-walk-sheet__map-link" asp-controller="Walks" asp-action="Active" asp-route-id="@activeWalk!.Id" onclick="setActiveWalkSheetExpanded(false)">
                 <i class="bi bi-map-fill" aria-hidden="true"></i>
                 <span>Zemljevid poti</span>
             </a>
@@ -3114,6 +3243,7 @@ else if (needsDogOnboarding)
                     <span>Zaključi</span>
                 </button>
             </form>
+        </div>
         </div>
     </aside>
 }
@@ -3174,7 +3304,7 @@ else if (needsDogOnboarding)
 <div class="map-action-stack @(hasActiveWalk ? "map-action-stack--with-active" : "")">
     <a class="map-action-button map-action-button--primary" asp-controller="Walks" asp-action="@(hasActiveWalk ? "Active" : "Planner")" asp-route-id="@(hasActiveWalk ? activeWalk!.Id : null)">
         <span class="map-action-button__icon" aria-hidden="true"><i class="bi bi-play-fill"></i></span>
-        <span>@(hasActiveWalk ? "Sprehod" : "Start walk")</span>
+        <span>@(hasActiveWalk ? "Sprehod" : "Začni sprehod")</span>
     </a>
     <a class="map-action-button" asp-controller="Map" asp-action="Add">
         <span class="map-action-button__icon" aria-hidden="true"><i class="bi bi-plus-lg"></i></span>
@@ -3204,19 +3334,19 @@ else if (needsDogOnboarding)
 </aside>
 
 <aside id="communityHeatPanel" class="map-community-heat is-collapsed" aria-expanded="false">
-    <button type="button" id="communityHeatToggle" class="map-community-heat__toggle" aria-label="Prikaži community heat">
+    <button type="button" id="communityHeatToggle" class="map-community-heat__toggle" aria-label="Prikaži utrip skupnosti">
         <span class="map-community-heat__icon" aria-hidden="true"><i class="bi bi-fire"></i></span>
         <span class="map-community-heat__label">
-            <strong>Community heat</strong>
-            <small id="communityHeatRange">Today</small>
+            <strong>Utrip skupnosti</strong>
+            <small id="communityHeatRange">Danes</small>
         </span>
         <span id="communityHeatBadge" class="map-community-heat__badge">0</span>
     </button>
     <div class="map-community-heat__body">
         <div class="map-community-heat__stats">
-            <span><b id="communityActiveWalkers">0</b> active</span>
-            <span><b id="communityPopularParks">0</b> parks</span>
-            <span><b id="communityTrendingRoutes">0</b> routes</span>
+            <span><b id="communityActiveWalkers">0</b> aktivnih</span>
+            <span><b id="communityPopularParks">0</b> parkov</span>
+            <span><b id="communityTrendingRoutes">0</b> poti</span>
         </div>
         <div id="communityEvents" class="map-community-heat__events">
             <p>Ko se nabere aktivnost, bodo tukaj zasijale popularne lokacije.</p>
@@ -3285,6 +3415,16 @@ else if (needsDogOnboarding)
         <div id="binDetailBody" class="map-bin-detail__body"></div>
     </section>
 </aside>
+
+<aside id="nearestBinPreview" class="nearest-bin-preview" aria-label="Predlog najbližjega koša" hidden>
+    <small>PREDLOG KOŠA</small>
+    <h2 id="nearestBinPreviewName"></h2>
+    <p id="nearestBinPreviewDistance"></p>
+    <div class="nearest-bin-preview__actions">
+        <button type="button" onclick="startNearestBinPreviewNavigation()">Začni navigacijo</button>
+        <button type="button" onclick="closeNearestBinPreview()">Prekliči</button>
+    </div>
+</aside>
 <aside id="parkRewardSheet" class="park-reward-sheet" hidden aria-live="polite">
     <section class="park-reward-sheet__panel" role="dialog" aria-modal="true" aria-labelledby="parkRewardTitle">
         <div class="park-reward-sheet__head">
@@ -3328,6 +3468,8 @@ else if (needsDogOnboarding)
         let exploreFilter = "all";
         let userLocation = null;
         let activeBinId = null;
+        let nearestBinPreview = null;
+        let nearestBinLookupId = 0;
         const binMarkers = new Map();
         const placeMarkers = new Map();
         const mapSettingsPrefix = "doggydrop.map.";
@@ -3356,7 +3498,31 @@ else if (needsDogOnboarding)
         }
 
         function setBinNavigationMode(isActive) {
+            if (document.getElementById("homeActiveWalkSheet")) {
+                setActiveWalkSheetExpanded(false);
+            }
             document.body.classList.toggle("map-bin-navigation-active", Boolean(isActive));
+        }
+
+        function updateActiveWalkSheetSpace() {
+            const sheet = document.getElementById("homeActiveWalkSheet");
+            if (!sheet) return;
+            document.body.style.setProperty("--active-walk-sheet-height", `${Math.ceil(sheet.getBoundingClientRect().height)}px`);
+            if (map) requestAnimationFrame(() => map.invalidateSize());
+        }
+
+        function setActiveWalkSheetExpanded(expanded) {
+            const sheet = document.getElementById("homeActiveWalkSheet");
+            const details = document.getElementById("homeActiveWalkDetails");
+            const toggle = document.getElementById("homeActiveWalkToggle");
+            if (!sheet || !details || !toggle) return;
+            if (toggle.getAttribute("aria-expanded") === String(expanded)) return;
+            details.hidden = !expanded;
+            sheet.classList.toggle("is-expanded", expanded);
+            toggle.setAttribute("aria-expanded", String(expanded));
+            toggle.setAttribute("aria-label", expanded ? "Skrči kontrole sprehoda" : "Razširi kontrole sprehoda");
+            document.getElementById("homeActiveWalkChevron").className = expanded ? "bi bi-chevron-down" : "bi bi-chevron-up";
+            updateActiveWalkSheetSpace();
         }
 
         function recenterNavigation() {
@@ -3466,6 +3632,13 @@ else if (needsDogOnboarding)
         });
 
         function initActiveWalkCard() {
+            const sheet = document.getElementById("homeActiveWalkSheet");
+            const toggle = document.getElementById("homeActiveWalkToggle");
+            if (sheet && toggle) {
+                toggle.addEventListener("click", () => setActiveWalkSheetExpanded(toggle.getAttribute("aria-expanded") !== "true"));
+                updateActiveWalkSheetSpace();
+                window.addEventListener("resize", updateActiveWalkSheetSpace);
+            }
             if (!activeWalkStartedAt || !homeActiveWalkDuration) {
                 return;
             }
@@ -3478,6 +3651,7 @@ else if (needsDogOnboarding)
                 homeActiveWalkDuration.textContent = hours > 0
                     ? `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`
                     : `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+                document.getElementById("homeActiveWalkDurationCompact").textContent = homeActiveWalkDuration.textContent;
             };
 
             update();
@@ -4061,9 +4235,9 @@ else if (needsDogOnboarding)
         }
 
         function getHeatRangeLabel(range) {
-            if (range === "week") return "This week";
-            if (range === "evening") return "Evening";
-            return "Today";
+            if (range === "week") return "Ta teden";
+            if (range === "evening") return "Zvečer";
+            return "Danes";
         }
 
         function getMapSetting(key, fallback) {
@@ -4259,7 +4433,7 @@ else if (needsDogOnboarding)
             nearbyDogsCount.textContent = String(dogs.length || 0);
 
             if (!dogs.length) {
-                nearbyDogsList.innerHTML = `<div class="map-nearby-dogs__empty">Trenutno ni vidnih psov v blizini ali pa se lokacija se ni osvezila.</div>`;
+                nearbyDogsList.innerHTML = `<div class="map-nearby-dogs__empty">Trenutno ni vidnih psov v bližini ali pa se lokacija še ni osvežila.</div>`;
                 return;
             }
 
@@ -4389,6 +4563,8 @@ else if (needsDogOnboarding)
         }
 
         function findNearestTrashBin() {
+            const lookupId = ++nearestBinLookupId;
+            closeNearestBinPreview(false);
             if (!navigator.geolocation) {
                 alert("Geolokacija ni podprta v tvojem brskalniku.");
                 return;
@@ -4406,6 +4582,7 @@ else if (needsDogOnboarding)
             }
 
             navigator.geolocation.getCurrentPosition(position => {
+                if (lookupId !== nearestBinLookupId) return;
                 userLocation = {
                     lat: position.coords.latitude,
                     lng: position.coords.longitude
@@ -4426,17 +4603,26 @@ else if (needsDogOnboarding)
                 })
                 .then(response => {
                     if (!response.ok) {
-                        throw new Error("Najboljsega kosa ni bilo mogoce poiskati.");
+                        throw new Error("Najboljšega koša ni bilo mogoče poiskati.");
                     }
 
                     return response.json();
                 })
                 .then(nearestBin => {
-                    startInAppBinNavigation(Number(nearestBin.id || nearestBin.Id || 0), nearestBin);
+                    if (lookupId !== nearestBinLookupId) return;
+                    nearestBinPreview = nearestBin;
+                    const distance = getDistanceMeters(userLocation.lat, userLocation.lng,
+                        Number(nearestBin.latitude ?? nearestBin.Latitude), Number(nearestBin.longitude ?? nearestBin.Longitude));
+                    document.getElementById("nearestBinPreviewName").textContent = nearestBin.name || nearestBin.Name || "Najbližji koš";
+                    document.getElementById("nearestBinPreviewDistance").textContent = Number.isFinite(distance)
+                        ? `Približno ${Math.round(distance)} m zračne razdalje · čas hoje po izračunu poti`
+                        : "Razdalja trenutno ni na voljo.";
+                    document.getElementById("nearestBinPreview").hidden = false;
+                    document.body.classList.add("map-nearest-preview-active");
                     renderNearbySuggestions();
                 })
-                .catch(error => alert(error.message));
-            }, () => alert("Napaka pri pridobivanju lokacije."), {
+                .catch(error => { if (lookupId === nearestBinLookupId) alert(error.message); });
+            }, () => { if (lookupId === nearestBinLookupId) alert("Napaka pri pridobivanju lokacije."); }, {
                 enableHighAccuracy: true,
                 maximumAge: 0,
                 timeout: 10000
@@ -4670,6 +4856,20 @@ else if (needsDogOnboarding)
             }
         }
 
+        function closeNearestBinPreview(cancelLookup = true) {
+            if (cancelLookup) nearestBinLookupId++;
+            nearestBinPreview = null;
+            document.getElementById("nearestBinPreview").hidden = true;
+            document.body.classList.remove("map-nearest-preview-active");
+        }
+
+        function startNearestBinPreviewNavigation() {
+            if (!nearestBinPreview) return;
+            const bin = nearestBinPreview;
+            closeNearestBinPreview();
+            startInAppBinNavigation(Number(bin.id || bin.Id || 0), bin);
+        }
+
         function stopInAppNavigation() {
             navigation.requestSequence++;
             navigation.abortController?.abort();
@@ -4812,6 +5012,7 @@ else if (needsDogOnboarding)
             panel.style.display = "block";
             panel.innerHTML = `
                 <article class="navigation-card" aria-label="Navigacija">
+                    <small>NAVIGACIJA DO KOŠA</small>
                     <h3 class="navigation-card__title">${escapeHtml(bin.name || bin.Name || "Cilj")}</h3>
                     <p class="navigation-card__meta">${eta} · ${distanceLabel}${approximate ? " zračne razdalje" : ""}</p>
                     <p class="navigation-card__status" role="status">${escapeHtml(routeNote)}</p>

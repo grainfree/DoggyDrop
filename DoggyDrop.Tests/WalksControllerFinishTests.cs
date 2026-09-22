@@ -64,6 +64,33 @@ public sealed class WalksControllerFinishTests : IDisposable
     }
 
     [Fact]
+    public async Task Finish_StaleWalkIsInterruptedAtLastGpsPointWithoutRewards()
+    {
+        var walkId = await SeedAsync(distanceMeters: 850);
+        DateTime lastActivity;
+        await using (var setup = CreateContext())
+        {
+            var walk = await setup.Walks.SingleAsync();
+            walk.StartedAt = DateTime.UtcNow.AddDays(-3);
+            lastActivity = DateTime.UtcNow.AddDays(-2);
+            setup.WalkPoints.Add(new WalkPoint { WalkId = walkId, RecordedAt = lastActivity, Latitude = 46, Longitude = 15 });
+            await setup.SaveChangesAsync();
+        }
+
+        await using var context = CreateContext();
+        await CreateController(context).Finish(walkId, null, null);
+
+        var recovered = await context.Walks.AsNoTracking().SingleAsync();
+        Assert.Equal("Interrupted", recovered.Status);
+        Assert.Equal(lastActivity, recovered.EndedAt);
+        Assert.Equal(850, recovered.DistanceMeters);
+        Assert.False(await context.UserXpEvents.AnyAsync());
+        Assert.False(await context.DogXpEvents.AnyAsync());
+        Assert.False(await context.UserAchievements.AnyAsync());
+        Assert.False(await context.UserStreaks.AnyAsync());
+    }
+
+    [Fact]
     public async Task Finish_ConcurrentRequestsAwardOnlyOnce()
     {
         var walkId = await SeedAsync(distanceMeters: 2_000);

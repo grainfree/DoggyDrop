@@ -165,6 +165,7 @@ namespace DoggyDrop.Controllers
                     DateAdded = bin.DateAdded
                 })
                 .Where(bin => !string.IsNullOrWhiteSpace(bin.ImageUrl))
+                .DistinctBy(bin => bin.BinId)
                 .ToList();
 
             var weeklyWalks = await _context.Walks

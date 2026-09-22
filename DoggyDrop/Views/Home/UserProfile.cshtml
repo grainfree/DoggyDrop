@@ -5,8 +5,6 @@
     ViewData["Title"] = "Profil";
     var displayName = string.IsNullOrWhiteSpace(Model.DisplayName) ? Model.Email : Model.DisplayName;
     var initials = string.IsNullOrWhiteSpace(displayName) ? "D" : displayName.Substring(0, 1).ToUpperInvariant();
-    var totalHours = Math.Floor(Model.TotalWalkDuration.TotalHours);
-    var totalMinutes = Model.TotalWalkDuration.Minutes;
 }
 
 <section class="app-page profile-page">
@@ -24,7 +22,7 @@
             </div>
             <div class="profile-hero__level">
                 <strong>@Model.Gamification.Level</strong>
-                <span>level</span>
+                <span>stopnja</span>
             </div>
         </div>
         <div class="profile-hero__text">
@@ -45,53 +43,56 @@
                 </form>
             </div>
         </div>
-        <div class="profile-hero__summary" aria-label="Povzetek profila">
-            <article>
-                <strong>@Model.TotalDistanceKm.ToString("0.0")</strong>
-                <span>km</span>
-            </article>
-            <article>
-                <strong>@Model.TotalWalks</strong>
-                <span>sprehodov</span>
-            </article>
-            <article>
-                <strong>@Model.Gamification.CurrentStreakDays</strong>
-                <span>sprehajalni niz</span>
-            </article>
-        </div>
     </header>
 
+    <section class="profile-dogs-compact" aria-label="Moji psi">
+        <div class="profile-panel__header"><h2>Moji psi</h2><a asp-controller="Dogs" asp-action="Create">Dodaj</a></div>
+        @if (Model.Dogs.Count == 0)
+        {
+            <p class="profile-muted">Dodaj psa za skupne sprehode.</p>
+        }
+        else
+        {
+            <div class="profile-dog-list">
+                @foreach (var dog in Model.Dogs)
+                {
+                    <a class="profile-dog" asp-controller="Dogs" asp-action="Details" asp-route-id="@dog.Id">
+                        <div class="profile-dog__avatar">
+                            @if (!string.IsNullOrWhiteSpace(dog.PhotoUrl)) { <img src="@dog.PhotoUrl" alt="" /> }
+                            else { <span>@(string.IsNullOrWhiteSpace(dog.Name) ? "P" : dog.Name.Substring(0, 1).ToUpperInvariant())</span> }
+                        </div>
+                        <div><strong>@dog.Name</strong><span>@dog.WalkCount sprehodov</span></div>
+                        <em>@dog.DistanceKm.ToString("0.0") km</em>
+                    </a>
+                }
+            </div>
+        }
+    </section>
+
+    <h2 class="profile-activity-title">Moja aktivnost</h2>
     <div class="profile-stats">
         <article>
             <strong>@Model.TotalDistanceKm.ToString("0.0") km</strong>
-            <span>Skupaj</span>
+            <span>Razdalja</span>
         </article>
         <article>
             <strong>@Model.TotalWalks</strong>
             <span>Sprehodi</span>
         </article>
         <article>
-            <strong>@Model.WalksThisWeek</strong>
-            <span>Ta teden</span>
-        </article>
-        <article>
-            <strong>@Model.TotalDogs</strong>
-            <span>Psi</span>
+            <strong>@Model.Gamification.CurrentStreakDays</strong>
+            <span>Sprehajalni niz</span>
         </article>
         <article>
             <strong>@Model.TotalBins</strong>
             <span>Koši</span>
-        </article>
-        <article>
-            <strong>@($"{totalHours:0}h {totalMinutes:00}m")</strong>
-            <span>Aktivno</span>
         </article>
     </div>
 
     <article class="profile-panel profile-xp">
         <div class="profile-xp__top">
             <div>
-                <span>Level @Model.Gamification.Level</span>
+                <span>Stopnja @Model.Gamification.Level</span>
                 <strong>@Model.Gamification.Title</strong>
             </div>
             <em>@Model.Gamification.TotalXp XP</em>
@@ -100,7 +101,7 @@
             <span style="width: @Model.Gamification.ProgressPercent%"></span>
         </div>
         <div class="profile-xp__meta">
-            <span>@Model.Gamification.XpRemaining XP do naslednjega levela</span>
+            <span>@Model.Gamification.XpRemaining XP do naslednje stopnje</span>
             <span>Sprehajalni niz: @SlovenianFormatting.Days(Model.Gamification.CurrentStreakDays)</span>
         </div>
         <div class="profile-streak-grid">
@@ -312,43 +313,6 @@
             </div>
             <p>Preglej status odobritve, uporabo in prispevek proti znacki Bin Hero.</p>
         </div>
-    </article>
-
-    <article class="profile-panel">
-        <div class="profile-panel__header">
-            <h2>Moji psi</h2>
-            <a asp-controller="Dogs" asp-action="Create">Dodaj</a>
-        </div>
-
-        @if (Model.Dogs.Count == 0)
-        {
-            <p class="profile-muted">Ni se dodanih psov. Profil psa je osnova za sprehode, kilometre in znacke.</p>
-        }
-        else
-        {
-            <div class="profile-dog-list">
-                @foreach (var dog in Model.Dogs)
-                {
-                    <a class="profile-dog" asp-controller="Dogs" asp-action="Details" asp-route-id="@dog.Id">
-                        <div class="profile-dog__avatar">
-                            @if (!string.IsNullOrWhiteSpace(dog.PhotoUrl))
-                            {
-                                <img src="@dog.PhotoUrl" alt="@dog.Name" />
-                            }
-                            else
-                            {
-                                <span>@dog.Name.Substring(0, 1).ToUpperInvariant()</span>
-                            }
-                        </div>
-                        <div>
-                            <strong>@dog.Name</strong>
-                            <span>@dog.WalkCount sprehodov</span>
-                        </div>
-                        <em>@dog.DistanceKm.ToString("0.0") km</em>
-                    </a>
-                }
-            </div>
-        }
     </article>
 
     <article class="profile-panel">
@@ -1386,29 +1350,31 @@
         }
 
         .profile-page .profile-hero {
-            grid-template-columns: 1fr;
-            padding: 18px;
+            grid-template-columns: 72px minmax(0, 1fr);
+            padding: 12px;
+            gap: 10px;
         }
 
         .profile-hero__media {
-            width: 118px;
+            width: 72px;
         }
 
         .profile-page .profile-hero__avatar {
-            width: 118px;
+            width: 72px;
+            height: 72px;
         }
 
         .profile-page .profile-hero__text h1 {
-            font-size: 2rem;
+            font-size: 1.35rem;
         }
 
         .profile-page .profile-hero__text p {
             white-space: normal;
         }
 
-        .profile-hero__summary,
         .profile-page .profile-stats {
-            grid-template-columns: repeat(3, minmax(0, 1fr));
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 6px;
         }
 
         .profile-hero__summary article {
@@ -1431,4 +1397,8 @@
             grid-template-columns: 1fr;
         }
     }
+    .profile-dogs-compact { padding: 10px 0; }
+    .profile-dogs-compact .profile-panel__header { margin-bottom: 5px; }
+    .profile-dogs-compact h2, .profile-activity-title { margin: 6px 0; font-size: 1rem; }
+    .profile-dogs-compact .profile-dog { min-height: 48px; }
 </style>

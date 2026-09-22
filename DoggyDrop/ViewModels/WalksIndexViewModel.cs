@@ -7,6 +7,7 @@ namespace DoggyDrop.ViewModels
         public List<Dog> Dogs { get; set; } = new();
 
         public Walk? ActiveWalk { get; set; }
+        public List<Walk> InterruptedWalks { get; set; } = new();
 
         public List<Walk> RecentWalks { get; set; } = new();
 

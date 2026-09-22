@@ -55,7 +55,7 @@
     <header class="active-walk-hero">
         <span>Aktiven sprehod</span>
         <h1>@Model.Dog?.Name</h1>
-        <p>Zacetek: @Model.StartedAt.ToLocalTime().ToString("HH:mm")</p>
+        <p>Začetek: @Model.StartedAt.ToLocalTime().ToString("HH:mm")</p>
         @if (Model.PlannedWalk != null)
         {
             <p>Plan: @Model.PlannedWalk.Title - ~@Model.PlannedWalk.EstimatedMinutes min</p>
@@ -66,7 +66,7 @@
         <div class="active-walk-map-card__header">
             <div>
                 <h2>GPS pot</h2>
-                <p id="gpsStatus">GPS se ni zagnan.</p>
+                <p id="gpsStatus">GPS še ni zagnan.</p>
             </div>
             <button type="button" id="trackingToggle" class="btn btn-success rounded-pill fw-semibold">Začni sledenje</button>
         </div>
@@ -104,7 +104,7 @@
         </article>
         <article>
             <strong id="pointCount">@((Model.Points?.Count ?? 0).ToString())</strong>
-            <span>GPS tocke</span>
+            <span>GPS točke</span>
         </article>
     </div>
 
@@ -207,7 +207,7 @@
     }
 
     <form asp-controller="Walks" asp-action="Finish" asp-route-id="@Model.Id" method="post" class="active-walk-finish-card">
-        <h2>Zakljuci sprehod</h2>
+        <h2>Zaključi sprehod</h2>
         <p>Ce GPS trenutno ne deluje, lahko razdaljo vneses rocno.</p>
 
         <div class="active-walk-finish-card__grid">
@@ -583,7 +583,12 @@
                 });
 
                 if (!response.ok) {
-                    gpsStatusElement.textContent = "GPS tocka ni bila shranjena.";
+                    if (response.status === 409) {
+                        stopTracking();
+                        window.location.assign(`/Walks/Interrupted/${walkId}`);
+                        return;
+                    }
+                    gpsStatusElement.textContent = "GPS točka ni bila shranjena.";
                     return;
                 }
 
@@ -616,7 +621,7 @@
         }
 
         function handleGpsError(error) {
-            gpsStatusElement.textContent = error.message || "GPS lokacije ni bilo mogoce pridobiti.";
+            gpsStatusElement.textContent = error.message || "GPS lokacije ni bilo mogoče pridobiti.";
         }
 
         function wireStopChecklist() {
@@ -805,7 +810,7 @@
             nextStopReasonElement.textContent = `${nextStop.label ?? nextStop.Label} - ${nextStop.reason ?? nextStop.Reason}`;
             nextStopMetaElement.textContent = currentPosition
                 ? "Najblizji neopravljeni postanek glede na tvojo trenutno lokacijo."
-                : "GPS se se ni zagnal, zato je prikazan naslednji postanek iz plana.";
+                : "GPS se še ni zagnal, zato je prikazan naslednji postanek iz plana.";
             nextStopDistanceElement.textContent = distanceToStopMeters == null ? "Plan" : formatDistance(distanceToStopMeters);
             completeNextStopButton.disabled = false;
         }

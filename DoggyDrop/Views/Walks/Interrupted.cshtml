@@ -1,0 +1,22 @@
+@model DoggyDrop.Models.Walk
+@{
+    ViewData["Title"] = "Prekinjen sprehod";
+    var pointCount = Model.Points?.Count ?? 0;
+}
+
+<section class="app-page">
+    <h1>Prekinjen sprehod</h1>
+    @if (TempData["ErrorMessage"] is string message)
+    {
+        <div class="alert alert-warning">@message</div>
+    }
+    <p>Po več kot 24 urah brez zabeležene GPS točke smo sprehod zaprli pri zadnji aktivnosti. Časa brez sledenja nismo šteli kot hojo. Za ta samodejni zaključek ni XP, značk ali sprehajalnega niza.</p>
+    <dl>
+        <dt>Pes</dt><dd>@Model.Dog?.Name</dd>
+        <dt>Začetek</dt><dd>@Model.StartedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</dd>
+        <dt>Zadnja aktivnost</dt><dd>@Model.EndedAt?.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</dd>
+        <dt>Zabeležena razdalja</dt><dd>@(Model.DistanceMeters / 1000d).ToString("0.00") km</dd>
+        <dt>GPS točke</dt><dd>@pointCount</dd>
+    </dl>
+    <a class="btn btn-success" asp-controller="Walks" asp-action="Index">Nazaj na sprehode</a>
+</section>

@@ -63,10 +63,25 @@ namespace DoggyDrop.Controllers
 
             var activeWalk = await _context.Walks
                 .Include(w => w.Dog)
+                .Include(w => w.Points)
                 .Include(w => w.PlannedWalk)
                 .Include(w => w.StopCompletions!)
                 .Include(w => w.Photos!)
                 .FirstOrDefaultAsync(w => w.OwnerId == userId && w.Status == "Active");
+
+            if (activeWalk != null && await RecoverStaleWalkAsync(activeWalk))
+            {
+                activeWalk = null;
+                TempData["ErrorMessage"] = "Prejšnji sprehod je bil zaradi daljše prekinitve GPS sledenja zaprt pri zadnji zabeleženi točki. Nagrad ni podelil.";
+            }
+
+            var interruptedWalks = await _context.Walks
+                .AsNoTracking()
+                .Include(walk => walk.Dog)
+                .Where(walk => walk.OwnerId == userId && walk.Status == "Interrupted")
+                .OrderByDescending(walk => walk.EndedAt)
+                .Take(5)
+                .ToListAsync();
 
             if (dogId.HasValue && !dogs.Any(d => d.Id == dogId.Value))
             {
@@ -145,6 +160,7 @@ namespace DoggyDrop.Controllers
             {
                 Dogs = dogs,
                 ActiveWalk = activeWalk,
+                InterruptedWalks = interruptedWalks,
                 RecentWalks = recentWalks,
                 TotalDistanceKm = totalDistanceKm,
                 WalksThisWeek = completedWalks.Count(w => w.StartedAt >= weekStart),
@@ -622,7 +638,27 @@ namespace DoggyDrop.Controllers
                 return NotFound();
             }
 
+            if (walk.Status == "Active" && await RecoverStaleWalkAsync(walk))
+            {
+                TempData["ErrorMessage"] = "Sprehod je bil prekinjen po več kot 24 urah brez GPS točke. Ohranili smo že zabeleženo pot in razdaljo; novih nagrad ni.";
+                return RedirectToAction(nameof(Interrupted), new { id });
+            }
+
+            if (walk.Status == "Interrupted") return RedirectToAction(nameof(Interrupted), new { id });
+            if (walk.Status == "Completed") return RedirectToAction(nameof(Details), new { id });
+
             return View(walk);
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> Interrupted(int id)
+        {
+            var userId = _userManager.GetUserId(User);
+            var walk = await _context.Walks.AsNoTracking()
+                .Include(item => item.Dog)
+                .Include(item => item.Points)
+                .FirstOrDefaultAsync(item => item.Id == id && item.OwnerId == userId && item.Status == "Interrupted");
+            return walk == null ? NotFound() : View(walk);
         }
 
         [HttpGet]
@@ -634,6 +670,8 @@ namespace DoggyDrop.Controllers
                 .Include(w => w.Points)
                 .Include(w => w.PlannedWalk)
                     .ThenInclude(plan => plan!.Stops)
+                .Include(w => w.PlannedWalk)
+                    .ThenInclude(plan => plan!.RoutePoints)
                 .Include(w => w.StopCompletions!)
                     .ThenInclude(completion => completion.PlannedWalkStop)
                 .Include(w => w.Reactions!)
@@ -654,6 +692,11 @@ namespace DoggyDrop.Controllers
             if (walk.Status == "Active")
             {
                 return RedirectToAction(nameof(Active), new { id = walk.Id });
+            }
+
+            if (walk.Status == "Interrupted")
+            {
+                return RedirectToAction(nameof(Interrupted), new { id = walk.Id });
             }
 
             if (walk.OwnerId == userId && TempData.TryGetValue(GetWalkRewardTempDataKey(walk.Id), out var rewardResultJson))
@@ -978,12 +1021,22 @@ namespace DoggyDrop.Controllers
                 return NotFound();
             }
 
+            if (await RecoverStaleWalkAsync(walk))
+            {
+                return Conflict("Sprehod je bil prekinjen zaradi daljše neaktivnosti. Odpri seznam sprehodov.");
+            }
+
             if (input.Latitude is < -90 or > 90 || input.Longitude is < -180 or > 180)
             {
                 return BadRequest("Invalid coordinates.");
             }
 
-            var recordedAt = input.RecordedAt ?? DateTime.UtcNow;
+            var nowUtc = DateTime.UtcNow;
+            var recordedAt = input.RecordedAt is { } reportedAt &&
+                reportedAt.Kind == DateTimeKind.Utc &&
+                reportedAt >= nowUtc.AddMinutes(-2) && reportedAt <= nowUtc.AddMinutes(1)
+                    ? reportedAt
+                    : nowUtc;
             var lastPoint = walk.Points?
                 .OrderByDescending(point => point.RecordedAt)
                 .FirstOrDefault();
@@ -1079,6 +1132,7 @@ namespace DoggyDrop.Controllers
             var walk = await _context.Walks
                 .AsNoTracking()
                 .Include(w => w.Dog)
+                .Include(w => w.Points)
                 .FirstOrDefaultAsync(w => w.Id == id && w.OwnerId == userId);
 
             if (walk == null)
@@ -1088,7 +1142,18 @@ namespace DoggyDrop.Controllers
 
             if (walk.Status != "Active")
             {
+                if (walk.Status == "Interrupted")
+                {
+                    TempData["ErrorMessage"] = "Ta sprehod je bil prekinjen po dolgem premoru. Ohranili smo GPS pot in razdaljo, brez novih nagrad.";
+                    return RedirectToAction(nameof(Interrupted), new { id });
+                }
                 return RedirectToAction(nameof(Details), new { id });
+            }
+
+            if (await RecoverStaleWalkAsync(walk))
+            {
+                TempData["ErrorMessage"] = "Sprehod je bil prekinjen pri zadnji GPS točki; zaključek po dolgem premoru ne podeli nagrad.";
+                return RedirectToAction(nameof(Interrupted), new { id });
             }
 
             var distanceMeters = TryParseDistanceKm(manualDistanceKm, out var parsedDistanceKm)
@@ -1197,6 +1262,23 @@ namespace DoggyDrop.Controllers
         }
 
         private static string GetWalkRewardTempDataKey(int walkId) => $"WalkRewardResult:{walkId}";
+
+        private async Task<bool> RecoverStaleWalkAsync(Walk walk)
+        {
+            var nowUtc = _gamificationCalendar.UtcNow.UtcDateTime;
+            var points = walk.Points ?? await _context.WalkPoints
+                .AsNoTracking()
+                .Where(point => point.WalkId == walk.Id)
+                .ToListAsync();
+            if (!WalkStaleness.IsStale(walk, points, nowUtc)) return false;
+
+            var lastActivity = WalkStaleness.LastActivity(walk, points, nowUtc);
+            return await _context.Walks
+                .Where(candidate => candidate.Id == walk.Id && candidate.OwnerId == walk.OwnerId && candidate.Status == "Active")
+                .ExecuteUpdateAsync(updates => updates
+                    .SetProperty(candidate => candidate.EndedAt, lastActivity)
+                    .SetProperty(candidate => candidate.Status, "Interrupted")) > 0;
+        }
 
         private static string GetFirstWalkTempDataKey(string valueName, int walkId) => $"FirstWalk:{valueName}:{walkId}";
 
@@ -1376,43 +1458,39 @@ namespace DoggyDrop.Controllers
                 .Select(stop => stop.Id)
                 .Distinct()
                 .Count();
-            var routeName = walk.PlannedWalk?.AreaName ?? walk.PlannedWalk?.Title;
-            var routePart = !string.IsNullOrWhiteSpace(routeName)
-                ? $" skozi {routeName}"
-                : string.Empty;
             var photoPart = (walk.Photos?.Count ?? 0) > 0
-                ? $" in ujel {walk.Photos!.Count} walk photo"
+                ? $" Posnetih fotografij: {walk.Photos!.Count}."
                 : string.Empty;
             var binPart = walk.UsedBinsCount > 0
-                ? $" Ob poti je uporabil {walk.UsedBinsCount} DoggyDrop koš{(walk.UsedBinsCount == 1 ? "" : "e")}."
+                ? $" Uporabljenih košev: {walk.UsedBinsCount}."
                 : string.Empty;
             var stopPart = completedStopNames.Count > 0
                 ? $" Najboljši postanki: {string.Join(", ", completedStopNames)}."
                 : exploredCount > 0
                     ? $" Raziskal je {exploredCount} planiranih postankov."
                     : string.Empty;
-            var durationPart = duration.TotalMinutes >= 1
-                ? $" v {duration:hh\\:mm}"
-                : string.Empty;
+            var durationPart = duration.TotalSeconds < 60
+                ? $" v {Math.Max(0, (int)duration.TotalSeconds)} sekundah"
+                : $" v {(int)duration.TotalMinutes} minutah";
 
-            return $"{dogName} je danes prehodil {distanceKm:0.0} km{durationPart}{routePart}{photoPart}.{stopPart}{binPart}".Trim();
+            return $"{dogName} je danes prehodil {distanceKm.ToString("0.0", CultureInfo.GetCultureInfo("sl-SI"))} km{durationPart}.{photoPart}{stopPart}{binPart}".Trim();
         }
 
         private static string BuildShareCardSvg(Walk walk)
         {
             var dogName = EscapeSvg(walk.Dog?.Name ?? "Pes");
-            var distanceKm = (walk.DistanceMeters / 1000).ToString("0.00", CultureInfo.InvariantCulture);
+            var dogNameSizing = dogName.Length > 12 ? "textLength=\"900\" lengthAdjust=\"spacingAndGlyphs\"" : string.Empty;
+            var distanceKm = (walk.DistanceMeters / 1000).ToString("0.00", CultureInfo.GetCultureInfo("sl-SI"));
             var duration = walk.EndedAt.HasValue
                 ? (walk.EndedAt.Value - walk.StartedAt).ToString(@"hh\:mm")
                 : "00:00";
             var bins = walk.UsedBinsCount.ToString(CultureInfo.InvariantCulture);
             var dateText = walk.StartedAt.ToLocalTime().ToString("dd.MM.yyyy");
-            var storyText = EscapeSvg(BuildWalkStory(walk));
             var photoUrls = (walk.Photos ?? [])
                 .OrderByDescending(photo => photo.CreatedAt)
                 .Select(photo => photo.ImageUrl)
                 .Where(url => !string.IsNullOrWhiteSpace(url))
-                .Take(3)
+                .Take(1)
                 .ToList();
 
             if (photoUrls.Count == 0 && !string.IsNullOrWhiteSpace(walk.Dog?.PhotoUrl))
@@ -1426,79 +1504,24 @@ namespace DoggyDrop.Controllers
             return $$"""
 <svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#25594e"/>
-      <stop offset="55%" stop-color="#2f6d5f"/>
-      <stop offset="100%" stop-color="#e18d32"/>
-    </linearGradient>
-    <linearGradient id="photoFade" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="rgba(0,0,0,0)"/>
-      <stop offset="100%" stop-color="rgba(0,0,0,0.34)"/>
+    <linearGradient id="shade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#102b24" stop-opacity="0.5"/>
+      <stop offset="35%" stop-color="#102b24" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#102b24" stop-opacity="0.95"/>
     </linearGradient>
   </defs>
-  <rect width="1080" height="1920" fill="url(#bg)"/>
+  <rect width="1080" height="1920" fill="#24695a"/>
   {{photoLayout}}
-  <rect x="80" y="150" width="920" height="760" rx="36" ry="36" fill="url(#photoFade)"/>
-  <rect x="80" y="150" width="920" height="760" rx="36" ry="36" fill="none" stroke="rgba(255,255,255,0.18)"/>
-  <rect x="80" y="980" width="920" height="770" rx="48" ry="48" fill="rgba(9,18,16,0.26)"/>
-  <rect x="712" y="96" width="288" height="64" rx="32" ry="32" fill="rgba(9,18,16,0.34)" stroke="rgba(255,255,255,0.18)"/>
-  <circle cx="752" cy="128" r="10" fill="#ef8f42"/>
-  <text x="780" y="138" fill="rgba(255,255,255,0.92)" font-size="30" font-family="Arial, sans-serif" font-weight="800">doggydrop.app</text>
-  <text x="120" y="1060" fill="#ffffff" font-size="42" font-family="Arial, sans-serif" font-weight="700">DoggyDrop walk</text>
-  <text x="120" y="1150" fill="#ffffff" font-size="96" font-family="Arial, sans-serif" font-weight="800">{{dogName}}</text>
-  <text x="120" y="1275" fill="#ffffff" font-size="168" font-family="Arial, sans-serif" font-weight="900">{{distanceKm}} km</text>
-  <text x="120" y="1354" fill="rgba(255,255,255,0.86)" font-size="38" font-family="Arial, sans-serif" font-weight="700">
-    {{BuildSvgTextLines(storyText, 58, 3, 120, 1354)}}
-  </text>
-  <rect x="120" y="1435" width="260" height="190" rx="32" ry="32" fill="rgba(255,255,255,0.12)"/>
-  <rect x="410" y="1435" width="260" height="190" rx="32" ry="32" fill="rgba(255,255,255,0.12)"/>
-  <rect x="700" y="1435" width="260" height="190" rx="32" ry="32" fill="rgba(255,255,255,0.12)"/>
-  <text x="150" y="1505" fill="rgba(255,255,255,0.72)" font-size="30" font-family="Arial, sans-serif">Trajanje</text>
-  <text x="150" y="1578" fill="#ffffff" font-size="68" font-family="Arial, sans-serif" font-weight="800">{{duration}}</text>
-  <text x="440" y="1505" fill="rgba(255,255,255,0.72)" font-size="30" font-family="Arial, sans-serif">Kosi</text>
-  <text x="440" y="1578" fill="#ffffff" font-size="68" font-family="Arial, sans-serif" font-weight="800">{{bins}}</text>
-  <text x="730" y="1505" fill="rgba(255,255,255,0.72)" font-size="30" font-family="Arial, sans-serif">Datum</text>
-  <text x="730" y="1578" fill="#ffffff" font-size="46" font-family="Arial, sans-serif" font-weight="800">{{EscapeSvg(dateText)}}</text>
+  <rect width="1080" height="1920" fill="url(#shade)"/>
+  <text x="80" y="130" fill="#ffffff" font-size="42" font-family="Arial, sans-serif" font-weight="800">DOGGYDROP</text>
+  <text x="80" y="1440" fill="#ffffff" font-size="96" font-family="Arial, sans-serif" font-weight="800" {{dogNameSizing}}>{{dogName}}</text>
+  <text x="80" y="1600" fill="#ffffff" font-size="152" font-family="Arial, sans-serif" font-weight="900">{{distanceKm}} km</text>
+  <text x="80" y="1700" fill="#ffffff" font-size="44" font-family="Arial, sans-serif" font-weight="700">{{duration}} · {{bins}} košev</text>
+  <text x="80" y="1780" fill="#ffffff" font-size="40" font-family="Arial, sans-serif">{{EscapeSvg(dateText)}}</text>
+  <text x="80" y="1860" fill="#ffffff" font-size="36" font-family="Arial, sans-serif">doggydrop.app</text>
 </svg>
 """;
         }
-
-        private static string BuildSvgTextLines(string text, int maxChars, int maxLines, int x, int y)
-        {
-            var words = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            var lines = new List<string>();
-            var current = new StringBuilder();
-
-            foreach (var word in words)
-            {
-                if (current.Length > 0 && current.Length + word.Length + 1 > maxChars)
-                {
-                    lines.Add(current.ToString());
-                    current.Clear();
-                }
-
-                if (lines.Count >= maxLines)
-                {
-                    break;
-                }
-
-                if (current.Length > 0)
-                {
-                    current.Append(' ');
-                }
-
-                current.Append(word);
-            }
-
-            if (current.Length > 0 && lines.Count < maxLines)
-            {
-                lines.Add(current.ToString());
-            }
-
-            return string.Join(Environment.NewLine, lines.Select((line, index) =>
-                $"<tspan x=\"{x}\" y=\"{y + (index * 48)}\">{line}</tspan>"));
-        }
-
 
         private static string BuildSharePhotoLayout(IReadOnlyList<string> safePhotoUrls)
         {
@@ -1507,24 +1530,7 @@ namespace DoggyDrop.Controllers
                 return string.Empty;
             }
 
-            if (safePhotoUrls.Count == 1)
-            {
-                return $"<image href=\"{safePhotoUrls[0]}\" x=\"80\" y=\"150\" width=\"920\" height=\"760\" preserveAspectRatio=\"xMidYMid slice\" opacity=\"0.96\" clip-path=\"inset(0 round 36px)\"/>";
-            }
-
-            if (safePhotoUrls.Count == 2)
-            {
-                return $"""
-<image href="{safePhotoUrls[0]}" x="80" y="150" width="452" height="760" preserveAspectRatio="xMidYMid slice" opacity="0.96" clip-path="inset(0 round 36px 0 36px)"/>
-<image href="{safePhotoUrls[1]}" x="548" y="150" width="452" height="760" preserveAspectRatio="xMidYMid slice" opacity="0.96" clip-path="inset(0 round 0 36px 36px 0)"/>
-""";
-            }
-
-            return $"""
-<image href="{safePhotoUrls[0]}" x="80" y="150" width="452" height="760" preserveAspectRatio="xMidYMid slice" opacity="0.96" clip-path="inset(0 round 36px 0 36px)"/>
-<image href="{safePhotoUrls[1]}" x="548" y="150" width="452" height="372" preserveAspectRatio="xMidYMid slice" opacity="0.96" clip-path="inset(0 round 0 36px 0 0)"/>
-<image href="{safePhotoUrls[2]}" x="548" y="538" width="452" height="372" preserveAspectRatio="xMidYMid slice" opacity="0.96" clip-path="inset(0 round 0 0 36px 0)"/>
-""";
+            return $"<image href=\"{safePhotoUrls[0]}\" width=\"1080\" height=\"1920\" preserveAspectRatio=\"xMidYMid slice\"/>";
         }
 
         private static string EscapeSvg(string input)
@@ -1729,7 +1735,7 @@ namespace DoggyDrop.Controllers
                     Name = $"Start: {area.Name}",
                     Type = "start",
                     Label = "Start",
-                    Reason = "Zacetna tocka kroga.",
+                    Reason = "Začetna točka kroga.",
                     Latitude = area.Latitude,
                     Longitude = area.Longitude,
                     Order = 1
@@ -1755,7 +1761,7 @@ namespace DoggyDrop.Controllers
                     {
                         Name = bin.Bin.Name,
                         Type = "bin",
-                        Label = "Pasji kos",
+                        Label = "Pasji koš",
                         Reason = order == 2
                             ? $"Zgodnji postanek za odlaganje iztrebka. Zanesljivost: {GetBinReliabilityLabel(bin.Bin)}."
                             : "Rezervni kos za daljsi sprehod.",
@@ -1794,7 +1800,7 @@ namespace DoggyDrop.Controllers
                 Name = $"Cilj: {area.Name}",
                 Type = "finish",
                 Label = "Cilj",
-                Reason = "Zakljucek krozne poti.",
+                Reason = "Zaključek krožne poti.",
                 Latitude = area.Latitude,
                 Longitude = area.Longitude,
                 Order = order

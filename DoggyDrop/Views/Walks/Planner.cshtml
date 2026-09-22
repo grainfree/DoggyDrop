@@ -4,6 +4,7 @@
 
 @{
     ViewData["Title"] = "Planer sprehoda";
+    var debugRouteEnabled = Context.Request.Query["debugRoute"].ToString() == "1";
     var routePointsJson = Html.Raw(JsonSerializer.Serialize(Model.Route?.RoutePoints ?? []));
     var stopsJson = Html.Raw(JsonSerializer.Serialize(Model.Route?.Stops ?? []));
     var latitudeValue = Model.Latitude?.ToString("0.######", CultureInfo.InvariantCulture) ?? string.Empty;
@@ -33,6 +34,10 @@
     </header>
 
     <form class="walk-planner-form walk-planner-form--quick" asp-controller="Walks" asp-action="Planner" method="get" id="walkPlannerForm">
+        @if (debugRouteEnabled)
+        {
+            <input type="hidden" name="debugRoute" value="1" />
+        }
         <input type="hidden" id="plannerLatitude" name="latitude" value="@latitudeValue" />
         <input type="hidden" id="plannerLongitude" name="longitude" value="@longitudeValue" />
         <input type="hidden" id="distanceKm" name="distanceKm" value="@Model.TargetDistanceKm.ToString(CultureInfo.InvariantCulture)" />
@@ -129,7 +134,7 @@
                         <p>@Model.Route.Summary</p>
                         @if (binStop != null)
                         {
-                            <p class="walk-planner-bin-pill"><i class="bi bi-trash3-fill" aria-hidden="true"></i> Kos na poti: @binStop.Name</p>
+                            <p class="walk-planner-bin-pill"><i class="bi bi-trash3-fill" aria-hidden="true"></i> Koš na poti: @binStop.Name</p>
                         }
                     </div>
                     <div>
@@ -139,7 +144,27 @@
                 </div>
                 <div class="walk-planner-map-frame">
                     <div id="plannerRouteMap" class="walk-planner-route-map" role="img" aria-label="Predvidena pot sprehoda"></div>
-                    <span class="walk-planner-map-note">Predogled na zemljevidu</span>
+                    <span class="walk-planner-map-note">Številke označujejo vrstni red postankov.</span>
+                    @if (debugRouteEnabled)
+                    {
+                        <aside class="planner-route-debug" aria-label="Diagnostika predogleda poti">
+                            <strong>Route diagnostic</strong>
+                            <div>Server RoutePoints: @(Model.Route?.RoutePoints.Count ?? 0)</div>
+                            <div>Serialized plannerPoints: <span id="routeDebugSerialized">0</span></div>
+                            <div>Valid parsed points: <span id="routeDebugParsed">0</span></div>
+                            <div>Preview points: <span id="routeDebugPreview">0</span></div>
+                            <div>Route line created: <span id="routeDebugCreated">NO</span></div>
+                            <div>Route line on map: <span id="routeDebugOnMap">NO</span></div>
+                            <div>Bounds valid: <span id="routeDebugBounds">NO</span></div>
+                            <div>Map initialized: <span id="routeDebugMap">NO</span></div>
+                            <div>Leaflet version: <span id="routeDebugLeaflet">UNAVAILABLE</span></div>
+                            <div>Vector renderer: <span id="routeDebugRenderer">NO</span></div>
+                            <div>Overlay pane: <span id="routeDebugOverlay">NO</span></div>
+                            <div>Route SVG/path element: <span id="routeDebugPath">NO</span></div>
+                            <div>JS error: <span id="routeDebugError">NONE</span></div>
+                            <button type="button" id="routeDebugTestLine">Testna črta</button>
+                        </aside>
+                    }
                 </div>
                 <div class="walk-planner-start">
                     <form asp-controller="Walks" asp-action="SavePlan" method="post">
@@ -185,7 +210,7 @@
             </article>
 
             <aside class="walk-planner-stops">
-                <h2>Postanki</h2>
+                <h2>Postanki po vrsti</h2>
                 @foreach (var stop in Model.Route.Stops)
                 {
                     <article>
@@ -209,6 +234,28 @@
     <script>
         const plannerPoints = @routePointsJson;
         const plannerStops = @stopsJson;
+        const debugRouteEnabled = @(debugRouteEnabled.ToString().ToLowerInvariant());
+
+        function setPlannerDebug(field, value) {
+            if (!debugRouteEnabled) return;
+            const output = document.getElementById(`routeDebug${field}`);
+            if (output) output.textContent = String(value);
+        }
+
+        function reportPlannerDebugError(error) {
+            if (!debugRouteEnabled) return;
+            const message = String(error?.message ?? "");
+            const category = /Invalid LatLng/i.test(message) ? "Invalid LatLng"
+                : /bounds/i.test(message) ? "Invalid bounds"
+                : /Map container/i.test(message) ? "Map initialization failed"
+                : "Preview initialization failed";
+            setPlannerDebug("Error", category);
+        }
+
+        if (debugRouteEnabled) {
+            setPlannerDebug("Serialized", plannerPoints.length);
+            setPlannerDebug("Leaflet", typeof L === "undefined" ? "UNAVAILABLE" : L.version ?? "UNKNOWN");
+        }
 
         document.addEventListener("DOMContentLoaded", function () {
             const plannerForm = document.getElementById("walkPlannerForm");
@@ -316,7 +363,15 @@
                 requestPlannerLocation("auto");
             }
 
-            drawPlannerRoutePreview();
+            if (debugRouteEnabled) {
+                try {
+                    drawPlannerRoutePreview();
+                } catch (error) {
+                    reportPlannerDebugError(error);
+                }
+            } else {
+                drawPlannerRoutePreview();
+            }
         });
 
         function drawPlannerRoutePreview() {
@@ -328,6 +383,7 @@
             const routePoints = plannerPoints
                 .map(readCoordinate)
                 .filter(Boolean);
+            if (debugRouteEnabled) setPlannerDebug("Parsed", routePoints.length);
             const stopPoints = plannerStops
                 .map(stop => ({ ...stop, point: readCoordinate(stop) }))
                 .filter(stop => stop.point);
@@ -335,6 +391,7 @@
             const previewRoutePoints = routePoints.length >= 4
                 ? routePoints
                 : buildPreviewLoop(center, readTargetDistanceKm(), stopPoints.map(stop => stop.point));
+            if (debugRouteEnabled) setPlannerDebug("Preview", previewRoutePoints.length);
             const allPoints = previewRoutePoints.concat(stopPoints.map(stop => stop.point));
             if (allPoints.length === 0) {
                 return;
@@ -346,6 +403,20 @@
                 scrollWheelZoom: false,
                 tap: true
             }).setView([center.lat, center.lng], 15);
+            if (debugRouteEnabled) {
+                setPlannerDebug("Map", "YES");
+                setPlannerDebug("Overlay", map.getPanes().overlayPane ? "YES" : "NO");
+                let testLine = null;
+                document.getElementById("routeDebugTestLine")?.addEventListener("click", () => {
+                    testLine?.remove();
+                    const point = map.getCenter();
+                    testLine = L.polyline([
+                        [point.lat - 0.001, point.lng - 0.001],
+                        [point.lat + 0.001, point.lng + 0.001]
+                    ], { color: "#ff00cc", weight: 12, opacity: 1 }).addTo(map);
+                    testLine.bringToFront();
+                });
+            }
 
             L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
                 maxZoom: 20,
@@ -369,6 +440,13 @@
                     lineCap: "round",
                     lineJoin: "round"
                 }).addTo(map);
+                if (debugRouteEnabled) {
+                    setPlannerDebug("Created", "YES");
+                    setPlannerDebug("OnMap", map.hasLayer(routeLine) ? "YES" : "NO");
+                    setPlannerDebug("Bounds", routeLine.getBounds().isValid() ? "YES" : "NO");
+                    setPlannerDebug("Renderer", routeLine._renderer?._container ? "YES" : "NO");
+                    setPlannerDebug("Path", routeLine._path?.isConnected ? "YES" : "NO");
+                }
 
                 const routeDash = L.polyline(latLngs, {
                     color: "#f3b85b",
@@ -395,14 +473,24 @@
                     html: `<span class="walk-planner-leaflet-stop walk-planner-leaflet-stop--${escapeHtml(type)}">${escapeHtml(order)}</span>`
                 });
                 L.marker([stop.point.lat, stop.point.lng], { icon })
+                    .bindTooltip(`${escapeHtml(order)}. ${escapeHtml(name)}`)
                     .bindPopup(`<strong>${escapeHtml(name)}</strong><br><span>${escapeHtml(label)}</span>`)
                     .addTo(map);
             });
 
             const bounds = L.latLngBounds(allPoints.map(point => [point.lat, point.lng]));
             const fitMap = () => {
-                map.invalidateSize({ pan: false });
-                map.fitBounds(bounds, { padding: [24, 24], maxZoom: 16 });
+                if (debugRouteEnabled) {
+                    try {
+                        map.invalidateSize({ pan: false });
+                        map.fitBounds(bounds, { padding: [24, 24], maxZoom: 16 });
+                    } catch (error) {
+                        reportPlannerDebugError(error);
+                    }
+                } else {
+                    map.invalidateSize({ pan: false });
+                    map.fitBounds(bounds, { padding: [24, 24], maxZoom: 16 });
+                }
             };
 
             requestAnimationFrame(fitMap);
@@ -874,6 +962,27 @@
         border-radius: inherit;
         background: #eaf4ea;
         font-family: inherit;
+    }
+
+    .planner-route-debug {
+        position: absolute;
+        z-index: 1100;
+        left: 10px;
+        bottom: 10px;
+        max-width: min(260px, calc(100% - 20px));
+        max-height: 55%;
+        overflow: auto;
+        padding: 9px 11px;
+        border: 1px solid #333;
+        border-radius: 4px;
+        background: rgba(255, 255, 255, 0.96);
+        color: #111;
+        font: 12px/1.4 monospace;
+    }
+
+    .planner-route-debug button {
+        min-height: 36px;
+        margin-top: 5px;
     }
 
     .walk-planner-route-map .leaflet-pane,
@@ -1431,10 +1540,11 @@
             border-radius: 16px;
         }
 
-        .walk-planner-summary p,
-        .walk-planner-map-note {
+        .walk-planner-summary p {
             display: none;
         }
+
+        .walk-planner-map-note { display: block; top: 134px; font-size: .72rem; padding: 4px 8px; }
 
         .walk-planner-start {
             left: 10px;

@@ -61,8 +61,8 @@ namespace DoggyDrop.Controllers.Api
                     group.Average(point => point.Latitude),
                     group.Average(point => point.Longitude),
                     group.Select(point => point.WalkId).Distinct().Count(),
-                    "Trending route",
-                    $"{group.Select(point => point.WalkId).Distinct().Count()} sprehodov na tem obmocju",
+                    "Priljubljena pot",
+                    $"{group.Select(point => point.WalkId).Distinct().Count()} sprehodov na tem območju",
                     Math.Min(1, group.Select(point => point.WalkId).Distinct().Count() / 8d)))
                 .Where(item => item.Count > 0)
                 .OrderByDescending(item => item.Count)
