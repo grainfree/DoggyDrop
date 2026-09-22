@@ -181,6 +181,7 @@ namespace DoggyDrop.Controllers
 
         [Authorize]
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> ParkVisit([FromBody] ParkVisitInput input)
         {
             var userId = _userManager.GetUserId(User);

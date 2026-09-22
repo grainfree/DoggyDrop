@@ -139,6 +139,7 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<IGamificationCalendar, GamificationCalendar>();
 builder.Services.AddScoped<IGamificationService, GamificationService>();
 builder.Services.AddScoped<IUserAchievementService, UserAchievementService>();
+builder.Services.AddScoped<IAchievementReconciliationRunner, AchievementReconciliationRunner>();
 builder.Services.AddScoped<IDogProgressionService, DogProgressionService>();
 builder.Services.AddSingleton<IGamificationRewardBuilder, GamificationRewardBuilder>();
 builder.Services.AddScoped<ISeasonalEventService, SeasonalEventService>();
@@ -154,6 +155,12 @@ builder.Services.AddControllersWithViews();
 builder.Services.AddRazorPages();
 
 var app = builder.Build();
+
+if (AchievementReconciliationCommand.IsRequested(args))
+{
+    Environment.ExitCode = await AchievementReconciliationCommand.RunAsync(app.Services);
+    return;
+}
 
 if (!app.Environment.IsDevelopment())
 {

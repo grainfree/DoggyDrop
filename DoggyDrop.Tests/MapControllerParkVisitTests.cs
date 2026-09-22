@@ -32,6 +32,15 @@ public sealed class MapControllerParkVisitTests : IDisposable
     private readonly string _db = Path.Combine(Path.GetTempPath(), $"doggydrop-park-{Guid.NewGuid():N}.db");
     private readonly RecordingNotifications _notifications = new();
 
+    [Fact]
+    public void ParkVisit_RequiresAntiforgeryValidation()
+    {
+        var action = typeof(MapController).GetMethod(nameof(MapController.ParkVisit));
+
+        Assert.NotNull(action);
+        Assert.NotNull(action!.GetCustomAttributes(typeof(ValidateAntiForgeryTokenAttribute), inherit: true).SingleOrDefault());
+    }
+
     [Fact] public async Task FirstDiscovery_SavesRewardsAndAcquiresStamp()
     {
         var dogId = await SeedAsync();

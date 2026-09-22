@@ -1,9 +1,11 @@
 @model IEnumerable<DoggyDrop.Models.TrashBin>
 @using System.Text.Json
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
 
 @{
     ViewData["Title"] = "Zemljevid";
     ViewData["FullBleed"] = true;
+    var requestVerificationToken = Antiforgery.GetAndStoreTokens(Context).RequestToken;
     var json = JsonSerializer.Serialize(
         Model.Select(b => new
         {
@@ -3243,6 +3245,7 @@ else if (needsDogOnboarding)
 
     <script>
         const bins = @binsJson;
+        const requestVerificationToken = @Html.Raw(JsonSerializer.Serialize(requestVerificationToken));
         let map;
         let userMarker;
         let routeLine;
@@ -3712,7 +3715,8 @@ else if (needsDogOnboarding)
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
-                        "X-Requested-With": "XMLHttpRequest"
+                        "X-Requested-With": "XMLHttpRequest",
+                        "RequestVerificationToken": requestVerificationToken
                     },
                     body: JSON.stringify({
                         dogId: Number(dogSelect.value),
