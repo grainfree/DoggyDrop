@@ -32,6 +32,9 @@
         });
     var completedStopIds = (Model.StopCompletions ?? Array.Empty<DoggyDrop.Models.WalkStopCompletion>())
         .Select(completion => completion.PlannedWalkStopId)
+        .Concat((Model.PlannedWalk?.Stops ?? Array.Empty<DoggyDrop.Models.PlannedWalkStop>())
+            .Where(stop => stop.Type == "start")
+            .Select(stop => stop.Id))
         .Distinct()
         .ToList();
     var completedStopCount = completedStopIds.Count;
@@ -120,7 +123,7 @@
                 {
                     var isCompleted = completedStopIds.Contains(stop.Id);
                     <label class="@(isCompleted ? "is-completed" : string.Empty)">
-                        <input type="checkbox" data-stop-id="@stop.Id" @(isCompleted ? "checked" : null) />
+                        <input type="checkbox" data-stop-id="@stop.Id" @(isCompleted ? "checked" : null) disabled="@(stop.Type == "start" ? "disabled" : null)" />
                         <span>
                             <strong>@stop.Name</strong>
                             <small>@stop.Label - @stop.Reason</small>
@@ -206,7 +209,8 @@
         </article>
     }
 
-    <form asp-controller="Walks" asp-action="Finish" asp-route-id="@Model.Id" method="post" class="active-walk-finish-card">
+    <form asp-controller="Walks" asp-action="Finish" asp-route-id="@Model.Id" method="post" class="active-walk-finish-card" id="finishWalkForm">
+        @Html.AntiForgeryToken()
         <h2>Zaključi sprehod</h2>
         <p>Ce GPS trenutno ne deluje, lahko razdaljo vneses rocno.</p>
 
@@ -223,8 +227,9 @@
 
         <div class="active-walk-actions">
             <a class="btn btn-outline-secondary rounded-pill" asp-controller="Walks" asp-action="Index">Nazaj</a>
-            <button type="submit" class="btn btn-success rounded-pill fw-semibold">Shrani sprehod</button>
+            <button type="submit" id="finishWalkButton" class="btn btn-success rounded-pill fw-semibold">Zaključi sprehod</button>
         </div>
+        <p id="finishWalkStatus" role="status" aria-live="polite" hidden></p>
     </form>
 </section>
 
@@ -264,6 +269,9 @@
         const dismissBinProximityToast = document.getElementById("dismissBinProximityToast");
         const recenterWalkMapButton = document.getElementById("recenterWalkMap");
         const fitWalkRouteButton = document.getElementById("fitWalkRoute");
+        const finishWalkForm = document.getElementById("finishWalkForm");
+        const finishWalkButton = document.getElementById("finishWalkButton");
+        const finishWalkStatus = document.getElementById("finishWalkStatus");
         const autoCompletePreferenceKey = "doggydrop.walk.autoCompleteStops";
         const vibratePreferenceKey = "doggydrop.walk.vibrateOnStop";
         const autoCompleteRadiusMeters = 28;
@@ -288,6 +296,7 @@
         let lastCompletedByProximityStopId = null;
         let lastBinToastStopId = null;
         let binToastTimeout = null;
+        let isFinishing = false;
 
         document.addEventListener("DOMContentLoaded", function () {
             initTimer();
@@ -300,6 +309,7 @@
             updateNextStopCard();
             validateGpsEnvironment();
             trackingToggle.addEventListener("click", toggleTracking);
+            finishWalkForm?.addEventListener("submit", finishWalk);
             if (window.isSecureContext && navigator.geolocation) {
                 window.setTimeout(startTracking, 400);
             }
@@ -515,6 +525,7 @@
         }
 
         function startTracking() {
+            if (isFinishing || isTracking) return;
             if (!window.isSecureContext) {
                 gpsStatusElement.textContent = "Brskalnik ne dovoli GPS-a na tej povezavi.";
                 gpsSecurityWarning.hidden = false;
@@ -558,7 +569,7 @@
         }
 
         async function handlePosition(position) {
-            if (isSending) {
+            if (isSending || isFinishing) {
                 return;
             }
 
@@ -583,6 +594,7 @@
                 });
 
                 if (!response.ok) {
+                    if (isFinishing) return;
                     if (response.status === 409) {
                         stopTracking();
                         window.location.assign(`/Walks/Interrupted/${walkId}`);
@@ -593,6 +605,7 @@
                 }
 
                 const data = await response.json();
+                if (isFinishing) return;
                 distanceMeters = data.distanceMeters;
                 routePoints.push([lat, lng]);
                 pointCountElement.textContent = data.pointCount;
@@ -601,6 +614,45 @@
                 updateRoute(lat, lng);
             } finally {
                 isSending = false;
+            }
+        }
+
+        async function finishWalk(event) {
+            event.preventDefault();
+            if (isFinishing) return;
+            isFinishing = true;
+            stopTracking();
+            finishWalkButton.disabled = true;
+            finishWalkButton.textContent = "Zaključujem …";
+            finishWalkStatus.hidden = false;
+            finishWalkStatus.textContent = "Zaključujem sprehod …";
+
+            const controller = new AbortController();
+            const timeoutId = window.setTimeout(() => controller.abort(), 30000);
+            try {
+                const response = await fetch(finishWalkForm.action, {
+                    method: "POST",
+                    body: new FormData(finishWalkForm),
+                    credentials: "same-origin",
+                    headers: { "Accept": "application/json" },
+                    signal: controller.signal
+                });
+                if (!response.ok) {
+                    throw new Error("Zaključek ni uspel. Preveri povezavo in poskusi znova.");
+                }
+                const result = await response.json();
+                const destination = new URL(result.redirectUrl, window.location.origin);
+                if (destination.origin !== window.location.origin || !/^\/Walks\/(Details|Interrupted)(\/|$)/i.test(destination.pathname)) {
+                    throw new Error("Ciljna stran sprehoda ni na voljo. Osveži stran in preveri stanje.");
+                }
+                window.location.assign(destination.href);
+            } catch (error) {
+                isFinishing = false;
+                finishWalkButton.disabled = false;
+                finishWalkButton.textContent = "Zaključi sprehod";
+                finishWalkStatus.textContent = error.message || "Zaključek ni uspel. Poskusi znova.";
+            } finally {
+                window.clearTimeout(timeoutId);
             }
         }
 
@@ -710,12 +762,13 @@
             const stopId = Number(stop.id ?? stop.Id);
             const isCompleted = completedStopIds.has(stopId);
             const actionLabel = isCompleted ? "Oznaci kot neopravljeno" : "Oznaci kot opravljeno";
+            const isStart = (stop.type ?? stop.Type) === "start";
             return `
                 <div class="active-stop-popup">
                     <strong>${escapeHtml(stop.name ?? stop.Name)}</strong>
                     <small>${escapeHtml(stop.label ?? stop.Label)}</small>
                     <p>${escapeHtml(stop.reason ?? stop.Reason)}</p>
-                    <button type="button" class="active-stop-popup__button" data-popup-stop-id="${stopId}" data-next-state="${(!isCompleted).toString()}">${actionLabel}</button>
+                    ${isStart ? "" : `<button type="button" class="active-stop-popup__button" data-popup-stop-id="${stopId}" data-next-state="${(!isCompleted).toString()}">${actionLabel}</button>`}
                     <button type="button" class="active-stop-popup__button active-stop-popup__button--secondary" data-photo-stop-id="${stopId}" data-photo-stop-name="${escapeHtml(stop.name ?? stop.Name)}">Dodaj foto sem</button>
                 </div>
             `;
@@ -774,18 +827,25 @@
             });
         }
 
+        function getUpcomingStops() {
+            const remaining = plannedStops.filter(stop =>
+                (stop.type ?? stop.Type) !== "start" && !completedStopIds.has(Number(stop.id ?? stop.Id)));
+            const destinations = remaining.filter(stop => (stop.type ?? stop.Type) !== "finish");
+            return destinations.length > 0 ? destinations : remaining;
+        }
+
         function updateNextStopCard() {
             if (!nextStopNameElement || !nextStopReasonElement || !nextStopMetaElement || !nextStopDistanceElement || !completeNextStopButton) {
                 return;
             }
 
-            const remainingStops = plannedStops.filter(stop => !completedStopIds.has(Number(stop.id ?? stop.Id)));
+            const remainingStops = getUpcomingStops();
             if (remainingStops.length === 0) {
                 currentNextStopId = null;
                 nextStopNameElement.textContent = "Vsi postanki so opravljeni.";
                 nextStopReasonElement.textContent = "Planirana pot je v celoti pokrita.";
                 nextStopMetaElement.textContent = "Odlicno. Lahko nadaljujes ali zakljucis sprehod.";
-                nextStopDistanceElement.textContent = "Done";
+                nextStopDistanceElement.textContent = "Končano";
                 completeNextStopButton.disabled = true;
                 return;
             }
@@ -813,6 +873,7 @@
                 : "GPS se še ni zagnal, zato je prikazan naslednji postanek iz plana.";
             nextStopDistanceElement.textContent = distanceToStopMeters == null ? "Plan" : formatDistance(distanceToStopMeters);
             completeNextStopButton.disabled = false;
+            completeNextStopButton.textContent = "Potrdi obisk";
         }
 
         async function evaluateStopProximity() {
@@ -820,8 +881,7 @@
                 return;
             }
 
-            const remainingStops = plannedStops
-                .filter(stop => !completedStopIds.has(Number(stop.id ?? stop.Id)))
+            const remainingStops = getUpcomingStops()
                 .map(stop => ({
                     stop,
                     stopId: Number(stop.id ?? stop.Id),

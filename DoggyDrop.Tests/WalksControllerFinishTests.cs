@@ -64,6 +64,23 @@ public sealed class WalksControllerFinishTests : IDisposable
     }
 
     [Fact]
+    public async Task Finish_JsonResponsePreservesRewardUntilDetailsRequest()
+    {
+        var walkId = await SeedAsync(distanceMeters: 2_000);
+        await using var context = CreateContext();
+        var controller = CreateController(context);
+        controller.Request.Headers.Accept = "application/json";
+
+        var result = await controller.Finish(walkId, null, null);
+
+        var json = Assert.IsType<JsonResult>(result);
+        var redirectUrl = json.Value!.GetType().GetProperty("redirectUrl")!.GetValue(json.Value);
+        Assert.Equal($"/Walks/Details/{walkId}", redirectUrl);
+        Assert.True(controller.TempData.ContainsKey($"WalkRewardResult:{walkId}"));
+        Assert.Equal("Completed", (await context.Walks.SingleAsync()).Status);
+    }
+
+    [Fact]
     public async Task Finish_StaleWalkIsInterruptedAtLastGpsPointWithoutRewards()
     {
         var walkId = await SeedAsync(distanceMeters: 850);
@@ -242,6 +259,38 @@ public sealed class WalksControllerFinishTests : IDisposable
     }
 
     [Fact]
+    public async Task Start_WithSavedPlan_CompletesStartStopOnly()
+    {
+        await SeedAsync(0, status: "Completed");
+        await using var context = CreateContext();
+        var dogId = await context.Dogs.Select(dog => dog.Id).SingleAsync();
+        var plan = new PlannedWalk
+        {
+            OwnerId = UserId,
+            DogId = dogId,
+            Title = "Testna pot",
+            AreaKey = "maribor",
+            AreaName = "Maribor",
+            Stops = new List<PlannedWalkStop>
+            {
+                new() { Order = 1, Name = "Start", Type = "start", Latitude = 46, Longitude = 15 },
+                new() { Order = 2, Name = "Koš", Type = "bin", Latitude = 46.01, Longitude = 15.01 }
+            }
+        };
+        context.PlannedWalks.Add(plan);
+        await context.SaveChangesAsync();
+
+        await CreateController(context).Start(dogId, plan.Id);
+
+        var active = await context.Walks.SingleAsync(walk => walk.Status == "Active");
+        var completedTypes = await context.WalkStopCompletions
+            .Where(completion => completion.WalkId == active.Id)
+            .Select(completion => completion.PlannedWalkStop!.Type)
+            .ToListAsync();
+        Assert.Equal(["start"], completedTypes);
+    }
+
+    [Fact]
     public async Task FinishAcrossLjubljanaMidnight_UsesCapturedFinishDateOnce()
     {
         var walkId = await SeedAsync(1_000);
@@ -361,7 +410,7 @@ public sealed class WalksControllerFinishTests : IDisposable
     private sealed class StubUrlHelper : IUrlHelper
     {
         public ActionContext ActionContext { get; } = new();
-        public string? Action(UrlActionContext actionContext) => "/Walks/Planner";
+        public string? Action(UrlActionContext actionContext) => $"/Walks/{actionContext.Action}/{actionContext.Values?.GetType().GetProperty("id")?.GetValue(actionContext.Values)}";
         public string? Content(string? contentPath) => contentPath;
         public bool IsLocalUrl(string? url) => true;
         public string? Link(string? routeName, object? values) => "/Walks/Planner";

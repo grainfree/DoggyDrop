@@ -368,6 +368,19 @@ namespace DoggyDrop.Controllers
 
             if (plannedWalk != null)
             {
+                var startStop = await _context.PlannedWalkStops
+                    .FirstOrDefaultAsync(stop => stop.PlannedWalkId == plannedWalk.Id && stop.Type == "start");
+                if (startStop != null)
+                {
+                    walk.StopCompletions = new List<WalkStopCompletion>
+                    {
+                        new() { PlannedWalkStop = startStop, UserId = userId, CompletedAt = walk.StartedAt }
+                    };
+                }
+            }
+
+            if (plannedWalk != null)
+            {
                 plannedWalk.UsedAt = DateTime.UtcNow;
             }
 
@@ -468,6 +481,15 @@ namespace DoggyDrop.Controllers
                 Status = "Active",
                 PlannedWalk = plan
             };
+
+            var plannedStart = plan.Stops.FirstOrDefault(stop => stop.Type == "start");
+            if (plannedStart != null)
+            {
+                walk.StopCompletions = new List<WalkStopCompletion>
+                {
+                    new() { PlannedWalkStop = plannedStart, UserId = userId, CompletedAt = walk.StartedAt }
+                };
+            }
 
             _context.Walks.Add(walk);
             await _context.SaveChangesAsync();
@@ -1128,6 +1150,14 @@ namespace DoggyDrop.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Finish(int id, string? manualDistanceKm, int? usedBinsCount)
         {
+            IActionResult FinishRedirect(string action)
+            {
+                var redirect = RedirectToAction(action, new { id });
+                return Request.Headers.Accept.ToString().Contains("application/json", StringComparison.OrdinalIgnoreCase)
+                    ? Json(new { redirectUrl = Url.Action(action, "Walks", new { id }) })
+                    : redirect;
+            }
+
             var userId = _userManager.GetUserId(User);
             var walk = await _context.Walks
                 .AsNoTracking()
@@ -1145,15 +1175,15 @@ namespace DoggyDrop.Controllers
                 if (walk.Status == "Interrupted")
                 {
                     TempData["ErrorMessage"] = "Ta sprehod je bil prekinjen po dolgem premoru. Ohranili smo GPS pot in razdaljo, brez novih nagrad.";
-                    return RedirectToAction(nameof(Interrupted), new { id });
+                    return FinishRedirect(nameof(Interrupted));
                 }
-                return RedirectToAction(nameof(Details), new { id });
+                return FinishRedirect(nameof(Details));
             }
 
             if (await RecoverStaleWalkAsync(walk))
             {
                 TempData["ErrorMessage"] = "Sprehod je bil prekinjen pri zadnji GPS točki; zaključek po dolgem premoru ne podeli nagrad.";
-                return RedirectToAction(nameof(Interrupted), new { id });
+                return FinishRedirect(nameof(Interrupted));
             }
 
             var distanceMeters = TryParseDistanceKm(manualDistanceKm, out var parsedDistanceKm)
@@ -1176,7 +1206,7 @@ namespace DoggyDrop.Controllers
             if (completedRows == 0)
             {
                 await transaction.RollbackAsync();
-                return RedirectToAction(nameof(Details), new { id });
+                return FinishRedirect(nameof(Details));
             }
 
             walk = await _context.Walks
@@ -1258,7 +1288,7 @@ namespace DoggyDrop.Controllers
                 TempData[GetFirstWalkTempDataKey("DistanceKm", walk.Id)] = (walk.DistanceMeters / 1000d).ToString("0.00", CultureInfo.InvariantCulture);
             }
 
-            return RedirectToAction(nameof(Details), new { id });
+            return FinishRedirect(nameof(Details));
         }
 
         private static string GetWalkRewardTempDataKey(int walkId) => $"WalkRewardResult:{walkId}";
