@@ -16,10 +16,22 @@ public sealed class WalkMemoryViewModel
     public bool HasPlannedRoute { get; init; }
     public bool HasMap => HasActualTrail || HasPlannedRoute;
     public string ShareText { get; init; } = string.Empty;
+    public WalkShareAssetViewModel? ShareAsset { get; init; }
     public IReadOnlyList<WalkMemoryHighlight> Highlights { get; init; } = [];
 }
 
 public sealed record WalkMemoryHighlight(string Title, string Detail);
+
+public sealed class WalkShareAssetViewModel
+{
+    public string DogName { get; init; } = string.Empty;
+    public string Distance { get; init; } = string.Empty;
+    public string? Duration { get; init; }
+    public string Date { get; init; } = string.Empty;
+    public string? Highlight { get; init; }
+    public string? PhotoUrl { get; init; }
+    public string Text { get; init; } = string.Empty;
+}
 
 public static class WalkMemoryPresentation
 {
@@ -63,6 +75,9 @@ public static class WalkMemoryPresentation
         var completedStops = (walk.StopCompletions ?? []).Count(item => item.PlannedWalkStop != null);
         if (completedStops > 0) highlights.Add(new WalkMemoryHighlight("Potrjeni postanki", completedStops.ToString(Slovenian)));
 
+        var shareText = $"{walk.Dog?.Name ?? "Pes"} · {distance}. Dogodivščina z DoggyDrop.";
+        var shareHighlight = highlights.FirstOrDefault(item => item.Title == "Odklenjen dosežek")?.Detail
+            ?? (userXp > 0 ? $"+{userXp} XP" : null);
         return new WalkMemoryViewModel
         {
             Title = title,
@@ -74,7 +89,17 @@ public static class WalkMemoryPresentation
             PhotoCount = photos.Count,
             HasActualTrail = hasActualTrail,
             HasPlannedRoute = hasPlannedRoute,
-            ShareText = $"{title} · {distance} · {date}.",
+            ShareText = shareText,
+            ShareAsset = includeOwnerDetails ? new WalkShareAssetViewModel
+            {
+                DogName = walk.Dog?.Name ?? "Pes",
+                Distance = distance,
+                Duration = duration,
+                Date = LocalTime(walk.StartedAt).ToString("dd.MM.yyyy", Slovenian),
+                Highlight = shareHighlight,
+                PhotoUrl = photos.FirstOrDefault()?.ImageUrl,
+                Text = shareText
+            } : null,
             Highlights = highlights
         };
     }

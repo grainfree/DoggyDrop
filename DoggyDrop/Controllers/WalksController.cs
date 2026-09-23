@@ -940,7 +940,7 @@ namespace DoggyDrop.Controllers
                 .Include(w => w.StopCompletions!)
                     .ThenInclude(completion => completion.PlannedWalkStop)
                 .Include(w => w.Photos!)
-                .FirstOrDefaultAsync(w => w.Id == id && (w.OwnerId == userId || w.Status == "Completed"));
+                .FirstOrDefaultAsync(w => w.Id == id && w.OwnerId == userId && w.Status == "Completed");
 
             if (walk == null)
             {

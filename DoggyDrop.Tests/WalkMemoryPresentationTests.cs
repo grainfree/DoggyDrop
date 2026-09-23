@@ -39,6 +39,8 @@ public sealed class WalkMemoryPresentationTests
         Assert.True(memory.HasPlannedRoute);
         Assert.Contains("4 m", memory.ShareText);
         Assert.DoesNotContain("5 km", memory.ShareText);
+        Assert.Equal("https://example.test/latest.jpg",
+            WalkMemoryPresentation.Build(walk, [], [], [], includeOwnerDetails: true).ShareAsset?.PhotoUrl);
     }
 
     [Fact]
@@ -126,6 +128,46 @@ public sealed class WalkMemoryPresentationTests
     public void NoGpsPoints_HideElapsedDuration()
     {
         Assert.Null(WalkMemoryPresentation.Build(CompletedWalk(), [], [], []).DurationLabel);
+    }
+
+    [Fact]
+    public void OwnerShare_UsesActualMetricsAndNoPhotoFallbackWithoutPrivatePlanTitle()
+    {
+        var walk = CompletedWalk();
+        walk.DistanceMeters = 4;
+        walk.EndedAt = walk.StartedAt.AddMinutes(30);
+        walk.Points = GpsPoints(walk, 0, 15, 30);
+        walk.PlannedWalk = new PlannedWalk { Title = "Zasebni naslov", EstimatedDistanceKm = 8 };
+
+        var memory = WalkMemoryPresentation.Build(walk,
+            [new UserXpEvent { ActivityType = GamificationConstants.WalkDistance, XpAmount = 15 }],
+            [], [], includeOwnerDetails: true);
+        var share = Assert.IsType<WalkShareAssetViewModel>(memory.ShareAsset);
+
+        Assert.Equal("4 m", share.Distance);
+        Assert.Equal("30 min", share.Duration);
+        Assert.Equal("+15 XP", share.Highlight);
+        Assert.Null(share.PhotoUrl);
+        Assert.Contains("4 m", share.Text);
+        Assert.DoesNotContain("8 km", share.Text);
+        Assert.DoesNotContain("Zasebni naslov", System.Text.Json.JsonSerializer.Serialize(share));
+
+        Assert.Null(WalkMemoryPresentation.Build(walk, [], [], []).ShareAsset);
+    }
+
+    [Fact]
+    public void OwnerShare_OmitsUntrustworthyDurationAndUnrelatedReward()
+    {
+        var walk = CompletedWalk();
+        walk.EndedAt = walk.StartedAt.AddHours(8);
+        walk.Points = GpsPoints(walk, 0, 10, 20);
+
+        var share = Assert.IsType<WalkShareAssetViewModel>(WalkMemoryPresentation.Build(walk,
+            [new UserXpEvent { ActivityType = GamificationConstants.UploadPhoto, XpAmount = 50 }],
+            [], [], includeOwnerDetails: true).ShareAsset);
+
+        Assert.Null(share.Duration);
+        Assert.Null(share.Highlight);
     }
 
     [Fact]

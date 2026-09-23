@@ -15,13 +15,6 @@
     var visibleRewardAchievements = rewardResult?.GetVisibleAchievements(showFirstWalkCelebration) ?? [];
     var duration = Model.EndedAt.HasValue ? Model.EndedAt.Value - Model.StartedAt : TimeSpan.Zero;
     var distanceLabel = memory.DistanceLabel;
-    var shareMeta = string.Join(" · ", new[]
-    {
-        memory.DurationLabel,
-        Model.UsedBinsCount > 0 ? $"Prijavljeni koši: {Model.UsedBinsCount}" : null
-    }.Where(value => !string.IsNullOrWhiteSpace(value)));
-    var shareText = memory.ShareText;
-    var shareTitle = showFirstWalkCelebration ? "Prvi DoggyDrop sprehod" : "DoggyDrop sprehod";
     var detailsShareUrl = Url.Action("Details", "Walks", new { id = Model.Id }, Context.Request.Scheme);
     var reactions = Model.Reactions ?? Array.Empty<DoggyDrop.Models.WalkReaction>();
     var comments = (Model.Comments ?? Array.Empty<DoggyDrop.Models.WalkComment>())
@@ -37,7 +30,6 @@
         .Where(photo => !string.IsNullOrWhiteSpace(currentUserId) && (photo.Reactions?.Any(reaction => reaction.UserId == currentUserId) ?? false))
         .Select(photo => photo.Id)
         .ToHashSet();
-    var sharePhotos = walkPhotos.Take(3).ToList();
     var currentUserReactionType = !string.IsNullOrWhiteSpace(currentUserId)
         ? reactions.FirstOrDefault(reaction => reaction.UserId == currentUserId)?.ReactionType
         : null;
@@ -495,7 +487,7 @@
     }
 
     <div class="walk-summary__top-actions">
-        <button type="button" data-share-walk-story><i class="bi bi-share" aria-hidden="true"></i> Deli sprehod</button>
+        @if (isOwner) { <button type="button" data-share-walk-story><i class="bi bi-share" aria-hidden="true"></i> Deli sprehod</button> }
         @if (memory.HasMap) { <a href="#summaryMap">Poglej pot</a> }
     </div>
 
@@ -690,49 +682,33 @@
     </article>
     }
 
-    <section id="walkSharePreview" class="walk-share-preview" hidden aria-label="Predogled deljenja">
-    <div class="walk-share-formats" role="radiogroup" aria-label="Oblika slike">
-        <label><input type="radio" name="walkShareFormat" value="instagram-story" checked /> Instagram Story</label>
-        <label><input type="radio" name="walkShareFormat" value="facebook-story" /> Facebook Story</label>
-        <label><input type="radio" name="walkShareFormat" value="post" /> Objava 4:5</label>
-    </div>
-    <article class="walk-share-card" id="walkShareCard">
-        <div class="walk-share-card__photos @(sharePhotos.Count switch { 0 => "is-empty", 1 => "is-single", 2 => "is-double", _ => "is-triple" })">
-            @if (sharePhotos.Count == 0 && !string.IsNullOrWhiteSpace(Model.Dog?.PhotoUrl))
-            {
-                <img src="@Model.Dog.PhotoUrl" alt="@Model.Dog?.Name" />
-            }
-            else
-            {
-                @foreach (var photo in sharePhotos)
-                {
-                    <img src="@photo.ImageUrl" alt="Fotografija sprehoda @Model.Dog?.Name" />
-                }
-            }
-        </div>
-        <div class="walk-share-card__watermark">
-            <span class="walk-share-card__watermark-mark" aria-hidden="true">●</span>
-            <span>doggydrop.app</span>
-        </div>
-        <div class="walk-share-card__overlay"></div>
-        <div class="walk-share-card__content">
-            <div class="walk-share-card__brand">DoggyDrop</div>
-            <div class="walk-share-card__dog">@Model.Dog?.Name</div>
-            <div class="walk-share-card__metric">@distanceLabel</div>
-            @if (!string.IsNullOrWhiteSpace(shareMeta))
-            {
-                <div class="walk-share-card__grid"><span>@shareMeta</span></div>
-            }
-            <p>@WalkMemoryPresentation.LocalTime(Model.StartedAt).ToString("dd.MM.yyyy")</p>
-        </div>
-    </article>
-
-    <div class="walk-share-actions">
-        <button type="button" id="shareWalkStory" disabled>Deli</button>
-        <button type="button" id="copyWalkShareText">Kopiraj povzetek</button>
-        <span id="walkShareFeedback"></span>
-    </div>
-    </section>
+    @if (memory.ShareAsset != null)
+    {
+        <section id="walkSharePreview" class="walk-share-preview" hidden aria-labelledby="walkShareHeading" role="region">
+            <div class="walk-share-preview__header">
+                <h2 id="walkShareHeading" tabindex="-1">Deli sprehod</h2>
+                <button type="button" id="closeWalkShare">Zapri</button>
+            </div>
+            <fieldset class="walk-share-formats">
+                <legend>Oblika slike</legend>
+                <label><input type="radio" name="walkShareFormat" value="instagram-story" checked /><span>Instagram Story <small>9:16</small></span></label>
+                <label><input type="radio" name="walkShareFormat" value="facebook-story" /><span>Facebook Story <small>9:16</small></span></label>
+                <label><input type="radio" name="walkShareFormat" value="post" /><span>Objava <small>Instagram / Facebook · 4:5</small></span></label>
+            </fieldset>
+            <div class="walk-share-preview__stage" aria-live="polite">
+                <img id="walkShareImage" hidden alt="Predogled slike sprehoda za deljenje" />
+                <span id="walkShareLoading" hidden>Pripravljam …</span>
+            </div>
+            <p id="walkShareFeedback" class="walk-share-feedback" role="status" aria-live="polite"></p>
+            <div class="walk-share-actions">
+                <button type="button" id="shareWalkStory" disabled>Deli</button>
+                <button type="button" id="retryWalkShare" hidden>Poskusi znova</button>
+                <a id="saveWalkShare" hidden download="doggydrop-sprehod.png">Shrani sliko</a>
+                <button type="button" id="copyWalkShareText">Kopiraj povzetek</button>
+            </div>
+        </section>
+        <script type="application/json" id="walkShareData">@Html.Raw(JsonSerializer.Serialize(new { asset = memory.ShareAsset, url = detailsShareUrl }, new JsonSerializerOptions(JsonSerializerDefaults.Web)))</script>
+    }
 
     <article class="walk-media-card">
         <div class="walk-summary__map-header">
@@ -941,119 +917,6 @@
             if ("ResizeObserver" in window) new ResizeObserver(refreshSummaryMap).observe(mapElement);
         });
 
-        document.getElementById("copyWalkShareText").addEventListener("click", async function () {
-            const feedback = document.getElementById("walkShareFeedback");
-            try {
-                await navigator.clipboard.writeText(@Html.Raw(JsonSerializer.Serialize(shareText)));
-                feedback.textContent = "Kopirano.";
-            } catch {
-                feedback.textContent = "Kopiranje ni uspelo.";
-            }
-        });
-
-        let preparedWalkShareImage = null;
-        let selectedWalkShareFormat = "instagram-story";
-        let shareRenderGeneration = 0;
-        const shareWalkButton = document.getElementById("shareWalkStory");
-        const shareFeedback = document.getElementById("walkShareFeedback");
-        async function prepareWalkShareImage() {
-            const format = selectedWalkShareFormat;
-            const generation = ++shareRenderGeneration;
-            preparedWalkShareImage = null;
-            shareWalkButton.disabled = true;
-            shareFeedback.textContent = "Pripravljam sliko …";
-            try {
-                    const card = document.getElementById("walkShareCard");
-                    const canvas = document.createElement("canvas");
-                    canvas.width = 1080;
-                    canvas.height = format === "post" ? 1350 : 1920;
-                    const height = canvas.height;
-                    const ctx = canvas.getContext("2d");
-                    const photoUrl = card.querySelector(".walk-share-card__photos img")?.src;
-                    ctx.fillStyle = "#24695a";
-                    ctx.fillRect(0, 0, 1080, height);
-                    if (photoUrl) {
-                        try {
-                            const photo = new Image();
-                            photo.crossOrigin = "anonymous";
-                            photo.src = photoUrl;
-                            await photo.decode();
-                            const scale = Math.max(1080 / photo.width, height / photo.height);
-                            ctx.drawImage(photo, (1080 - photo.width * scale) / 2, (height - photo.height * scale) / 2, photo.width * scale, photo.height * scale);
-                        } catch { /* Share the card without its photo if image access is unavailable. */ }
-                    }
-                    const shade = ctx.createLinearGradient(0, height * 0.3, 0, height);
-                    shade.addColorStop(0, "rgba(8,25,20,0)");
-                    shade.addColorStop(1, "rgba(8,25,20,0.92)");
-                    ctx.fillStyle = shade;
-                    ctx.fillRect(0, 0, 1080, height);
-                    ctx.fillStyle = "#fff";
-                    ctx.shadowColor = "rgba(0,0,0,0.5)";
-                    ctx.shadowBlur = 20;
-                    ctx.font = "700 42px sans-serif";
-                    ctx.fillText("DOGGYDROP", 80, 120);
-                    ctx.font = "800 90px sans-serif";
-                    ctx.fillText(@Html.Raw(JsonSerializer.Serialize(Model.Dog?.Name ?? "Pes")), 80, height - 480, 920);
-                    ctx.font = "900 150px sans-serif";
-                    ctx.fillText(@Html.Raw(JsonSerializer.Serialize(distanceLabel)), 80, height - 300, 920);
-                    ctx.font = "600 44px sans-serif";
-                    const shareMeta = @Html.Raw(JsonSerializer.Serialize(shareMeta));
-                    if (shareMeta) ctx.fillText(shareMeta, 80, height - 200);
-                    ctx.fillText(@Html.Raw(JsonSerializer.Serialize(WalkMemoryPresentation.LocalTime(Model.StartedAt).ToString("dd.MM.yyyy"))), 80, height - 130);
-                    ctx.font = "600 36px sans-serif";
-                    ctx.fillText("doggydrop.app", 80, height - 50);
-                    const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
-                    if (generation === shareRenderGeneration) preparedWalkShareImage = blob ? new File([blob], `doggydrop-${format}.png`, { type: "image/png" }) : null;
-            } catch { if (generation === shareRenderGeneration) preparedWalkShareImage = null; }
-            finally {
-                if (generation === shareRenderGeneration) {
-                    shareWalkButton.disabled = false;
-                    shareFeedback.textContent = preparedWalkShareImage ? "Slika je pripravljena." : "Slike ni bilo mogoče pripraviti; deliš lahko povezavo.";
-                }
-            }
-        }
-        if (navigator.share) void prepareWalkShareImage();
-        else shareWalkButton.disabled = false;
-
-        async function openWalkShare() {
-            const feedback = document.getElementById("walkShareFeedback");
-            const detailsUrl = @Html.Raw(JsonSerializer.Serialize(detailsShareUrl));
-            const shareLabel = @Html.Raw(JsonSerializer.Serialize(shareText));
-            const shareTitle = @Html.Raw(JsonSerializer.Serialize(shareTitle));
-            try {
-                if (navigator.share) {
-                    if (preparedWalkShareImage && navigator.canShare?.({ files: [preparedWalkShareImage] })) {
-                        await navigator.share({ files: [preparedWalkShareImage], title: shareTitle, text: shareLabel });
-                    } else {
-                        await navigator.share({ title: shareTitle, text: shareLabel, url: detailsUrl });
-                    }
-                    feedback.textContent = "Sprehod je pripravljen za deljenje.";
-                    return;
-                }
-                await navigator.clipboard.writeText(shareLabel);
-                feedback.textContent = "Povzetek je kopiran. Predogled kartice je prikazan zgoraj.";
-            } catch (error) {
-                if (error?.name !== "AbortError") feedback.textContent = "Deljenje ni uspelo. Poskusi kopirati povzetek.";
-            }
-        }
-
-        document.getElementById("shareWalkStory")?.addEventListener("click", openWalkShare);
-        document.querySelectorAll("[data-share-walk-story]").forEach(button => {
-            button.addEventListener("click", () => {
-                const preview = document.getElementById("walkSharePreview");
-                preview.hidden = false;
-                preview.scrollIntoView({ behavior: "smooth", block: "start" });
-            });
-        });
-        document.querySelectorAll('input[name="walkShareFormat"]').forEach(input => {
-            input.addEventListener("change", () => {
-                selectedWalkShareFormat = input.value;
-                preparedWalkShareImage = null;
-                document.getElementById("walkShareCard").classList.toggle("is-post", input.value === "post");
-                if (navigator.share) void prepareWalkShareImage();
-            });
-        });
-
         const gallery = document.getElementById("walkPhotoGallery");
         const slides = Array.from(document.querySelectorAll("[data-gallery-slide]"));
         const openButtons = Array.from(document.querySelectorAll("[data-gallery-index]"));
@@ -1132,6 +995,10 @@
             }
         }, { passive: true });
     </script>
+    @if (memory.ShareAsset != null)
+    {
+        <script src="~/js/walk-share.js" asp-append-version="true" defer></script>
+    }
 }
 
 <style>
@@ -1227,7 +1094,6 @@
 
     .walk-summary__map-card,
     .walk-summary__plan-card,
-    .walk-share-card,
     .walk-social-card {
         padding: 14px;
     }
@@ -1435,196 +1301,96 @@
         border-radius: 8px;
     }
 
-    .walk-share-card {
-        position: relative;
-        overflow: hidden;
-        margin-top: 14px;
-        min-height: 360px;
-        color: #ffffff;
-        background: linear-gradient(145deg, rgba(47, 109, 95, 0.95), rgba(225, 141, 50, 0.9));
+    .walk-share-preview {
+        max-width: 820px;
+        margin-top: 18px;
+        padding: 16px 0;
+        border-top: 1px solid #dce7df;
+        scroll-margin-top: 24px;
     }
 
-    .walk-share-preview[hidden] { display: none; }
+    .walk-share-preview[hidden],
+    .walk-share-preview [hidden] { display: none !important; }
 
-    .walk-share-formats {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-        margin-top: 14px;
-    }
-
-    .walk-share-formats label {
-        display: inline-flex;
+    .walk-share-preview h2 { margin: 0 0 12px; font-size: 1.15rem; }
+    .walk-share-preview__header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .walk-share-preview__header button {
         min-height: 44px;
-        align-items: center;
-        gap: 6px;
-        padding: 7px 10px;
-        border: 1px solid #b9cec2;
-        border-radius: 6px;
-        background: #ffffff;
-        font-size: .83rem;
-        font-weight: 750;
+        padding: 8px 14px;
+        border: 1px solid #b7cfc1;
+        border-radius: 7px;
+        background: #fff;
+        color: #24695a;
+        font-weight: 850;
     }
-
-    .walk-share-preview .walk-share-card {
-        width: min(100%, 320px);
-        min-height: 0;
-        aspect-ratio: 9 / 16;
-        margin-inline: auto;
-    }
-
-    .walk-share-preview .walk-share-card.is-post { aspect-ratio: 4 / 5; }
-
-    .walk-share-card__photos,
-    .walk-share-card__overlay,
-    .walk-share-card__content,
-    .walk-share-card__watermark {
-        position: absolute;
-        inset: 0;
-    }
-
-    .walk-share-card__photos {
-        display: grid;
-        gap: 6px;
-        padding: 14px;
-    }
-
-    .walk-share-card__photos.is-empty,
-    .walk-share-card__photos.is-single {
-        grid-template-columns: 1fr;
-    }
-
-    .walk-share-card__photos.is-double {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .walk-share-card__photos.is-triple {
-        grid-template-columns: 1.15fr 0.85fr;
-        grid-template-rows: repeat(2, minmax(0, 1fr));
-    }
-
-    .walk-share-card__photos img {
-        width: 100%;
-        height: 100%;
-        min-height: 0;
-        border-radius: 8px;
-        object-fit: cover;
-        opacity: 0.92;
-    }
-
-    .walk-share-card__photos.is-triple img:first-child {
-        grid-row: 1 / span 2;
-    }
-
-    .walk-share-card__overlay {
-        background:
-            linear-gradient(180deg, rgba(13, 27, 24, 0.08), rgba(13, 27, 24, 0.36)),
-            radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.18), transparent 28%);
-    }
-
-    .walk-share-card__watermark {
-        inset: auto 14px 14px auto;
-        width: auto;
-        height: auto;
-        display: inline-flex;
-        align-items: center;
-        gap: 7px;
-        padding: 7px 11px;
-        border: 1px solid rgba(255, 255, 255, 0.18);
-        border-radius: 999px;
-        background: rgba(13, 27, 24, 0.34);
-        color: rgba(255, 255, 255, 0.88);
-        font-size: 0.72rem;
-        font-weight: 950;
-        letter-spacing: 0.03em;
-        text-transform: lowercase;
-        backdrop-filter: blur(10px);
-    }
-
-    .walk-share-card__watermark-mark {
-        color: #ef8f42;
-        font-size: 0.9rem;
-        line-height: 1;
-        text-shadow: 0 0 12px rgba(239, 143, 66, 0.28);
-    }
-
-    .walk-share-card__content {
-        display: flex;
-        flex-direction: column;
-        justify-content: flex-end;
-        padding: 24px;
-    }
-
-    .walk-share-card__brand {
-        font-size: 0.9rem;
-        font-weight: 950;
-        letter-spacing: 0;
-        text-transform: uppercase;
-        opacity: 0.86;
-    }
-
-    .walk-share-card__dog {
-        margin-top: auto;
-        font-size: clamp(2.4rem, 11vw, 4.8rem);
-        font-weight: 950;
-        line-height: 0.95;
-    }
-
-    .walk-share-card__metric {
-        margin-top: 10px;
-        font-size: clamp(2.8rem, 13vw, 5.8rem);
-        font-weight: 950;
-        line-height: 0.95;
-    }
-
-    .walk-share-card__grid {
+    .walk-share-formats {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 8px;
-        margin-top: 28px;
+        min-width: 0;
+        margin: 0 0 14px;
+        padding: 0;
+        border: 0;
     }
-
-    .walk-share-card__grid span {
-        padding: 10px;
-        border: 1px solid rgba(255, 255, 255, 0.24);
+    .walk-share-formats legend { margin-bottom: 8px; font-size: .86rem; font-weight: 800; }
+    .walk-share-formats label { display: flex; align-items: center; min-width: 0; cursor: pointer; }
+    .walk-share-formats input { flex: 0 0 auto; margin-right: 8px; accent-color: #24695a; }
+    .walk-share-formats span {
+        display: grid;
+        align-content: center;
+        min-height: 56px;
+        min-width: 0;
+        width: 100%;
+        padding: 7px 10px;
+        border: 2px solid #d8e5dc;
+        border-radius: 7px;
+        background: #fff;
+        font-weight: 850;
+        line-height: 1.2;
+    }
+    .walk-share-formats input:checked + span { border-color: #24695a; background: #e9f4ed; }
+    .walk-share-formats input:focus-visible + span { outline: 3px solid #e8b356; outline-offset: 2px; }
+    .walk-share-formats small { font-size: .75rem; color: #52665e; font-weight: 650; }
+    .walk-share-preview__stage {
+        display: grid;
+        min-height: 240px;
+        place-items: center;
+        padding: 14px;
         border-radius: 8px;
-        background: rgba(255, 255, 255, 0.14);
-        font-weight: 900;
+        background: #e5efe9;
+        color: #24695a;
         text-align: center;
     }
-
-    .walk-share-card p {
-        margin: 16px 0 0;
-        font-size: 0.84rem;
-        font-weight: 850;
-        opacity: 0.82;
+    .walk-share-preview__stage img {
+        display: block;
+        max-width: 100%;
+        max-height: min(65vh, 640px);
+        width: auto;
+        height: auto;
+        border-radius: 4px;
+        box-shadow: 0 10px 28px rgba(20, 45, 36, .22);
     }
-
-    .walk-share-actions {
-        display: flex;
+    .walk-share-feedback { min-height: 1.4em; margin: 10px 0; color: #355d4f; font-size: .86rem; }
+    .walk-share-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .walk-share-actions button, .walk-share-actions a {
+        display: inline-flex;
+        min-height: 44px;
         align-items: center;
-        flex-wrap: wrap;
-        gap: 10px;
-        margin-top: 10px;
-    }
-
-    .walk-share-actions button,
-    .walk-share-actions a {
-        min-height: 42px;
-        padding: 10px 16px;
-        border: 0;
-        border-radius: 999px;
-        background: #2f6d5f;
-        color: #ffffff;
-        font-weight: 900;
+        justify-content: center;
+        padding: 9px 15px;
+        border: 1px solid #24695a;
+        border-radius: 7px;
+        background: #24695a;
+        color: #fff;
+        font-weight: 850;
         text-decoration: none;
     }
-
-    .walk-share-actions span {
-        color: #2f6d5f;
-        font-weight: 850;
+    .walk-share-actions button:disabled { opacity: .5; cursor: wait; }
+    .walk-share-actions button:not(:first-child), .walk-share-actions a { background: #fff; color: #24695a; }
+    @@media (max-width: 575.98px) {
+        .walk-share-formats { grid-template-columns: 1fr; }
+        .walk-share-actions > * { flex: 1 1 44%; }
     }
-
     .walk-media-card {
         margin-top: 14px;
         padding: 18px;
@@ -1846,15 +1612,6 @@
             grid-template-columns: repeat(2, minmax(0, 1fr));
         }
 
-        .walk-share-card__grid {
-            grid-template-columns: 1fr;
-        }
-
-        .walk-share-actions {
-            align-items: stretch;
-            flex-direction: column;
-        }
-
         .walk-photo-upload,
         .walk-photo-grid {
             grid-template-columns: 1fr;
@@ -1881,45 +1638,10 @@
     .walk-summary-page .walk-summary__stats { grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); }
     .walk-summary-page .walk-summary__stats article { padding: 10px; border-radius: 8px; }
     .walk-summary-page .walk-summary__stats strong { font-size: 1.12rem; }
-    .walk-share-card {
-        width: min(100%, 390px);
-        min-height: 0;
-        aspect-ratio: 9 / 16;
-        margin-inline: auto;
-        border-radius: 8px;
-    }
-    .walk-share-card__photos { display: block; padding: 0; }
-    .walk-share-card__photos img {
-        position: absolute;
-        inset: 0;
-        width: 100%;
-        height: 100%;
-        border-radius: 0;
-        opacity: 1;
-    }
-    .walk-share-card__photos img:not(:first-child) { display: none; }
-    .walk-share-card__overlay {
-        background: linear-gradient(180deg, rgba(8, 25, 20, 0.35) 0%, transparent 35%, rgba(8, 25, 20, 0.88) 100%);
-    }
-    .walk-share-card__content { padding: 22px; text-shadow: 0 2px 12px rgba(0, 0, 0, 0.55); }
-    .walk-share-card__brand { margin-bottom: auto; font-size: 0.8rem; }
-    .walk-share-card__dog { margin-top: 0; overflow-wrap: anywhere; font-size: clamp(2rem, 8vw, 3.4rem); }
-    .walk-share-card__metric { font-size: clamp(2.5rem, 10vw, 4rem); }
-    .walk-share-card__grid { display: flex; gap: 8px; margin-top: 12px; font-size: 0.88rem; }
-    .walk-share-card__grid span { padding: 0; border: 0; background: none; }
-    .walk-share-card__grid span + span::before { content: "· "; }
-    .walk-share-card__watermark { z-index: 2; padding: 0; border: 0; background: none; box-shadow: none; }
-    .walk-share-card p { margin: 8px 0 32px; font-size: 0.78rem; }
-    .walk-share-actions { justify-content: center; }
-    .walk-share-actions button { min-height: 44px; }
-
     @@media (max-width: 575.98px) {
         .walk-summary__hero { padding: 16px; }
         .walk-summary__stats { gap: 6px; }
         .walk-summary__stats article { padding: 9px; }
         #summaryMap { height: 280px; }
-        .walk-share-card__grid { flex-direction: row; }
-        .walk-share-actions { flex-direction: row; }
-        .walk-share-actions button { flex: 1; padding-inline: 8px; }
     }
 </style>

@@ -142,6 +142,10 @@ public sealed class WalksControllerFinishTests : IDisposable
         Assert.Equal("Sprehod s Floyd", memory.Title);
         Assert.Equal("Moj zasebni načrt", memory.OwnerPlanTitle);
         Assert.Contains("0,90 km", memory.ShareText);
+        var share = Assert.IsType<WalkShareAssetViewModel>(memory.ShareAsset);
+        Assert.Equal("0,90 km", share.Distance);
+        Assert.Equal(UserAchievementCatalog.All.First(item => item.Key == UserAchievementCatalog.WalkFirst).DisplayName, share.Highlight);
+        Assert.DoesNotContain("Moj zasebni načrt", System.Text.Json.JsonSerializer.Serialize(share));
         Assert.Equal(3, memory.Highlights.Count);
         Assert.Contains(memory.Highlights, item => item.Title == "Tvoje izkušnje" && item.Detail == "+20 XP");
         Assert.Contains(memory.Highlights, item => item.Title == "Pasji napredek" && item.Detail == "+10 XP");
@@ -175,7 +179,33 @@ public sealed class WalksControllerFinishTests : IDisposable
         Assert.IsType<Walk>(result.Model);
         Assert.Empty(memory.Highlights);
         Assert.Null(memory.OwnerPlanTitle);
+        Assert.Null(memory.ShareAsset);
         Assert.Null(publicController.ViewBag.WalkRewardResult);
+    }
+
+    [Fact]
+    public async Task ShareCard_OnlyOwnerOfCompletedWalkReceivesAsset()
+    {
+        var walkId = await SeedAsync(900, "Completed");
+        await using var context = CreateContext();
+
+        var ownResult = Assert.IsType<FileContentResult>(await CreateController(context).ShareCard(walkId));
+        Assert.Equal("image/svg+xml", ownResult.ContentType);
+        Assert.NotEmpty(ownResult.FileContents);
+        Assert.IsType<NotFoundResult>(await CreateController(context, userId: "another-user").ShareCard(walkId));
+        Assert.IsType<NotFoundResult>(await CreateController(context).ShareCard(walkId + 999));
+    }
+
+    [Theory]
+    [InlineData("Active")]
+    [InlineData("Interrupted")]
+    [InlineData("Unknown")]
+    public async Task ShareCard_NonCompletedWalkIsNotFound(string status)
+    {
+        var walkId = await SeedAsync(900, status);
+        await using var context = CreateContext();
+
+        Assert.IsType<NotFoundResult>(await CreateController(context).ShareCard(walkId));
     }
 
     [Theory]
