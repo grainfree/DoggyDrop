@@ -21,7 +21,7 @@
     <div class="community-stats">
         <article>
             <strong>@Model.KilometersThisWeek.ToString("0.0", sl) km</strong>
-            <span>Ta teden</span>
+            <span>Zadnjih 7 dni</span>
         </article>
         <article>
             <strong>@Model.WalksThisWeek</strong>
@@ -65,7 +65,7 @@
 
     <section class="community-section">
         <div class="community-section__header">
-            <h2>Tedenska lestvica</h2>
+            <h2>Lestvica zadnjih 7 dni</h2>
             <span>Top psi</span>
         </div>
 
@@ -73,7 +73,7 @@
         {
             <article class="community-empty community-empty--founder">
                 <h3>Začni lokalno lestvico</h3>
-                <p>Zaključi prvi sprehod v svojem kraju in odpri tedensko lestvico, preden jo napolni skupnost.</p>
+                <p>Zaključi prvi sprehod v svojem kraju in odpri lestvico zadnjih 7 dni, preden jo napolni skupnost.</p>
                 <a class="btn btn-success rounded-pill fw-semibold" asp-controller="Walks" asp-action="Planner">Začni prvi sprehod</a>
             </article>
         }

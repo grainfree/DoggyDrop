@@ -706,6 +706,7 @@ namespace DoggyDrop.Controllers
         {
             var userId = _userManager.GetUserId(User);
             var walk = await _context.Walks
+                .AsNoTracking()
                 .Include(w => w.Dog)
                 .Include(w => w.Points)
                 .Include(w => w.PlannedWalk)
@@ -743,6 +744,14 @@ namespace DoggyDrop.Controllers
             if (walk.Status != "Completed")
             {
                 return NotFound();
+            }
+
+            if (walk.OwnerId != userId)
+            {
+                walk.Points = [];
+                walk.PlannedWalk = null;
+                walk.StopCompletions = [];
+                foreach (var photo in walk.Photos ?? []) photo.PlannedWalkStop = null;
             }
 
             if (walk.OwnerId == userId && TempData.TryGetValue(GetWalkRewardTempDataKey(walk.Id), out var rewardResultJson))
@@ -837,6 +846,19 @@ namespace DoggyDrop.Controllers
                 PlannedWalkStopId = plannedWalkStopId
             };
 
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+            await LockWalkAsync(id, userId);
+            var currentWalk = await _context.Walks.AsNoTracking()
+                .FirstOrDefaultAsync(item => item.Id == id && item.OwnerId == userId);
+            if (currentWalk == null || currentWalk.Status is not ("Active" or "Completed"))
+            {
+                if (wantsJson) return Conflict(new { error = "Sprehod ni več na voljo za fotografijo." });
+                TempData["ErrorMessage"] = "Sprehod ni več na voljo za fotografijo.";
+                return currentWalk?.Status == "Interrupted"
+                    ? RedirectToAction(nameof(Interrupted), new { id })
+                    : RedirectToAction(nameof(Index));
+            }
+
             _context.WalkPhotos.Add(walkPhoto);
             await _context.SaveChangesAsync();
             await _gamificationService.AwardXpAsync(
@@ -856,9 +878,11 @@ namespace DoggyDrop.Controllers
                 walkPhoto.Id.ToString(),
                 "Fotografija s sprehoda");
 
+            await transaction.CommitAsync();
+
             if (wantsJson) return Ok(new { message = "Fotografija sprehoda je dodana." });
             TempData["SuccessMessage"] = "Fotografija sprehoda je dodana.";
-            return RedirectToPhotoSource(walk);
+            return RedirectToPhotoSource(currentWalk);
         }
 
         [HttpPost]

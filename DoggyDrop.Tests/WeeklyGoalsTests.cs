@@ -34,6 +34,28 @@ public sealed class WeeklyGoalsTests : IDisposable
     }
 
     [Fact]
+    public void DogActivity_RollingSevenDaysDoesNotResetAtLjubljanaMonday()
+    {
+        var monday = new DateTime(2026, 9, 20, 22, 0, 0, DateTimeKind.Utc);
+        var walks = new List<Walk>
+        {
+            new() { StartedAt = monday.AddMinutes(-30), DistanceMeters = 1_200, Status = "Completed" },
+            new() { StartedAt = monday.AddMinutes(30), DistanceMeters = 300, Status = "Completed" },
+            new() { StartedAt = monday.AddDays(-7), DistanceMeters = 5_000, Status = "Completed" }
+        };
+
+        var activity = ActivityInsightsBuilder.Build(walks, nowUtc: monday.AddHours(1));
+        var canonicalWeek = WeeklyGoalWeek.At(monday.AddHours(1));
+
+        Assert.Equal(1.5, activity.WeeklyDistanceKm, 3);
+        Assert.Equal("1,5 / 10 km", activity.Challenges.Single(item => item.Title == "10 km v 7 dneh").ProgressText);
+        Assert.Equal("6,5 / 10 km", activity.NextMilestoneProgress);
+        Assert.True(walks[0].StartedAt < canonicalWeek.StartUtc);
+        Assert.True(walks[0].StartedAt >= ActivityInsightsBuilder.RollingSevenDayStartUtc(monday.AddHours(1)));
+        Assert.True(walks[2].StartedAt < ActivityInsightsBuilder.RollingSevenDayStartUtc(monday.AddHours(1)));
+    }
+
+    [Fact]
     public async Task Progress_UsesOnlyOwnedCompletedWalksActualDistanceAndCurrentWeekPhotos()
     {
         await using var db = await CreateAsync();

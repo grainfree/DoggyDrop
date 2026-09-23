@@ -10,7 +10,7 @@
         <div>
             <span class="walks-hero__eyebrow">Sprehodi</span>
             <h1 class="app-page__title">Sprehodi</h1>
-            <p class="app-page__lead">Začni sprehod, spremljaj tedensko aktivnost in hitro izberi naslednjo pot.</p>
+            <p class="app-page__lead">Začni sprehod, spremljaj aktivnost zadnjih 7 dni in hitro izberi naslednjo pot.</p>
         </div>
         <div class="walks-hero__actions">
             @if (Model.ActiveWalk != null)
@@ -34,7 +34,7 @@
             </article>
             <article>
                 <strong>@Model.WalksThisWeek</strong>
-                <span>ta teden</span>
+                <span>zadnjih 7 dni</span>
             </article>
             <article>
                 <strong>@Model.WalkStreak.CurrentDays</strong>
@@ -71,7 +71,7 @@
         </article>
         <article>
             <strong>@Model.WalksThisWeek</strong>
-            <span>Ta teden</span>
+            <span>Zadnjih 7 dni</span>
         </article>
         <article>
             <strong>@Model.CompletedWalkCount</strong>
@@ -118,7 +118,7 @@
         <p class="mb-0 mt-3"><strong>@Model.WalkStreak.Label:</strong> @Model.WalkStreak.Guidance</p>
         <div class="walk-goal-grid">
             <article>
-                <strong>Teden</strong>
+                <strong>Zadnjih 7 dni</strong>
                 <span>@Model.ActivityInsights.WeeklyDistanceKm.ToString("0.0") / @Model.ActivityInsights.WeeklyGoalKm.ToString("0") km</span>
                 <div><span style="width: @Model.ActivityInsights.WeeklyGoalPercent%"></span></div>
             </article>

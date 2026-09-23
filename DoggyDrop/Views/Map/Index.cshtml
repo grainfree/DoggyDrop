@@ -83,6 +83,9 @@
     .map-weekly-preview__items span { white-space:nowrap; }
     .map-weekly-preview__next { margin:5px 0 0 !important; font-size:.76rem !important; line-height:1.3 !important; }
     body.map-bin-navigation-active .map-weekly-preview { display:none; }
+    .home-walk-recenter { position:fixed; top:76px; right:16px; z-index:1100; width:44px; height:44px; border:1px solid #bfd2c8; border-radius:8px; background:#fff; color:#24695a; box-shadow:0 2px 10px rgba(20,40,35,.18); font-size:1.25rem; }
+    body.map-bin-navigation-active .home-walk-recenter,
+    body.map-nearest-preview-active .home-walk-recenter { display:none; }
 
     .park-reward-sheet { position: fixed; inset: 0; z-index: 2200; display: grid; align-items: end; background: rgba(20,32,28,.38); }
     .park-reward-sheet[hidden] { display: none; }
@@ -3107,6 +3110,10 @@
 }
 
 <button type="button" id="filterToggle" class="map-filter-toggle">Filtri</button>
+@if (hasActiveWalk)
+{
+    <button type="button" class="home-walk-recenter" onclick="recenterHomeWalk()" aria-label="Nazaj na mojo lokacijo" title="Nazaj na mojo lokacijo"><i class="bi bi-crosshair" aria-hidden="true"></i></button>
+}
 
 @if (!hasActiveWalk)
 {
@@ -3624,6 +3631,38 @@ else if (needsDogOnboarding)
         let homeWalkPlanLayer = null;
         const homeActiveWalkDuration = document.getElementById("homeActiveWalkDuration");
         const homeWalkTracking = { watchId: null, generation: 0, sending: false, pending: null, lastCallback: 0, hiddenAt: 0, active: homeActiveWalkId > 0, finishSubmitting: false };
+        const homeWalkCamera = { follow: homeActiveWalkId > 0, programmaticMove: false, lastPosition: null };
+
+        function moveHomeWalkCamera(action) {
+            homeWalkCamera.programmaticMove = true;
+            try { action(); }
+            finally { homeWalkCamera.programmaticMove = false; }
+        }
+
+        function frameHomeWalk() {
+            if (homeActiveWalkId <= 0 || navigation.active) return false;
+            const location = userLocation || homeWalkCamera.lastPosition;
+            const trail = homeWalkTrailLayer?.getLatLngs() ?? [];
+            const plan = homeWalkPlanLayer?.getLatLngs() ?? [];
+            const points = trail.length > 1 ? trail : plan.length > 1 ? plan : [];
+            if (points.length > 1) {
+                const bounds = L.latLngBounds(points);
+                if (location) bounds.extend([location.lat, location.lng]);
+                moveHomeWalkCamera(() => map.fitBounds(bounds.pad(0.2), { maxZoom: 17, animate: false }));
+                return true;
+            }
+            if (!location) return false;
+            moveHomeWalkCamera(() => map.setView([location.lat, location.lng], Math.max(map.getZoom(), 16), { animate: false }));
+            return true;
+        }
+
+        function recenterHomeWalk() {
+            if (homeActiveWalkId <= 0 || navigation.active) return;
+            homeWalkCamera.follow = true;
+            const location = userLocation || homeWalkCamera.lastPosition;
+            if (!location) { frameHomeWalk(); return; }
+            moveHomeWalkCamera(() => map.setView([location.lat, location.lng], Math.max(map.getZoom(), 16), { animate: true }));
+        }
 
         function setHomeGpsDebug(field, value) {
             const element = document.getElementById(`homeGps${field}`);
@@ -3733,6 +3772,14 @@ else if (needsDogOnboarding)
                 if (homeWalkTrailLayer && acceptedPoint.every(Number.isFinite)) {
                     homeWalkTrailPoints.push(acceptedPoint);
                     homeWalkTrailLayer.setLatLngs(homeWalkTrailPoints);
+                    homeWalkCamera.lastPosition = { lat: acceptedPoint[0], lng: acceptedPoint[1] };
+                    if (!navigation.active) {
+                        userLocation = { ...homeWalkCamera.lastPosition };
+                        if (userMarker) userMarker.setLatLng(acceptedPoint);
+                        else userMarker = L.marker(acceptedPoint, { icon: userIcon }).addTo(map).bindPopup("Tvoja lokacija");
+                        if (homeWalkCamera.follow && map.distance(map.getCenter(), acceptedPoint) > 35)
+                            map.panTo(acceptedPoint, { animate: true });
+                    }
                     if (navigation.active) navigation.routeLayer?.bringToFront();
                     else homeWalkTrailLayer.bringToFront();
                 }
@@ -3988,10 +4035,8 @@ else if (needsDogOnboarding)
             loadNearbyDogs();
             loadCommunityHeatmap();
 
-            if (homeWalkTrailLayer?.getLatLngs().length > 1) {
-                map.fitBounds(homeWalkTrailLayer.getBounds().pad(0.2), { maxZoom: 17 });
-            } else if (homeWalkPlanLayer?.getLatLngs().length > 1) {
-                map.fitBounds(homeWalkPlanLayer.getBounds().pad(0.2), { maxZoom: 16 });
+            if (homeActiveWalkId > 0) {
+                frameHomeWalk();
             } else if (bins.length > 0) {
                 const bounds = L.latLngBounds(bins.map(bin => [bin.latitude, bin.longitude]));
                 map.fitBounds(bounds.pad(0.2), { maxZoom: 16 });
@@ -3999,7 +4044,9 @@ else if (needsDogOnboarding)
 
             requestAnimationFrame(() => {
                 map.invalidateSize();
-                if (bins.length > 0) {
+                if (homeActiveWalkId > 0) {
+                    if (homeWalkCamera.follow) frameHomeWalk();
+                } else if (bins.length > 0) {
                     const bounds = L.latLngBounds(bins.map(bin => [bin.latitude, bin.longitude]));
                     map.fitBounds(bounds.pad(0.2), { maxZoom: 16 });
                 }
@@ -4011,7 +4058,13 @@ else if (needsDogOnboarding)
                 if (navigation.active) {
                     navigation.followUser = false;
                     updateDirectionsPanelForNavigation();
+                } else if (homeActiveWalkId > 0) {
+                    homeWalkCamera.follow = false;
                 }
+            });
+            map.on("zoomstart", () => {
+                if (homeActiveWalkId > 0 && !navigation.active && !homeWalkCamera.programmaticMove)
+                    homeWalkCamera.follow = false;
             });
             document.getElementById("binDetailClose")?.addEventListener("click", closeBinDetail);
 
@@ -4094,12 +4147,14 @@ else if (needsDogOnboarding)
                         .bindPopup("Tvoja lokacija");
                 }
 
-                map.setView([userLocation.lat, userLocation.lng], 15, { animate: true });
+                if (homeActiveWalkId > 0) {
+                    if (homeWalkCamera.follow) frameHomeWalk();
+                } else map.setView([userLocation.lat, userLocation.lng], 15, { animate: true });
                 updateFounderPrompt();
                 loadNearbyDogs();
                 renderNearbySuggestions();
             }, () => {
-                if (bins.length > 0) {
+                if (homeActiveWalkId <= 0 && bins.length > 0) {
                     const bounds = L.latLngBounds(bins.map(bin => [bin.latitude, bin.longitude]));
                     map.fitBounds(bounds.pad(0.2), { maxZoom: 16 });
                 }
@@ -5168,6 +5223,7 @@ else if (needsDogOnboarding)
         }
 
         function stopInAppNavigation() {
+            const wasNavigating = navigation.active;
             navigation.requestSequence++;
             navigation.abortController?.abort();
             navigation.abortController = null;
@@ -5210,6 +5266,10 @@ else if (needsDogOnboarding)
             panel.style.display = "none";
             panel.innerHTML = "";
             setDirectionsPanelCompact(false);
+            if (wasNavigating && homeActiveWalkId > 0) {
+                homeWalkCamera.follow = true;
+                frameHomeWalk();
+            }
         }
 
         async function requestNavigationRoute(fitRoute) {

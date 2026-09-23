@@ -1,14 +1,19 @@
 using DoggyDrop.Models;
 using DoggyDrop.ViewModels;
+using System.Globalization;
 
 namespace DoggyDrop.Services
 {
     public static class ActivityInsightsBuilder
     {
-        public static ActivityInsightsViewModel Build(IReadOnlyList<Walk> completedWalks, double weeklyGoalKm = 10, double monthlyGoalKm = 40)
+        private static readonly CultureInfo Slovenian = CultureInfo.GetCultureInfo("sl-SI");
+
+        public static DateTime RollingSevenDayStartUtc(DateTime nowUtc) => nowUtc.Date.AddDays(-6);
+
+        public static ActivityInsightsViewModel Build(IReadOnlyList<Walk> completedWalks, double weeklyGoalKm = 10, double monthlyGoalKm = 40, DateTime? nowUtc = null)
         {
-            var today = DateTime.UtcNow.Date;
-            var weekStart = today.AddDays(-6);
+            var today = (nowUtc ?? DateTime.UtcNow).Date;
+            var weekStart = RollingSevenDayStartUtc(today);
             var monthStart = new DateTime(today.Year, today.Month, 1);
             var totalDistanceKm = completedWalks.Sum(w => w.DistanceMeters) / 1000;
             var weeklyDistanceKm = completedWalks
@@ -46,8 +51,8 @@ namespace DoggyDrop.Services
                 NextMilestonePercent = GetNextMilestonePercent(totalDistanceKm),
                 Challenges =
                 [
-                    BuildChallenge("Tedenski ritem", "Zakljuci 3 sprehode v zadnjih 7 dneh.", weeklyWalks, 3, "sprehodov"),
-                    BuildChallenge("10 km teden", "Ta teden skupaj prehodi 10 km.", weeklyDistanceKm, 10, "km"),
+                    BuildChallenge("Sedemdnevni ritem", "Zakljuci 3 sprehode v zadnjih 7 dneh.", weeklyWalks, 3, "sprehodov"),
+                    BuildChallenge("10 km v 7 dneh", "V zadnjih 7 dneh skupaj prehodi 10 km.", weeklyDistanceKm, 10, "km"),
                     BuildChallenge("Mesec aktivnosti", "Ta mesec zakljuci 12 sprehodov.", monthlyWalks, 12, "sprehodov"),
                     BuildChallenge("Cist mestni krog", "Ta mesec uporabi 5 pasjih kosev.", usedBinsThisMonth, 5, "uporab")
                 ]
@@ -94,7 +99,7 @@ namespace DoggyDrop.Services
 
         private static ActivityChallengeItem BuildChallenge(string title, string description, double current, double target, string suffix)
         {
-            var currentText = suffix == "km" ? current.ToString("0.0") : Math.Floor(current).ToString("0");
+            var currentText = suffix == "km" ? current.ToString("0.0", Slovenian) : Math.Floor(current).ToString("0");
             var targetText = suffix == "km" ? target.ToString("0") : target.ToString("0");
 
             return new ActivityChallengeItem
@@ -110,13 +115,13 @@ namespace DoggyDrop.Services
         private static string GetNextMilestoneName(double totalDistanceKm)
         {
             var target = GetNextMilestoneTarget(totalDistanceKm);
-            return target >= 100 ? "Trail master" : $"{target:0} km club";
+            return target >= 100 ? "Mojster poti" : $"Klub {target:0} km";
         }
 
         private static string GetNextMilestoneProgress(double totalDistanceKm)
         {
             var target = GetNextMilestoneTarget(totalDistanceKm);
-            return $"{totalDistanceKm:0.0} / {target:0} km";
+            return $"{totalDistanceKm.ToString("0.0", Slovenian)} / {target:0} km";
         }
 
         private static int GetNextMilestonePercent(double totalDistanceKm)

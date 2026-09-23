@@ -196,13 +196,13 @@
         </div>
         <div class="dog-profile__goal-grid">
             <div>
-                <strong>Teden</strong>
-                <span>@Model.ActivityInsights.WeeklyDistanceKm.ToString("0.0") / @Model.ActivityInsights.WeeklyGoalKm.ToString("0") km</span>
+                <strong>Zadnjih 7 dni</strong>
+                <span>@SlovenianFormatting.WalkDistance(Model.ActivityInsights.WeeklyDistanceKm * 1000) / @Model.ActivityInsights.WeeklyGoalKm.ToString("0", sl) km</span>
                 <em><i style="width: @Model.ActivityInsights.WeeklyGoalPercent%"></i></em>
             </div>
             <div>
                 <strong>Mesec</strong>
-                <span>@Model.ActivityInsights.MonthlyDistanceKm.ToString("0.0") / @Model.ActivityInsights.MonthlyGoalKm.ToString("0") km</span>
+                <span>@SlovenianFormatting.WalkDistance(Model.ActivityInsights.MonthlyDistanceKm * 1000) / @Model.ActivityInsights.MonthlyGoalKm.ToString("0", sl) km</span>
                 <em><i style="width: @Model.ActivityInsights.MonthlyGoalPercent%"></i></em>
             </div>
             <div>
@@ -239,7 +239,7 @@
     <article class="dog-profile__section">
         <div class="dog-profile__section-header">
             <h2>Zadnji sprehodi</h2>
-            <span>@Model.WalksThisWeek ta teden</span>
+            <span>@WeeklyGoalsWording.Walks(Model.WalksThisWeek) v zadnjih 7 dneh</span>
         </div>
 
         @if (Model.RecentWalks.Count == 0)

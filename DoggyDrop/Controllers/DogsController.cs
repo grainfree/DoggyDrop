@@ -170,7 +170,7 @@ namespace DoggyDrop.Controllers
                 return NotFound();
             }
 
-            var weekStart = DateTime.UtcNow.Date.AddDays(-6);
+            var weekStart = ActivityInsightsBuilder.RollingSevenDayStartUtc(DateTime.UtcNow);
             var completedWalks = await _context.Walks
                 .AsNoTracking()
                 .Where(w => w.DogId == dog.Id && w.OwnerId == userId && w.Status == "Completed")
@@ -448,7 +448,7 @@ namespace DoggyDrop.Controllers
                 BuildAchievement("Prvi sprehod", "Zaključi prvi sprehod.", completedWalks, 1, suffix: "sprehodov"),
                 BuildAchievement("10 km skupaj", "Prehodita 10 km.", totalDistanceKm, 10, suffix: "km"),
                 BuildAchievement("100 km skupaj", "Prehodita 100 km.", totalDistanceKm, 100, suffix: "km"),
-                BuildAchievement("Reden teden", "Zaključita 3 sprehode ta teden.", walksThisWeek, 3, suffix: "ta teden"),
+                BuildAchievement("Reden ritem", "Zaključita 3 sprehode v zadnjih 7 dneh.", walksThisWeek, 3, suffix: "v 7 dneh"),
                 BuildAchievement("Koši na poti", "Uporabita 5 pasjih košev med sprehodi.", usedBinsCount, 5, suffix: "uporab"),
                 BuildAchievement("Pasji parki", "Obiščita 5 različnih pasjih parkov.", uniqueParkCount, 5, suffix: "parkov")
             ];

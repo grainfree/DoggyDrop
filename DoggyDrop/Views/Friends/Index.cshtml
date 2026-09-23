@@ -35,7 +35,7 @@
         </article>
         <article>
             <strong>@Model.Friends.Sum(friend => friend.WeeklyDistanceKm).ToString("0.0") km</strong>
-            <span>Prijatelji ta teden</span>
+            <span>Prijatelji zadnjih 7 dni</span>
         </article>
     </div>
 
@@ -107,7 +107,7 @@
                         </div>
                         <div>
                             <strong>@friend.Name</strong>
-                            <small>@friend.DogCount psov · @friend.WeeklyDistanceKm.ToString("0.0") km ta teden</small>
+                            <small>@friend.DogCount psov · @friend.WeeklyDistanceKm.ToString("0.0") km v zadnjih 7 dneh</small>
                         </div>
                         <form asp-controller="Friends" asp-action="Remove" method="post" asp-route-id="@friend.FriendshipId">
                             <button type="submit">Odstrani</button>
@@ -162,7 +162,7 @@
                         </div>
                         <div>
                             <strong>@suggestion.Name</strong>
-                            <small>@suggestion.DogCount psov · @suggestion.WeeklyDistanceKm.ToString("0.0") km ta teden</small>
+                            <small>@suggestion.DogCount psov · @suggestion.WeeklyDistanceKm.ToString("0.0") km v zadnjih 7 dneh</small>
                         </div>
                         <form asp-controller="Friends" asp-action="SendRequest" method="post">
                             <input type="hidden" name="userId" value="@suggestion.UserId" />

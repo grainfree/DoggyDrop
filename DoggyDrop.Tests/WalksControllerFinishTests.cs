@@ -91,6 +91,13 @@ public sealed class WalksControllerFinishTests : IDisposable
         context.PlannedWalks.Add(plan);
         await context.SaveChangesAsync();
         walk.PlannedWalkId = plan.Id;
+        context.WalkPoints.Add(new WalkPoint { WalkId = walkId, Latitude = 46.0511, Longitude = 14.5011 });
+        context.WalkPoints.Add(new WalkPoint { WalkId = walkId, Latitude = 46.0512, Longitude = 14.5012 });
+        context.PlannedWalkRoutePoints.Add(new PlannedWalkRoutePoint { PlannedWalkId = plan.Id, Order = 1, Latitude = 46.0522, Longitude = 14.5022 });
+        context.PlannedWalkRoutePoints.Add(new PlannedWalkRoutePoint { PlannedWalkId = plan.Id, Order = 2, Latitude = 46.0523, Longitude = 14.5023 });
+        var stop = new PlannedWalkStop { PlannedWalkId = plan.Id, Name = "Zasebni postanek", Latitude = 46.0533, Longitude = 14.5033 };
+        context.PlannedWalkStops.Add(stop);
+        context.WalkStopCompletions.Add(new WalkStopCompletion { WalkId = walkId, UserId = UserId, PlannedWalkStop = stop });
         context.UserXpEvents.AddRange(new UserXpEvent
         {
             UserId = UserId, ActivityType = GamificationConstants.WalkDistance, XpAmount = 20,
@@ -138,7 +145,13 @@ public sealed class WalksControllerFinishTests : IDisposable
         var result = Assert.IsType<ViewResult>(await controller.Details(walkId));
         var memory = Assert.IsType<WalkMemoryViewModel>((object)controller.ViewBag.WalkMemory);
 
-        Assert.IsType<Walk>(result.Model);
+        var detailsWalk = Assert.IsType<Walk>(result.Model);
+        Assert.Contains(detailsWalk.Points!, point => point.Latitude == 46.0511);
+        Assert.Contains(detailsWalk.PlannedWalk!.RoutePoints!, point => point.Latitude == 46.0522);
+        Assert.Contains(detailsWalk.PlannedWalk.Stops!, stop => stop.Latitude == 46.0533);
+        Assert.Contains(detailsWalk.StopCompletions!, completion => completion.PlannedWalkStop?.Latitude == 46.0533);
+        Assert.True(memory.HasActualTrail);
+        Assert.True(memory.HasPlannedRoute);
         Assert.Equal("Sprehod s Floyd", memory.Title);
         Assert.Equal("Moj zasebni načrt", memory.OwnerPlanTitle);
         Assert.Contains("0,90 km", memory.ShareText);
@@ -146,10 +159,11 @@ public sealed class WalksControllerFinishTests : IDisposable
         Assert.Equal("0,90 km", share.Distance);
         Assert.Equal(UserAchievementCatalog.All.First(item => item.Key == UserAchievementCatalog.WalkFirst).DisplayName, share.Highlight);
         Assert.DoesNotContain("Moj zasebni načrt", System.Text.Json.JsonSerializer.Serialize(share));
-        Assert.Equal(3, memory.Highlights.Count);
+        Assert.Equal(4, memory.Highlights.Count);
         Assert.Contains(memory.Highlights, item => item.Title == "Tvoje izkušnje" && item.Detail == "+20 XP");
         Assert.Contains(memory.Highlights, item => item.Title == "Pasji napredek" && item.Detail == "+10 XP");
         Assert.Single(memory.Highlights, item => item.Title == "Odklenjen dosežek");
+        Assert.Single(memory.Highlights, item => item.Title == "Potrjeni postanki");
         Assert.Null(controller.ViewBag.WalkRewardResult);
         Assert.Equal(3, await context.UserXpEvents.CountAsync());
         Assert.Equal(3, await context.DogXpEvents.CountAsync());
@@ -165,6 +179,14 @@ public sealed class WalksControllerFinishTests : IDisposable
         context.PlannedWalks.Add(plan);
         await context.SaveChangesAsync();
         walk.PlannedWalkId = plan.Id;
+        var stop = new PlannedWalkStop { PlannedWalkId = plan.Id, Name = "Zasebni postanek", Latitude = 46.0533, Longitude = 14.5033 };
+        context.PlannedWalkStops.Add(stop);
+        context.WalkStopCompletions.Add(new WalkStopCompletion { WalkId = walkId, UserId = UserId, PlannedWalkStop = stop });
+        context.PlannedWalkRoutePoints.Add(new PlannedWalkRoutePoint { PlannedWalkId = plan.Id, Order = 1, Latitude = 46.0522, Longitude = 14.5022 });
+        context.PlannedWalkRoutePoints.Add(new PlannedWalkRoutePoint { PlannedWalkId = plan.Id, Order = 2, Latitude = 46.0523, Longitude = 14.5023 });
+        context.WalkPoints.Add(new WalkPoint { WalkId = walkId, Latitude = 46.0511, Longitude = 14.5011 });
+        context.WalkPoints.Add(new WalkPoint { WalkId = walkId, Latitude = 46.0512, Longitude = 14.5012 });
+        context.WalkPhotos.Add(new WalkPhoto { WalkId = walkId, UserId = UserId, ImageUrl = "https://example.test/walk.jpg", PlannedWalkStop = stop });
         context.UserXpEvents.Add(new UserXpEvent
         {
             UserId = UserId, ActivityType = GamificationConstants.WalkDistance, XpAmount = 20,
@@ -176,7 +198,12 @@ public sealed class WalksControllerFinishTests : IDisposable
         var result = Assert.IsType<ViewResult>(await publicController.Details(walkId));
         var memory = Assert.IsType<WalkMemoryViewModel>((object)publicController.ViewBag.WalkMemory);
 
-        Assert.IsType<Walk>(result.Model);
+        var publicWalk = Assert.IsType<Walk>(result.Model);
+        Assert.Empty(publicWalk.Points!);
+        Assert.Null(publicWalk.PlannedWalk);
+        Assert.Empty(publicWalk.StopCompletions!);
+        Assert.All(publicWalk.Photos!, photo => Assert.Null(photo.PlannedWalkStop));
+        Assert.False(memory.HasMap);
         Assert.Empty(memory.Highlights);
         Assert.Null(memory.OwnerPlanTitle);
         Assert.Null(memory.ShareAsset);
@@ -906,6 +933,40 @@ public sealed class WalksControllerFinishTests : IDisposable
         Assert.IsType<OkObjectResult>(result);
         Assert.Equal("Active", (await context.Walks.SingleAsync(item => item.Id == walkId)).Status);
         Assert.Single(await context.WalkPhotos.Where(item => item.WalkId == walkId).ToListAsync());
+        Assert.Single(await context.UserXpEvents.ToListAsync());
+        Assert.Single(await context.DogXpEvents.ToListAsync());
+    }
+
+    [Theory]
+    [InlineData("Interrupted", false)]
+    [InlineData("Completed", true)]
+    [InlineData("Unknown", false)]
+    public async Task AddPhoto_RevalidatesStatusAfterUpload(string nextStatus, bool accepted)
+    {
+        var walkId = await SeedAsync(0);
+        async Task TransitionDuringUpload()
+        {
+            await using var update = CreateContext();
+            var walk = await update.Walks.SingleAsync(item => item.Id == walkId);
+            walk.Status = nextStatus;
+            walk.EndedAt = nextStatus == "Active" ? null : DateTime.UtcNow;
+            await update.SaveChangesAsync();
+        }
+
+        await using var context = CreateContext();
+        var controller = CreateController(context, imageService: new NoOpImageService("https://example.test/walk.jpg", TransitionDuringUpload));
+        controller.HttpContext.Request.Headers.Accept = "application/json";
+        var photo = new FormFile(new MemoryStream([1, 2, 3]), 0, 3, "photo", "walk.jpg");
+
+        var result = await controller.AddPhoto(walkId, photo, null);
+
+        if (accepted) Assert.IsType<OkObjectResult>(result);
+        else Assert.IsType<ConflictObjectResult>(result);
+        Assert.Equal(nextStatus, (await context.Walks.AsNoTracking().SingleAsync(item => item.Id == walkId)).Status);
+        Assert.Equal(accepted ? 1 : 0, await context.WalkPhotos.CountAsync(item => item.WalkId == walkId));
+        Assert.Equal(accepted ? 1 : 0, await context.UserXpEvents.CountAsync());
+        Assert.Equal(accepted ? 1 : 0, await context.DogXpEvents.CountAsync());
+        Assert.Equal(accepted ? 1 : 0, await context.UserStreaks.CountAsync());
     }
 
     [Theory]
@@ -925,6 +986,19 @@ public sealed class WalksControllerFinishTests : IDisposable
         else Assert.IsType<NotFoundResult>(result);
         Assert.Equal(allowed ? 1 : 0, await context.WalkPhotos.CountAsync(item => item.WalkId == walkId));
         Assert.Equal(status, (await context.Walks.SingleAsync(item => item.Id == walkId)).Status);
+        Assert.Equal(allowed ? 1 : 0, await context.UserXpEvents.CountAsync());
+        Assert.Equal(allowed ? 1 : 0, await context.DogXpEvents.CountAsync());
+        if (allowed)
+        {
+            var savedPhoto = await context.WalkPhotos.AsNoTracking().SingleAsync(item => item.WalkId == walkId);
+            var details = Assert.IsType<ViewResult>(await controller.Details(walkId));
+            var memory = Assert.IsType<WalkMemoryViewModel>((object)controller.ViewBag.WalkMemory);
+            Assert.Equal(savedPhoto.ImageUrl, memory.HeroPhotoUrl);
+            Assert.Equal(savedPhoto.ImageUrl, memory.ShareAsset?.PhotoUrl);
+            var weekly = await new WeeklyGoalsService(context, new TestGamificationCalendar(savedPhoto.CreatedAt.AddSeconds(1))).GetForUserAsync(UserId);
+            Assert.Equal(1, weekly.Goals.Single(goal => goal.Key == "photo").Current);
+            Assert.IsType<Walk>(details.Model);
+        }
     }
 
     [Fact]
@@ -946,6 +1020,8 @@ public sealed class WalksControllerFinishTests : IDisposable
         Assert.IsType<NotFoundResult>(await controller.AddPhoto(otherWalk.Id, photo, null));
         Assert.IsType<NotFoundResult>(await controller.AddPhoto(int.MaxValue, photo, null));
         Assert.False(await context.WalkPhotos.AnyAsync());
+        Assert.False(await context.UserXpEvents.AnyAsync());
+        Assert.False(await context.DogXpEvents.AnyAsync());
     }
 
     [Fact]
@@ -1084,10 +1160,19 @@ public sealed class WalksControllerFinishTests : IDisposable
     private sealed class NoOpImageService : ICloudinaryService
     {
         private readonly string? _walkImageUrl;
-        public NoOpImageService(string? walkImageUrl = null) => _walkImageUrl = walkImageUrl;
+        private readonly Func<Task>? _onUpload;
+        public NoOpImageService(string? walkImageUrl = null, Func<Task>? onUpload = null)
+        {
+            _walkImageUrl = walkImageUrl;
+            _onUpload = onUpload;
+        }
         public Task<string?> UploadImageAsync(IFormFile file) => Task.FromResult<string?>(null);
         public Task<string?> UploadTrashBinImageAsync(IFormFile file) => Task.FromResult<string?>(null);
-        public Task<string?> UploadWalkImageAsync(IFormFile file) => Task.FromResult(_walkImageUrl);
+        public async Task<string?> UploadWalkImageAsync(IFormFile file)
+        {
+            if (_onUpload != null) await _onUpload();
+            return _walkImageUrl;
+        }
     }
 
     private sealed class NoOpPlannerService : IOsmWalkPlannerService

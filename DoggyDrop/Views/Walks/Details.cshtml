@@ -36,14 +36,14 @@
     var reactionCounts = reactions
         .GroupBy(reaction => reaction.ReactionType)
         .ToDictionary(group => group.Key, group => group.Count());
-    var points = (Model.Points ?? Array.Empty<DoggyDrop.Models.WalkPoint>())
+    var points = ((isOwner ? Model.Points : null) ?? Array.Empty<DoggyDrop.Models.WalkPoint>())
         .OrderBy(point => point.RecordedAt)
         .Select(point => new
         {
             latitude = point.Latitude,
             longitude = point.Longitude
         });
-    var plannedStops = (Model.PlannedWalk?.Stops ?? Array.Empty<DoggyDrop.Models.PlannedWalkStop>())
+    var plannedStops = ((isOwner ? Model.PlannedWalk?.Stops : null) ?? Array.Empty<DoggyDrop.Models.PlannedWalkStop>())
         .OrderBy(stop => stop.Order)
         .ToList();
     var completedStops = (Model.StopCompletions ?? Array.Empty<DoggyDrop.Models.WalkStopCompletion>())
@@ -54,13 +54,13 @@
         .Select(completion => completion.PlannedWalkStopId)
         .ToHashSet();
     var pointsJson = Html.Raw(JsonSerializer.Serialize(points));
-    var plannedPointsJson = Html.Raw(JsonSerializer.Serialize((Model.PlannedWalk?.RoutePoints ?? [])
+    var plannedPointsJson = Html.Raw(JsonSerializer.Serialize(((isOwner ? Model.PlannedWalk?.RoutePoints : null) ?? [])
         .OrderBy(point => point.Order)
         .Select(point => new { latitude = point.Latitude, longitude = point.Longitude })));
 }
 
 @section Styles {
-    @if (memory.HasMap)
+    @if (isOwner && memory.HasMap)
     {
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
           integrity="sha256-p4NxAoJBhIINfQXh6ULpR5txR9wra5I3BcVsTPY1p3A="
@@ -488,7 +488,7 @@
 
     <div class="walk-summary__top-actions">
         @if (isOwner) { <button type="button" data-share-walk-story><i class="bi bi-share" aria-hidden="true"></i> Deli sprehod</button> }
-        @if (memory.HasMap) { <a href="#summaryMap">Poglej pot</a> }
+        @if (isOwner && memory.HasMap) { <a href="#summaryMap">Poglej pot</a> }
     </div>
 
     @if (showFirstWalkCelebration)
@@ -648,7 +648,7 @@
         </section>
     }
 
-    @if (plannedStops.Count > 0)
+    @if (isOwner && plannedStops.Count > 0)
     {
         <article class="walk-summary__plan-card">
             <div class="walk-summary__map-header">
@@ -671,7 +671,7 @@
         </article>
     }
 
-    @if (memory.HasMap)
+    @if (isOwner && memory.HasMap)
     {
     <article class="walk-summary__map-card">
         <div class="walk-summary__map-header">
@@ -746,7 +746,7 @@
                         <figcaption>
                             <div>
                                 <span>@(string.IsNullOrWhiteSpace(photo.Caption) ? "Fotografija sprehoda" : photo.Caption)</span>
-                                @if (photo.PlannedWalkStop != null)
+                                @if (isOwner && photo.PlannedWalkStop != null)
                                 {
                                     <small>@photo.PlannedWalkStop.Name</small>
                                 }
@@ -850,7 +850,7 @@
 </section>
 
 @section Scripts {
-    @if (memory.HasMap)
+    @if (isOwner && memory.HasMap)
     {
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
             integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
