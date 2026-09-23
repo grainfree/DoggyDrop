@@ -828,7 +828,7 @@
 
     body.map-bin-navigation-active #directionsPanel {
         display: block;
-        bottom: calc(96px + env(safe-area-inset-bottom));
+        bottom: var(--app-bottom-nav-clearance, 96px);
         width: min(440px, calc(100vw - 24px));
         z-index: 1100;
     }
@@ -836,10 +836,10 @@
     .nearest-bin-preview {
         position: fixed;
         left: 50%;
-        bottom: calc(96px + env(safe-area-inset-bottom));
+        bottom: var(--app-bottom-nav-clearance, 96px);
         z-index: 1190;
         width: min(420px, calc(100vw - 24px));
-        padding: 14px;
+        padding: 10px 12px;
         border: 1px solid rgba(47, 109, 95, 0.18);
         border-radius: 8px;
         background: #fff;
@@ -848,7 +848,11 @@
     }
     .nearest-bin-preview[hidden] { display: none; }
     body.map-nearest-preview-active .map-active-walk-sheet,
-    body.map-nearest-preview-active .map-action-stack { display: none; }
+    body.map-nearest-preview-active .map-action-stack,
+    body.map-nearest-preview-active #filterToggle,
+    body.map-nearest-preview-active #filterPanel,
+    body.map-nearest-preview-active #communityHeatPanel { display: none !important; }
+    body.map-walk-active #communityHeatPanel { display: none !important; }
     .nearest-bin-preview h2 { margin: 4px 0; font-size: 1.1rem; }
     .nearest-bin-preview p { margin: 0 0 10px; color: #52665e; }
     .nearest-bin-preview__actions { display: flex; gap: 8px; }
@@ -864,11 +868,11 @@
     .nearest-bin-preview__actions button:last-child { background: #fff; color: #2f6d5f; }
 
     .navigation-card {
-        padding: 12px 14px;
+        padding: 10px 12px;
         border: 1px solid #bad3c6;
         border-radius: 8px;
         background: #fff;
-        box-shadow: 0 8px 26px rgba(21, 47, 38, .20);
+        box-shadow: 0 8px 26px rgba(21, 47, 38, .16);
     }
 
     .navigation-card__title {
@@ -885,7 +889,7 @@
         color: #455b51;
     }
 
-    .navigation-card__actions { display: flex; gap: 8px; margin-top: 10px; }
+    .navigation-card__actions { display: flex; gap: 8px; margin-top: 6px; }
     .navigation-card__actions button {
         min-height: 44px;
         padding: 0 12px;
@@ -1906,6 +1910,17 @@
 
     body.map-walk-active .leaflet-control-attribution {
         margin-bottom: calc(var(--active-walk-sheet-height, 112px) + 16px) !important;
+        max-width: min(46vw, 220px);
+        font-size: 9px;
+        line-height: 1.2;
+    }
+
+    body.map-nearest-preview-active .leaflet-control-attribution,
+    body.map-bin-navigation-active .leaflet-control-attribution {
+        margin-bottom: 122px !important;
+        max-width: min(46vw, 220px);
+        font-size: 9px;
+        line-height: 1.2;
     }
 
     body.map-walk-active .map-active-walk-sheet.is-expanded {
@@ -3417,7 +3432,7 @@ else if (needsDogOnboarding)
 </aside>
 
 <aside id="nearestBinPreview" class="nearest-bin-preview" aria-label="Predlog najbližjega koša" hidden>
-    <small>PREDLOG KOŠA</small>
+    <small>NAJBLIŽJI KOŠ</small>
     <h2 id="nearestBinPreviewName"></h2>
     <p id="nearestBinPreviewDistance"></p>
     <div class="nearest-bin-preview__actions">
@@ -4615,7 +4630,7 @@ else if (needsDogOnboarding)
                         Number(nearestBin.latitude ?? nearestBin.Latitude), Number(nearestBin.longitude ?? nearestBin.Longitude));
                     document.getElementById("nearestBinPreviewName").textContent = nearestBin.name || nearestBin.Name || "Najbližji koš";
                     document.getElementById("nearestBinPreviewDistance").textContent = Number.isFinite(distance)
-                        ? `Približno ${Math.round(distance)} m zračne razdalje · čas hoje po izračunu poti`
+                        ? `${Math.round(distance)} m zračne razdalje · čas hoje po izračunu poti`
                         : "Razdalja trenutno ni na voljo.";
                     document.getElementById("nearestBinPreview").hidden = false;
                     document.body.classList.add("map-nearest-preview-active");
@@ -4957,7 +4972,15 @@ else if (needsDogOnboarding)
                 ? { color: "#ca6b28", weight: 3, opacity: .8, dashArray: "7 9", interactive: false }
                 : { color: "#2f6d5f", weight: 7, opacity: .95, lineCap: "round", lineJoin: "round", interactive: false }).addTo(map);
             navigation.routeLayer.bringToFront();
-            if (fitRoute) map.fitBounds(navigation.routeLayer.getBounds().pad(.20), { maxZoom: 17 });
+            if (fitRoute) {
+                const mobile = window.innerWidth <= 720;
+                map.invalidateSize({ pan: false });
+                map.fitBounds(navigation.routeLayer.getBounds(), {
+                    paddingTopLeft: mobile ? [34, 112] : [48, 88],
+                    paddingBottomRight: mobile ? [42, 228] : [48, 130],
+                    maxZoom: 17
+                });
+            }
             updateDirectionsPanelForNavigation();
         }
 
@@ -5014,7 +5037,7 @@ else if (needsDogOnboarding)
                 <article class="navigation-card" aria-label="Navigacija">
                     <small>NAVIGACIJA DO KOŠA</small>
                     <h3 class="navigation-card__title">${escapeHtml(bin.name || bin.Name || "Cilj")}</h3>
-                    <p class="navigation-card__meta">${eta} · ${distanceLabel}${approximate ? " zračne razdalje" : ""}</p>
+                    <p class="navigation-card__meta">${distanceLabel}${approximate ? " zračne razdalje" : ""} · ${eta}</p>
                     <p class="navigation-card__status" role="status">${escapeHtml(routeNote)}</p>
                     <div class="navigation-card__actions">
                         <button type="button" onclick="recenterNavigation()" ${navigation.followUser ? "hidden" : ""} aria-label="Nazaj na mojo lokacijo"><i class="bi bi-crosshair" aria-hidden="true"></i> Nazaj na mojo lokacijo</button>

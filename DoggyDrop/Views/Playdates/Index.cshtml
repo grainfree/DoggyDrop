@@ -1,15 +1,15 @@
 @model DoggyDrop.ViewModels.PlaydatesViewModel
 
 @{
-    ViewData["Title"] = "Playdates";
+    ViewData["Title"] = "Pasja druženja";
 }
 
 <section class="app-page playdates-page">
     <header class="playdates-hero">
         <div>
             <span>Skupnost</span>
-            <h1>Playdates</h1>
-            <p>Povabi druge lastnike na pasje srecanje. Za zdaj je to testni community flow, kasneje dodava potrditve in zasebna sporocila.</p>
+            <h1>Pasja druženja</h1>
+            <p>Poišči družbo za naslednji sprehod.</p>
         </div>
         <a asp-controller="Home" asp-action="Community">Skupnost</a>
     </header>
@@ -35,7 +35,7 @@
             {
                 <div class="playdate-empty">
                     <h3>Najprej dodaj psa</h3>
-                    <p>Playdate povabilo mora biti povezano s profilom psa.</p>
+                    <p>Povabilo poveži s profilom svojega psa.</p>
                     <a asp-controller="Dogs" asp-action="Create">Dodaj psa</a>
                 </div>
             }
@@ -52,6 +52,7 @@
                                 <option value="@dog.Id">@dog.Name</option>
                             }
                         </select>
+                        <div class="playdate-selected-dog" id="playdateSelectedDog" aria-live="polite"></div>
                         <span asp-validation-for="Create.DogId" class="text-danger small"></span>
                     </div>
 
@@ -64,6 +65,11 @@
                     <div class="playdate-form__grid">
                         <div>
                             <label asp-for="Create.PreferredAt" class="form-label">Termin</label>
+                            <div class="playdate-quick-times" aria-label="Hitri izbor termina">
+                                <button type="button" data-playdate-day="today">Danes</button>
+                                <button type="button" data-playdate-day="tomorrow">Jutri</button>
+                                <button type="button" data-playdate-day="weekend">Ta vikend</button>
+                            </div>
                             <input asp-for="Create.PreferredAt" type="datetime-local" class="form-control" />
                             <span asp-validation-for="Create.PreferredAt" class="text-danger small"></span>
                         </div>
@@ -75,6 +81,7 @@
                                 <option>Srednja</option>
                                 <option>Aktivna</option>
                             </select>
+                            <div class="playdate-choice-group" data-choice-for="Create_EnergyLevel"></div>
                         </div>
                     </div>
 
@@ -86,6 +93,7 @@
                             <option>Srednji psi</option>
                             <option>Veliki psi</option>
                         </select>
+                        <div class="playdate-choice-group" data-choice-for="Create_SizePreference"></div>
                     </div>
 
                     <div>
@@ -94,7 +102,7 @@
                         <span asp-validation-for="Create.Note" class="text-danger small"></span>
                     </div>
 
-                    <button type="submit" class="btn btn-success rounded-pill fw-semibold">Objavi povabilo</button>
+                    <button type="submit" class="btn btn-success fw-semibold">Povabi na druženje</button>
                 </form>
             }
         </article>
@@ -107,7 +115,7 @@
 
             @if (Model.OpenRequests.Count == 0)
             {
-                <p class="playdate-muted">Ni se aktivnih povabil. Objavi prvega in preveriva flow.</p>
+                <p class="playdate-muted">Trenutno ni odprtih povabil. Povabi druge na sprehod.</p>
             }
             else
             {
@@ -200,9 +208,75 @@
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <script>
+        (() => {
+            const dogSelect = document.getElementById("Create_DogId");
+            const dogPreview = document.getElementById("playdateSelectedDog");
+            const dogs = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.MyDogs.Select(dog => new { id = dog.Id, name = dog.Name, photoUrl = dog.PhotoUrl })));
+            const renderDog = () => {
+                const dog = dogs.find(item => String(item.id) === dogSelect?.value);
+                if (!dog || !dogPreview) return;
+                dogPreview.replaceChildren();
+                if (dog.photoUrl) {
+                    const image = document.createElement("img");
+                    image.src = dog.photoUrl;
+                    image.alt = "";
+                    dogPreview.append(image);
+                }
+                const name = document.createElement("strong");
+                name.textContent = dog.name;
+                dogPreview.append(name);
+            };
+            dogSelect?.addEventListener("change", renderDog);
+            renderDog();
+            document.querySelectorAll("[data-choice-for]").forEach(group => {
+                const select = document.getElementById(group.dataset.choiceFor);
+                if (!select) return;
+                for (const option of select.options) {
+                    const button = document.createElement("button");
+                    button.type = "button";
+                    button.textContent = option.textContent;
+                    button.setAttribute("aria-pressed", String(option.selected));
+                    button.addEventListener("click", () => {
+                        select.value = option.value;
+                        group.querySelectorAll("button").forEach(item => item.setAttribute("aria-pressed", String(item === button)));
+                    });
+                    group.append(button);
+                }
+                select.classList.add("playdate-select-enhanced");
+            });
+            const dateInput = document.getElementById("Create_PreferredAt");
+            document.querySelectorAll("[data-playdate-day]").forEach(button => button.addEventListener("click", () => {
+                if (!dateInput) return;
+                const date = new Date();
+                date.setHours(17, 0, 0, 0);
+                if (button.dataset.playdateDay === "tomorrow") date.setDate(date.getDate() + 1);
+                if (button.dataset.playdateDay === "weekend") {
+                    const days = (6 - date.getDay() + 7) % 7;
+                    date.setDate(date.getDate() + (days || 7));
+                }
+                if (date <= new Date() && button.dataset.playdateDay === "today") {
+                    date.setTime(Date.now() + 60 * 60 * 1000);
+                    date.setMinutes(0, 0, 0);
+                }
+                const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+                dateInput.value = local.toISOString().slice(0, 16);
+                document.querySelectorAll("[data-playdate-day]").forEach(item => item.classList.toggle("is-active", item === button));
+            }));
+        })();
+    </script>
 }
 
 <style>
+    .playdate-quick-times { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+    .playdate-quick-times button { min-height: 44px; padding: 7px 12px; border: 1px solid #cbdcd1; border-radius: 8px; background: #fff; color: #24695a; font-weight: 750; }
+    .playdate-quick-times button.is-active { background: #24695a; color: #fff; }
+    .playdate-selected-dog { display: flex; align-items: center; gap: 8px; min-height: 34px; margin-top: 8px; }
+    .playdate-selected-dog img { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; }
+    .playdate-select-enhanced { display: none; }
+    .playdate-choice-group { display: flex; flex-wrap: wrap; gap: 6px; }
+    .playdate-choice-group button { min-height: 44px; padding: 7px 11px; border: 1px solid #cbdcd1; border-radius: 8px; background: #fff; color: #24695a; font-weight: 750; }
+    .playdate-choice-group button[aria-pressed="true"] { background: #24695a; color: #fff; }
     .playdates-hero,
     .playdate-panel,
     .playdate-card {

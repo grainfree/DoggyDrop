@@ -106,6 +106,7 @@ namespace DoggyDrop.Services
                     .GroupBy(walk => new
                     {
                         walk.DogId,
+                        walk.OwnerId,
                         DogName = walk.Dog?.Name ?? "Pes",
                         DogPhotoUrl = walk.Dog?.PhotoUrl,
                         OwnerName = GetDisplayName(walk.Owner)
@@ -113,6 +114,7 @@ namespace DoggyDrop.Services
                     .Select(group => new LocalLeaderboardEntry
                     {
                         DogId = group.Key.DogId,
+                        UserId = group.Key.OwnerId,
                         Label = group.Key.DogName,
                         SubLabel = $"{group.Key.OwnerName} · {group.Count()} sprehodov",
                         ImageUrl = group.Key.DogPhotoUrl,

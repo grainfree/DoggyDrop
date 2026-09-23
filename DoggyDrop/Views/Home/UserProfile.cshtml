@@ -5,6 +5,10 @@
     ViewData["Title"] = "Profil";
     var displayName = string.IsNullOrWhiteSpace(Model.DisplayName) ? Model.Email : Model.DisplayName;
     var initials = string.IsNullOrWhiteSpace(displayName) ? "D" : displayName.Substring(0, 1).ToUpperInvariant();
+    var nextStamp = Model.MapStamps.Stamps.Where(stamp => stamp.VisitCount < 10)
+        .OrderBy(stamp => stamp.VisitCount < 2 ? 2 - stamp.VisitCount : stamp.VisitCount < 5 ? 5 - stamp.VisitCount : 10 - stamp.VisitCount)
+        .FirstOrDefault();
+    var nextStampTarget = nextStamp == null ? 0 : nextStamp.VisitCount < 2 && nextStamp.Rarity == "Common" ? 2 : nextStamp.VisitCount < 5 ? 5 : 10;
 }
 
 <section class="app-page profile-page">
@@ -26,11 +30,11 @@
             </div>
         </div>
         <div class="profile-hero__text">
-            <span>DoggyDrop profil</span>
             <h1>@displayName</h1>
-            <p>@Model.Email</p>
+            <p>Stopnja @Model.Gamification.Level · @Model.Gamification.Title · @Model.Gamification.TotalXp XP</p>
+            <div class="profile-achievement__bar" role="progressbar" aria-label="Napredek do naslednje stopnje" aria-valuemin="0" aria-valuemax="100" aria-valuenow="@Model.Gamification.ProgressPercent"><span style="width: @Model.Gamification.ProgressPercent%"></span></div>
             <div class="profile-hero__actions" aria-label="Profil akcije">
-                <a asp-controller="Home" asp-action="Settings">Nastavitve</a>
+                <a asp-controller="Home" asp-action="Settings" title="Nastavitve" aria-label="Nastavitve"><i class="bi bi-gear" aria-hidden="true"></i></a>
                 @if (User.IsInRole("Admin"))
                 {
                     <a asp-controller="Map" asp-action="Manage">Admin koši</a>
@@ -39,7 +43,7 @@
                       asp-page="/Account/Logout"
                       asp-route-returnUrl="/Identity/Account/Login"
                       method="post">
-                    <button type="submit">Odjava</button>
+                    <button type="submit" class="profile-logout">Odjava</button>
                 </form>
             </div>
         </div>
@@ -62,7 +66,7 @@
                             else { <span>@(string.IsNullOrWhiteSpace(dog.Name) ? "P" : dog.Name.Substring(0, 1).ToUpperInvariant())</span> }
                         </div>
                         <div><strong>@dog.Name</strong><span>@dog.WalkCount sprehodov</span></div>
-                        <em>@dog.DistanceKm.ToString("0.0") km</em>
+                        <em>@dog.DistanceKm.ToString("0.0", System.Globalization.CultureInfo.GetCultureInfo("sl-SI")) km <i class="bi bi-chevron-right" aria-hidden="true"></i></em>
                     </a>
                 }
             </div>
@@ -72,7 +76,7 @@
     <h2 class="profile-activity-title">Moja aktivnost</h2>
     <div class="profile-stats">
         <article>
-            <strong>@Model.TotalDistanceKm.ToString("0.0") km</strong>
+            <strong>@Model.TotalDistanceKm.ToString("0.0", System.Globalization.CultureInfo.GetCultureInfo("sl-SI")) km</strong>
             <span>Razdalja</span>
         </article>
         <article>
@@ -81,7 +85,7 @@
         </article>
         <article>
             <strong>@Model.Gamification.CurrentStreakDays</strong>
-            <span>Sprehajalni niz</span>
+            <span>Niz dni</span>
         </article>
         <article>
             <strong>@Model.TotalBins</strong>
@@ -122,13 +126,12 @@
 
     <article class="profile-panel profile-seasonal profile-seasonal--@Model.SeasonalMapTheme">
         <div class="profile-panel__header">
-            <h2>Seasonal events</h2>
-            <span>@Model.SeasonalMapTheme theme</span>
+            <h2>Sezonski dogodki</h2>
         </div>
 
         @if (Model.SeasonalEvents.Count == 0)
         {
-            <p class="profile-muted">Naslednji sezonski event se pripravlja. Limited badge in map skin se odkleneta tukaj.</p>
+            <p class="profile-muted">Naslednji sezonski dogodek se pripravlja.</p>
         }
         else
         {
@@ -146,7 +149,7 @@
                         <div class="profile-achievement__bar">
                             <span style="width: @seasonalEvent.ProgressPercent%"></span>
                         </div>
-                        <p>@(seasonalEvent.IsComplete ? "Reward unlocked" : "Limited reward") · @seasonalEvent.RewardName · do @seasonalEvent.EndsOn.ToString("dd.MM.")</p>
+                        <p>@(seasonalEvent.IsComplete ? "Nagrada odklenjena" : "Sezonska nagrada") · @seasonalEvent.RewardName · do @seasonalEvent.EndsOn.ToString("dd.MM.")</p>
                     </div>
                 }
             </div>
@@ -155,15 +158,15 @@
 
     <article class="profile-panel profile-founders">
         <div class="profile-panel__header">
-            <h2>Founder badges</h2>
-            <span>@Model.FounderBadges.Count permanent</span>
+            <h2>DoggyDrop raziskovalec</h2>
+            <span>@Model.FounderBadges.Count posebnih značk</span>
         </div>
 
         @if (Model.FounderBadges.Count == 0)
         {
             <div class="profile-founder-empty">
-                <strong>Be the first DoggyDrop Explorer here.</strong>
-                <p>Dodaj prvi odobren pasji koš v kraju, kjer DoggyDrop še nima pokritosti, in dobiš trajen founder badge na profilu.</p>
+                <strong>Postani DoggyDrop raziskovalec</strong>
+                <p>Dodaj prvi odobren pasji koš na območju, kjer DoggyDrop še nima pokritosti, in odkleni posebno značko.</p>
                 <a asp-controller="Map" asp-action="Add">Dodaj koš</a>
             </div>
         }
@@ -173,7 +176,7 @@
                 @foreach (var badge in Model.FounderBadges)
                 {
                     <div class="profile-founder-badge">
-                        <span>Founder</span>
+                        <span>Raziskovalec</span>
                         <strong>@badge.AreaName</strong>
                         <em>@badge.UnlockedAt.ToLocalTime().ToString("dd.MM.yyyy")</em>
                     </div>
@@ -184,20 +187,29 @@
 
     <article class="profile-panel profile-stamps">
         <div class="profile-panel__header">
-            <h2>Map stamps</h2>
-            <span>@Model.MapStamps.TotalStamps collected</span>
+            <h2>Moji žigi</h2>
+            <span>@Model.MapStamps.TotalStamps zbranih</span>
         </div>
 
         <div class="profile-stamp-summary">
-            <span><strong>@Model.MapStamps.CommonCount</strong> Common</span>
-            <span><strong>@Model.MapStamps.RareCount</strong> Rare</span>
-            <span><strong>@Model.MapStamps.EpicCount</strong> Epic</span>
-            <span><strong>@Model.MapStamps.LegendaryCount</strong> Legendary</span>
+            <span class="@(Model.MapStamps.CommonCount > 0 ? "is-collected" : "is-locked")"><strong>@Model.MapStamps.CommonCount</strong> Običajni</span>
+            <span class="@(Model.MapStamps.RareCount > 0 ? "is-collected" : "is-locked")"><strong>@Model.MapStamps.RareCount</strong> Redki</span>
+            <span class="@(Model.MapStamps.EpicCount > 0 ? "is-collected" : "is-locked")"><strong>@Model.MapStamps.EpicCount</strong> Epski</span>
+            <span class="@(Model.MapStamps.LegendaryCount > 0 ? "is-collected" : "is-locked")"><strong>@Model.MapStamps.LegendaryCount</strong> Legendarni</span>
         </div>
+
+        @if (nextStamp != null)
+        {
+            <p class="profile-stamp-goal">Naslednji žig: @nextStamp.Name · @nextStamp.VisitCount / @nextStampTarget obiskov</p>
+        }
+        else if (Model.MapStamps.TotalStamps > 0)
+        {
+            <p class="profile-stamp-goal">Odkrij nov park za naslednji žig.</p>
+        }
 
         @if (Model.MapStamps.Stamps.Count == 0)
         {
-            <p class="profile-muted">Zabelezi prvi obisk parka in DoggyDrop bo odklenil prvi stamp v tvojem albumu.</p>
+            <p class="profile-muted">Obišči prvi park in odkleni svoj prvi žig.</p>
         }
         else
         {
@@ -208,8 +220,8 @@
                         <div class="profile-stamp__mark">@stamp.Name.Substring(0, 1).ToUpperInvariant()</div>
                         <div>
                             <strong>@stamp.Name</strong>
-                            <span>@(string.IsNullOrWhiteSpace(stamp.Area) ? "DoggyDrop location" : stamp.Area)</span>
-                            <em>@stamp.Rarity · @stamp.VisitCount x · @stamp.LastCollectedAt.ToLocalTime().ToString("dd.MM.")</em>
+                            <span>@(string.IsNullOrWhiteSpace(stamp.Area) ? "Območje DoggyDrop" : stamp.Area)</span>
+                            <em>@(stamp.Rarity switch { "Common" => "Običajen", "Rare" => "Redek", "Epic" => "Epski", "Legendary" => "Legendarni", _ => stamp.Rarity }) · @stamp.VisitCount obiskov · @stamp.LastCollectedAt.ToLocalTime().ToString("dd.MM.")</em>
                         </div>
                     </div>
                 }
@@ -270,9 +282,9 @@
         </div>
     </article>
 
-    <article class="profile-panel">
+    <article class="profile-panel profile-achievements-panel">
         <div class="profile-panel__header">
-            <h2>Dosezki</h2>
+            <h2>Dosežki</h2>
             <span>@Model.Achievements.Count(achievement => achievement.IsUnlocked) / @Model.Achievements.Count odklenjenih</span>
         </div>
 
@@ -311,7 +323,7 @@
                 <strong>@Model.TotalBins</strong>
                 <span>dodanih kosev</span>
             </div>
-            <p>Preglej status odobritve, uporabo in prispevek proti znacki Bin Hero.</p>
+            <p>Preglej odobritev, uporabo in napredek do značke za prispevane koše.</p>
         </div>
     </article>
 
@@ -1401,4 +1413,38 @@
     .profile-dogs-compact .profile-panel__header { margin-bottom: 5px; }
     .profile-dogs-compact h2, .profile-activity-title { margin: 6px 0; font-size: 1rem; }
     .profile-dogs-compact .profile-dog { min-height: 48px; }
+    .profile-page { display: flex; flex-direction: column; padding-bottom: var(--app-bottom-nav-clearance, 100px); }
+    .profile-page > * { order: 10; }
+    .profile-page .profile-hero { order: 0; }
+    .profile-page .profile-xp { order: 1; }
+    .profile-page .profile-dogs-compact { order: 2; }
+    .profile-page .profile-activity-title { order: 3; }
+    .profile-page .profile-stats { order: 4; }
+    .profile-page .profile-achievements-panel { order: 5; }
+    .profile-page .profile-stamps { order: 6; }
+    .profile-page .profile-founders { order: 7; }
+    .profile-page .profile-seasonal { order: 8; }
+    .profile-page .profile-activity { order: 9; }
+    .profile-page .profile-hero { padding: 12px; gap: 10px; border-radius: 8px; }
+    .profile-page .profile-hero__level { display: none; }
+    .profile-page .profile-hero__text h1 { font-size: 1.35rem; }
+    .profile-page .profile-hero__text .profile-achievement__bar { max-width: 280px; margin: 6px 0; }
+    .profile-page .profile-hero__actions { margin-top: 5px; }
+    .profile-page .profile-hero__actions .profile-logout { font-size: .8rem; opacity: .8; }
+    .profile-page .profile-stats { gap: 5px; }
+    .profile-page .profile-stats article { padding: 9px 5px; }
+    .profile-page .profile-stats strong { font-size: 1.05rem; }
+    .profile-page .profile-stamp-summary { display: flex; flex-wrap: wrap; gap: 8px; }
+    .profile-page .profile-stamp-summary span { display: grid; place-items: center; width: 74px; min-height: 74px; padding: 7px; border: 2px dashed #aec4b5; border-radius: 50%; text-align: center; font-size: .72rem; }
+    .profile-page .profile-stamp-summary span.is-collected { border-style: solid; border-color: #2f6d5f; background: #e9f4eb; color: #235847; }
+    .profile-page .profile-stamp-summary span.is-locked { opacity: .55; }
+    .profile-page .profile-stamp-summary strong { display: block; font-size: 1.05rem; }
+    .profile-page .profile-stamp-book { margin-top: 12px; }
+    @@media (max-width: 575.98px) {
+        .profile-page .profile-hero { display: grid; grid-template-columns: 54px 1fr; align-items: start; }
+        .profile-page .profile-hero__avatar { width: 50px; height: 50px; }
+        .profile-page .profile-hero__text { min-width: 0; }
+        .profile-page .profile-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+        .profile-page .profile-stats span { font-size: .65rem; }
+    }
 </style>

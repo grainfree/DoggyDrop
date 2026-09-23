@@ -33,15 +33,35 @@ namespace DoggyDrop.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> Index()
+        public async Task<IActionResult> Index(int? dogId = null)
         {
             var userId = _userManager.GetUserId(User);
             var dogs = await _context.Dogs
+                .AsNoTracking()
                 .Where(d => d.OwnerId == userId)
                 .OrderBy(d => d.Name)
                 .ToListAsync();
+            var selectedDog = dogs.FirstOrDefault(dog => dog.Id == dogId) ?? dogs.FirstOrDefault();
+            var model = new DogsDashboardViewModel { Dogs = dogs, SelectedDog = selectedDog };
+            if (selectedDog != null)
+            {
+                var completed = _context.Walks.AsNoTracking()
+                    .Where(walk => walk.DogId == selectedDog.Id && walk.OwnerId == userId && walk.Status == "Completed");
+                model.CompletedWalkCount = await completed.CountAsync();
+                model.TotalDistanceKm = await completed.SumAsync(walk => walk.DistanceMeters) / 1000;
+                model.RecentWalks = await completed.OrderByDescending(walk => walk.EndedAt)
+                    .Take(3).ToListAsync();
+                model.RecentPhotos = await _context.WalkPhotos.AsNoTracking()
+                    .Where(photo => photo.UserId == userId && photo.Walk != null &&
+                        photo.Walk.OwnerId == userId && photo.Walk.DogId == selectedDog.Id && photo.Walk.Status == "Completed")
+                    .OrderByDescending(photo => photo.CreatedAt).Take(8).ToListAsync();
+                var progression = await _context.DogProgressionProfiles.AsNoTracking()
+                    .FirstOrDefaultAsync(profile => profile.DogId == selectedDog.Id);
+                if (progression != null)
+                    model.Level = _dogProgressionService.CalculateLevelInfo(progression.TotalXp);
+            }
 
-            return View(dogs);
+            return View(model);
         }
 
         [HttpGet]

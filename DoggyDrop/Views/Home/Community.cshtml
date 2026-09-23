@@ -2,6 +2,8 @@
 
 @{
     ViewData["Title"] = "Skupnost";
+    var viewerId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+    var sl = System.Globalization.CultureInfo.GetCultureInfo("sl-SI");
 }
 
 <section class="app-page community-page">
@@ -18,7 +20,7 @@
 
     <div class="community-stats">
         <article>
-            <strong>@Model.KilometersThisWeek.ToString("0.0") km</strong>
+            <strong>@Model.KilometersThisWeek.ToString("0.0", sl) km</strong>
             <span>Ta teden</span>
         </article>
         <article>
@@ -34,64 +36,30 @@
     <section class="community-section community-local-board">
         <div class="community-section__header">
             <h2>Lokalne lestvice</h2>
-            <span>@Model.LocalLeaderboards.CityName</span>
+            <span class="community-city-chip"><i class="bi bi-geo-alt" aria-hidden="true"></i> @Model.LocalLeaderboards.CityName</span>
         </div>
         <div class="community-local-grid">
-            <article>
-                <h3>Največ kilometrov</h3>
-                @foreach (var entry in Model.LocalLeaderboards.MostDistance)
-                {
-                    <div class="community-local-entry">
-                        <strong>@entry.Rank</strong>
-                        <span>@entry.Label <small>@entry.SubLabel</small></span>
-                        <em>@entry.ScoreText</em>
-                    </div>
-                }
-            </article>
-            <article>
-                <h3>Največ odkritij</h3>
-                @foreach (var entry in Model.LocalLeaderboards.MostDiscoveries)
-                {
-                    <div class="community-local-entry">
-                        <strong>@entry.Rank</strong>
-                        <span>@entry.Label <small>@entry.SubLabel</small></span>
-                        <em>@entry.ScoreText</em>
-                    </div>
-                }
-            </article>
-            <article>
-                <h3>Največ prispevkov</h3>
-                @foreach (var entry in Model.LocalLeaderboards.MostHelpful)
-                {
-                    <div class="community-local-entry">
-                        <strong>@entry.Rank</strong>
-                        <span>@entry.Label <small>@entry.SubLabel</small></span>
-                        <em>@entry.ScoreText</em>
-                    </div>
-                }
-            </article>
-            <article>
-                <h3>Najboljše fotografije</h3>
-                @foreach (var entry in Model.LocalLeaderboards.BestPhotos)
-                {
-                    <div class="community-local-entry">
-                        <strong>@entry.Rank</strong>
-                        <span>@entry.Label <small>@entry.SubLabel</small></span>
-                        <em>@entry.ScoreText</em>
-                    </div>
-                }
-            </article>
-            <article>
-                <h3>Pes tedna</h3>
-                @foreach (var entry in Model.LocalLeaderboards.TopDogsThisWeek)
-                {
-                    <a class="community-local-entry" asp-controller="Dogs" asp-action="Details" asp-route-id="@entry.DogId">
-                        <strong>@entry.Rank</strong>
-                        <span>@entry.Label <small>@entry.SubLabel</small></span>
-                        <em>@entry.ScoreText</em>
-                    </a>
-                }
-            </article>
+            @foreach (var board in new[] {
+                (Title: "Kilometri", Entries: Model.LocalLeaderboards.MostDistance, Unit: "km"),
+                (Title: "Odkritja", Entries: Model.LocalLeaderboards.MostDiscoveries, Unit: "odkritij"),
+                (Title: "Prispevki", Entries: Model.LocalLeaderboards.MostHelpful, Unit: "koristnosti"),
+                (Title: "Fotografije", Entries: Model.LocalLeaderboards.BestPhotos, Unit: "odzivov"),
+                (Title: "Psi tedna", Entries: Model.LocalLeaderboards.TopDogsThisWeek, Unit: "km") })
+            {
+                <article>
+                    <h3>@board.Title</h3>
+                    @foreach (var entry in board.Entries)
+                    {
+                        <div class="community-local-entry @(entry.UserId == viewerId && viewerId != null ? "is-current" : "")">
+                            <strong aria-label="Mesto @entry.Rank">@(entry.Rank == 1 ? "★" : $"{entry.Rank}.")</strong>
+                            @if (!string.IsNullOrWhiteSpace(entry.ImageUrl)) { <img class="community-local-entry__avatar" src="@entry.ImageUrl" alt="" loading="lazy" /> }
+                            else { <span class="community-local-entry__avatar community-local-entry__avatar--initial" aria-hidden="true">@(string.IsNullOrWhiteSpace(entry.Label) ? "D" : entry.Label[..1].ToUpperInvariant())</span> }
+                            <span>@entry.Label @if (entry.UserId == viewerId && viewerId != null) { <b>· Ti</b> } <small>@entry.SubLabel</small></span>
+                            <em>@entry.Score.ToString(board.Unit == "km" ? "0.0" : "0", sl) @board.Unit</em>
+                        </div>
+                    }
+                </article>
+            }
         </div>
     </section>
 
@@ -1080,4 +1048,25 @@
         .community-page .community-bin-card strong,
         .community-page .community-bin-card span { overflow-wrap: anywhere; font-size: 0.78rem; }
     }
+    .community-page { padding-bottom: var(--app-bottom-nav-clearance, 100px); }
+    .community-city-chip { display: inline-flex; align-items: center; gap: 4px; padding: 4px 9px; border-radius: 7px; background: #e8f2e9; color: #24695a; font-weight: 800; }
+    .community-page .community-local-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 245px), 1fr)); gap: 10px; }
+    .community-page .community-local-grid > article { padding: 10px; }
+    .community-page .community-local-entry { grid-template-columns: 26px 30px minmax(0, 1fr) auto; gap: 6px; align-items: center; min-height: 42px; padding: 5px 3px; border-bottom: 1px solid #e8eee9; }
+    .community-page .community-local-entry > strong { width: 26px; height: 26px; }
+    .community-page .community-local-entry:first-of-type > strong { background: #f6de96; color: #644b10; }
+    .community-page .community-local-entry:nth-of-type(2) > strong { background: #e3e9ea; color: #45575a; }
+    .community-page .community-local-entry:nth-of-type(3) > strong { background: #edcfb3; color: #69452e; }
+    .community-page .community-local-entry.is-current { background: #eef7ef; }
+    .community-page .community-local-entry__avatar { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; }
+    .community-page .community-local-entry__avatar--initial { display: grid; place-items: center; background: #dfeee2; color: #24695a; font-size: .75rem; }
+    .community-page .community-local-entry span { overflow-wrap: anywhere; }
+    .community-page .community-local-entry em { grid-column: 4; white-space: nowrap; text-align: right; }
+    .community-page .community-local-entry small { font-weight: 500; }
+    .community-page .community-bin-card { position: relative; display: block; height: 185px; overflow: hidden; }
+    .community-page .community-bin-card img { width: 100%; height: 100%; object-fit: cover; }
+    .community-page .community-bin-card div { position: absolute; inset: auto 0 0; display: grid; gap: 2px; padding: 24px 10px 9px; background: linear-gradient(transparent, rgba(8, 25, 20, .9)); color: #fff; }
+    .community-page .community-bin-card strong, .community-page .community-bin-card span { color: #fff; text-shadow: 0 1px 3px rgba(0, 0, 0, .6); }
+    @@media (max-width: 575.98px) { .community-page .community-local-grid { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 8px; } .community-page .community-local-grid > article { flex: 0 0 min(88%, 340px); scroll-snap-align: start; } }
+    @@media (max-width: 575.98px) { .community-page .community-bin-card { height: 160px; } }
 </style>

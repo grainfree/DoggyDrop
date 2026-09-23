@@ -34,6 +34,40 @@ public sealed class AchievementControllerIntegrationTests : IDisposable
     }
 
     [Fact]
+    public async Task DogsDashboard_ShowsOnlySelectedOwnedDogsCompletedWalksAndPhotos()
+    {
+        await using var context = Context();
+        var otherId = "other-dog-owner";
+        context.Users.Add(new ApplicationUser { Id = otherId, UserName = "other@example.test", NormalizedUserName = "OTHER@EXAMPLE.TEST" });
+        var mine = new Dog { Name = "Luna", OwnerId = UserId };
+        var another = new Dog { Name = "Rex", OwnerId = UserId };
+        var others = new Dog { Name = "Other", OwnerId = otherId };
+        context.Dogs.AddRange(mine, another, others);
+        await context.SaveChangesAsync();
+        var completed = new Walk { DogId = mine.Id, OwnerId = UserId, Status = "Completed", DistanceMeters = 2400, EndedAt = DateTime.UtcNow };
+        var interrupted = new Walk { DogId = mine.Id, OwnerId = UserId, Status = "Interrupted", DistanceMeters = 9000, EndedAt = DateTime.UtcNow };
+        var otherWalk = new Walk { DogId = others.Id, OwnerId = otherId, Status = "Completed", DistanceMeters = 1000, EndedAt = DateTime.UtcNow };
+        context.Walks.AddRange(completed, interrupted, otherWalk);
+        await context.SaveChangesAsync();
+        context.WalkPhotos.AddRange(
+            new WalkPhoto { WalkId = completed.Id, UserId = UserId, ImageUrl = "https://example.test/mine.jpg" },
+            new WalkPhoto { WalkId = interrupted.Id, UserId = UserId, ImageUrl = "https://example.test/interrupted.jpg" },
+            new WalkPhoto { WalkId = otherWalk.Id, UserId = otherId, ImageUrl = "https://example.test/other.jpg" });
+        await context.SaveChangesAsync();
+
+        var controller = Prepare(new DogsController(context, UserManager(context), new NoOpImages(), new DogProgressionService(context), new UserAchievementService(context, new NoOpNotifications())));
+        var result = Assert.IsType<ViewResult>(await controller.Index(mine.Id));
+        var dashboard = Assert.IsType<DogsDashboardViewModel>(result.Model);
+        Assert.Equal(mine.Id, dashboard.SelectedDog?.Id);
+        Assert.Equal(2, dashboard.Dogs.Count);
+        Assert.Equal(1, dashboard.CompletedWalkCount);
+        Assert.Equal(2.4, dashboard.TotalDistanceKm, 3);
+        Assert.Single(dashboard.RecentWalks);
+        Assert.Single(dashboard.RecentPhotos);
+        Assert.Equal(completed.Id, dashboard.RecentPhotos[0].WalkId);
+    }
+
+    [Fact]
     public async Task FirstDogCreation_UnlocksDogParentPermanently()
     {
         await using var context = Context();

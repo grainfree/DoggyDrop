@@ -622,7 +622,11 @@ body {
 
 .app-content {
   padding-top: 18px;
-  padding-bottom: 24px;
+  padding-bottom: var(--app-bottom-nav-clearance);
+}
+
+:root {
+  --app-bottom-nav-clearance: calc(88px + env(safe-area-inset-bottom, 0px));
 }
 
 .app-content--full {
@@ -691,7 +695,7 @@ body {
 .app-page {
   max-width: 880px;
   margin: 0 auto;
-  padding: 8px 0 28px;
+  padding: 8px 0 var(--app-bottom-nav-clearance);
 }
 
 .app-page__header {

@@ -457,6 +457,8 @@ namespace DoggyDrop.Controllers
             return entries.Select(entry => new LocalLeaderboardEntryViewModel
             {
                 Rank = entry.Rank,
+                UserId = entry.UserId,
+                Score = entry.Score,
                 Label = entry.Label,
                 SubLabel = entry.SubLabel,
                 ImageUrl = entry.ImageUrl,

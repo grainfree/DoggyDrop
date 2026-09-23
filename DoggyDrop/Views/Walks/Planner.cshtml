@@ -124,32 +124,14 @@
     {
         <section class="walk-planner-layout">
             <article class="walk-planner-map-card">
-                <div class="walk-planner-summary">
-                    <div>
-                        <div class="walk-planner-selected-purpose" id="selectedWalkPurpose">
-                            <span>Namen</span>
-                            <strong>@(selectedPreset?.Title ?? "Sprehod")</strong>
-                            <em>@Model.TargetDistanceKm.ToString("0.#") km</em>
-                        </div>
-                        <p>@Model.Route.Summary</p>
-                        @if (binStop != null)
-                        {
-                            <p class="walk-planner-bin-pill"><i class="bi bi-trash3-fill" aria-hidden="true"></i> Koš na poti: @binStop.Name</p>
-                        }
-                    </div>
-                    <div>
-                        <strong>@Model.Route.EstimatedDistanceKm.ToString("0.0") km</strong>
-                        <span>~@Model.Route.EstimatedMinutes min</span>
-                    </div>
-                </div>
                 <div class="walk-planner-map-frame">
                     <div id="plannerRouteMap" class="walk-planner-route-map" role="img" aria-label="Predvidena pot sprehoda"></div>
-                    <span class="walk-planner-map-note">Številke označujejo vrstni red postankov.</span>
+                    <button type="button" class="walk-planner-map-note" title="Številke označujejo vrstni red postankov." aria-label="Številke označujejo vrstni red postankov."><i class="bi bi-info-circle" aria-hidden="true"></i></button>
                     @if (debugRouteEnabled)
                     {
                         <aside class="planner-route-debug" aria-label="Diagnostika predogleda poti">
                             <strong>Route diagnostic</strong>
-                            <div>Server RoutePoints: @(Model.Route?.RoutePoints.Count ?? 0)</div>
+                            <div>Server RoutePoints: @(Model.Route?.RoutePoints?.Count ?? 0)</div>
                             <div>Serialized plannerPoints: <span id="routeDebugSerialized">0</span></div>
                             <div>Valid parsed points: <span id="routeDebugParsed">0</span></div>
                             <div>Preview points: <span id="routeDebugPreview">0</span></div>
@@ -166,6 +148,25 @@
                         </aside>
                     }
                 </div>
+                <div class="walk-planner-sheet">
+                <div class="walk-planner-summary">
+                    <div>
+                        <div class="walk-planner-selected-purpose" id="selectedWalkPurpose">
+                            <span>Namen</span>
+                            <strong>@(selectedPreset?.Title ?? "Sprehod")</strong>
+                            <em>@Model.TargetDistanceKm.ToString("0.#", CultureInfo.GetCultureInfo("sl-SI")) km</em>
+                        </div>
+                        <p>@Model.Route?.Summary</p>
+                        @if (binStop != null)
+                        {
+                            <p class="walk-planner-bin-pill"><i class="bi bi-trash3-fill" aria-hidden="true"></i> Koš na poti: @binStop.Name</p>
+                        }
+                    </div>
+                    <div>
+                        <strong>@Model.Route!.EstimatedDistanceKm.ToString("0.0", CultureInfo.GetCultureInfo("sl-SI")) km</strong>
+                        <span>~@Model.Route.EstimatedMinutes min</span>
+                    </div>
+                </div>
                 <div class="walk-planner-start">
                     <form asp-controller="Walks" asp-action="SavePlan" method="post">
                         @Html.AntiForgeryToken()
@@ -181,7 +182,7 @@
                         <input type="hidden" name="includeWater" value="@Model.IncludeWater.ToString().ToLowerInvariant()" />
                         <input type="hidden" name="includeDogFriendly" value="@Model.IncludeDogFriendly.ToString().ToLowerInvariant()" />
                         <button type="submit" class="walk-planner-start__secondary">
-                            @(Model.Route.SavedPlanId.HasValue ? "Shrani kot nov plan" : "Shrani plan")
+                            Shrani
                         </button>
                     </form>
                     @if (Model.SelectedDogId.HasValue)
@@ -199,13 +200,14 @@
                             <input type="hidden" name="includePark" value="@Model.IncludePark.ToString().ToLowerInvariant()" />
                             <input type="hidden" name="includeWater" value="@Model.IncludeWater.ToString().ToLowerInvariant()" />
                             <input type="hidden" name="includeDogFriendly" value="@Model.IncludeDogFriendly.ToString().ToLowerInvariant()" />
-                            <button type="submit">Začni ta sprehod</button>
+                            <button type="submit">Začni sprehod</button>
                         </form>
                     }
                     else
                     {
                         <a asp-controller="Dogs" asp-action="Create">Dodaj psa za začetek sprehoda</a>
                     }
+                </div>
                 </div>
             </article>
 
@@ -1617,6 +1619,79 @@
         .walk-planner-start a {
             min-height: 44px;
             font-size: 0.86rem;
+        }
+    }
+    @@media (min-width: 721px) {
+        .walk-planner-map-card { display: flex; flex-direction: column; }
+        .walk-planner-sheet { display: contents; }
+        .walk-planner-summary { order: -2; position: static; }
+        .walk-planner-map-frame { order: -1; }
+        .walk-planner-start { order: 0; position: static; }
+    }
+
+    @@media (max-width: 720px) {
+        .walk-planner-sheet {
+            position: absolute;
+            left: 10px;
+            right: 10px;
+            bottom: var(--app-bottom-nav-clearance, 90px);
+            z-index: 700;
+            max-height: min(45svh, 290px);
+            overflow-y: auto;
+            border: 1px solid rgba(31, 45, 41, .1);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, .96);
+            box-shadow: 0 -8px 25px rgba(31, 45, 41, .14);
+        }
+        .planner-route-debug { top: 130px; bottom: auto; max-height: min(45svh, 360px); }
+        .walk-planner-form {
+            top: 70px;
+            width: min(310px, calc(100vw - 24px));
+            margin-bottom: -51px;
+            padding: 5px;
+            border-radius: 10px;
+        }
+
+        .walk-planner-presets { gap: 3px; }
+        .walk-planner-preset { min-height: 42px; padding: 2px; border-radius: 8px; }
+        .walk-planner-preset i { width: 32px; height: 32px; border-radius: 7px; font-size: 1rem; }
+        .walk-planner-map-note { top: 76px; right: 10px; min-width: 34px; min-height: 34px; padding: 5px; }
+
+        .walk-planner-summary {
+            position: static;
+            padding: 8px 12px 2px;
+            border: 0;
+            border-radius: 0;
+            box-shadow: none;
+        }
+
+        .walk-planner-summary .walk-planner-selected-purpose {
+            min-height: 0;
+            padding: 2px 0;
+        }
+
+        .walk-planner-summary .walk-planner-selected-purpose span { display: none; }
+        .walk-planner-summary .walk-planner-selected-purpose strong { font-size: .92rem; }
+        .walk-planner-summary .walk-planner-selected-purpose em { font-size: .84rem; }
+        .walk-planner-summary .walk-planner-bin-pill { margin: 2px 0; padding: 0; font-size: .76rem; }
+        .walk-planner-summary > div:last-child { white-space: nowrap; font-size: .84rem; }
+
+        .walk-planner-start {
+            position: static;
+            margin: 0;
+            padding: 0 12px 8px;
+            border: 0;
+            border-radius: 0;
+            background: transparent;
+            box-shadow: none;
+            grid-template-columns: .72fr 1fr;
+        }
+
+        .walk-planner-start button, .walk-planner-start a {
+            min-height: 44px;
+            border-radius: 7px;
+            box-shadow: none;
+            font-size: .88rem;
         }
     }
 </style>

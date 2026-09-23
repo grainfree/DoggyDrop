@@ -42,7 +42,7 @@
 
     <article class="my-bins-progress">
         <div>
-            <strong>Bin Hero</strong>
+            <strong>Junak košev</strong>
             <span>@Math.Min(approvedCount, 10) / 10 odobrenih kosev</span>
         </div>
         <div class="my-bins-progress__bar">
@@ -101,10 +101,10 @@
                         <div class="my-bin-card__actions">
                             @if (bin.IsApproved)
                             {
-                                <a asp-controller="Map" asp-action="Index">Na zemljevid</a>
+                                <a asp-controller="Map" asp-action="Index">Odpri zemljevid</a>
                             }
                             <form asp-action="Reject" asp-route-id="@bin.Id" asp-route-returnTo="mybins" method="post">
-                                <button type="submit" onclick="return confirm('Si preprican, da zelis izbrisati ta kos?');">Izbrisi</button>
+                                <button type="submit" onclick="return confirm('Ali res želiš izbrisati ta koš?');">Izbriši</button>
                             </form>
                         </div>
                     </div>
@@ -378,5 +378,13 @@
         .my-bin-card__header {
             flex-direction: column;
         }
+    }
+    .my-bins-page { padding-bottom: var(--app-bottom-nav-clearance, 100px); }
+    .my-bin-card__actions a { background: #2f6d5f; color: #fff; }
+    .my-bin-card__actions button { border-color: #e1c4c1; color: #a43832; }
+    @@media (max-width: 575.98px) {
+        .my-bin-card__image { aspect-ratio: 16 / 9; }
+        .my-bin-card__body { gap: 8px; padding: 10px; }
+        .my-bin-card__metrics span { padding: 4px 7px; }
     }
 </style>
