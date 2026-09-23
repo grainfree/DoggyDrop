@@ -1,5 +1,6 @@
 @using DoggyDrop.ViewModels
 @model UserProfileViewModel
+@inject DoggyDrop.Services.IWeeklyGoalsService WeeklyGoalsService
 
 @{
     ViewData["Title"] = "Profil";
@@ -9,6 +10,8 @@
         .OrderBy(stamp => stamp.VisitCount < 2 ? 2 - stamp.VisitCount : stamp.VisitCount < 5 ? 5 - stamp.VisitCount : 10 - stamp.VisitCount)
         .FirstOrDefault();
     var nextStampTarget = nextStamp == null ? 0 : nextStamp.VisitCount < 2 && nextStamp.Rarity == "Common" ? 2 : nextStamp.VisitCount < 5 ? 5 : 10;
+    var weeklyUserId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+    var weeklyGoals = string.IsNullOrWhiteSpace(weeklyUserId) ? null : await WeeklyGoalsService.GetForUserAsync(weeklyUserId);
 }
 
 <section class="app-page profile-page">
@@ -77,6 +80,13 @@
     </section>
 
     <h2 class="profile-activity-title">Moja aktivnost</h2>
+    @if (weeklyGoals != null)
+    {
+        <section class="profile-panel" aria-label="Tedenski cilji">
+            <div class="profile-panel__header"><h2>Ta teden</h2><a asp-controller="WeeklyGoals" asp-action="Index">Vsi cilji</a></div>
+            <p class="profile-muted">@weeklyGoals.CompletedSummary · @(weeklyGoals.AllComplete ? "Odličen teden!" : weeklyGoals.NextGoal?.RemainingLabel)</p>
+        </section>
+    }
     <div class="profile-stats">
         <article>
             <strong>@Model.TotalDistanceKm.ToString("0.0", System.Globalization.CultureInfo.GetCultureInfo("sl-SI")) km</strong>

@@ -137,6 +137,7 @@ builder.Services.AddSingleton<IImageOptimizationService, ImageOptimizationServic
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<IGamificationCalendar, GamificationCalendar>();
+builder.Services.AddScoped<IWeeklyGoalsService, WeeklyGoalsService>();
 builder.Services.AddScoped<IGamificationService, GamificationService>();
 builder.Services.AddScoped<IUserAchievementService, UserAchievementService>();
 builder.Services.AddScoped<IAchievementReconciliationRunner, AchievementReconciliationRunner>();

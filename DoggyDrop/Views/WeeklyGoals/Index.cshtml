@@ -1,0 +1,53 @@
+@model DoggyDrop.ViewModels.WeeklyGoalsViewModel
+@{
+    ViewData["Title"] = "Tedenski cilji";
+}
+
+<style>
+    .weekly-goals { max-width:760px; margin:0 auto; padding:20px 16px calc(100px + env(safe-area-inset-bottom)); color:#1c342d; }
+    .weekly-goals__back { display:inline-flex; min-height:44px; align-items:center; gap:8px; color:#24695a; text-decoration:none; font-weight:700; }
+    .weekly-goals h1 { font-size:1.8rem; margin:12px 0 2px; }
+    .weekly-goals__date { color:#5e7068; margin:0 0 18px; }
+    .weekly-goals__summary { background:#eaf4ee; border-left:4px solid #288368; padding:12px 14px; margin-bottom:20px; }
+    .weekly-goals__summary strong { display:block; }
+    .weekly-goals__summary p { margin:3px 0 0; }
+    .weekly-goals__list { display:grid; gap:0; }
+    .weekly-goal { padding:18px 0; border-bottom:1px solid #dce5de; min-width:0; }
+    .weekly-goal__head { display:flex; align-items:flex-start; gap:12px; }
+    .weekly-goal__icon { width:40px; height:40px; display:grid; place-items:center; flex:none; color:#24695a; background:#eaf4ee; border-radius:8px; font-size:1.2rem; }
+    .weekly-goal__copy { min-width:0; flex:1; }
+    .weekly-goal h2 { font-size:1.05rem; margin:0; overflow-wrap:anywhere; }
+    .weekly-goal p { color:#5e7068; margin:3px 0 0; font-size:.9rem; }
+    .weekly-goal__value { font-weight:800; white-space:nowrap; }
+    .weekly-goal__bar { height:8px; margin:12px 0 6px; background:#e5ece7; border-radius:5px; overflow:hidden; }
+    .weekly-goal__bar span { display:block; height:100%; background:#288368; }
+    .weekly-goal__state { font-size:.86rem; color:#375b4d; font-weight:700; }
+    .weekly-goals__action { min-height:44px; display:inline-flex; align-items:center; color:#24695a; font-weight:800; margin-top:18px; }
+    @@media (max-width:420px) { .weekly-goal__head { flex-wrap:wrap; } .weekly-goal__value { margin-left:52px; } }
+</style>
+
+<section class="weekly-goals">
+    <a class="weekly-goals__back" asp-controller="Map" asp-action="Index"><i class="bi bi-arrow-left" aria-hidden="true"></i> Zemljevid</a>
+    <h1>Tedenski cilji</h1>
+    <p class="weekly-goals__date">@Model.DateLabel</p>
+    <p class="weekly-goals__date">Skupni cilji za tvoje sprehode. Vsak ponedeljek se začne nov teden.</p>
+    <div class="weekly-goals__summary">
+        <strong>@(Model.AllComplete ? "Odličen teden!" : Model.HasActivity ? Model.CompletedSummary : "Ta teden se dogodivščina šele začenja.")</strong>
+        @if (!Model.AllComplete && Model.HasActivity) { <p>Naslednji cilj: @Model.NextGoal?.RemainingLabel</p> }
+    </div>
+    <div class="weekly-goals__list">
+        @foreach (var goal in Model.Goals)
+        {
+            <article class="weekly-goal">
+                <div class="weekly-goal__head">
+                    <span class="weekly-goal__icon"><i class="bi @goal.Icon" aria-hidden="true"></i></span>
+                    <div class="weekly-goal__copy"><h2>@goal.Title</h2><p>@goal.Description</p></div>
+                    <span class="weekly-goal__value">@goal.ProgressLabel</span>
+                </div>
+                <div class="weekly-goal__bar" role="progressbar" aria-label="@goal.Title" aria-valuemin="0" aria-valuemax="100" aria-valuenow="@goal.ProgressPercent"><span style="width:@goal.ProgressPercent%"></span></div>
+                <span class="weekly-goal__state">@(goal.IsComplete ? "Cilj dosežen" : goal.RemainingLabel)</span>
+            </article>
+        }
+    </div>
+    <a class="weekly-goals__action" asp-controller="Walks" asp-action="Index">Na sprehod <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
+</section>
