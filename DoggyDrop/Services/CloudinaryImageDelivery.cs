@@ -19,13 +19,23 @@ public static class CloudinaryImageDelivery
         }
 
         var index = url.IndexOf(uploadPath, StringComparison.OrdinalIgnoreCase);
-        var assetPath = url[(index + uploadPath.Length)..];
-        if (assetPath.StartsWith("f_auto,q_auto/", StringComparison.OrdinalIgnoreCase))
+        var assetPath = uri.AbsolutePath[(pathIndex + uploadPath.Length)..];
+        var segments = assetPath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        var transformCount = Array.FindIndex(segments, segment => IsVersion(segment));
+        if (transformCount < 0) transformCount = Math.Max(0, segments.Length - 1);
+
+        var tokens = segments.Take(transformCount).SelectMany(segment => segment.Split(','));
+        var existing = tokens.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var missing = new[] { "f_auto", "q_auto" }.Where(token => !existing.Contains(token)).ToArray();
+        if (missing.Length == 0)
         {
             return url;
         }
 
         // A Cloudinary transformation generates an EXIF-oriented delivery asset for old and new uploads.
-        return url.Insert(index + uploadPath.Length, "f_auto,q_auto/");
+        return url.Insert(index + uploadPath.Length, string.Join(',', missing) + "/");
     }
+
+    private static bool IsVersion(string segment) => segment.Length > 1 && segment[0] == 'v' &&
+        segment.AsSpan(1).IndexOfAnyExceptInRange('0', '9') < 0;
 }

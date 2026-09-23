@@ -433,7 +433,7 @@ namespace DoggyDrop.Controllers
             return RedirectToAction("Manage");
         }
 
-        // ❌ Zavrni ali izbriši predlog z dinamičnim redirectom
+        // Moderator deletion remains available; contributor proposals are retained for reward integrity.
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize]
@@ -455,17 +455,11 @@ namespace DoggyDrop.Controllers
             var userId = _userManager.GetUserId(User);
             if (string.IsNullOrWhiteSpace(userId)) return Forbid();
 
-            var deleted = await _context.TrashBins
-                .Where(bin => bin.Id == id && bin.UserId == userId && !bin.IsApproved)
-                .ExecuteDeleteAsync();
-            if (deleted == 0)
-            {
-                var approvedOwnBin = await _context.TrashBins.AsNoTracking()
-                    .AnyAsync(bin => bin.Id == id && bin.UserId == userId && bin.IsApproved);
-                if (!approvedOwnBin) return NotFound();
+            var ownsBin = await _context.TrashBins.AsNoTracking()
+                .AnyAsync(bin => bin.Id == id && bin.UserId == userId);
+            if (!ownsBin) return NotFound();
 
-                TempData["ErrorMessage"] = "Koša ni mogoče izbrisati, ker je bil medtem odobren.";
-            }
+            TempData["ErrorMessage"] = "Predloga trenutno ni mogoče izbrisati. Za pomoč se obrni na moderatorja.";
 
             return RedirectToAction(nameof(MyBins));
         }

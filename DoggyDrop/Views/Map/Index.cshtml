@@ -45,7 +45,6 @@
                 label = park.Label
             })));
     var needsDogOnboarding = ViewBag.NeedsDogOnboarding as bool? == true;
-    var userDisplayName = (ViewBag.UserDisplayName as string) ?? "pasjeljubec";
     var showFirstWalkPrompt = TempData["ShowFirstWalkPrompt"] as bool? == true;
     var firstDogName = TempData["FirstDogName"] as string;
     var activeWalk = ViewBag.ActiveWalk as DoggyDrop.Models.Walk;
@@ -2447,8 +2446,8 @@
 
     @@media (max-width: 575.98px) {
         body.map-walk-active #map {
-            height: calc(100dvh - 58px - 78px);
-            min-height: 0;
+            height: calc(100dvh - 58px - var(--app-bottom-nav-clearance, 88px) - 12px);
+            min-height: min(360px, calc(100dvh - 58px - var(--app-bottom-nav-clearance, 88px) - 12px));
         }
 
         body.map-walk-active .map-active-walk-sheet.is-expanded {
@@ -2456,8 +2455,15 @@
         }
 
         #map {
-            height: calc(100vh - 58px - 78px);
-            min-height: 480px;
+            height: calc(100dvh - 58px - var(--app-bottom-nav-clearance, 88px) - 12px);
+            min-height: min(360px, calc(100dvh - 58px - var(--app-bottom-nav-clearance, 88px) - 12px));
+        }
+
+        body:not(.map-walk-active):not(.map-bin-navigation-active):not(.map-nearest-preview-active) #map .leaflet-control-attribution {
+            margin-bottom: 64px;
+            max-width: min(46vw, 220px);
+            font-size: 9px;
+            line-height: 1.2;
         }
 
         .map-status-pill {
@@ -2791,21 +2797,20 @@
 
     .map-first-dog-card {
         position: absolute;
-        top: 156px;
+        top: 84px;
         left: 18px;
         z-index: 1100;
         display: grid;
-        gap: 12px;
+        gap: 8px;
         width: min(360px, calc(100vw - 36px));
-        padding: 18px;
+        padding: 14px;
         border: 1px solid rgba(47, 109, 95, 0.14);
-        border-radius: 22px;
-        background:
-            radial-gradient(circle at top right, rgba(239, 143, 66, 0.16), transparent 34%),
-            linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(246, 250, 247, 0.98));
-        box-shadow: 0 20px 42px rgba(31, 45, 41, 0.16);
-        backdrop-filter: blur(12px);
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.97);
+        box-shadow: 0 12px 28px rgba(31, 45, 41, 0.14);
     }
+
+    .map-first-dog-card[hidden] { display: none; }
 
     .map-first-dog-card__eyebrow {
         display: inline-flex;
@@ -2821,7 +2826,7 @@
     .map-first-dog-card h2 {
         margin: 0;
         color: #1f2d29;
-        font-size: 1.2rem;
+        font-size: 1.1rem;
         font-weight: 900;
         line-height: 1.2;
     }
@@ -2829,42 +2834,25 @@
     .map-first-dog-card p {
         margin: 0;
         color: #556761;
-        font-size: 0.92rem;
-        line-height: 1.55;
-    }
-
-    .map-first-dog-card__chips {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-    }
-
-    .map-first-dog-card__chips span {
-        display: inline-flex;
-        align-items: center;
-        padding: 6px 10px;
-        border-radius: 999px;
-        background: rgba(47, 109, 95, 0.10);
-        color: #2f6d5f;
-        font-size: 0.76rem;
-        font-weight: 800;
+        font-size: 0.83rem;
+        line-height: 1.4;
     }
 
     .map-first-dog-card__actions {
-        display: flex;
-        gap: 10px;
-        flex-wrap: wrap;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
     }
 
     .map-first-dog-card__actions .btn {
-        border-radius: 999px;
+        min-height: 44px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 8px;
+        border-radius: 8px;
         font-weight: 800;
-    }
-
-    .map-first-dog-card__hint {
-        color: #6c7c76;
-        font-size: 0.76rem;
-        line-height: 1.45;
+        font-size: 0.82rem;
     }
 
     .map-first-walk-card {
@@ -2930,12 +2918,12 @@
 
     @@media (max-width: 575.98px) {
         .map-first-dog-card {
-            top: 148px;
+            top: 68px;
             left: 10px;
             right: 10px;
             width: auto;
-            padding: 14px;
-            border-radius: 18px;
+            padding: 12px;
+            border-radius: 14px;
         }
 
         .map-first-dog-card h2 {
@@ -2947,7 +2935,7 @@
         }
 
         .map-first-dog-card__actions {
-            flex-direction: column;
+            grid-template-columns: 1fr 1fr;
         }
 
         .map-first-dog-card__actions .btn {
@@ -3126,7 +3114,7 @@
     <button type="button" class="home-walk-recenter" onclick="recenterHomeWalk()" aria-label="Nazaj na mojo lokacijo" title="Nazaj na mojo lokacijo"><i class="bi bi-crosshair" aria-hidden="true"></i></button>
 }
 
-@if (!hasActiveWalk)
+@if (!hasActiveWalk && !needsDogOnboarding)
 {
 <section class="map-quick-intro" aria-label="DoggyDrop zemljevid">
     <div class="map-quick-intro__eyebrow">
@@ -3186,26 +3174,24 @@
 }
 else if (needsDogOnboarding)
 {
-    <section class="map-first-dog-card" aria-label="Dodaj prvega psa">
+    <section id="firstDogPrompt" class="map-first-dog-card" aria-label="Dodaj prvega psa">
         <div class="map-first-dog-card__eyebrow">
             <i class="bi bi-stars" aria-hidden="true"></i>
             <span>Prvi pasji profil</span>
         </div>
-        <h2>@userDisplayName, spoznajmo tvojega kužka</h2>
-        <p>Dodaj psa, da DoggyDrop začne delati zate: boljši predlogi sprehodov, osebne statistike, značke in veliko bolj živ profil.</p>
-        <div class="map-first-dog-card__chips" aria-label="Predlogi za profil">
-            <span>Ime</span>
-            <span>Fotka smrčka</span>
-            <span>Pasma</span>
-            <span>Velikost</span>
-            <span>Karakter</span>
-        </div>
+        <h2>Dobrodošli v DoggyDrop</h2>
+        <p>Razišči zemljevid takoj ali dodaj psa za osebne sprehode in statistiko.</p>
         <div class="map-first-dog-card__actions">
-            <a class="btn btn-success" asp-controller="Dogs" asp-action="Create" asp-route-firstDog="true" asp-route-returnUrl="/Map">Dodaj prvega psa</a>
-            <a class="btn btn-outline-secondary" asp-controller="Dogs" asp-action="Create" asp-route-firstDog="true" asp-route-returnUrl="/Map">Samo hitro začni</a>
+            <a class="btn btn-success" asp-controller="Dogs" asp-action="Create" asp-route-firstDog="true" asp-route-returnUrl="/Map">Dodaj psa</a>
+            <button id="dismissFirstDogPrompt" type="button" class="btn btn-outline-secondary">Razišči zemljevid</button>
         </div>
-        <div class="map-first-dog-card__hint">Dovolj je ime. Ostalo lahko dopolniš kasneje, ko boš imel minuto miru.</div>
     </section>
+    <script>
+        document.getElementById("dismissFirstDogPrompt").addEventListener("click", () => {
+            document.getElementById("firstDogPrompt").hidden = true;
+            document.getElementById("map")?.focus({ preventScroll: true });
+        });
+    </script>
 }
 
 <aside id="filterPanel" class="map-filter-panel" hidden>
@@ -3398,6 +3384,10 @@ else if (needsDogOnboarding)
             <input type="hidden" name="dogId" value="@quickStartDogId.Value" />
             <button type="submit" class="map-action-button map-action-button--primary"><span class="map-action-button__icon" aria-hidden="true"><i class="bi bi-play-fill"></i></span><span>Začni sprehod</span></button>
         </form>
+    }
+    else if (needsDogOnboarding)
+    {
+        <a class="map-action-button map-action-button--primary" asp-controller="Dogs" asp-action="Create" asp-route-firstDog="true" asp-route-returnUrl="/Map"><span class="map-action-button__icon" aria-hidden="true"><i class="bi bi-plus-lg"></i></span><span>Dodaj psa</span></a>
     }
     else
     {
@@ -5327,16 +5317,20 @@ else if (needsDogOnboarding)
                 ? { color: "#ca6b28", weight: 3, opacity: .8, dashArray: "7 9", interactive: false }
                 : { color: "#2f6d5f", weight: 7, opacity: .95, lineCap: "round", lineJoin: "round", interactive: false }).addTo(map);
             navigation.routeLayer.bringToFront();
+            updateDirectionsPanelForNavigation();
             if (fitRoute) {
                 const mobile = window.innerWidth <= 720;
                 map.invalidateSize({ pan: false });
+                const mapRect = map.getContainer().getBoundingClientRect();
+                const sheetRect = document.getElementById("directionsPanel").getBoundingClientRect();
+                const coveredHeight = Math.max(0, mapRect.bottom - sheetRect.top);
+                const bottomPadding = Math.min(Math.max(24, map.getSize().y - 80), Math.ceil(coveredHeight + 16));
                 map.fitBounds(navigation.routeLayer.getBounds(), {
                     paddingTopLeft: mobile ? [34, 112] : [48, 88],
-                    paddingBottomRight: mobile ? [42, 270] : [48, 130],
+                    paddingBottomRight: mobile ? [42, bottomPadding] : [48, bottomPadding],
                     maxZoom: 17
                 });
             }
-            updateDirectionsPanelForNavigation();
         }
 
         async function fetchWalkingRoute(origin, destination, signal) {

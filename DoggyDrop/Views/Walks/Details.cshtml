@@ -940,8 +940,16 @@
                     }
                     if (routePoints.length > 0) {
                         L.polyline(routePoints, { color: "#2f6d5f", weight: 6, opacity: 0.9 }).addTo(map);
-                        L.marker(routePoints[0]).addTo(map).bindPopup("Začetek");
-                        L.marker(routePoints[routePoints.length - 1]).addTo(map).bindPopup("Cilj");
+                        const startIcon = L.divIcon({ className: "walk-memory-marker walk-memory-marker--start", html: '<span aria-hidden="true"></span>', iconSize: [20, 20], iconAnchor: [10, 10] });
+                        const endIcon = L.divIcon({ className: "walk-memory-marker walk-memory-marker--end", html: '<span aria-hidden="true"></span>', iconSize: [22, 22], iconAnchor: [11, 11] });
+                        const start = L.latLng(routePoints[0]);
+                        const end = L.latLng(routePoints[routePoints.length - 1]);
+                        const separateEndpoints = routePoints.length > 1 && start.distanceTo(end) > 15;
+                        const startLabel = separateEndpoints ? "Začetek sprehoda" : "Začetek in cilj sprehoda";
+                        L.marker(start, { icon: startIcon, title: startLabel }).addTo(map).bindPopup(startLabel);
+                        if (separateEndpoints) {
+                            L.marker(end, { icon: endIcon, title: "Cilj sprehoda" }).addTo(map).bindPopup("Cilj");
+                        }
                     }
                     bounds = visiblePoints.length > 1 ? L.latLngBounds(visiblePoints) : null;
                     map.on("dragstart", () => { userMoved = true; });
@@ -1415,6 +1423,16 @@
     #summaryMap .leaflet-tile-pane { z-index: 200; }
     #summaryMap .leaflet-overlay-pane { z-index: 400; }
     #summaryMap .leaflet-marker-pane { z-index: 600; }
+    #summaryMap .walk-memory-marker {
+        display: grid;
+        place-items: center;
+        border: 3px solid #fff;
+        border-radius: 50%;
+        box-shadow: 0 2px 8px rgba(20, 40, 35, 0.32);
+    }
+    #summaryMap .walk-memory-marker--start { background: #24695a; }
+    #summaryMap .walk-memory-marker--end { background: #d87529; }
+    #summaryMap .walk-memory-marker span { width: 5px; height: 5px; border-radius: 50%; background: #fff; }
     #summaryMap .leaflet-popup-pane { z-index: 700; }
     #summaryMap .leaflet-top,
     #summaryMap .leaflet-bottom { position: absolute; z-index: 1000; pointer-events: none; }

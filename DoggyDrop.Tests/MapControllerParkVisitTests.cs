@@ -1,5 +1,4 @@
 using System.Security.Claims;
-using System.Data.Common;
 using System.Text.Json;
 using DoggyDrop.Controllers;
 using DoggyDrop.Data;
@@ -14,7 +13,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -35,6 +33,31 @@ public sealed class MapControllerParkVisitTests : IDisposable
     private readonly string _db = Path.Combine(Path.GetTempPath(), $"doggydrop-park-{Guid.NewGuid():N}.db");
     private readonly RecordingNotifications _notifications = new();
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public async Task HomeOnboardingDependsOnlyOnOwnedDogs(int ownedDogCount)
+    {
+        await using var db = Context();
+        await db.Database.EnsureCreatedAsync();
+        db.Users.AddRange(
+            new ApplicationUser { Id = UserId, UserName = "park@test" },
+            new ApplicationUser { Id = "someone-else", UserName = "other@test" });
+        db.Dogs.Add(new Dog { Name = "Foreign dog", OwnerId = "someone-else" });
+        for (var i = 0; i < ownedDogCount; i++)
+        {
+            db.Dogs.Add(new Dog { Name = $"Owned dog {i}", OwnerId = UserId });
+        }
+        await db.SaveChangesAsync();
+
+        var controller = Controller(db);
+        Assert.IsType<ViewResult>(await controller.Index());
+        Assert.Equal(ownedDogCount == 0, (bool)controller.ViewBag.NeedsDogOnboarding);
+        var quickStartDogId = (int?)controller.ViewBag.QuickStartDogId;
+        Assert.Equal(ownedDogCount == 1, quickStartDogId.HasValue);
+    }
+
     [Fact]
     public void ParkVisit_RequiresAntiforgeryValidation()
     {
@@ -53,12 +76,21 @@ public sealed class MapControllerParkVisitTests : IDisposable
     }
 
     [Fact]
-    public async Task Reject_OwnerMayRemoveUnapprovedProposal()
+    public async Task Reject_OwnerCannotRemovePendingProposalOrChangeXp()
     {
         var binId = await AddBinAsync();
         await using var db = Context();
-        Assert.IsType<RedirectToActionResult>(await Controller(db).Reject(binId, "mybins"));
-        Assert.False(await db.TrashBins.AnyAsync(bin => bin.Id == binId));
+        db.UserXpEvents.Add(new UserXpEvent { UserId = UserId, ActivityType = GamificationConstants.AddedTrashBin, XpAmount = GamificationConstants.AddedTrashBinXp, ReferenceType = nameof(TrashBin), ReferenceId = binId.ToString() });
+        await db.UserGamificationProfiles.Where(profile => profile.UserId == UserId)
+            .ExecuteUpdateAsync(update => update.SetProperty(profile => profile.TotalXp, GamificationConstants.AddedTrashBinXp));
+        await db.SaveChangesAsync();
+
+        var controller = Controller(db);
+        Assert.IsType<RedirectToActionResult>(await controller.Reject(binId, "mybins"));
+        Assert.NotNull(controller.TempData["ErrorMessage"]);
+        Assert.True(await db.TrashBins.AnyAsync(bin => bin.Id == binId && !bin.IsApproved));
+        Assert.Equal(GamificationConstants.AddedTrashBinXp, await db.UserGamificationProfiles.Where(profile => profile.UserId == UserId).Select(profile => profile.TotalXp).SingleAsync());
+        Assert.Single(await db.UserXpEvents.Where(xp => xp.ReferenceId == binId.ToString()).ToListAsync());
     }
 
     [Fact]
@@ -68,28 +100,8 @@ public sealed class MapControllerParkVisitTests : IDisposable
         await using var db = Context();
         var controller = Controller(db);
         Assert.IsType<RedirectToActionResult>(await controller.Reject(binId, "mybins"));
-        Assert.Equal("Koša ni mogoče izbrisati, ker je bil medtem odobren.", controller.TempData["ErrorMessage"]);
+        Assert.NotNull(controller.TempData["ErrorMessage"]);
         Assert.True(await db.TrashBins.AnyAsync(bin => bin.Id == binId && bin.IsApproved));
-    }
-
-    [Fact]
-    public async Task Reject_ApprovalImmediatelyBeforeConditionalDeletePreservesBin()
-    {
-        var binId = await AddBinAsync();
-        var interceptor = new ApproveBeforeDeleteInterceptor(async () =>
-        {
-            await using var approvingDb = Context();
-            await approvingDb.TrashBins.Where(bin => bin.Id == binId)
-                .ExecuteUpdateAsync(update => update.SetProperty(bin => bin.IsApproved, true));
-        });
-        await using var db = Context(interceptor);
-        var controller = Controller(db);
-
-        Assert.IsType<RedirectToActionResult>(await controller.Reject(binId, "mybins"));
-        Assert.True(interceptor.ApprovalRan);
-        Assert.Equal("Koša ni mogoče izbrisati, ker je bil medtem odobren.", controller.TempData["ErrorMessage"]);
-        await using var verificationDb = Context();
-        Assert.True(await verificationDb.TrashBins.AnyAsync(bin => bin.Id == binId && bin.IsApproved));
     }
 
     [Fact]
@@ -385,11 +397,10 @@ public sealed class MapControllerParkVisitTests : IDisposable
     }
 
     private static ParkVisitInput Input(int dogId, string key) => new() { DogId = dogId, PlaceKey = key };
-    private ApplicationDbContext Context(DbCommandInterceptor? interceptor = null)
+    private ApplicationDbContext Context()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
             .UseSqlite($"Data Source={_db};Default Timeout=15;Pooling=False");
-        if (interceptor != null) options.AddInterceptors(interceptor);
         return new ApplicationDbContext(options.Options);
     }
 
@@ -405,23 +416,6 @@ public sealed class MapControllerParkVisitTests : IDisposable
         controller.TempData = new TempDataDictionary(controller.HttpContext, new MemoryTempDataProvider());
         controller.Url = new StubUrl();
         return controller;
-    }
-
-    private sealed class ApproveBeforeDeleteInterceptor(Func<Task> approve) : DbCommandInterceptor
-    {
-        public bool ApprovalRan { get; private set; }
-
-        public override async ValueTask<InterceptionResult<int>> NonQueryExecutingAsync(
-            DbCommand command, CommandEventData eventData, InterceptionResult<int> result,
-            CancellationToken cancellationToken = default)
-        {
-            if (!ApprovalRan && command.CommandText.Contains("DELETE FROM \"TrashBins\"", StringComparison.OrdinalIgnoreCase))
-            {
-                ApprovalRan = true;
-                await approve();
-            }
-            return result;
-        }
     }
 
     private sealed class MemoryTempDataProvider : ITempDataProvider
