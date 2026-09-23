@@ -52,75 +52,8 @@
         </div>
     </header>
 
-    <section class="profile-dogs-compact" aria-label="Moji psi">
-        <div class="profile-panel__header"><h2>Moji psi</h2>
-            @if (Model.Dogs.Count == 0) { <a asp-controller="Dogs" asp-action="Create">Dodaj</a> }
-            else { <a asp-controller="Dogs" asp-action="Index">Odpri</a> }
-        </div>
-        @if (Model.Dogs.Count == 0)
-        {
-            <p class="profile-muted">Dodaj psa za skupne sprehode.</p>
-        }
-        else
-        {
-            <div class="profile-dog-list">
-                @foreach (var dog in Model.Dogs)
-                {
-                    <a class="profile-dog" asp-controller="Dogs" asp-action="Index" asp-route-dogId="@dog.Id">
-                        <div class="profile-dog__avatar">
-                            @if (!string.IsNullOrWhiteSpace(dog.PhotoUrl)) { <img src="@dog.PhotoUrl" alt="" /> }
-                            else { <span>@(string.IsNullOrWhiteSpace(dog.Name) ? "P" : dog.Name.Substring(0, 1).ToUpperInvariant())</span> }
-                        </div>
-                        <div><strong>@dog.Name</strong></div>
-                        <em><i class="bi bi-chevron-right" aria-hidden="true"></i></em>
-                    </a>
-                }
-            </div>
-        }
-    </section>
-
-    <h2 class="profile-activity-title">Moja aktivnost</h2>
-    @if (weeklyGoals != null)
-    {
-        <section class="profile-panel" aria-label="Tedenski cilji">
-            <div class="profile-panel__header"><h2>Ta teden</h2><a asp-controller="WeeklyGoals" asp-action="Index">Vsi cilji</a></div>
-            <p class="profile-muted">@weeklyGoals.CompletedSummary · @(weeklyGoals.AllComplete ? "Odličen teden!" : weeklyGoals.NextGoal?.RemainingLabel)</p>
-        </section>
-    }
-    <div class="profile-stats">
-        <article>
-            <strong>@Model.TotalDistanceKm.ToString("0.0", System.Globalization.CultureInfo.GetCultureInfo("sl-SI")) km</strong>
-            <span>Razdalja</span>
-        </article>
-        <article>
-            <strong>@Model.TotalWalks</strong>
-            <span>Sprehodi</span>
-        </article>
-        <article>
-            <strong>@Model.Gamification.CurrentStreakDays</strong>
-            <span>Niz dni</span>
-        </article>
-        <article>
-            <strong>@Model.TotalBins</strong>
-            <span>Koši</span>
-        </article>
-    </div>
-
     <article class="profile-panel profile-xp">
-        <div class="profile-xp__top">
-            <div>
-                <span>Stopnja @Model.Gamification.Level</span>
-                <strong>@Model.Gamification.Title</strong>
-            </div>
-            <em>@Model.Gamification.TotalXp XP</em>
-        </div>
-        <div class="profile-achievement__bar">
-            <span style="width: @Model.Gamification.ProgressPercent%"></span>
-        </div>
-        <div class="profile-xp__meta">
-            <span>@Model.Gamification.XpRemaining XP do naslednje stopnje</span>
-            <span>Sprehajalni niz: @SlovenianFormatting.Days(Model.Gamification.CurrentStreakDays)</span>
-        </div>
+        <div class="profile-panel__header"><h2>Trenutni zagon</h2></div>
         <div class="profile-streak-grid">
             @foreach (var streak in Model.Gamification.Streaks)
             {
@@ -137,72 +70,91 @@
         </div>
     </article>
 
-    <article class="profile-panel profile-seasonal profile-seasonal--@Model.SeasonalMapTheme">
-        <div class="profile-panel__header">
-            <h2>Sezonski dogodki</h2>
-        </div>
+    <div class="profile-stats">
+        <article>
+            <strong>@Model.TotalDistanceKm.ToString("0.0", System.Globalization.CultureInfo.GetCultureInfo("sl-SI")) km</strong>
+            <span>Razdalja</span>
+        </article>
+        <article>
+            <strong>@Model.TotalWalks</strong>
+            <span>Sprehodi</span>
+        </article>
+        <article>
+            <strong>@Model.TotalBins</strong>
+            <span>Koši</span>
+        </article>
+    </div>
 
-        @if (Model.SeasonalEvents.Count == 0)
+    <section class="profile-dogs-compact" aria-label="Moji psi">
+        <div class="profile-panel__header"><h2>Moji psi</h2>
+            @if (Model.Dogs.Count == 0) { <a asp-controller="Dogs" asp-action="Create">Dodaj</a> }
+            else { <a asp-controller="Dogs" asp-action="Index">Odpri</a> }
+        </div>
+        @if (Model.Dogs.Count == 0)
         {
-            <p class="profile-muted">Naslednji sezonski dogodek se pripravlja.</p>
+            <p class="profile-muted">Dodaj psa za skupne sprehode.</p>
         }
         else
         {
-            <div class="profile-seasonal-list">
-                @foreach (var seasonalEvent in Model.SeasonalEvents)
+            <div class="profile-dog-list">
+                @foreach (var dog in Model.Dogs)
                 {
-                    <div class="profile-seasonal-card profile-seasonal-card--@seasonalEvent.Theme @(seasonalEvent.IsComplete ? "is-complete" : "")">
-                        <div class="profile-seasonal-card__top">
-                            <div>
-                                <strong>@seasonalEvent.Name</strong>
-                                <span>@seasonalEvent.Description</span>
-                            </div>
-                            <em>@seasonalEvent.Current / @seasonalEvent.Target</em>
+                    <a class="profile-dog" asp-controller="Dogs" asp-action="Details" asp-route-id="@dog.Id" aria-label="Odpri profil psa @dog.Name">
+                        <div class="profile-dog__avatar">
+                            @if (!string.IsNullOrWhiteSpace(dog.PhotoUrl)) { <img src="@dog.PhotoUrl" alt="" /> }
+                            else { <span>@(string.IsNullOrWhiteSpace(dog.Name) ? "P" : dog.Name.Substring(0, 1).ToUpperInvariant())</span> }
                         </div>
+                        <div class="profile-dog__name"><strong>@dog.Name</strong><span>Odpri profil</span></div>
+                        <em><i class="bi bi-chevron-right" aria-hidden="true"></i></em>
+                    </a>
+                }
+            </div>
+        }
+    </section>
+
+    @if (weeklyGoals != null)
+    {
+        <section class="profile-panel profile-weekly" aria-label="Tedenski cilji">
+            <div class="profile-panel__header"><h2>Ta teden</h2><a asp-controller="WeeklyGoals" asp-action="Index">Vsi cilji</a></div>
+            <p class="profile-muted">@weeklyGoals.CompletedSummary · @(weeklyGoals.AllComplete ? "Odličen teden!" : weeklyGoals.NextGoal?.RemainingLabel)</p>
+        </section>
+    }
+    <article class="profile-panel profile-achievements-panel">
+        <div class="profile-panel__header">
+            <h2>Dosežki</h2>
+            <span>@Model.Achievements.Count(achievement => achievement.IsUnlocked) / @Model.Achievements.Count odklenjenih</span>
+        </div>
+
+        @if (Model.Achievements.Count == 0)
+        {
+            <p class="profile-muted">Dodaj psa, zacni sprehod ali dodaj kos in prve znacke se bodo odklenile.</p>
+        }
+        else
+        {
+            <div class="profile-achievements">
+                @foreach (var achievement in Model.Achievements)
+                {
+                    <div class="profile-achievement @(achievement.IsUnlocked ? "is-unlocked" : "is-locked")">
+                        <div class="profile-achievement__top">
+                            <strong>@achievement.Name</strong>
+                            <span>@(achievement.IsUnlocked && achievement.UnlockedAt.HasValue ? $"Odklenjeno {achievement.UnlockedAt.Value.ToLocalTime():d. M. yyyy}" : achievement.ProgressText)</span>
+                        </div>
+                        <p>@achievement.Description</p>
                         <div class="profile-achievement__bar">
-                            <span style="width: @seasonalEvent.ProgressPercent%"></span>
+                            <span style="width: @achievement.ProgressPercent%"></span>
                         </div>
-                        <p>@(seasonalEvent.IsComplete ? "Nagrada odklenjena" : "Sezonska nagrada") · @seasonalEvent.RewardName · do @seasonalEvent.EndsOn.ToString("dd.MM.")</p>
                     </div>
                 }
             </div>
         }
     </article>
 
-    <article class="profile-panel profile-founders">
-        <div class="profile-panel__header">
-            <h2>DoggyDrop raziskovalec</h2>
-            <span>@Model.FounderBadges.Count posebnih značk</span>
-        </div>
-
-        @if (Model.FounderBadges.Count == 0)
-        {
-            <div class="profile-founder-empty">
-                <strong>Postani DoggyDrop raziskovalec</strong>
-                <p>Dodaj prvi odobren pasji koš na območju, kjer DoggyDrop še nima pokritosti, in odkleni posebno značko.</p>
-                <a asp-controller="Map" asp-action="Add">Dodaj koš</a>
-            </div>
-        }
-        else
-        {
-            <div class="profile-founder-list">
-                @foreach (var badge in Model.FounderBadges)
-                {
-                    <div class="profile-founder-badge">
-                        <span>Raziskovalec</span>
-                        <strong>@badge.AreaName</strong>
-                        <em>@badge.UnlockedAt.ToLocalTime().ToString("dd.MM.yyyy")</em>
-                    </div>
-                }
-            </div>
-        }
-    </article>
-
-    <article class="profile-panel profile-stamps">
-        <div class="profile-panel__header">
+    <details class="profile-panel profile-stamps">
+        <summary class="profile-panel__header">
             <h2>Moji žigi</h2>
             <span>@Model.MapStamps.TotalStamps zbranih</span>
-        </div>
+            <i class="bi bi-chevron-down" aria-hidden="true"></i>
+        </summary>
 
         <div class="profile-stamp-summary">
             <span class="@(Model.MapStamps.CommonCount > 0 ? "is-collected" : "is-locked")"><strong>@Model.MapStamps.CommonCount</strong> Običajni</span>
@@ -240,90 +192,70 @@
                 }
             </div>
         }
-    </article>
+    </details>
 
-    <article class="profile-panel profile-activity">
-        <div class="profile-panel__header">
-            <h2>Aktivnost</h2>
-            <span>@SlovenianFormatting.Days(Model.Gamification.CurrentStreakDays) sprehajalnega niza</span>
-        </div>
+    <details class="profile-panel profile-founders">
+        <summary class="profile-panel__header">
+            <h2>DoggyDrop raziskovalec</h2>
+            <span>@Model.FounderBadges.Count posebnih značk</span>
+            <i class="bi bi-chevron-down" aria-hidden="true"></i>
+        </summary>
 
-        <div class="profile-goal-grid">
-            <div class="profile-goal-card">
-                <div>
-                    <strong>Cilj zadnjih 7 dni</strong>
-                    <span>@Model.ActivityInsights.WeeklyDistanceKm.ToString("0.0") / @Model.ActivityInsights.WeeklyGoalKm.ToString("0") km</span>
-                </div>
-                <div class="profile-achievement__bar">
-                    <span style="width: @Model.ActivityInsights.WeeklyGoalPercent%"></span>
-                </div>
-            </div>
-            <div class="profile-goal-card">
-                <div>
-                    <strong>Mesec</strong>
-                    <span>@Model.ActivityInsights.MonthlyDistanceKm.ToString("0.0") / @Model.ActivityInsights.MonthlyGoalKm.ToString("0") km</span>
-                </div>
-                <div class="profile-achievement__bar">
-                    <span style="width: @Model.ActivityInsights.MonthlyGoalPercent%"></span>
-                </div>
-            </div>
-            <div class="profile-goal-card">
-                <div>
-                    <strong>@Model.ActivityInsights.NextMilestoneName</strong>
-                    <span>@Model.ActivityInsights.NextMilestoneProgress</span>
-                </div>
-                <div class="profile-achievement__bar">
-                    <span style="width: @Model.ActivityInsights.NextMilestonePercent%"></span>
-                </div>
-            </div>
-        </div>
-
-        <div class="profile-challenge-list">
-            @foreach (var challenge in Model.ActivityInsights.Challenges)
-            {
-                <div class="profile-challenge @(challenge.IsComplete ? "is-complete" : "")">
-                    <div>
-                        <strong>@challenge.Title</strong>
-                        <span>@challenge.ProgressText</span>
-                    </div>
-                    <p>@challenge.Description</p>
-                    <div class="profile-achievement__bar">
-                        <span style="width: @challenge.ProgressPercent%"></span>
-                    </div>
-                </div>
-            }
-        </div>
-    </article>
-
-    <article class="profile-panel profile-achievements-panel">
-        <div class="profile-panel__header">
-            <h2>Dosežki</h2>
-            <span>@Model.Achievements.Count(achievement => achievement.IsUnlocked) / @Model.Achievements.Count odklenjenih</span>
-        </div>
-
-        @if (Model.Achievements.Count == 0)
+        @if (Model.FounderBadges.Count == 0)
         {
-            <p class="profile-muted">Dodaj psa, zacni sprehod ali dodaj kos in prve znacke se bodo odklenile.</p>
+            <div class="profile-founder-empty">
+                <strong>Postani DoggyDrop raziskovalec</strong>
+                <p>Dodaj prvi odobren pasji koš na območju, kjer DoggyDrop še nima pokritosti, in odkleni posebno značko.</p>
+                <a asp-controller="Map" asp-action="Add">Dodaj koš</a>
+            </div>
         }
         else
         {
-            <div class="profile-achievements">
-                @foreach (var achievement in Model.Achievements)
+            <div class="profile-founder-list">
+                @foreach (var badge in Model.FounderBadges)
                 {
-                    <div class="profile-achievement @(achievement.IsUnlocked ? "is-unlocked" : "is-locked")">
-                        <div class="profile-achievement__top">
-                            <strong>@achievement.Name</strong>
-                            <span>@(achievement.IsUnlocked && achievement.UnlockedAt.HasValue ? $"Odklenjeno {achievement.UnlockedAt.Value.ToLocalTime():d. M. yyyy}" : achievement.ProgressText)</span>
-                        </div>
-                        <p>@achievement.Description</p>
-                        <div class="profile-achievement__bar">
-                            <span style="width: @achievement.ProgressPercent%"></span>
-                        </div>
+                    <div class="profile-founder-badge">
+                        <span>Raziskovalec</span>
+                        <strong>@badge.AreaName</strong>
+                        <em>@badge.UnlockedAt.ToLocalTime().ToString("dd.MM.yyyy")</em>
                     </div>
                 }
             </div>
         }
-    </article>
+    </details>
+
+    <details class="profile-panel profile-seasonal profile-seasonal--@Model.SeasonalMapTheme">
+        <summary class="profile-panel__header">
+            <h2>Sezonski dogodki</h2>
+            <i class="bi bi-chevron-down" aria-hidden="true"></i>
+        </summary>
+
+        @if (Model.SeasonalEvents.Count == 0)
+        {
+            <p class="profile-muted">Naslednji sezonski dogodek se pripravlja.</p>
+        }
+        else
+        {
+            <div class="profile-seasonal-list">
+                @foreach (var seasonalEvent in Model.SeasonalEvents)
+                {
+                    <div class="profile-seasonal-card profile-seasonal-card--@seasonalEvent.Theme @(seasonalEvent.IsComplete ? "is-complete" : "")">
+                        <div class="profile-seasonal-card__top">
+                            <div>
+                                <strong>@seasonalEvent.Name</strong>
+                                <span>@seasonalEvent.Description</span>
+                            </div>
+                            <em>@seasonalEvent.Current / @seasonalEvent.Target</em>
+                        </div>
+                        <div class="profile-achievement__bar">
+                            <span style="width: @seasonalEvent.ProgressPercent%"></span>
+                        </div>
+                        <p>@(seasonalEvent.IsComplete ? "Nagrada odklenjena" : "Sezonska nagrada") · @seasonalEvent.RewardName · do @seasonalEvent.EndsOn.ToString("dd.MM.")</p>
+                    </div>
+                }
+            </div>
+        }
+    </details>
 
     <article class="profile-panel">
         <div class="profile-panel__header">
@@ -1427,17 +1359,6 @@
     .profile-dogs-compact h2, .profile-activity-title { margin: 6px 0; font-size: 1rem; }
     .profile-dogs-compact .profile-dog { min-height: 48px; }
     .profile-page { display: flex; flex-direction: column; padding-bottom: var(--app-bottom-nav-clearance, 100px); }
-    .profile-page > * { order: 10; }
-    .profile-page .profile-hero { order: 0; }
-    .profile-page .profile-xp { order: 1; }
-    .profile-page .profile-dogs-compact { order: 2; }
-    .profile-page .profile-activity-title { order: 3; }
-    .profile-page .profile-stats { order: 4; }
-    .profile-page .profile-achievements-panel { order: 5; }
-    .profile-page .profile-stamps { order: 6; }
-    .profile-page .profile-founders { order: 7; }
-    .profile-page .profile-seasonal { order: 8; }
-    .profile-page .profile-activity { order: 9; }
     .profile-page .profile-hero { padding: 12px; gap: 10px; border-radius: 8px; }
     .profile-page .profile-hero__level { display: none; }
     .profile-page .profile-hero__text h1 { font-size: 1.35rem; }
@@ -1457,7 +1378,25 @@
         .profile-page .profile-hero { display: grid; grid-template-columns: 54px 1fr; align-items: start; }
         .profile-page .profile-hero__avatar { width: 50px; height: 50px; }
         .profile-page .profile-hero__text { min-width: 0; }
-        .profile-page .profile-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+        .profile-page .profile-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
         .profile-page .profile-stats span { font-size: .65rem; }
     }
+    .profile-page { gap: 10px; }
+    .profile-page .profile-stats { margin: 0; }
+    .profile-page .profile-weekly { background: #e8f3ea; }
+    .profile-page .profile-weekly .profile-muted { margin-bottom: 0; }
+    .profile-page .profile-xp { padding: 12px; }
+    .profile-page .profile-streak-grid { gap: 7px; }
+    .profile-page .profile-streak { padding: 9px; }
+    .profile-page .profile-dog-list { gap: 6px; }
+    .profile-page .profile-dog { grid-template-columns: 44px minmax(0, 1fr) 20px; min-height: 54px; padding: 5px 8px; }
+    .profile-page .profile-dog__avatar { width: 44px; height: 44px; }
+    .profile-page .profile-dog__name { min-width: 0; }
+    .profile-page .profile-dog__name strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .profile-page .profile-dog__name span { font-size: .72rem; }
+    .profile-page details.profile-panel > summary { min-height: 44px; margin: 0; cursor: pointer; list-style: none; }
+    .profile-page details.profile-panel > summary::-webkit-details-marker { display: none; }
+    .profile-page details.profile-panel > summary i { margin-left: auto; color: #24695a; }
+    .profile-page details.profile-panel[open] > summary { margin-bottom: 12px; }
+    .profile-page details.profile-panel[open] > summary i { transform: rotate(180deg); }
 </style>

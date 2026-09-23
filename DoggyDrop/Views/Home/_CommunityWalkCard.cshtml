@@ -1,0 +1,40 @@
+@model DoggyDrop.ViewModels.CommunityWalkItem
+
+@{
+    var sl = System.Globalization.CultureInfo.GetCultureInfo("sl-SI");
+    var localDate = DoggyDrop.ViewModels.WalkMemoryPresentation.LocalTime(Model.StartedAt).ToString("d. M. · HH:mm", sl);
+}
+
+<a class="community-feed-card" asp-controller="Walks" asp-action="Details" asp-route-id="@Model.WalkId">
+    <div class="community-feed-card__header">
+        <div class="community-avatar community-avatar--large">
+            @if (!string.IsNullOrWhiteSpace(Model.DogPhotoUrl))
+            {
+                <img src="@Model.DogPhotoUrl" alt="" loading="lazy" />
+            }
+            else
+            {
+                <span>@(string.IsNullOrWhiteSpace(Model.DogName) ? "P" : Model.DogName[..1].ToUpperInvariant())</span>
+            }
+        </div>
+        <div class="community-feed-card__identity">
+            <strong>@Model.DogName</strong>
+            <span>@Model.OwnerName · @localDate</span>
+        </div>
+        <i class="bi bi-chevron-right" aria-hidden="true"></i>
+    </div>
+    @if (!string.IsNullOrWhiteSpace(Model.CoverPhotoUrl))
+    {
+        <div class="community-feed-card__cover">
+            <img src="@Model.CoverPhotoUrl" alt="Fotografija sprehoda psa @Model.DogName" loading="lazy" />
+        </div>
+    }
+    <div class="community-feed-card__footer">
+        <strong>@Model.DistanceKm.ToString("0.0", sl) km</strong>
+        <div class="community-feed-card__counts" aria-label="Odzivi na sprehod">
+            <span title="Odzivi">🐾 @Model.LikeCount</span>
+            <span title="Komentarji"><i class="bi bi-chat" aria-hidden="true"></i> @Model.CommentCount</span>
+            <span title="Fotografije"><i class="bi bi-camera" aria-hidden="true"></i> @Model.PhotoCount</span>
+        </div>
+    </div>
+</a>

@@ -470,7 +470,7 @@
         }
         <article>
             <strong>@memory.PhotoCount</strong>
-            <span>Fotografije</span>
+            <span>@SlovenianFormatting.PhotoNoun(memory.PhotoCount)</span>
         </article>
         @if (Model.UsedBinsCount > 0)
         {
@@ -713,7 +713,7 @@
     <article class="walk-media-card">
         <div class="walk-summary__map-header">
             <h2>Fotografije sprehoda</h2>
-            <span>Fotografije: @walkPhotos.Count</span>
+            <span>@SlovenianFormatting.PhotoCount(walkPhotos.Count)</span>
         </div>
 
         @if (currentUserId == Model.OwnerId)

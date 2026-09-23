@@ -7,6 +7,28 @@ namespace DoggyDrop.Tests;
 
 public sealed class WalkMemoryPresentationTests
 {
+    [Theory]
+    [InlineData(2026, 1, 15, 12, 13)]
+    [InlineData(2026, 7, 15, 12, 14)]
+    public void LocalTime_UsesLjubljanaIncludingDaylightSaving(int year, int month, int day, int utcHour, int localHour)
+    {
+        var utc = new DateTime(year, month, day, utcHour, 0, 0, DateTimeKind.Utc);
+
+        Assert.Equal(localHour, WalkMemoryPresentation.LocalTime(utc).Hour);
+    }
+
+    [Theory]
+    [InlineData(0, "0 fotografij")]
+    [InlineData(1, "1 fotografija")]
+    [InlineData(2, "2 fotografiji")]
+    [InlineData(3, "3 fotografije")]
+    [InlineData(4, "4 fotografije")]
+    [InlineData(5, "5 fotografij")]
+    [InlineData(11, "11 fotografij")]
+    [InlineData(21, "21 fotografija")]
+    public void PhotoCount_UsesSlovenianPlural(int count, string expected) =>
+        Assert.Equal(expected, SlovenianFormatting.PhotoCount(count));
+
     [Fact]
     public void CompletedWalk_UsesActualDistanceAndOnlyItsOwnedPhotos()
     {

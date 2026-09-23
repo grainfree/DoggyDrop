@@ -4,6 +4,19 @@ public static class SlovenianFormatting
 {
     public static string Days(int days) => days == 1 ? "1 dan" : $"{days} dni";
 
+    public static string PhotoCount(int count) => $"{count} {PhotoNoun(count)}";
+
+    public static string PhotoNoun(int count) =>
+        count % 100 is 11 or 12 or 13 or 14
+            ? "fotografij"
+            : (count % 10) switch
+            {
+                1 => "fotografija",
+                2 => "fotografiji",
+                3 or 4 => "fotografije",
+                _ => "fotografij"
+            };
+
     public static string WalkDistance(double meters)
     {
         if (!double.IsFinite(meters) || meters <= 0) return "0 m";

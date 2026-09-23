@@ -38,7 +38,7 @@
             <h2>Lokalne lestvice</h2>
             <span class="community-city-chip"><i class="bi bi-geo-alt" aria-hidden="true"></i> @Model.LocalLeaderboards.CityName</span>
         </div>
-        <div class="community-local-grid">
+        <div class="community-local-grid" role="region" aria-label="Lokalne lestvice" tabindex="0">
             @foreach (var board in new[] {
                 (Title: "Kilometri", Entries: Model.LocalLeaderboards.MostDistance, Unit: "km"),
                 (Title: "Odkritja", Entries: Model.LocalLeaderboards.MostDiscoveries, Unit: "odkritij"),
@@ -83,8 +83,10 @@
                 @for (var i = 0; i < Model.WeeklyLeaders.Count; i++)
                 {
                     var leader = Model.WeeklyLeaders[i];
+                    @if (leader.OwnerId == viewerId && viewerId != null)
+                    {
                     <a class="community-leader" asp-controller="Dogs" asp-action="Details" asp-route-id="@leader.DogId">
-                        <strong>@(i + 1)</strong>
+                        <strong aria-label="Mesto @(i + 1)">@(i + 1).</strong>
                         <div class="community-avatar">
                             @if (!string.IsNullOrWhiteSpace(leader.DogPhotoUrl))
                             {
@@ -99,8 +101,30 @@
                             <span>@leader.DogName</span>
                             <small>@leader.OwnerName · @leader.WalkCount sprehodov</small>
                         </div>
-                        <em>@leader.WeeklyDistanceKm.ToString("0.0") km</em>
+                        <em>@leader.WeeklyDistanceKm.ToString("0.0", sl) km</em>
                     </a>
+                    }
+                    else
+                    {
+                    <div class="community-leader">
+                        <strong aria-label="Mesto @(i + 1)">@(i + 1).</strong>
+                        <div class="community-avatar">
+                            @if (!string.IsNullOrWhiteSpace(leader.DogPhotoUrl))
+                            {
+                                <img src="@leader.DogPhotoUrl" alt="@leader.DogName" />
+                            }
+                            else
+                            {
+                                <span>@leader.DogName.Substring(0, 1).ToUpperInvariant()</span>
+                            }
+                        </div>
+                        <div>
+                            <span>@leader.DogName</span>
+                            <small>@leader.OwnerName · @leader.WalkCount sprehodov</small>
+                        </div>
+                        <em>@leader.WeeklyDistanceKm.ToString("0.0", sl) km</em>
+                    </div>
+                    }
                 }
             </div>
         }
@@ -111,9 +135,9 @@
             <h2>Pasja druženja</h2>
             <span>Srečanja psov</span>
         </div>
-        <article class="community-empty">
-            <h3>Povabi pse na sprehod</h3>
-            <p>Povabi druge lastnike psov na skupen sprehod.</p>
+        <article class="community-empty community-empty--social">
+            <h3><i class="bi bi-people" aria-hidden="true"></i> Povabi pse na sprehod</h3>
+            <p>Dogovorite se za skupen sprehod.</p>
             <a class="btn btn-success rounded-pill fw-semibold" asp-controller="Playdates" asp-action="Index">Odpri druženja</a>
         </article>
     </section>
@@ -126,9 +150,9 @@
 
         @if (Model.FriendsWalks.Count == 0)
         {
-            <article class="community-empty">
-                <h3>Prijatelji se še niso oglasili</h3>
-                <p>Ko bodo prijatelji zaključevali sprehode, se bodo tukaj pojavili njihovi povzetki in fotke.</p>
+            <article class="community-empty community-empty--social">
+                <h3><i class="bi bi-person-plus" aria-hidden="true"></i> Povabi prijatelja</h3>
+                <p>Njegovi sprehodi se bodo prikazali tukaj.</p>
                 <a class="btn btn-success rounded-pill fw-semibold" asp-controller="Friends" asp-action="Index">Odpri prijatelje</a>
             </article>
         }
@@ -137,38 +161,7 @@
             <div class="community-feed">
                 @foreach (var walk in Model.FriendsWalks)
                 {
-                    <a class="community-feed-card community-feed-card--friend" asp-controller="Walks" asp-action="Details" asp-route-id="@walk.WalkId">
-                        <div class="community-avatar community-avatar--large">
-                            @if (!string.IsNullOrWhiteSpace(walk.DogPhotoUrl))
-                            {
-                                <img src="@walk.DogPhotoUrl" alt="@walk.DogName" />
-                            }
-                            else
-                            {
-                                <span>@walk.DogName.Substring(0, 1).ToUpperInvariant()</span>
-                            }
-                        </div>
-                        <div class="community-feed-card__body">
-                            <div class="community-feed-card__title">
-                                <strong>@walk.DogName</strong>
-                                <span>@walk.DistanceKm.ToString("0.0") km</span>
-                            </div>
-                            @if (!string.IsNullOrWhiteSpace(walk.CoverPhotoUrl))
-                            {
-                                <div class="community-feed-card__cover">
-                                    <img src="@walk.CoverPhotoUrl" alt="Fotografija sprehoda @walk.DogName" />
-                                </div>
-                            }
-                            <p>@walk.OwnerName je bil na sprehodu @walk.StartedAt.ToLocalTime().ToString("dd.MM. HH:mm").</p>
-                            <div class="community-feed-card__meta">
-                                <span>@walk.UsedBinsCount koši</span>
-                                <span>@walk.LikeCount tačk</span>
-                                <span>@walk.CommentCount komentarjev</span>
-                                <span>@walk.PhotoCount foto</span>
-                                <span>Odpri povzetek</span>
-                            </div>
-                        </div>
-                    </a>
+                    <partial name="_CommunityWalkCard" model="walk" />
                 }
             </div>
         }
@@ -277,38 +270,7 @@
             <div class="community-feed">
                 @foreach (var walk in Model.RecentWalks)
                 {
-                    <a class="community-feed-card" asp-controller="Walks" asp-action="Details" asp-route-id="@walk.WalkId">
-                        <div class="community-avatar community-avatar--large">
-                            @if (!string.IsNullOrWhiteSpace(walk.DogPhotoUrl))
-                            {
-                                <img src="@walk.DogPhotoUrl" alt="@walk.DogName" />
-                            }
-                            else
-                            {
-                                <span>@walk.DogName.Substring(0, 1).ToUpperInvariant()</span>
-                            }
-                        </div>
-                        <div class="community-feed-card__body">
-                            <div class="community-feed-card__title">
-                                <strong>@walk.DogName</strong>
-                                <span>@walk.DistanceKm.ToString("0.0") km</span>
-                            </div>
-                            @if (!string.IsNullOrWhiteSpace(walk.CoverPhotoUrl))
-                            {
-                                <div class="community-feed-card__cover">
-                                    <img src="@walk.CoverPhotoUrl" alt="Fotografija sprehoda @walk.DogName" />
-                                </div>
-                            }
-                            <p>@walk.OwnerName je zaključil sprehod @walk.StartedAt.ToLocalTime().ToString("dd.MM. HH:mm").</p>
-                            <div class="community-feed-card__meta">
-                                <span>@walk.UsedBinsCount koši</span>
-                                <span>@walk.LikeCount tačk</span>
-                                <span>@walk.CommentCount komentarjev</span>
-                                <span>@walk.PhotoCount foto</span>
-                                <span>Odpri povzetek</span>
-                            </div>
-                        </div>
-                    </a>
+                    <partial name="_CommunityWalkCard" model="walk" />
                 }
             </div>
         }
@@ -1069,4 +1031,34 @@
     .community-page .community-bin-card strong, .community-page .community-bin-card span { color: #fff; text-shadow: 0 1px 3px rgba(0, 0, 0, .6); }
     @@media (max-width: 575.98px) { .community-page .community-local-grid { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 8px; } .community-page .community-local-grid > article { flex: 0 0 min(88%, 340px); scroll-snap-align: start; } }
     @@media (max-width: 575.98px) { .community-page .community-bin-card { height: 160px; } }
+    .community-page .community-feed-card { display: block; padding: 10px; }
+    .community-feed-card__header { display: grid; grid-template-columns: 42px minmax(0, 1fr) 16px; gap: 9px; align-items: center; }
+    .community-page .community-feed-card__header .community-avatar { width: 42px; height: 42px; border-radius: 50%; font-size: 1rem; }
+    .community-feed-card__identity { min-width: 0; }
+    .community-feed-card__identity strong,
+    .community-feed-card__identity span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .community-feed-card__identity strong { color: #142823; font-size: .96rem; }
+    .community-feed-card__identity span { color: #65716d; font-size: .76rem; }
+    .community-feed-card__header > i { color: #24695a; }
+    .community-page .community-feed-card__cover { margin: 8px 0; aspect-ratio: 16 / 9; max-height: 240px; }
+    .community-feed-card__footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: #24695a; }
+    .community-feed-card__footer > strong { white-space: nowrap; font-size: 1rem; }
+    .community-feed-card__counts { display: flex; align-items: center; gap: 10px; color: #526960; font-size: .8rem; }
+    .community-feed-card__counts span { white-space: nowrap; }
+    .community-page .community-leader { grid-template-columns: 28px 44px minmax(0, 1fr) auto; gap: 8px; padding: 7px 8px; min-height: 58px; }
+    .community-page .community-leader .community-avatar { width: 44px; height: 44px; border-radius: 50%; }
+    .community-page .community-leader > div:nth-of-type(2) { min-width: 0; }
+    .community-page .community-leader span,
+    .community-page .community-leader small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .community-page .community-leader em { white-space: nowrap; font-size: .9rem; }
+    .community-page .community-empty--social { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; padding: 12px; }
+    .community-page .community-empty--social h3 { width: 100%; margin: 0; font-size: .96rem; }
+    .community-page .community-empty--social h3 i { margin-right: 5px; color: #24695a; }
+    .community-page .community-empty--social p { flex: 1 1 160px; margin: 0; font-size: .8rem; }
+    .community-page .community-empty--social .btn { display: inline-flex; align-items: center; min-height: 44px; flex: 0 0 auto; font-size: .8rem; padding: 8px 10px; }
+    @@media (max-width: 575.98px) {
+        .community-page .community-local-grid { display: flex; gap: 10px; width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; scroll-snap-type: x mandatory; scroll-padding-inline: 0; padding: 0 38px 8px 0; }
+        .community-page .community-local-grid > article { flex: 0 0 min(76vw, 285px); scroll-snap-align: start; }
+        .community-page .community-feed-card__header .community-avatar { width: 42px; }
+    }
 </style>

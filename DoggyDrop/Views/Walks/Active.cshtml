@@ -70,7 +70,7 @@
     <article class="active-walk-map-card">
         <div class="active-walk-map-card__header">
             <div>
-                <h2>GPS pot</h2>
+                <h2><i class="bi bi-record-circle" aria-hidden="true"></i> GPS pot</h2>
                 <p id="gpsStatus">GPS še ni zagnan.</p>
             </div>
             <button type="button" id="trackingToggle" class="btn btn-success rounded-pill fw-semibold">Začni GPS zapis</button>
@@ -100,13 +100,22 @@
     </article>
 
     <aside class="active-walk-cockpit" aria-label="Kontrole sprehoda">
-        <button type="button" id="walkCockpitToggle" class="active-walk-cockpit__toggle" aria-expanded="false" aria-controls="walkCockpitActions">
+        <button type="button" id="walkCockpitToggle" class="active-walk-cockpit__toggle" aria-expanded="false" aria-controls="walkCockpitActions" aria-label="Razširi kontrole sprehoda">
             <span class="active-walk-cockpit__grip" aria-hidden="true"></span>
-            <span class="active-walk-cockpit__summary">
+            <span class="active-walk-cockpit__heading">
                 <strong>V živo · @Model.Dog?.Name</strong>
-                <span><span id="cockpitDuration">00:00</span> · <span id="cockpitDistance">@SlovenianFormatting.WalkDistance(Model.DistanceMeters)</span> · <span id="cockpitGpsHealth">GPS išče signal</span></span>
+                <span id="cockpitRecording" class="active-walk-cockpit__recording">Vzpostavljam GPS …</span>
             </span>
-            <i class="bi bi-chevron-up" aria-hidden="true"></i>
+            <i class="active-walk-cockpit__chevron bi bi-chevron-up" aria-hidden="true"></i>
+            <span class="active-walk-cockpit__metrics">
+                <span><strong id="cockpitDuration">00:00</strong><small>Trajanje</small></span>
+                <span><strong id="cockpitDistance">@SlovenianFormatting.WalkDistance(Model.DistanceMeters)</strong><small>Razdalja</small></span>
+                <span><strong id="cockpitPointCount">@(Model.Points?.Count ?? 0)</strong><small>GPS točke</small></span>
+            </span>
+            <span id="cockpitGpsState" class="active-walk-cockpit__gps">
+                <span id="cockpitGpsHealth">GPS išče signal</span>
+                <small id="cockpitGpsAccuracy">Zadnja točnost: še ni podatka</small>
+            </span>
         </button>
         <p id="cockpitGpsNotice" class="active-walk-cockpit__notice" role="status" hidden></p>
         <p id="cockpitPhotoStatus" class="active-walk-cockpit__notice" role="status" hidden></p>
@@ -124,14 +133,14 @@
             <div class="active-walk-cockpit__action-grid">
                 <form asp-controller="Walks" asp-action="AddPhoto" asp-route-id="@Model.Id" method="post" enctype="multipart/form-data" class="active-walk-cockpit__photo-form">
                     @Html.AntiForgeryToken()
-                    <label class="active-walk-cockpit__action"><i class="bi bi-camera" aria-hidden="true"></i> Fotografija
+                    <label class="active-walk-cockpit__action"><i class="bi bi-camera-fill" aria-hidden="true"></i><span>Fotografija</span>
                         <input type="file" name="photo" accept="image/*" required />
                     </label>
                 </form>
-                <a class="active-walk-cockpit__action" asp-controller="Map" asp-action="Index" asp-route-nearestBin="1"><i class="bi bi-geo-alt" aria-hidden="true"></i> Najdi koš</a>
-                <a class="active-walk-cockpit__action" asp-controller="Map" asp-action="Add" asp-route-walkId="@Model.Id"><i class="bi bi-plus-circle" aria-hidden="true"></i> Dodaj koš</a>
+                <a class="active-walk-cockpit__action" asp-controller="Map" asp-action="Index" asp-route-nearestBin="1"><i class="bi bi-geo-alt-fill" aria-hidden="true"></i><span>Najdi koš</span></a>
+                <a class="active-walk-cockpit__action" asp-controller="Map" asp-action="Add" asp-route-walkId="@Model.Id"><i class="bi bi-plus-circle-fill" aria-hidden="true"></i><span>Dodaj koš</span></a>
             </div>
-            <button type="submit" form="finishWalkForm" id="finishWalkMobileButton" class="active-walk-cockpit__finish"><i class="bi bi-stop-circle" aria-hidden="true"></i> Zaključi sprehod</button>
+            <button type="submit" form="finishWalkForm" id="finishWalkMobileButton" class="active-walk-cockpit__finish"><i class="bi bi-stop-circle-fill" aria-hidden="true"></i> Zaključi sprehod</button>
         </div>
     </aside>
 
@@ -319,6 +328,11 @@
         const gpsSecurityWarning = document.getElementById("gpsSecurityWarning");
         const gpsRecordingWarning = document.getElementById("gpsRecordingWarning");
         const cockpitGpsHealth = document.getElementById("cockpitGpsHealth");
+        const cockpitGpsState = document.getElementById("cockpitGpsState");
+        const cockpitGpsAccuracy = document.getElementById("cockpitGpsAccuracy");
+        const cockpitRecording = document.getElementById("cockpitRecording");
+        const cockpitPointCount = document.getElementById("cockpitPointCount");
+        const cockpitDistance = document.getElementById("cockpitDistance");
         const cockpitGpsNotice = document.getElementById("cockpitGpsNotice");
         const walkCockpitToggle = document.getElementById("walkCockpitToggle");
         const walkCockpitActions = document.getElementById("walkCockpitActions");
@@ -419,12 +433,17 @@
                     const body = new FormData(quickPhotoForm);
                     body.set("photo", photo);
                     const response = await fetch(quickPhotoForm.action, { method: "POST", body, credentials: "same-origin", headers: { "Accept": "application/json" } });
-                    if (!response.ok || !(response.headers.get("content-type") || "").includes("application/json")) throw new Error();
+                    if (!response.ok) {
+                        if (response.status >= 500) throw new Error();
+                        quickPhotoStatus.textContent = "Fotografije ni bilo mogoče shraniti.";
+                        return;
+                    }
+                    if (!(response.headers.get("content-type") || "").includes("application/json")) throw new Error();
                     const result = await response.json();
                     if (!result.message) throw new Error();
-                    quickPhotoStatus.textContent = "Fotografija je shranjena. Sprehod se nadaljuje.";
+                    quickPhotoStatus.textContent = "Fotografija je shranjena.";
                 } catch {
-                    quickPhotoStatus.textContent = "Fotografije ni bilo mogoče shraniti. Poskusi znova.";
+                    quickPhotoStatus.textContent = "Ni mogoče potrditi, ali je bila fotografija shranjena. Preveri fotografije sprehoda pred ponovnim poskusom.";
                 } finally {
                     quickPhotoInput.disabled = false;
                     quickPhotoInput.value = "";
@@ -456,11 +475,15 @@
 
         function validateGpsEnvironment() {
             if (window.isSecureContext) {
+                if (!navigator.geolocation) {
+                    gpsStatusElement.textContent = "Ta brskalnik ne podpira GPS sledenja.";
+                    setWalkGpsPresentation("unavailable", "GPS ni na voljo");
+                }
                 return;
             }
 
             gpsStatusElement.textContent = "GPS zahteva HTTPS povezavo.";
-            setWalkHealth("GPS zapis omejen");
+            setWalkGpsPresentation("unavailable", "GPS zapis omejen");
             gpsSecurityWarning.hidden = false;
             if (proximityStatusElement) {
                 proximityStatusElement.textContent = "Za živo bližinsko opozarjanje telefon potrebuje GPS dovoljenje.";
@@ -517,11 +540,21 @@
                 durationElement.textContent = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
             }
             document.getElementById("cockpitDuration").textContent = durationElement.textContent;
+            updateWalkCockpitLabel();
+        }
+
+        function updateWalkCockpitLabel() {
+            const action = walkCockpitToggle.getAttribute("aria-expanded") === "true" ? "Strni" : "Razširi";
+            const title = document.querySelector(".active-walk-cockpit__heading strong").textContent.trim();
+            const minutes = Math.max(0, Math.floor((Date.now() - startedAt.getTime()) / 60000));
+            const label = `${action} kontrole sprehoda. ${title}. Trajanje ${minutes} min, razdalja ${cockpitDistance.textContent}, ${cockpitRecording.textContent}.`;
+            if (walkCockpitToggle.getAttribute("aria-label") !== label) walkCockpitToggle.setAttribute("aria-label", label);
         }
 
         function setWalkCockpitExpanded(expanded) {
             walkCockpitActions.hidden = !expanded;
             walkCockpitToggle.setAttribute("aria-expanded", String(expanded));
+            updateWalkCockpitLabel();
             document.querySelector(".active-walk-cockpit").classList.toggle("is-expanded", expanded);
             document.querySelector(".active-walk-page").classList.toggle("cockpit-expanded", expanded);
             requestAnimationFrame(() => {
@@ -531,7 +564,24 @@
             });
         }
 
-        function setWalkHealth(message) { cockpitGpsHealth.textContent = message; }
+        function setWalkGpsPresentation(state, health) {
+            const labels = {
+                starting: "Vzpostavljam GPS …",
+                recording: "Sprehod se beleži",
+                paused: "GPS je pavziran",
+                unavailable: "Beleženje ni na voljo"
+            };
+            cockpitRecording.textContent = labels[state];
+            cockpitRecording.classList.toggle("is-recording", state === "recording");
+            cockpitRecording.classList.toggle("is-paused", state === "paused");
+            cockpitRecording.classList.toggle("is-unavailable", state === "unavailable");
+            cockpitGpsHealth.textContent = health;
+            cockpitGpsState.classList.toggle("is-good", state === "recording" && health === "GPS dober");
+            cockpitGpsState.classList.toggle("is-paused", state === "paused");
+            cockpitGpsState.classList.toggle("is-unavailable", state === "unavailable");
+            document.querySelector(".active-walk-page").classList.toggle("gps-recording", state === "recording");
+            updateWalkCockpitLabel();
+        }
 
         function showWalkNotice(message) {
             cockpitGpsNotice.hidden = !message;
@@ -693,11 +743,13 @@
             if (!window.isSecureContext) {
                 gpsStatusElement.textContent = "Brskalnik ne dovoli GPS-a na tej povezavi.";
                 gpsSecurityWarning.hidden = false;
+                setWalkGpsPresentation("unavailable", "GPS zapis omejen");
                 return;
             }
 
             if (!navigator.geolocation) {
                 gpsStatusElement.textContent = "Ta brskalnik ne podpira GPS sledenja.";
+                setWalkGpsPresentation("unavailable", "GPS ni na voljo");
                 return;
             }
 
@@ -707,8 +759,8 @@
             trackingToggle.textContent = "Pavziraj GPS";
             trackingToggle.classList.remove("btn-success");
             trackingToggle.classList.add("btn-warning");
-            gpsStatusElement.textContent = "GPS zapis teče.";
-            setWalkHealth("GPS išče signal");
+            gpsStatusElement.textContent = "Vzpostavljam GPS …";
+            setWalkGpsPresentation("starting", "GPS išče signal");
         }
 
         function startGpsWatch() {
@@ -736,6 +788,8 @@
                 gpsRecordingWarning.textContent = "Aplikacija je bila v ozadju. V tem času GPS pot morda ni bila zabeležena.";
                 showWalkNotice("Aplikacija je bila v ozadju. Del poti morda ni zabeležen.");
             }
+            gpsStatusElement.textContent = "Vzpostavljam GPS …";
+            setWalkGpsPresentation("starting", "GPS išče signal");
             startGpsWatch();
             pageHiddenAt = 0;
         }
@@ -746,6 +800,7 @@
                 gpsRecordingWarning.hidden = false;
                 gpsRecordingWarning.textContent = "Že več kot minuto ni novih GPS točk. Preveri dovoljenje za lokacijo in odprtost aplikacije.";
                 showWalkNotice("GPS že nekaj časa ne beleži poti.");
+                setWalkGpsPresentation("unavailable", "GPS ni na voljo");
             }
         }
 
@@ -774,7 +829,7 @@
             trackingToggle.classList.remove("btn-warning");
             trackingToggle.classList.add("btn-success");
             gpsStatusElement.textContent = "GPS sledenje je pavzirano.";
-            setWalkHealth("GPS pavziran");
+            setWalkGpsPresentation("paused", "GPS pavziran");
         }
 
         async function handlePosition(position, fromQueue = false, generation = watchGeneration) {
@@ -832,6 +887,7 @@
                     if (response.status === 400) incrementGpsDebug("Invalid");
                     gpsStatusElement.textContent = "GPS točka ni bila shranjena.";
                     showWalkNotice("GPS točka ni bila shranjena. Preveri povezavo.");
+                    setWalkGpsPresentation("unavailable", "GPS točka ni bila shranjena");
                     return;
                 }
 
@@ -851,24 +907,62 @@
                 setGpsDebug("Distance", `${Math.round(data.distanceMeters)} m`);
                 gpsRecordingWarning.hidden = true;
                 showWalkNotice("");
-                setWalkHealth(accuracy <= 50 ? "GPS dober" : "GPS išče signal");
+                setWalkGpsPresentation("recording", accuracy <= 50 ? "GPS dober" : "GPS išče signal");
                 distanceMeters = data.distanceMeters;
                 routePoints.push([lat, lng]);
                 pointCountElement.textContent = data.pointCount;
+                cockpitPointCount.textContent = data.pointCount;
                 distanceElement.textContent = `${(distanceMeters / 1000).toLocaleString("sl-SI", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} km`;
-                document.getElementById("cockpitDistance").textContent = distanceElement.textContent;
-                gpsStatusElement.textContent = `Zadnja tocnost: ${accuracy} m`;
+                cockpitDistance.textContent = distanceElement.textContent;
+                updateWalkCockpitLabel();
+                gpsStatusElement.textContent = `Zadnja točnost: ${accuracy} m`;
+                cockpitGpsAccuracy.textContent = gpsStatusElement.textContent;
                 updateRoute(lat, lng);
             } catch {
                 incrementGpsDebug("Failure");
                 setGpsDebug("Response", "network error");
                 if (!isFinishing) gpsStatusElement.textContent = "GPS točka ni bila shranjena. Preveri povezavo.";
                 if (!isFinishing) showWalkNotice("GPS točka ni bila shranjena. Preveri povezavo.");
+                if (!isFinishing) setWalkGpsPresentation("unavailable", "GPS točka ni bila shranjena");
             } finally {
                 isSending = false;
                 const next = pendingPosition;
                 pendingPosition = null;
                 if (next && isTracking && !isFinishing) void handlePosition(next.position, true, next.generation);
+            }
+        }
+
+        function showFinishStatus(message) {
+            finishWalkStatus.textContent = message;
+            document.getElementById("cockpitFinishStatus").textContent = message;
+        }
+
+        function allowFinishRetry(wasTracking) {
+            isFinishing = false;
+            finishWalkButton.disabled = false;
+            finishWalkButton.textContent = "Zaključi sprehod";
+            finishWalkMobileButton.disabled = false;
+            finishWalkMobileButton.textContent = "Zaključi sprehod";
+            if (wasTracking) startTracking();
+        }
+
+        async function checkFinishStatus() {
+            const controller = new AbortController();
+            const timeoutId = window.setTimeout(() => controller.abort(), 10000);
+            try {
+                const response = await fetch(`/Walks/FinishStatus/${walkId}`, {
+                    credentials: "same-origin",
+                    headers: { "Accept": "application/json" },
+                    cache: "no-store",
+                    signal: controller.signal
+                });
+                if (!response.ok || !(response.headers.get("content-type") || "").includes("application/json")) return null;
+                const result = await response.json();
+                return ["Active", "Completed", "Interrupted"].includes(result.status) ? result.status : null;
+            } catch {
+                return null;
+            } finally {
+                window.clearTimeout(timeoutId);
             }
         }
 
@@ -899,23 +993,28 @@
                     signal: controller.signal
                 });
                 if (!response.ok) {
-                    throw new Error("Zaključek ni uspel. Preveri povezavo in poskusi znova.");
+                    if (response.status >= 500) throw new Error("Uncertain finish outcome");
+                    showFinishStatus("Zaključek ni uspel. Preveri stanje sprehoda in poskusi znova.");
+                    allowFinishRetry(wasTracking);
+                    return;
                 }
                 const result = await response.json();
                 const destination = new URL(result.redirectUrl, window.location.origin);
                 if (destination.origin !== window.location.origin || !/^\/Walks\/(Details|Interrupted)(\/|$)/i.test(destination.pathname)) {
-                    throw new Error("Ciljna stran sprehoda ni na voljo. Osveži stran in preveri stanje.");
+                    throw new Error("Unexpected finish response");
                 }
                 window.location.assign(destination.href);
-            } catch (error) {
-                isFinishing = false;
-                finishWalkButton.disabled = false;
-                finishWalkButton.textContent = "Zaključi sprehod";
-                finishWalkMobileButton.disabled = false;
-                finishWalkMobileButton.textContent = "Zaključi sprehod";
-                finishWalkStatus.textContent = error.message || "Zaključek ni uspel. Poskusi znova.";
-                document.getElementById("cockpitFinishStatus").textContent = finishWalkStatus.textContent;
-                if (wasTracking) startTracking();
+            } catch {
+                showFinishStatus("Zaključevanje traja dlje kot običajno. Preverjam stanje sprehoda …");
+                const status = await checkFinishStatus();
+                if (status === "Completed" || status === "Interrupted") {
+                    window.location.assign(`/Walks/${status === "Completed" ? "Details" : "Interrupted"}/${walkId}`);
+                } else if (status === "Active") {
+                    showFinishStatus("Sprehod je še aktiven. Zaključek lahko poskusiš znova.");
+                    allowFinishRetry(wasTracking);
+                } else {
+                    showFinishStatus("Stanja sprehoda ni mogoče potrditi. Osveži stran in preveri sprehod pred ponovnim poskusom.");
+                }
             } finally {
                 window.clearTimeout(timeoutId);
             }
@@ -939,8 +1038,14 @@
 
         function handleGpsError(error) {
             setGpsDebug("Response", `GPS error ${error.code ?? "unknown"}`);
-            gpsStatusElement.textContent = error.message || "GPS lokacije ni bilo mogoče pridobiti.";
-            showWalkNotice("GPS lokacija ni na voljo. Preveri dovoljenje za lokacijo.");
+            const message = error.code === 1
+                ? "Dostop do GPS lokacije ni dovoljen. Preveri dovoljenja v brskalniku."
+                : error.code === 3
+                    ? "GPS lokacija se ni pravočasno posodobila. Poskusi znova na prostem."
+                    : "GPS lokacija trenutno ni na voljo. Poskusi znova na prostem.";
+            gpsStatusElement.textContent = message;
+            showWalkNotice(message);
+            setWalkGpsPresentation("unavailable", "GPS ni na voljo");
         }
 
         function wireStopChecklist() {
@@ -1669,14 +1774,21 @@
     }
 
     .active-walk-map-card__header h2 {
+        display: flex;
+        align-items: center;
+        gap: 6px;
         margin: 0;
         font-size: 1.1rem;
         font-weight: 900;
+        color: var(--dd-primary-strong);
     }
+
+    .active-walk-map-card__header h2 i { color: var(--dd-primary); font-size: .92em; }
 
     .active-walk-map-card__header p {
         margin: 4px 0 0;
         color: #65716d;
+        font-weight: 800;
     }
 
     .gps-security-warning {
@@ -2052,25 +2164,29 @@
             z-index: 930;
             display: block;
             max-height: min(58dvh, 420px);
-            padding: 0 14px 10px;
+            padding: 0 14px 12px;
             overflow-y: auto;
-            border-radius: 8px 8px 0 0;
-            background: #fff;
-            box-shadow: 0 -8px 28px rgba(24, 48, 38, .18);
+            border-radius: var(--dd-radius-lg) var(--dd-radius-lg) 0 0;
+            background: var(--dd-surface-strong);
+            box-shadow: 0 -10px 32px rgba(24, 48, 38, .2);
         }
 
         .active-walk-cockpit__toggle {
-            display: flex;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 28px;
             width: 100%;
-            min-height: 78px;
             align-items: center;
-            gap: 12px;
-            padding: 10px 2px;
+            gap: 8px 10px;
+            padding: 18px 2px 6px;
             border: 0;
             background: transparent;
-            color: #173c30;
+            color: var(--dd-primary-strong);
             text-align: left;
+            font-family: inherit;
+            cursor: pointer;
         }
+
+        .active-walk-cockpit__toggle:focus-visible { outline: 2px solid var(--dd-primary); outline-offset: -2px; }
 
         .active-walk-cockpit__grip {
             position: absolute;
@@ -2082,46 +2198,72 @@
             background: #b5c6bb;
         }
 
-        .active-walk-cockpit__summary { flex: 1; min-width: 0; }
-        .active-walk-cockpit__summary strong,
-        .active-walk-cockpit__summary span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .active-walk-cockpit__summary strong { font-size: 1rem; }
-        .active-walk-cockpit__summary span { margin-top: 3px; color: #52665e; font-size: .86rem; }
-        .active-walk-cockpit__toggle i { font-size: 1.2rem; }
-        .active-walk-cockpit.is-expanded .active-walk-cockpit__toggle i { transform: rotate(180deg); }
+        .active-walk-cockpit__heading { display: grid; min-width: 0; gap: 1px; }
+        .active-walk-cockpit__heading strong { overflow: hidden; font-size: 1.04rem; font-weight: 900; line-height: 1.15; text-overflow: ellipsis; white-space: nowrap; }
+        .active-walk-cockpit__recording { display: inline-flex; align-items: center; gap: 6px; color: var(--dd-muted); font-size: .73rem; font-weight: 800; }
+        .active-walk-cockpit__recording::before { width: 7px; height: 7px; flex: none; border-radius: 50%; background: var(--dd-accent); content: ""; }
+        .active-walk-cockpit__recording.is-recording { color: var(--dd-primary); }
+        .active-walk-cockpit__recording.is-recording::before { background: #23ae69; }
+        .active-walk-cockpit__recording.is-paused { color: #87601f; }
+        .active-walk-cockpit__recording.is-unavailable { color: #a94539; }
+        .active-walk-cockpit__recording.is-unavailable::before { background: #a94539; }
+        .active-walk-cockpit__chevron { justify-self: end; font-size: 1.15rem; transition: transform .16s ease; }
+        .active-walk-cockpit.is-expanded .active-walk-cockpit__chevron { transform: rotate(180deg); }
+        .active-walk-cockpit__metrics { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 6px 4px; border-radius: var(--dd-radius-md); background: var(--dd-primary-soft); }
+        .active-walk-cockpit__metrics > span { min-width: 0; padding: 0 4px; text-align: center; }
+        .active-walk-cockpit__metrics > span + span { border-left: 1px solid rgba(36, 105, 90, .16); }
+        .active-walk-cockpit__metrics strong, .active-walk-cockpit__metrics small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .active-walk-cockpit__metrics strong { color: var(--dd-primary-strong); font-size: .98rem; font-weight: 900; line-height: 1.25; }
+        .active-walk-cockpit__metrics small { color: var(--dd-muted); font-size: .68rem; font-weight: 800; }
+        .active-walk-cockpit__gps { grid-column: 1 / -1; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 8px; color: var(--dd-muted); font-size: .72rem; font-weight: 800; }
+        .active-walk-cockpit__gps > span { color: var(--dd-primary-strong); }
+        .active-walk-cockpit__gps > span::before { display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: var(--dd-accent); content: ""; }
+        .active-walk-cockpit__gps.is-good > span::before { background: #23ae69; }
+        .active-walk-cockpit__gps.is-paused > span { color: #87601f; }
+        .active-walk-cockpit__gps.is-unavailable > span { color: #a94539; }
+        .active-walk-cockpit__gps.is-unavailable > span::before { background: #a94539; }
+        .active-walk-cockpit__gps small { font: inherit; }
         .active-walk-cockpit__actions[hidden],
         .active-walk-cockpit__notice[hidden] { display: none; }
-        .active-walk-cockpit__notice { margin: 0 0 8px; color: #82511f; font-size: .8rem; }
+        .active-walk-cockpit__notice { margin: 4px 0 8px; padding: 7px 9px; border-radius: var(--dd-radius-sm); background: var(--dd-accent-soft); color: #82511f; font-size: .8rem; }
+        .active-walk-cockpit__actions { margin-top: 8px; padding-top: 9px; border-top: 1px solid var(--dd-border); }
         .active-walk-cockpit__action-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
         .active-walk-cockpit__photo-form { margin: 0; min-width: 0; }
         .active-walk-cockpit__action {
             display: flex;
-            min-height: 54px;
+            width: 100%;
+            min-width: 0;
+            min-height: 58px;
             align-items: center;
             justify-content: center;
-            gap: 5px;
-            padding: 6px;
-            border: 1px solid #cdded2;
-            border-radius: 6px;
-            color: #24695a;
-            background: #f2f8f3;
-            font-size: .78rem;
+            flex-direction: column;
+            gap: 2px;
+            padding: 6px 3px;
+            border: 1px solid rgba(36, 105, 90, .14);
+            border-radius: var(--dd-radius-md);
+            color: var(--dd-primary);
+            background: #f1f8f3;
+            font-size: .76rem;
             font-weight: 800;
             text-align: center;
             text-decoration: none;
             cursor: pointer;
         }
-        .active-walk-cockpit__action i { flex: none; }
+        .active-walk-cockpit__action i { flex: none; font-size: 1.12rem; }
+        .active-walk-cockpit__action span { max-width: 100%; overflow-wrap: anywhere; }
+        .active-walk-cockpit__action:focus-within, .active-walk-cockpit__action:focus-visible { outline: 2px solid var(--dd-primary); outline-offset: 2px; }
         .active-walk-cockpit__action input[type="file"] { position: absolute; width: 1px; height: 1px; opacity: 0; }
         .active-walk-cockpit__finish {
             width: 100%;
-            min-height: 50px;
-            margin-top: 10px;
+            min-height: 52px;
+            margin-top: 12px;
             border: 0;
-            border-radius: 6px;
+            border-radius: var(--dd-radius-md);
             background: #a94539;
             color: #fff;
-            font-weight: 800;
+            font: inherit;
+            font-weight: 900;
+            box-shadow: 0 7px 18px rgba(117, 47, 40, .18);
         }
         .active-walk-cockpit__finish:disabled { opacity: .65; }
         #mobileNextStopSlot .active-walk-next-stop-card:not([hidden]) {
@@ -2173,6 +2315,8 @@
             font-size: 1rem;
         }
 
+        .active-walk-page.gps-recording .active-walk-map-card__header p { color: var(--dd-primary); }
+
         .active-walk-map-card__header p {
             overflow: hidden;
             max-width: 54vw;
@@ -2182,7 +2326,7 @@
         }
 
         #trackingToggle {
-            min-height: 42px;
+            min-height: 44px;
             padding: 8px 12px;
             white-space: nowrap;
         }
@@ -2217,8 +2361,9 @@
 
         .active-walk-metrics article {
             padding: 8px 6px;
-            border-radius: 14px;
-            background: rgba(255, 255, 255, 0.92);
+            border: 1px solid rgba(36, 105, 90, .13);
+            border-radius: var(--dd-radius-md);
+            background: rgba(238, 247, 237, .94);
             box-shadow: 0 10px 24px rgba(31, 45, 41, 0.14);
             text-align: center;
             backdrop-filter: blur(14px);

@@ -47,21 +47,23 @@
                 <a class="dogs-dashboard__selector-add" asp-action="Create" aria-label="Dodaj psa"><i class="bi bi-plus-lg" aria-hidden="true"></i></a>
             </nav>
         }
-        <div class="dogs-dashboard__dog">
-            <div class="dogs-dashboard__portrait">
-                <span aria-hidden="true">@(string.IsNullOrWhiteSpace(dog.Name) ? "P" : dog.Name[..1].ToUpperInvariant())</span>
-                @if (!string.IsNullOrWhiteSpace(dog.PhotoUrl)) { <img src="@dog.PhotoUrl" alt="@dog.Name" onerror="this.hidden=true" /> }
+        <div class="dogs-dashboard__identity">
+            <div class="dogs-dashboard__dog">
+                <div class="dogs-dashboard__portrait">
+                    <span aria-hidden="true">@(string.IsNullOrWhiteSpace(dog.Name) ? "P" : dog.Name[..1].ToUpperInvariant())</span>
+                    @if (!string.IsNullOrWhiteSpace(dog.PhotoUrl)) { <img src="@dog.PhotoUrl" alt="@dog.Name" onerror="this.hidden=true" /> }
+                </div>
+                <div class="dogs-dashboard__intro">
+                    <span>Moj pes</span>
+                    <h2>@dog.Name</h2>
+                    @if (!string.IsNullOrWhiteSpace(dog.Breed)) { <p>@dog.Breed</p> }
+                </div>
             </div>
-            <div class="dogs-dashboard__intro">
-                <span>Moj pes</span>
-                <h2>@dog.Name</h2>
-                @if (!string.IsNullOrWhiteSpace(dog.Breed)) { <p>@dog.Breed</p> }
+            <div class="dogs-dashboard__facts" aria-label="Skupna aktivnost">
+                <div><strong>@Model.CompletedWalkCount</strong><span>sprehodi</span></div>
+                <div><strong>@SlovenianFormatting.WalkDistance(Model.TotalDistanceKm * 1000)</strong><span>prehojeno</span></div>
+                <div><strong>@Model.ParkLocationCount</strong><span>obiskani parki</span></div>
             </div>
-        </div>
-        <div class="dogs-dashboard__facts" aria-label="Skupna aktivnost">
-            <div><strong>@Model.CompletedWalkCount</strong><span>sprehodi</span></div>
-            <div><strong>@SlovenianFormatting.WalkDistance(Model.TotalDistanceKm * 1000)</strong><span>prehojeno</span></div>
-            <div><strong>@Model.ParkLocationCount</strong><span>obiskani parki</span></div>
         </div>
         <div class="dogs-dashboard__actions">
             @if (Model.ActiveWalkId.HasValue)
@@ -111,9 +113,10 @@
                 <div class="dogs-dashboard__walks">
                     @foreach (var walk in Model.RecentWalks)
                     {
+                        var localTime = WalkMemoryPresentation.LocalTime(walk.EndedAt ?? walk.StartedAt);
                         <a asp-controller="Walks" asp-action="Details" asp-route-id="@walk.Id">
-                            <span>@(walk.EndedAt ?? walk.StartedAt).ToLocalTime().ToString("d. MMM yyyy", sl)</span>
-                            <strong>@SlovenianFormatting.WalkDistance(walk.DistanceMeters)</strong>
+                            <time datetime="@((walk.EndedAt ?? walk.StartedAt).ToString("O"))">@(localTime.ToString("dd. MM. yyyy", sl))</time>
+                            <span class="dogs-dashboard__walk-meta">@(localTime.ToString("HH:mm", sl)) <strong>· @SlovenianFormatting.WalkDistance(walk.DistanceMeters)</strong></span>
                             <i class="bi bi-chevron-right" aria-hidden="true"></i>
                         </a>
                     }
@@ -142,8 +145,8 @@
 <style>
     .dogs-dashboard { max-width: 820px; padding-bottom: var(--app-bottom-nav-clearance, 100px); }
     .dogs-dashboard__header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
-    .dogs-dashboard__header h1 { margin: 0; font-size: 1.45rem; }
-    .dogs-dashboard__header a { min-height: 44px; display: inline-flex; align-items: center; gap: 6px; color: #24695a; font-weight: 800; text-decoration: none; }
+    .dogs-dashboard__header h1 { margin: 0; color: var(--dd-text); font-family: inherit; font-size: 1.7rem; font-weight: 900; line-height: 1.1; }
+    .dogs-dashboard__header a { min-height: 44px; display: inline-flex; align-items: center; gap: 6px; color: var(--dd-primary); font-weight: 800; text-decoration: none; white-space: nowrap; }
     .dogs-dashboard__selector, .dogs-dashboard__photos { display: flex; max-width: 100%; gap: 8px; overflow-x: auto; padding-bottom: 8px; }
     .dogs-dashboard__selector a { display: flex; flex: none; align-items: center; gap: 7px; max-width: min(240px, 72vw); min-height: 44px; padding: 4px 10px; border: 1px solid #d7e2d9; border-radius: 8px; color: #24483b; text-decoration: none; }
     .dogs-dashboard__selector a.is-active { border-color: #24695a; background: #e7f1e9; font-weight: 800; }
@@ -151,17 +154,19 @@
     .dogs-dashboard__selector img, .dogs-dashboard__selector-avatar { flex: none; width: 30px; height: 30px; border-radius: 50%; object-fit: cover; }
     .dogs-dashboard__selector-avatar { display: grid; place-items: center; background: #e3efe5; }
     .dogs-dashboard__selector-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .dogs-dashboard__dog { display: grid; grid-template-columns: minmax(105px, 36%) 1fr; gap: 14px; align-items: center; margin-top: 8px; }
-    .dogs-dashboard__portrait { position: relative; aspect-ratio: 1; display: grid; place-items: center; overflow: hidden; border-radius: 8px; background: #e3efe5; color: #24695a; font-size: 3rem; font-weight: 900; }
+    .dogs-dashboard__identity { margin-top: 10px; padding: 12px 14px 4px; border: 1px solid var(--dd-border); border-radius: var(--dd-radius-lg); background: linear-gradient(135deg, var(--dd-primary-soft), #f7fbf7); box-shadow: 0 10px 26px rgba(20, 40, 35, .08); }
+    .dogs-dashboard__dog { display: grid; grid-template-columns: minmax(105px, 34%) minmax(0, 1fr); gap: 14px; align-items: center; }
+    .dogs-dashboard__portrait { position: relative; aspect-ratio: 1; display: grid; place-items: center; overflow: hidden; border-radius: var(--dd-radius-md); background: #d8ebdf; color: var(--dd-primary); font-size: 3rem; font-weight: 900; }
     .dogs-dashboard__portrait img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-    .dogs-dashboard__intro h2 { margin: 2px 0 6px; font-size: 1.8rem; overflow-wrap: anywhere; }
-    .dogs-dashboard__intro p { margin: 3px 0; color: #52665e; }
+    .dogs-dashboard__intro { min-width: 0; }
+    .dogs-dashboard__intro h2 { margin: 2px 0 6px; color: var(--dd-primary-strong); font-family: inherit; font-size: 1.9rem; font-weight: 900; line-height: 1.08; overflow-wrap: anywhere; }
+    .dogs-dashboard__intro p { margin: 3px 0; color: var(--dd-muted); font-weight: 700; }
     .dogs-dashboard__intro span { color: #24695a; font-size: .76rem; font-weight: 800; text-transform: uppercase; }
-    .dogs-dashboard__facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 12px; border-top: 1px solid #dce7df; border-bottom: 1px solid #dce7df; }
+    .dogs-dashboard__facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 10px; border-top: 1px solid rgba(36, 105, 90, .16); }
     .dogs-dashboard__facts div { min-width: 0; padding: 9px 5px; text-align: center; }
     .dogs-dashboard__facts div + div { border-left: 1px solid #dce7df; }
     .dogs-dashboard__facts strong, .dogs-dashboard__facts span { display: block; }
-    .dogs-dashboard__facts strong { color: #234339; font-size: 1.1rem; }
+    .dogs-dashboard__facts strong { color: var(--dd-primary-strong); font-size: 1.1rem; font-weight: 900; overflow-wrap: anywhere; }
     .dogs-dashboard__facts span { color: #52665e; font-size: .76rem; }
     .dogs-dashboard__actions { display: grid; grid-template-columns: 1.25fr 1fr; gap: 8px; margin-top: 12px; }
     .dogs-dashboard__actions form { margin: 0; }
@@ -183,10 +188,13 @@
     .dogs-dashboard__photos a { position: relative; display: grid; flex: 0 0 118px; aspect-ratio: 1; place-items: center; overflow: hidden; border-radius: 7px; background: #eaf1f4; }
     .dogs-dashboard__photo-fallback { padding: 8px; color: #52665e; font-size: .75rem; text-align: center; }
     .dogs-dashboard__photos img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-    .dogs-dashboard__walks a { display: flex; align-items: center; gap: 10px; min-height: 50px; border-bottom: 1px solid #e4ebe5; color: #263c32; text-decoration: none; }
-    .dogs-dashboard__walks strong { margin-left: auto; white-space: nowrap; }
-    .dogs-dashboard__walks small { white-space: nowrap; color: #687a70; }
+    .dogs-dashboard__walks a { display: grid; grid-template-columns: minmax(0, 1fr) auto 18px; align-items: center; gap: 8px; min-height: 52px; border-bottom: 1px solid #e4ebe5; color: #263c32; text-decoration: none; }
+    .dogs-dashboard__walks time { min-width: 0; font-weight: 800; white-space: nowrap; }
+    .dogs-dashboard__walk-meta { color: var(--dd-muted); white-space: nowrap; }
+    .dogs-dashboard__walk-meta strong { color: var(--dd-primary-strong); font-weight: 900; }
+    .dogs-dashboard__walks i { justify-self: end; color: var(--dd-primary); }
     .dogs-dashboard__empty { max-width: 440px; padding: 28px 0; }
     .dogs-dashboard__empty a { width: fit-content; margin-top: 14px; padding-inline: 20px; }
-    @@media (max-width: 420px) { .dogs-dashboard__intro h2 { font-size: 1.5rem; } .dogs-dashboard__facts span { font-size: .7rem; } }
+    @@media (max-width: 420px) { .dogs-dashboard__intro h2 { font-size: 1.65rem; } .dogs-dashboard__facts span { font-size: .7rem; } }
+    @@media (max-width: 350px) { .dogs-dashboard__walks a { grid-template-columns: minmax(0, 1fr) 18px; row-gap: 0; padding: 6px 0; } .dogs-dashboard__walk-meta { grid-column: 1; grid-row: 2; } .dogs-dashboard__walks i { grid-column: 2; grid-row: 1 / span 2; } }
 </style>

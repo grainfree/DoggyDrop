@@ -691,6 +691,21 @@ namespace DoggyDrop.Controllers
         }
 
         [HttpGet]
+        [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+        public async Task<IActionResult> FinishStatus(int id)
+        {
+            var userId = _userManager.GetUserId(User);
+            if (string.IsNullOrWhiteSpace(userId)) return Challenge();
+
+            var status = await _context.Walks.AsNoTracking()
+                .Where(walk => walk.Id == id && walk.OwnerId == userId)
+                .Select(walk => walk.Status)
+                .FirstOrDefaultAsync();
+
+            return status == null ? NotFound() : Json(new { status });
+        }
+
+        [HttpGet]
         public async Task<IActionResult> Interrupted(int id)
         {
             var userId = _userManager.GetUserId(User);
@@ -1257,7 +1272,6 @@ namespace DoggyDrop.Controllers
             var walk = await _context.Walks
                 .AsNoTracking()
                 .Include(w => w.Dog)
-                .Include(w => w.Points)
                 .FirstOrDefaultAsync(w => w.Id == id && w.OwnerId == userId);
 
             if (walk == null)

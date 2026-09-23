@@ -24,6 +24,33 @@ public sealed class WalksControllerFinishTests : IDisposable
     private const string UserId = "test-user";
     private readonly string _databasePath = Path.Combine(Path.GetTempPath(), $"doggydrop-tests-{Guid.NewGuid():N}.db");
 
+    [Theory]
+    [InlineData("Active")]
+    [InlineData("Completed")]
+    [InlineData("Interrupted")]
+    public async Task FinishStatus_ReadsOwnedWalkWithoutConsumingRewards(string status)
+    {
+        var walkId = await SeedAsync(500, status);
+        await using var context = CreateContext();
+        var controller = CreateController(context);
+        controller.TempData[$"WalkRewardResult:{walkId}"] = "reward";
+
+        var result = Assert.IsType<JsonResult>(await controller.FinishStatus(walkId));
+
+        Assert.Equal(status, result.Value!.GetType().GetProperty("status")!.GetValue(result.Value));
+        Assert.True(controller.TempData.ContainsKey($"WalkRewardResult:{walkId}"));
+        Assert.Equal(status, (await context.Walks.AsNoTracking().SingleAsync()).Status);
+    }
+
+    [Fact]
+    public async Task FinishStatus_DoesNotExposeAnotherUsersWalk()
+    {
+        var walkId = await SeedAsync(500);
+        await using var context = CreateContext();
+
+        Assert.IsType<NotFoundResult>(await CreateController(context, userId: "other-user").FinishStatus(walkId));
+    }
+
     [Fact]
     public async Task Finish_CompletesAndAwardsEachRewardOnce()
     {

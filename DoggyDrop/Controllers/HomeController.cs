@@ -225,6 +225,7 @@ namespace DoggyDrop.Controllers
                     .GroupBy(w => new
                     {
                         w.DogId,
+                        OwnerId = w.Dog?.OwnerId ?? string.Empty,
                         DogName = w.Dog?.Name ?? "Pes",
                         DogPhotoUrl = w.Dog?.PhotoUrl,
                         OwnerName = GetDisplayName(w.Owner)
@@ -232,6 +233,7 @@ namespace DoggyDrop.Controllers
                     .Select(group => new CommunityLeaderboardItem
                     {
                         DogId = group.Key.DogId,
+                        OwnerId = group.Key.OwnerId,
                         DogName = group.Key.DogName,
                         DogPhotoUrl = group.Key.DogPhotoUrl,
                         OwnerName = group.Key.OwnerName,

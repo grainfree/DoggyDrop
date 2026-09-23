@@ -88,6 +88,8 @@ namespace DoggyDrop.ViewModels
     {
         public int DogId { get; set; }
 
+        public string OwnerId { get; set; } = string.Empty;
+
         public string DogName { get; set; } = string.Empty;
 
         public string? DogPhotoUrl { get; set; }
