@@ -81,6 +81,193 @@ public sealed class WalksControllerFinishTests : IDisposable
     }
 
     [Fact]
+    public async Task AddPoint_ReportsPersistedCountAndRecordedDistance()
+    {
+        var walkId = await SeedAsync(distanceMeters: 0);
+        await using var context = CreateContext();
+        var controller = CreateController(context);
+
+        await controller.AddPoint(walkId, new WalkPointInput { Latitude = 46, Longitude = 15 });
+        var result = Assert.IsType<JsonResult>(await controller.AddPoint(walkId, new WalkPointInput { Latitude = 46.001, Longitude = 15 }));
+
+        Assert.Equal(2, result.Value!.GetType().GetProperty("pointCount")!.GetValue(result.Value));
+        Assert.Equal(2, await context.WalkPoints.CountAsync());
+        Assert.True((await context.Walks.AsNoTracking().SingleAsync()).DistanceMeters > 100);
+    }
+
+    [Fact]
+    public async Task AddPoint_RejectsNonFiniteCoordinates()
+    {
+        var walkId = await SeedAsync(distanceMeters: 0);
+        await using var context = CreateContext();
+
+        var result = await CreateController(context).AddPoint(walkId, new WalkPointInput { Latitude = double.NaN, Longitude = 15 });
+
+        Assert.IsType<BadRequestObjectResult>(result);
+        Assert.False(await context.WalkPoints.AnyAsync());
+    }
+
+    [Fact]
+    public async Task AddPoint_SequentialDuplicateIsNotPersisted()
+    {
+        var walkId = await SeedAsync(0);
+        var time = DateTime.UtcNow.AddSeconds(-10);
+        await using var context = CreateContext();
+        var controller = CreateController(context);
+        await controller.AddPoint(walkId, new WalkPointInput { Latitude = 46, Longitude = 15, RecordedAt = time });
+        var duplicate = Assert.IsType<JsonResult>(await controller.AddPoint(walkId, new WalkPointInput { Latitude = 46, Longitude = 15, RecordedAt = time }));
+
+        Assert.Equal("duplicate", ResultValue(duplicate, "outcome"));
+        Assert.Equal(1, ResultValue(duplicate, "pointCount"));
+        Assert.Equal(1, await context.WalkPoints.CountAsync());
+        Assert.Equal(0, (await context.Walks.AsNoTracking().SingleAsync()).DistanceMeters);
+    }
+
+    [Fact]
+    public async Task AddPoint_OutOfOrderDoesNotChangeDistance()
+    {
+        var walkId = await SeedAsync(0);
+        var time = DateTime.UtcNow.AddSeconds(-10);
+        await using var context = CreateContext();
+        var controller = CreateController(context);
+        await controller.AddPoint(walkId, new WalkPointInput { Latitude = 46, Longitude = 15, RecordedAt = time });
+        var older = Assert.IsType<JsonResult>(await controller.AddPoint(walkId, new WalkPointInput { Latitude = 46.001, Longitude = 15, RecordedAt = time.AddSeconds(-1) }));
+
+        Assert.Equal("out-of-order", ResultValue(older, "outcome"));
+        Assert.Equal(1, await context.WalkPoints.CountAsync());
+        Assert.Equal(0, (await context.Walks.AsNoTracking().SingleAsync()).DistanceMeters);
+    }
+
+    [Fact]
+    public async Task AddPoint_ConcurrentDuplicatesPersistOnce()
+    {
+        var walkId = await SeedAsync(0);
+        var time = DateTime.UtcNow.AddSeconds(-10);
+        async Task<IActionResult> SubmitAsync()
+        {
+            await using var context = CreateContext();
+            return await CreateController(context).AddPoint(walkId, new WalkPointInput { Latitude = 46, Longitude = 15, RecordedAt = time });
+        }
+
+        var results = await Task.WhenAll(SubmitAsync(), SubmitAsync());
+        Assert.Equal(1, results.Count(result => ResultValue(Assert.IsType<JsonResult>(result), "outcome")?.ToString() == "accepted"));
+        await using var verification = CreateContext();
+        Assert.Single(await verification.WalkPoints.ToListAsync());
+        Assert.Equal(0, (await verification.Walks.SingleAsync()).DistanceMeters);
+    }
+
+    [Fact]
+    public async Task AddPoint_ConcurrentSamplesUseLatestAcceptedPoint()
+    {
+        var walkId = await SeedAsync(0);
+        var time = DateTime.UtcNow.AddSeconds(-20);
+        await using (var setup = CreateContext())
+            await CreateController(setup).AddPoint(walkId, new WalkPointInput { Latitude = 46, Longitude = 15, RecordedAt = time });
+
+        async Task SubmitAsync(double latitude, int seconds)
+        {
+            await using var context = CreateContext();
+            await CreateController(context).AddPoint(walkId, new WalkPointInput { Latitude = latitude, Longitude = 15, RecordedAt = time.AddSeconds(seconds) });
+        }
+        await Task.WhenAll(SubmitAsync(46.001, 5), SubmitAsync(46.002, 10));
+
+        await using var verification = CreateContext();
+        var points = await verification.WalkPoints.OrderBy(point => point.RecordedAt).ToListAsync();
+        Assert.InRange(points.Count, 2, 3);
+        var expected = points.Zip(points.Skip(1), (first, second) =>
+            6371000d * 2 * Math.Asin(Math.Sqrt(Math.Pow(Math.Sin((second.Latitude - first.Latitude) * Math.PI / 360), 2)))).Sum();
+        Assert.InRange((await verification.Walks.SingleAsync()).DistanceMeters, expected - 0.1, expected + 0.1);
+    }
+
+    [Fact]
+    public async Task AddPoint_RacingFinishNeverWritesAfterCompletion()
+    {
+        var walkId = await SeedAsync(2_000);
+        var time = DateTime.UtcNow.AddSeconds(-10);
+        async Task<IActionResult> SubmitAsync()
+        {
+            await using var context = CreateContext();
+            return await CreateController(context).AddPoint(walkId, new WalkPointInput { Latitude = 46, Longitude = 15, RecordedAt = time });
+        }
+
+        var results = await Task.WhenAll(SubmitAsync(), FinishWithNewContextAsync(walkId));
+        await using var verification = CreateContext();
+        var completed = await verification.Walks.SingleAsync();
+        Assert.Equal("Completed", completed.Status);
+        var count = await verification.WalkPoints.CountAsync();
+        Assert.InRange(count, 0, 1);
+        Assert.Single(await verification.UserXpEvents.ToListAsync());
+        Assert.Single(await verification.DogXpEvents.ToListAsync());
+        Assert.IsType<ConflictObjectResult>(await SubmitAsync());
+        Assert.Equal(count, await verification.WalkPoints.CountAsync());
+        Assert.Equal(completed.DistanceMeters, (await verification.Walks.AsNoTracking().SingleAsync()).DistanceMeters);
+    }
+
+    [Theory]
+    [InlineData("Completed")]
+    [InlineData("Interrupted")]
+    public async Task AddPoint_AfterTerminalStatusDoesNotPersist(string status)
+    {
+        var walkId = await SeedAsync(250, status);
+        await using var context = CreateContext();
+        var result = await CreateController(context).AddPoint(walkId, new WalkPointInput { Latitude = 46, Longitude = 15 });
+
+        Assert.Equal("no-longer-active", ResultValue(Assert.IsType<ConflictObjectResult>(result), "outcome"));
+        Assert.Empty(await context.WalkPoints.ToListAsync());
+        Assert.Equal(250, (await context.Walks.AsNoTracking().SingleAsync()).DistanceMeters);
+    }
+
+    [Fact]
+    public async Task AddPoint_StaleWalkInterruptsWithoutPointOrRewards()
+    {
+        var walkId = await SeedAsync(250);
+        await using (var setup = CreateContext())
+        {
+            var walk = await setup.Walks.SingleAsync();
+            walk.StartedAt = DateTime.UtcNow.AddDays(-2);
+            await setup.SaveChangesAsync();
+        }
+        await using var context = CreateContext();
+        var result = await CreateController(context).AddPoint(walkId, new WalkPointInput { Latitude = 46, Longitude = 15 });
+
+        Assert.Equal("Interrupted", ResultValue(Assert.IsType<ConflictObjectResult>(result), "status"));
+        Assert.Empty(await context.WalkPoints.ToListAsync());
+        Assert.Equal(250, (await context.Walks.AsNoTracking().SingleAsync()).DistanceMeters);
+        Assert.False(await context.UserXpEvents.AnyAsync());
+    }
+
+    [Fact]
+    public async Task AddPoint_RejectsClearlyUnusableAccuracyAndTeleport()
+    {
+        var walkId = await SeedAsync(0);
+        var time = DateTime.UtcNow.AddSeconds(-10);
+        await using var context = CreateContext();
+        var controller = CreateController(context);
+        var badAccuracy = await controller.AddPoint(walkId, new WalkPointInput { Latitude = 46, Longitude = 15, AccuracyMeters = 1500 });
+        Assert.Equal("invalid", ResultValue(Assert.IsType<BadRequestObjectResult>(badAccuracy), "outcome"));
+        await controller.AddPoint(walkId, new WalkPointInput { Latitude = 46, Longitude = 15, RecordedAt = time });
+        var teleport = await controller.AddPoint(walkId, new WalkPointInput { Latitude = 47, Longitude = 15, RecordedAt = time.AddSeconds(1), AccuracyMeters = 15 });
+
+        Assert.Equal("invalid", ResultValue(Assert.IsType<BadRequestObjectResult>(teleport), "outcome"));
+        Assert.Single(await context.WalkPoints.ToListAsync());
+        Assert.Equal(0, (await context.Walks.AsNoTracking().SingleAsync()).DistanceMeters);
+    }
+
+    private static object? ResultValue(IActionResult result, string name)
+    {
+        var value = result switch { JsonResult json => json.Value, ObjectResult other => other.Value, _ => null };
+        return value?.GetType().GetProperty(name)?.GetValue(value);
+    }
+
+    [Fact]
+    public void WalkFormatting_UsesSlovenianPrecisionAndDuration()
+    {
+        Assert.Equal("0,02 km", SlovenianFormatting.WalkDistance(20));
+        Assert.Equal("22 min", SlovenianFormatting.WalkDuration(TimeSpan.FromMinutes(22)));
+        Assert.Equal("1 h 5 min", SlovenianFormatting.WalkDuration(TimeSpan.FromMinutes(65)));
+    }
+
+    [Fact]
     public async Task Finish_StaleWalkIsInterruptedAtLastGpsPointWithoutRewards()
     {
         var walkId = await SeedAsync(distanceMeters: 850);

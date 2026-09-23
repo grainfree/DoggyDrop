@@ -12,10 +12,9 @@
     var visibleRewardAchievements = rewardResult?.GetVisibleAchievements(showFirstWalkCelebration) ?? [];
     var currentUserId = UserManager.GetUserId(User);
     var duration = Model.EndedAt.HasValue ? Model.EndedAt.Value - Model.StartedAt : TimeSpan.Zero;
-    var durationLabel = duration.TotalMinutes < 1
-        ? $"{Math.Max(0, (int)duration.TotalSeconds)} s"
-        : duration.TotalHours < 1 ? $"{(int)duration.TotalMinutes} min" : $"{(int)duration.TotalHours} h {duration.Minutes} min";
+    var durationLabel = SlovenianFormatting.WalkDuration(duration);
     var distanceKm = Model.DistanceMeters / 1000;
+    var distanceLabel = SlovenianFormatting.WalkDistance(Model.DistanceMeters);
     var walkStory = ViewBag.WalkStory as string
         ?? $"{Model.Dog?.Name ?? "Pes"} je danes prehodil {distanceKm:0.0} km v DoggyDrop.";
     var shareText = showFirstWalkCelebration
@@ -454,12 +453,12 @@
             <h1>@Model.Dog?.Name - sprehod</h1>
             <p>@Model.StartedAt.ToLocalTime().ToString("d. MMMM · HH:mm", System.Globalization.CultureInfo.GetCultureInfo("sl-SI"))</p>
         </div>
-        <a class="btn btn-outline-light rounded-pill fw-semibold" asp-controller="Dogs" asp-action="Details" asp-route-id="@Model.DogId">Profil psa</a>
+        <a class="walk-summary__dog-link" asp-controller="Dogs" asp-action="Details" asp-route-id="@Model.DogId">Profil psa</a>
     </header>
 
     <div class="walk-summary__stats">
         <article>
-            <strong>@distanceKm.ToString("0.00", System.Globalization.CultureInfo.GetCultureInfo("sl-SI")) km</strong>
+            <strong>@distanceLabel</strong>
             <span>Razdalja</span>
         </article>
         <article>
@@ -471,6 +470,11 @@
             <span>Uporabljeni koši</span>
         </article>
     </div>
+
+    @if ((Model.Points?.Count ?? 0) < 10 && duration.TotalMinutes >= 10)
+    {
+        <p class="walk-gps-limited">GPS je med sprehodom zabeležil malo točk. Prikazana razdalja temelji le na shranjenem delu poti.</p>
+    }
 
     <div class="walk-summary__top-actions">
         <button type="button" data-share-walk-story><i class="bi bi-share" aria-hidden="true"></i> Deli sprehod</button>
@@ -644,8 +648,8 @@
             <span>Povzetek sprehoda</span>
             <h2>@walkStory</h2>
             <div class="walk-story-card__meta">
-                <strong>@distanceKm.ToString("0.0", System.Globalization.CultureInfo.GetCultureInfo("sl-SI")) km</strong>
-                <strong>@duration.ToString(@"hh\:mm")</strong>
+                <strong>@distanceLabel</strong>
+                <strong>@durationLabel</strong>
                 <strong>@walkPhotos.Count foto</strong>
             </div>
             <p>Vsak sprehod ima svojo zgodbo. Shrani fotografije, zemljevid poti in najlepše trenutke s svojim psom.</p>
@@ -674,6 +678,12 @@
         </div>
     </article>
 
+    <section id="walkSharePreview" class="walk-share-preview" hidden aria-label="Predogled deljenja">
+    <div class="walk-share-formats" role="radiogroup" aria-label="Oblika slike">
+        <label><input type="radio" name="walkShareFormat" value="instagram-story" checked /> Instagram Story</label>
+        <label><input type="radio" name="walkShareFormat" value="facebook-story" /> Facebook Story</label>
+        <label><input type="radio" name="walkShareFormat" value="post" /> Objava 4:5</label>
+    </div>
     <article class="walk-share-card" id="walkShareCard">
         <div class="walk-share-card__photos @(sharePhotos.Count switch { 0 => "is-empty", 1 => "is-single", 2 => "is-double", _ => "is-triple" })">
             @if (sharePhotos.Count == 0 && !string.IsNullOrWhiteSpace(Model.Dog?.PhotoUrl))
@@ -696,9 +706,9 @@
         <div class="walk-share-card__content">
             <div class="walk-share-card__brand">DoggyDrop</div>
             <div class="walk-share-card__dog">@Model.Dog?.Name</div>
-            <div class="walk-share-card__metric">@distanceKm.ToString("0.00", System.Globalization.CultureInfo.GetCultureInfo("sl-SI")) km</div>
+        <div class="walk-share-card__metric">@distanceLabel</div>
             <div class="walk-share-card__grid">
-                <span>@duration.ToString(@"hh\:mm")</span>
+                <span>@durationLabel</span>
                 <span>@Model.UsedBinsCount košev</span>
             </div>
             <p>@Model.StartedAt.ToLocalTime().ToString("dd.MM.yyyy")</p>
@@ -706,10 +716,11 @@
     </article>
 
     <div class="walk-share-actions">
-        <button type="button" id="shareWalkStory">Deli</button>
+        <button type="button" id="shareWalkStory" disabled>Deli</button>
         <button type="button" id="copyWalkShareText">Kopiraj povzetek</button>
         <span id="walkShareFeedback"></span>
     </div>
+    </section>
 
     <article class="walk-media-card">
         <div class="walk-summary__map-header">
@@ -721,9 +732,13 @@
         {
             <form asp-controller="Walks" asp-action="AddPhoto" asp-route-id="@Model.Id" method="post" enctype="multipart/form-data" class="walk-photo-upload">
                 @Html.AntiForgeryToken()
-                <input type="file" name="photo" accept="image/*" required />
-                <input type="text" name="caption" maxlength="120" placeholder="Kratek opis fotke" />
-                <button type="submit">Dodaj foto</button>
+                <label class="walk-photo-upload__pick"><i class="bi bi-camera" aria-hidden="true"></i> Dodaj fotografijo
+                    <input type="file" name="photo" accept="image/*" required />
+                </label>
+                <details class="walk-photo-upload__details"><summary>Dodaj opis</summary>
+                    <input type="text" name="caption" maxlength="120" placeholder="Opis (neobvezno)" />
+                </details>
+                <button type="submit">Naloži fotografijo</button>
             </form>
         }
 
@@ -802,7 +817,7 @@
                     new { Type = "paw", Label = "\U0001F43E" },
                     new { Type = "heart", Label = "\u2665" },
                     new { Type = "fire", Label = "\U0001F525" },
-                    new { Type = "good-route", Label = "Good route" }
+                    new { Type = "good-route", Label = "Dobra pot" }
                 })
                 {
                     var count = reactionCounts.TryGetValue(reaction.Type, out var reactionCount) ? reactionCount : 0;
@@ -828,11 +843,7 @@
             </div>
         </form>
 
-        @if (comments.Count == 0)
-        {
-            <p class="walk-social-empty">Ta sprehod se nima komentarjev.</p>
-        }
-        else
+        @if (comments.Count > 0)
         {
             <div class="walk-comments">
                 @foreach (var comment in comments)
@@ -866,7 +877,8 @@
             const routePoints = validPoints(summaryPoints);
             const planPoints = validPoints(savedPlanPoints);
             const fallback = routePoints[0] || planPoints[0] || [46.5547, 15.6459];
-            const map = L.map("summaryMap").setView(fallback, routePoints.length > 0 ? 15 : 13);
+            const mapElement = document.getElementById("summaryMap");
+            const map = L.map(mapElement).setView(fallback, routePoints.length > 0 ? 15 : 13);
 
             L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
                 maxZoom: 19,
@@ -881,10 +893,36 @@
                 L.marker(routePoints[0]).addTo(map).bindPopup("Začetek");
                 L.marker(routePoints[routePoints.length - 1]).addTo(map).bindPopup("Cilj");
             }
-            const visiblePoints = routePoints.concat(planPoints);
-            if (visiblePoints.length > 1) map.fitBounds(L.latLngBounds(visiblePoints).pad(0.2), { maxZoom: 17 });
-            requestAnimationFrame(() => map.invalidateSize({ pan: false }));
-            window.addEventListener("load", () => map.invalidateSize({ pan: false }), { once: true });
+            const visiblePoints = routePoints.length > 1 ? routePoints : planPoints;
+            const bounds = visiblePoints.length > 1 ? L.latLngBounds(visiblePoints) : null;
+            let refreshFrame = null;
+            let framed = false;
+            let userMoved = false;
+            let fitting = false;
+            let lastSize = null;
+            map.on("dragstart", () => { userMoved = true; });
+            map.on("zoomstart", () => { if (!fitting) userMoved = true; });
+            function refreshSummaryMap() {
+                if (refreshFrame !== null) cancelAnimationFrame(refreshFrame);
+                refreshFrame = requestAnimationFrame(() => {
+                    refreshFrame = null;
+                    const size = [mapElement.clientWidth, mapElement.clientHeight];
+                    const sizeChanged = !lastSize || Math.abs(size[0] - lastSize[0]) > 24 || Math.abs(size[1] - lastSize[1]) > 24;
+                    lastSize = size;
+                    map.invalidateSize({ pan: false });
+                    if (!userMoved && bounds?.isValid() && (!framed || sizeChanged) && size[0] > 0 && size[1] > 0) {
+                        fitting = true;
+                        try { map.fitBounds(bounds.pad(0.2), { maxZoom: 17, animate: false }); }
+                        finally { fitting = false; }
+                        framed = true;
+                    }
+                });
+            }
+            refreshSummaryMap();
+            window.setTimeout(refreshSummaryMap, 150);
+            window.addEventListener("load", refreshSummaryMap, { once: true });
+            window.addEventListener("orientationchange", refreshSummaryMap);
+            if ("ResizeObserver" in window) new ResizeObserver(refreshSummaryMap).observe(mapElement);
         });
 
         document.getElementById("copyWalkShareText").addEventListener("click", async function () {
@@ -908,50 +946,67 @@
         });
 
         let preparedWalkShareImage = null;
+        let selectedWalkShareFormat = "instagram-story";
+        let shareRenderGeneration = 0;
+        const shareWalkButton = document.getElementById("shareWalkStory");
+        const shareFeedback = document.getElementById("walkShareFeedback");
         async function prepareWalkShareImage() {
+            const format = selectedWalkShareFormat;
+            const generation = ++shareRenderGeneration;
+            preparedWalkShareImage = null;
+            shareWalkButton.disabled = true;
+            shareFeedback.textContent = "Pripravljam sliko …";
             try {
                     const card = document.getElementById("walkShareCard");
                     const canvas = document.createElement("canvas");
                     canvas.width = 1080;
-                    canvas.height = 1920;
+                    canvas.height = format === "post" ? 1350 : 1920;
+                    const height = canvas.height;
                     const ctx = canvas.getContext("2d");
                     const photoUrl = card.querySelector(".walk-share-card__photos img")?.src;
                     ctx.fillStyle = "#24695a";
-                    ctx.fillRect(0, 0, 1080, 1920);
+                    ctx.fillRect(0, 0, 1080, height);
                     if (photoUrl) {
                         try {
                             const photo = new Image();
                             photo.crossOrigin = "anonymous";
                             photo.src = photoUrl;
                             await photo.decode();
-                            const scale = Math.max(1080 / photo.width, 1920 / photo.height);
-                            ctx.drawImage(photo, (1080 - photo.width * scale) / 2, (1920 - photo.height * scale) / 2, photo.width * scale, photo.height * scale);
+                            const scale = Math.max(1080 / photo.width, height / photo.height);
+                            ctx.drawImage(photo, (1080 - photo.width * scale) / 2, (height - photo.height * scale) / 2, photo.width * scale, photo.height * scale);
                         } catch { /* Share the card without its photo if image access is unavailable. */ }
                     }
-                    const shade = ctx.createLinearGradient(0, 550, 0, 1920);
+                    const shade = ctx.createLinearGradient(0, height * 0.3, 0, height);
                     shade.addColorStop(0, "rgba(8,25,20,0)");
                     shade.addColorStop(1, "rgba(8,25,20,0.92)");
                     ctx.fillStyle = shade;
-                    ctx.fillRect(0, 0, 1080, 1920);
+                    ctx.fillRect(0, 0, 1080, height);
                     ctx.fillStyle = "#fff";
                     ctx.shadowColor = "rgba(0,0,0,0.5)";
                     ctx.shadowBlur = 20;
                     ctx.font = "700 42px sans-serif";
                     ctx.fillText("DOGGYDROP", 80, 120);
                     ctx.font = "800 90px sans-serif";
-                    ctx.fillText(@Html.Raw(JsonSerializer.Serialize(Model.Dog?.Name ?? "Pes")), 80, 1430, 920);
+                    ctx.fillText(@Html.Raw(JsonSerializer.Serialize(Model.Dog?.Name ?? "Pes")), 80, height - 480, 920);
                     ctx.font = "900 150px sans-serif";
-                    ctx.fillText(@Html.Raw(JsonSerializer.Serialize(distanceKm.ToString("0.00", System.Globalization.CultureInfo.GetCultureInfo("sl-SI")) + " km")), 80, 1610, 920);
+                    ctx.fillText(@Html.Raw(JsonSerializer.Serialize(distanceLabel)), 80, height - 300, 920);
                     ctx.font = "600 44px sans-serif";
-                    ctx.fillText(@Html.Raw(JsonSerializer.Serialize($"{duration:hh\\:mm} · {Model.UsedBinsCount} košev")), 80, 1710);
-                    ctx.fillText(@Html.Raw(JsonSerializer.Serialize(Model.StartedAt.ToLocalTime().ToString("dd.MM.yyyy"))), 80, 1780);
+                    ctx.fillText(@Html.Raw(JsonSerializer.Serialize($"{durationLabel} · {Model.UsedBinsCount} košev")), 80, height - 200);
+                    ctx.fillText(@Html.Raw(JsonSerializer.Serialize(Model.StartedAt.ToLocalTime().ToString("dd.MM.yyyy"))), 80, height - 130);
                     ctx.font = "600 36px sans-serif";
-                    ctx.fillText("doggydrop.app", 80, 1860);
+                    ctx.fillText("doggydrop.app", 80, height - 50);
                     const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
-                    preparedWalkShareImage = blob ? new File([blob], "doggydrop-sprehod.png", { type: "image/png" }) : null;
-            } catch { preparedWalkShareImage = null; }
+                    if (generation === shareRenderGeneration) preparedWalkShareImage = blob ? new File([blob], `doggydrop-${format}.png`, { type: "image/png" }) : null;
+            } catch { if (generation === shareRenderGeneration) preparedWalkShareImage = null; }
+            finally {
+                if (generation === shareRenderGeneration) {
+                    shareWalkButton.disabled = false;
+                    shareFeedback.textContent = preparedWalkShareImage ? "Slika je pripravljena." : "Slike ni bilo mogoče pripraviti; deliš lahko povezavo.";
+                }
+            }
         }
-        if (navigator.share) prepareWalkShareImage();
+        if (navigator.share) void prepareWalkShareImage();
+        else shareWalkButton.disabled = false;
 
         async function openWalkShare() {
             const feedback = document.getElementById("walkShareFeedback");
@@ -977,7 +1032,19 @@
 
         document.getElementById("shareWalkStory")?.addEventListener("click", openWalkShare);
         document.querySelectorAll("[data-share-walk-story]").forEach(button => {
-            button.addEventListener("click", openWalkShare);
+            button.addEventListener("click", () => {
+                const preview = document.getElementById("walkSharePreview");
+                preview.hidden = false;
+                preview.scrollIntoView({ behavior: "smooth", block: "start" });
+            });
+        });
+        document.querySelectorAll('input[name="walkShareFormat"]').forEach(input => {
+            input.addEventListener("change", () => {
+                selectedWalkShareFormat = input.value;
+                preparedWalkShareImage = null;
+                document.getElementById("walkShareCard").classList.toggle("is-post", input.value === "post");
+                if (navigator.share) void prepareWalkShareImage();
+            });
         });
 
         const gallery = document.getElementById("walkPhotoGallery");
@@ -1106,6 +1173,22 @@
     .walk-summary__hero p {
         margin: 0;
         opacity: 0.9;
+    }
+
+    .walk-summary__dog-link {
+        color: #ffffff;
+        font-size: .86rem;
+        text-decoration: underline;
+        white-space: nowrap;
+    }
+
+    .walk-gps-limited {
+        margin: 0 0 12px;
+        padding: 9px 12px;
+        border-left: 3px solid #c2762f;
+        background: #fff8ea;
+        color: #59442b;
+        font-size: .86rem;
     }
 
     .walk-summary__stats {
@@ -1471,6 +1554,37 @@
         background: linear-gradient(145deg, rgba(47, 109, 95, 0.95), rgba(225, 141, 50, 0.9));
     }
 
+    .walk-share-preview[hidden] { display: none; }
+
+    .walk-share-formats {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 14px;
+    }
+
+    .walk-share-formats label {
+        display: inline-flex;
+        min-height: 44px;
+        align-items: center;
+        gap: 6px;
+        padding: 7px 10px;
+        border: 1px solid #b9cec2;
+        border-radius: 6px;
+        background: #ffffff;
+        font-size: .83rem;
+        font-weight: 750;
+    }
+
+    .walk-share-preview .walk-share-card {
+        width: min(100%, 320px);
+        min-height: 0;
+        aspect-ratio: 9 / 16;
+        margin-inline: auto;
+    }
+
+    .walk-share-preview .walk-share-card.is-post { aspect-ratio: 4 / 5; }
+
     .walk-share-card__photos,
     .walk-share-card__overlay,
     .walk-share-card__content,
@@ -1645,6 +1759,40 @@
         padding: 10px 12px;
         background: #ffffff;
     }
+
+    .walk-photo-upload__pick {
+        position: relative;
+        display: inline-flex;
+        min-height: 44px;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        border-radius: 7px;
+        background: #e8f4ec;
+        color: #24695a;
+        font-weight: 850;
+        cursor: pointer;
+    }
+
+    .walk-photo-upload__pick input[type="file"] {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        min-height: 0;
+        padding: 0;
+        opacity: 0;
+    }
+
+    .walk-photo-upload__details summary {
+        display: flex;
+        min-height: 44px;
+        align-items: center;
+        color: #24695a;
+        font-weight: 750;
+        cursor: pointer;
+    }
+
+    .walk-photo-upload__details input { width: 100%; }
 
     .walk-photo-upload button,
     .walk-photo-item button {

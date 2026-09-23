@@ -1034,42 +1034,61 @@ namespace DoggyDrop.Controllers
         public async Task<IActionResult> AddPoint(int id, [FromBody] WalkPointInput input)
         {
             var userId = _userManager.GetUserId(User);
+            if (string.IsNullOrEmpty(userId)) return Challenge();
+            if (input == null || !double.IsFinite(input.Latitude) || !double.IsFinite(input.Longitude) ||
+                input.Latitude is < -90 or > 90 || input.Longitude is < -180 or > 180 ||
+                (input.AccuracyMeters.HasValue && (!double.IsFinite(input.AccuracyMeters.Value) || input.AccuracyMeters.Value < 0 || input.AccuracyMeters.Value > 1000)))
+                return BadRequest(new { outcome = "invalid" });
+
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+            await LockWalkAsync(id, userId);
             var walk = await _context.Walks
-                .Include(w => w.Points)
-                .FirstOrDefaultAsync(w => w.Id == id && w.OwnerId == userId && w.Status == "Active");
+                .FirstOrDefaultAsync(w => w.Id == id && w.OwnerId == userId);
 
             if (walk == null)
             {
                 return NotFound();
             }
+            if (walk.Status != "Active") return Conflict(new { outcome = "no-longer-active", status = walk.Status });
 
-            if (await RecoverStaleWalkAsync(walk))
+            if (await RecoverStaleWalkLockedAsync(walk))
             {
-                return Conflict("Sprehod je bil prekinjen zaradi daljše neaktivnosti. Odpri seznam sprehodov.");
-            }
-
-            if (input.Latitude is < -90 or > 90 || input.Longitude is < -180 or > 180)
-            {
-                return BadRequest("Invalid coordinates.");
+                await transaction.CommitAsync();
+                return Conflict(new { outcome = "no-longer-active", status = "Interrupted" });
             }
 
             var nowUtc = DateTime.UtcNow;
+            if (input.RecordedAt is { } suppliedAt &&
+                (suppliedAt.Kind != DateTimeKind.Utc || suppliedAt < nowUtc.AddMinutes(-2) || suppliedAt > nowUtc.AddMinutes(1)))
+                return BadRequest(new { outcome = "invalid" });
             var recordedAt = input.RecordedAt is { } reportedAt &&
-                reportedAt.Kind == DateTimeKind.Utc &&
-                reportedAt >= nowUtc.AddMinutes(-2) && reportedAt <= nowUtc.AddMinutes(1)
+                reportedAt.Kind == DateTimeKind.Utc
                     ? reportedAt
                     : nowUtc;
-            var lastPoint = walk.Points?
-                .OrderByDescending(point => point.RecordedAt)
-                .FirstOrDefault();
+            var lastPoint = await _context.WalkPoints.AsNoTracking()
+                .Where(point => point.WalkId == id)
+                .OrderByDescending(point => point.RecordedAt).ThenByDescending(point => point.Id)
+                .FirstOrDefaultAsync();
+
+            async Task<IActionResult> RejectedPoint(string outcome)
+            {
+                var count = await _context.WalkPoints.CountAsync(point => point.WalkId == id);
+                await transaction.CommitAsync();
+                return Json(new { outcome, walk.DistanceMeters, pointCount = count });
+            }
 
             if (lastPoint != null)
             {
-                walk.DistanceMeters += GetDistanceMeters(
-                    lastPoint.Latitude,
-                    lastPoint.Longitude,
-                    input.Latitude,
-                    input.Longitude);
+                var separation = GetDistanceMeters(lastPoint.Latitude, lastPoint.Longitude, input.Latitude, input.Longitude);
+                if (recordedAt <= lastPoint.RecordedAt)
+                    return await RejectedPoint(recordedAt == lastPoint.RecordedAt && separation < 2 ? "duplicate" : "out-of-order");
+                if (separation < 2 && recordedAt - lastPoint.RecordedAt < TimeSpan.FromSeconds(2))
+                    return await RejectedPoint("duplicate");
+                // Only reject implausible teleports; ordinary noisy walking samples remain accepted.
+                var elapsedSeconds = (recordedAt - lastPoint.RecordedAt).TotalSeconds;
+                if (separation > Math.Max(150, elapsedSeconds * 30 + 2 * (input.AccuracyMeters ?? 0)))
+                    return BadRequest(new { outcome = "invalid" });
+                walk.DistanceMeters += separation;
             }
 
             var point = new WalkPoint
@@ -1082,11 +1101,14 @@ namespace DoggyDrop.Controllers
 
             _context.WalkPoints.Add(point);
             await _context.SaveChangesAsync();
+            var pointCount = await _context.WalkPoints.CountAsync(candidate => candidate.WalkId == walk.Id);
+            await transaction.CommitAsync();
 
             return Json(new
             {
+                outcome = "accepted",
                 walk.DistanceMeters,
-                pointCount = (walk.Points?.Count ?? 0) + 1
+                pointCount
             });
         }
 
@@ -1159,6 +1181,9 @@ namespace DoggyDrop.Controllers
             }
 
             var userId = _userManager.GetUserId(User);
+            if (string.IsNullOrEmpty(userId)) return Challenge();
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+            await LockWalkAsync(id, userId);
             var walk = await _context.Walks
                 .AsNoTracking()
                 .Include(w => w.Dog)
@@ -1180,8 +1205,9 @@ namespace DoggyDrop.Controllers
                 return FinishRedirect(nameof(Details));
             }
 
-            if (await RecoverStaleWalkAsync(walk))
+            if (await RecoverStaleWalkLockedAsync(walk))
             {
+                await transaction.CommitAsync();
                 TempData["ErrorMessage"] = "Sprehod je bil prekinjen pri zadnji GPS točki; zaključek po dolgem premoru ne podeli nagrad.";
                 return FinishRedirect(nameof(Interrupted));
             }
@@ -1194,7 +1220,6 @@ namespace DoggyDrop.Controllers
                 : walk.UsedBinsCount;
             var endedAt = _gamificationCalendar.UtcNow.UtcDateTime;
 
-            await using var transaction = await _context.Database.BeginTransactionAsync();
             var completedRows = await _context.Walks
                 .Where(candidate => candidate.Id == id && candidate.OwnerId == userId && candidate.Status == "Active")
                 .ExecuteUpdateAsync(updates => updates
@@ -1293,10 +1318,37 @@ namespace DoggyDrop.Controllers
 
         private static string GetWalkRewardTempDataKey(int walkId) => $"WalkRewardResult:{walkId}";
 
+        private async Task LockWalkAsync(int id, string ownerId)
+        {
+            if (_context.Database.IsNpgsql())
+            {
+                await _context.Walks.FromSqlInterpolated($"SELECT * FROM \"Walks\" WHERE \"Id\" = {id} AND \"OwnerId\" = {ownerId} FOR UPDATE")
+                    .AsNoTracking().ToListAsync();
+            }
+            else if (_context.Database.ProviderName == "Microsoft.EntityFrameworkCore.Sqlite")
+            {
+                // SQLite has no row locks. Acquire its writer lock before reading the walk.
+                await _context.Database.ExecuteSqlInterpolatedAsync($"UPDATE \"Walks\" SET \"Status\" = \"Status\" WHERE \"Id\" = {id} AND \"OwnerId\" = {ownerId}");
+            }
+            else throw new NotSupportedException("Walk recording requires PostgreSQL or SQLite transaction locking.");
+        }
+
         private async Task<bool> RecoverStaleWalkAsync(Walk walk)
         {
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+            await LockWalkAsync(walk.Id, walk.OwnerId);
+            var current = await _context.Walks.AsNoTracking()
+                .FirstOrDefaultAsync(candidate => candidate.Id == walk.Id && candidate.OwnerId == walk.OwnerId);
+            if (current == null || current.Status != "Active") return false;
+            var recovered = await RecoverStaleWalkLockedAsync(current);
+            await transaction.CommitAsync();
+            return recovered;
+        }
+
+        private async Task<bool> RecoverStaleWalkLockedAsync(Walk walk)
+        {
             var nowUtc = _gamificationCalendar.UtcNow.UtcDateTime;
-            var points = walk.Points ?? await _context.WalkPoints
+            var points = await _context.WalkPoints
                 .AsNoTracking()
                 .Where(point => point.WalkId == walk.Id)
                 .ToListAsync();
@@ -2368,6 +2420,8 @@ namespace DoggyDrop.Controllers
         public double Longitude { get; set; }
 
         public DateTime? RecordedAt { get; set; }
+
+        public double? AccuracyMeters { get; set; }
     }
 
     public class ToggleStopInput

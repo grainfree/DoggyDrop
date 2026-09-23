@@ -135,6 +135,7 @@
                             <div>Serialized plannerPoints: <span id="routeDebugSerialized">0</span></div>
                             <div>Valid parsed points: <span id="routeDebugParsed">0</span></div>
                             <div>Preview points: <span id="routeDebugPreview">0</span></div>
+                            <div>Preview source: <span id="routeDebugSource">UNKNOWN</span></div>
                             <div>Route line created: <span id="routeDebugCreated">NO</span></div>
                             <div>Route line on map: <span id="routeDebugOnMap">NO</span></div>
                             <div>Bounds valid: <span id="routeDebugBounds">NO</span></div>
@@ -144,6 +145,7 @@
                             <div>Overlay pane: <span id="routeDebugOverlay">NO</span></div>
                             <div>Route SVG/path element: <span id="routeDebugPath">NO</span></div>
                             <div>Route in view: <span id="routeDebugInView">NO</span></div>
+                            <div>Route path pixels: <span id="routeDebugPixels">UNKNOWN</span></div>
                             <div>Test line on map: <span id="routeDebugTestOnMap">NO</span></div>
                             <div>Test line path: <span id="routeDebugTestPath">NO</span></div>
                             <div>JS error: <span id="routeDebugError">NONE</span></div>
@@ -397,6 +399,7 @@
                 ? routePoints
                 : buildPreviewLoop(center, readTargetDistanceKm(), stopPoints.map(stop => stop.point));
             if (debugRouteEnabled) setPlannerDebug("Preview", previewRoutePoints.length);
+            if (debugRouteEnabled) setPlannerDebug("Source", routePoints.length >= 4 ? "SERVER" : "FALLBACK");
             const allPoints = previewRoutePoints.concat(stopPoints.map(stop => stop.point));
             if (allPoints.length === 0) {
                 return;
@@ -494,6 +497,12 @@
                         map.invalidateSize({ pan: false });
                         map.fitBounds(bounds, { padding: [24, 24], maxZoom: 16 });
                         setPlannerDebug("InView", routeLine && map.getBounds().intersects(routeLine.getBounds()) ? "YES" : "NO");
+                        if (routeLine) {
+                            setPlannerDebug("OnMap", map.hasLayer(routeLine) ? "YES" : "NO");
+                            setPlannerDebug("Path", routeLine._path?.isConnected ? "YES" : "NO");
+                            const rect = routeLine._path?.getBoundingClientRect();
+                            setPlannerDebug("Pixels", rect ? `${Math.round(rect.width)} x ${Math.round(rect.height)}` : "NO SVG PATH");
+                        }
                     } catch (error) {
                         reportPlannerDebugError(error);
                     }

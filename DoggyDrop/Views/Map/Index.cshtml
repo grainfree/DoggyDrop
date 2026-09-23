@@ -50,8 +50,8 @@
     var activeWalk = ViewBag.ActiveWalk as DoggyDrop.Models.Walk;
     var hasActiveWalk = activeWalk != null;
     var activeWalkStartedAt = activeWalk?.StartedAt.ToString("O");
-    var activeWalkDistanceKm = activeWalk == null ? "0.00" : (activeWalk.DistanceMeters / 1000d).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
     var activeWalkPointCount = activeWalk?.Points?.Count ?? 0;
+    var debugGpsEnabled = Context.Request.Query["debugGps"].ToString() == "1";
 }
 
 @section Styles {
@@ -3193,7 +3193,7 @@ else if (needsDogOnboarding)
                 <span>
                     <span class="map-active-walk-sheet__live">V živo</span>
                     <span class="map-active-walk-sheet__title">@(activeWalk?.Dog?.Name ?? "Sprehod") je na poti</span>
-                    <span class="map-active-walk-sheet__compact-metrics"><span id="homeActiveWalkDurationCompact">00:00</span> · @activeWalkDistanceKm km · @activeWalkPointCount GPS</span>
+                    <span class="map-active-walk-sheet__compact-metrics"><span id="homeActiveWalkDurationCompact">00:00</span> · <span id="homeActiveWalkDistanceCompact">@DoggyDrop.ViewModels.SlovenianFormatting.WalkDistance(activeWalk!.DistanceMeters)</span> · <span id="homeActiveWalkPointsCompact">@activeWalkPointCount</span> GPS</span>
                 </span>
                 <i id="homeActiveWalkChevron" class="bi bi-chevron-up" aria-hidden="true"></i>
             </span>
@@ -3219,11 +3219,11 @@ else if (needsDogOnboarding)
                 <span>čas</span>
             </article>
             <article>
-                <strong>@activeWalkDistanceKm km</strong>
+                <strong id="homeActiveWalkDistance">@DoggyDrop.ViewModels.SlovenianFormatting.WalkDistance(activeWalk!.DistanceMeters)</strong>
                 <span>razdalja</span>
             </article>
             <article>
-                <strong>@activeWalkPointCount</strong>
+                <strong id="homeActiveWalkPoints">@activeWalkPointCount</strong>
                 <span>GPS</span>
             </article>
         </div>
@@ -3259,7 +3259,12 @@ else if (needsDogOnboarding)
                 </button>
             </form>
         </div>
+        @if (debugGpsEnabled)
+        {
+            <p id="homeWalkGpsDebug">GPS callbacks: <span id="homeGpsCallbacks">0</span> · Stale: <span id="homeGpsStale">0</span> · Deferred: <span id="homeGpsDeferred">0</span> · Requests: <span id="homeGpsRequests">0</span> · Accepted: <span id="homeGpsSuccess">0</span> · Duplicate: <span id="homeGpsDuplicate">0</span> · Out-of-order: <span id="homeGpsOutOfOrder">0</span> · Invalid: <span id="homeGpsInvalid">0</span> · No longer active: <span id="homeGpsInactive">0</span> · Failure: <span id="homeGpsFailure">0</span> · Response: <span id="homeGpsResponse">none</span> · Persisted: <span id="homeGpsPersisted">@activeWalkPointCount</span> · Distance: <span id="homeGpsDistance">@Math.Round(activeWalk!.DistanceMeters) m</span></p>
+        }
         </div>
+        <p id="homeWalkGpsStatus" role="status" hidden></p>
     </aside>
 }
 
@@ -3284,11 +3289,11 @@ else if (needsDogOnboarding)
                 <span>čas</span>
             </article>
             <article>
-                <strong>@activeWalkDistanceKm km</strong>
+                <strong id="homeActiveWalkDistanceLegacy">@DoggyDrop.ViewModels.SlovenianFormatting.WalkDistance(activeWalk!.DistanceMeters)</strong>
                 <span>razdalja</span>
             </article>
             <article>
-                <strong>@activeWalkPointCount</strong>
+                <strong id="homeActiveWalkPointsLegacy">@activeWalkPointCount</strong>
                 <span>GPS</span>
             </article>
         </div>
@@ -3548,7 +3553,138 @@ else if (needsDogOnboarding)
         }
         const mapFounderPromptText = document.getElementById("mapFounderPromptText");
         const activeWalkStartedAt = @Html.Raw(hasActiveWalk ? $"new Date(\"{activeWalkStartedAt}\")" : "null");
+        const homeActiveWalkId = @(activeWalk?.Id ?? 0);
         const homeActiveWalkDuration = document.getElementById("homeActiveWalkDuration");
+        const homeWalkTracking = { watchId: null, generation: 0, sending: false, pending: null, lastCallback: 0, hiddenAt: 0, active: homeActiveWalkId > 0, finishSubmitting: false };
+
+        function setHomeGpsDebug(field, value) {
+            const element = document.getElementById(`homeGps${field}`);
+            if (element) element.textContent = String(value);
+        }
+
+        function countHomeGpsDebug(field) {
+            const element = document.getElementById(`homeGps${field}`);
+            if (element) element.textContent = String(Number(element.textContent) + 1);
+        }
+
+        function showHomeGpsStatus(message) {
+            const status = document.getElementById("homeWalkGpsStatus");
+            if (!status) return;
+            status.hidden = !message;
+            status.textContent = message || "";
+            updateActiveWalkSheetSpace();
+        }
+
+        function startHomeWalkWatch() {
+            if (!homeWalkTracking.active) return;
+            if (!window.isSecureContext || !navigator.geolocation) {
+                showHomeGpsStatus("GPS zapis ni na voljo. Sprehoda ne moremo zanesljivo beležiti.");
+                return;
+            }
+            stopHomeWalkWatch();
+            const generation = homeWalkTracking.generation;
+            try {
+                homeWalkTracking.watchId = navigator.geolocation.watchPosition(position => recordHomeWalkPosition(position, false, generation), error => {
+                    if (generation !== homeWalkTracking.generation) return;
+                    setHomeGpsDebug("Response", `GPS error ${error.code ?? "unknown"}`);
+                    showHomeGpsStatus("GPS trenutno ne pošilja točk. Preveri dovoljenje za lokacijo.");
+                }, { enableHighAccuracy: true, maximumAge: 0, timeout: 12000 });
+            } catch {
+                showHomeGpsStatus("GPS zapis ni na voljo. Preveri dovoljenje za lokacijo.");
+            }
+        }
+
+        function stopHomeWalkWatch() {
+            ++homeWalkTracking.generation;
+            if (homeWalkTracking.watchId !== null) navigator.geolocation.clearWatch(homeWalkTracking.watchId);
+            homeWalkTracking.watchId = null;
+            homeWalkTracking.pending = null;
+        }
+
+        async function recordHomeWalkPosition(position, fromQueue = false, generation = homeWalkTracking.generation) {
+            if (generation !== homeWalkTracking.generation) {
+                countHomeGpsDebug("Stale");
+                return;
+            }
+            if (!fromQueue) {
+                countHomeGpsDebug("Callbacks");
+                homeWalkTracking.lastCallback = Date.now();
+            }
+            if (!homeWalkTracking.active) return;
+            if (homeWalkTracking.sending) {
+                homeWalkTracking.pending = { position, generation };
+                countHomeGpsDebug("Deferred");
+                return;
+            }
+            homeWalkTracking.sending = true;
+            countHomeGpsDebug("Requests");
+            try {
+                const response = await fetch(`/Walks/AddPoint/${homeActiveWalkId}`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    credentials: "same-origin",
+                    body: JSON.stringify({
+                        latitude: position.coords.latitude,
+                        longitude: position.coords.longitude,
+                        accuracyMeters: position.coords.accuracy,
+                        recordedAt: new Date(position.timestamp).toISOString()
+                    })
+                });
+                if (!response.ok) {
+                    countHomeGpsDebug("Failure");
+                    setHomeGpsDebug("Response", `HTTP ${response.status}`);
+                    if (generation !== homeWalkTracking.generation || !homeWalkTracking.active) return;
+                    if (response.status === 409) {
+                        countHomeGpsDebug("Inactive");
+                        const state = await response.json().catch(() => ({}));
+                        homeWalkTracking.active = false;
+                        stopHomeWalkWatch();
+                        window.location.assign(`/Walks/${state.status === "Completed" ? "Details" : "Interrupted"}/${homeActiveWalkId}`);
+                    } else if (response.status === 404) {
+                        homeWalkTracking.active = false;
+                        stopHomeWalkWatch();
+                        showHomeGpsStatus("Sprehod ni več aktiven. Osveži stran.");
+                    } else {
+                        if (response.status === 400) countHomeGpsDebug("Invalid");
+                        showHomeGpsStatus("GPS točka ni bila shranjena. Preveri povezavo.");
+                    }
+                    return;
+                }
+                const data = await response.json();
+                if (generation !== homeWalkTracking.generation || !homeWalkTracking.active) return;
+                if (data.outcome !== "accepted") {
+                    if (data.outcome === "duplicate") countHomeGpsDebug("Duplicate");
+                    if (data.outcome === "out-of-order") countHomeGpsDebug("OutOfOrder");
+                    setHomeGpsDebug("Response", data.outcome);
+                    setHomeGpsDebug("Persisted", data.pointCount);
+                    setHomeGpsDebug("Distance", `${Math.round(data.distanceMeters)} m`);
+                    return;
+                }
+                countHomeGpsDebug("Success");
+                setHomeGpsDebug("Response", "accepted");
+                setHomeGpsDebug("Persisted", data.pointCount);
+                setHomeGpsDebug("Distance", `${Math.round(data.distanceMeters)} m`);
+                const distance = `${(data.distanceMeters / 1000).toLocaleString("sl-SI", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} km`;
+                ["homeActiveWalkDistance", "homeActiveWalkDistanceCompact", "homeActiveWalkDistanceLegacy"].forEach(id => {
+                    const element = document.getElementById(id);
+                    if (element) element.textContent = distance;
+                });
+                ["homeActiveWalkPoints", "homeActiveWalkPointsCompact", "homeActiveWalkPointsLegacy"].forEach(id => {
+                    const element = document.getElementById(id);
+                    if (element) element.textContent = data.pointCount;
+                });
+                showHomeGpsStatus("");
+            } catch {
+                countHomeGpsDebug("Failure");
+                setHomeGpsDebug("Response", "network error");
+                showHomeGpsStatus("GPS točka ni bila shranjena. Preveri povezavo.");
+            } finally {
+                homeWalkTracking.sending = false;
+                const pending = homeWalkTracking.pending;
+                homeWalkTracking.pending = null;
+                if (pending && homeWalkTracking.active) void recordHomeWalkPosition(pending.position, true, pending.generation);
+            }
+        }
 
         const placeGroups = {
             parks: @parkLocationsJson,
@@ -3671,6 +3807,38 @@ else if (needsDogOnboarding)
 
             update();
             window.setInterval(update, 1000);
+            startHomeWalkWatch();
+            document.querySelectorAll('form[action*="/Walks/Finish"]').forEach(form => {
+                form.addEventListener("submit", () => {
+                    homeWalkTracking.finishSubmitting = true;
+                    homeWalkTracking.active = false;
+                    stopHomeWalkWatch();
+                });
+            });
+            document.addEventListener("visibilitychange", () => {
+                if (!homeWalkTracking.active) return;
+                if (document.hidden) {
+                    homeWalkTracking.hiddenAt = Date.now();
+                } else {
+                    if (homeWalkTracking.hiddenAt && Date.now() - homeWalkTracking.hiddenAt > 30000) {
+                        showHomeGpsStatus("Sledenje je bilo med odsotnostjo prekinjeno. GPS se znova vzpostavlja.");
+                    }
+                    startHomeWalkWatch();
+                }
+            });
+            window.addEventListener("pagehide", stopHomeWalkWatch);
+            window.addEventListener("pageshow", event => {
+                if (event.persisted && homeWalkTracking.finishSubmitting) {
+                    homeWalkTracking.finishSubmitting = false;
+                    homeWalkTracking.active = true;
+                }
+                if (event.persisted && homeWalkTracking.active) startHomeWalkWatch();
+            });
+            window.setInterval(() => {
+                if (homeWalkTracking.active && !document.hidden && homeWalkTracking.lastCallback && Date.now() - homeWalkTracking.lastCallback > 90000) {
+                    showHomeGpsStatus("GPS že nekaj časa ne pošilja točk. Preveri lokacijo in povezavo.");
+                }
+            }, 15000);
         }
 
         function initMap() {
