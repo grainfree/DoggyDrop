@@ -330,12 +330,6 @@
             linear-gradient(135deg, rgba(238, 247, 237, 0.98), rgba(255, 243, 221, 0.86));
     }
 
-    .bin-popup__image-frame.is-rotated-landscape,
-    .map-bin-detail__image-frame.is-rotated-landscape,
-    .nearest-bin-card__image.is-rotated-landscape {
-        aspect-ratio: 3 / 4;
-    }
-
     .bin-popup__image {
         width: 100%;
         max-height: 320px;
@@ -345,18 +339,6 @@
     .bin-popup__image,
     .map-bin-detail__image {
         display: block;
-    }
-
-    .bin-popup__image.is-rotated-landscape,
-    .map-bin-detail__image.is-rotated-landscape,
-    .nearest-bin-card__image img.is-rotated-landscape {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        max-height: none;
-        object-fit: cover;
-        transform: translate(-50%, -50%) rotate(90deg);
-        transform-origin: center;
     }
 
     .bin-popup__stats {
@@ -888,39 +870,62 @@
     .nearest-bin-preview__actions button:last-child { background: #fff; color: #2f6d5f; }
 
     .navigation-card {
-        padding: 10px 12px;
+        padding: 11px 14px 12px;
         border: 1px solid #bad3c6;
         border-radius: 8px;
         background: #fff;
-        box-shadow: 0 8px 26px rgba(21, 47, 38, .16);
+        box-shadow: 0 12px 30px rgba(21, 47, 38, .2);
+    }
+
+    .navigation-card__eyebrow {
+        display: block;
+        margin-bottom: 3px;
+        color: #2f6d5f;
+        font-size: .67rem;
+        font-weight: 850;
+        line-height: 1.2;
     }
 
     .navigation-card__title {
         margin: 0;
         color: #17322c;
-        font-size: 1rem;
+        font-size: 1.1rem;
+        font-weight: 850;
         line-height: 1.25;
         overflow-wrap: anywhere;
     }
 
-    .navigation-card__meta, .navigation-card__status {
-        margin: 4px 0 0;
-        font-size: .85rem;
+    .navigation-card__metrics {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 3px 12px;
+        margin-top: 5px;
+        color: #245c4d;
+    }
+
+    .navigation-card__metrics strong { font-size: 1.22rem; line-height: 1.2; }
+    .navigation-card__metrics span { font-size: .84rem; font-weight: 750; }
+
+    .navigation-card__status {
+        margin: 3px 0 0;
+        font-size: .77rem;
         color: #455b51;
     }
 
-    .navigation-card__actions { display: flex; gap: 8px; margin-top: 6px; }
+    .navigation-card__actions { display: flex; gap: 8px; margin-top: 8px; }
     .navigation-card__actions button {
         min-height: 44px;
         padding: 0 12px;
         border: 1px solid #789f8c;
-        border-radius: 6px;
+        border-radius: 8px;
         background: #fff;
         color: #173b2f;
         font-weight: 700;
     }
     .navigation-card__actions button:last-child { margin-left: auto; }
     .navigation-card__actions button[hidden] { display: none; }
+    .navigation-card__actions button:last-child { border-color: #cbd8d0; background: #f5f8f5; }
 
     .navigation-destination-icon {
         display: grid;
@@ -1938,9 +1943,15 @@
         line-height: 1.2;
     }
 
-    body.map-nearest-preview-active .leaflet-control-attribution,
-    body.map-bin-navigation-active .leaflet-control-attribution {
+    body.map-nearest-preview-active .leaflet-control-attribution {
         margin-bottom: 122px !important;
+        max-width: min(46vw, 220px);
+        font-size: 9px;
+        line-height: 1.2;
+    }
+
+    body.map-bin-navigation-active .leaflet-control-attribution {
+        margin-bottom: calc(var(--app-bottom-nav-clearance, 96px) + 168px) !important;
         max-width: min(46vw, 220px);
         font-size: 9px;
         line-height: 1.2;
@@ -4642,7 +4653,7 @@ else if (needsDogOnboarding)
                         <br>Status: ${escapeHtml(statusText)}
                         ${bin.lastUsedAt ? `<br>Zadnja uporaba: ${escapeHtml(bin.lastUsedAt)}` : ""}
                     </div>
-                    ${bin.image ? `<div class="bin-popup__image-frame"><img class="bin-popup__image" src="${escapeAttribute(bin.image)}" alt="Kos" onload="normalizeBinPhotoOrientation(this)"></div>` : ""}
+                    ${bin.image ? `<div class="bin-popup__image-frame"><img class="bin-popup__image" src="${escapeAttribute(bin.image)}" alt="Kos"></div>` : ""}
                     <div class="bin-popup__stats">
                         <div class="bin-popup__stat">${Number(bin.usedCount) || 0}<br>uporab</div>
                         <div class="bin-popup__stat">${Number(bin.fullReports) || 0}<br>poln</div>
@@ -4715,29 +4726,7 @@ else if (needsDogOnboarding)
             }
 
             const fallback = getBinImageFallback(imageUrl);
-            return `<div class="map-bin-detail__image-frame"><img class="map-bin-detail__image" src="${escapeAttribute(imageUrl)}" data-fallback-src="${escapeAttribute(fallback || "")}" alt="${escapeAttribute(name || "Kos")}" onload="normalizeBinPhotoOrientation(this)" onerror="handleBinImageError(this)"></div>`;
-        }
-
-        function normalizeBinPhotoOrientation(image) {
-            if (!image?.naturalWidth || !image?.naturalHeight) {
-                return;
-            }
-
-            const shouldRotate = image.naturalWidth > image.naturalHeight * 1.15;
-            const frame = image.closest(".bin-popup__image-frame, .map-bin-detail__image-frame, .nearest-bin-card__image");
-            image.classList.toggle("is-rotated-landscape", shouldRotate);
-            frame?.classList.toggle("is-rotated-landscape", shouldRotate);
-
-            if (!shouldRotate || !frame) {
-                image.style.removeProperty("width");
-                image.style.removeProperty("height");
-                return;
-            }
-
-            const frameWidth = frame.clientWidth;
-            const frameHeight = frame.clientHeight;
-            image.style.width = `${frameHeight}px`;
-            image.style.height = `${frameWidth}px`;
+            return `<div class="map-bin-detail__image-frame"><img class="map-bin-detail__image" src="${escapeAttribute(imageUrl)}" data-fallback-src="${escapeAttribute(fallback || "")}" alt="${escapeAttribute(name || "Kos")}" onerror="handleBinImageError(this)"></div>`;
         }
 
         function getBinImageFallback(imageUrl) {
@@ -5343,7 +5332,7 @@ else if (needsDogOnboarding)
                 map.invalidateSize({ pan: false });
                 map.fitBounds(navigation.routeLayer.getBounds(), {
                     paddingTopLeft: mobile ? [34, 112] : [48, 88],
-                    paddingBottomRight: mobile ? [42, 228] : [48, 130],
+                    paddingBottomRight: mobile ? [42, 270] : [48, 130],
                     maxZoom: 17
                 });
             }
@@ -5401,9 +5390,9 @@ else if (needsDogOnboarding)
             panel.style.display = "block";
             panel.innerHTML = `
                 <article class="navigation-card" aria-label="Navigacija">
-                    <small>NAVIGACIJA DO KOŠA</small>
+                    <small class="navigation-card__eyebrow">NAVIGACIJA DO KOŠA</small>
                     <h3 class="navigation-card__title">${escapeHtml(bin.name || bin.Name || "Cilj")}</h3>
-                    <p class="navigation-card__meta">${distanceLabel}${approximate ? " zračne razdalje" : ""} · ${eta}</p>
+                    <div class="navigation-card__metrics"><strong>${distanceLabel}</strong><span>${approximate ? `zračna razdalja · ${eta}` : eta}</span></div>
                     <p class="navigation-card__status" role="status">${escapeHtml(routeNote)}</p>
                     <div class="navigation-card__actions">
                         <button type="button" onclick="recenterNavigation()" ${navigation.followUser ? "hidden" : ""} aria-label="Nazaj na mojo lokacijo"><i class="bi bi-crosshair" aria-hidden="true"></i> Nazaj na mojo lokacijo</button>

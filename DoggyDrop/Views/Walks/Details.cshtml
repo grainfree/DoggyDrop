@@ -678,7 +678,11 @@
             <h2>Pot</h2>
             <span>@(memory.HasActualTrail ? "Dejanska GPS pot" : "Samo načrtovana pot")</span>
         </div>
-        <div id="summaryMap"></div>
+        <div id="summaryMap" role="region" aria-label="Zemljevid poti sprehoda"></div>
+        @if (Context.Request.Query["debugMemoryMap"] == "1")
+        {
+            <pre id="memoryMapDebug" class="walk-summary__map-debug" aria-live="polite">Čakam na zemljevid ...</pre>
+        }
     </article>
     }
 
@@ -868,53 +872,146 @@
             const routePoints = @JsonSerializer.Serialize(memory.HasActualTrail) ? validPoints(summaryPoints) : [];
             const planPoints = @JsonSerializer.Serialize(memory.HasPlannedRoute) ? validPoints(savedPlanPoints) : [];
             const mapElement = document.getElementById("summaryMap");
-            if (!mapElement || typeof L === "undefined") return;
+            const debugElement = document.getElementById("memoryMapDebug");
+            if (!mapElement) return;
+            if (typeof L === "undefined") {
+                if (debugElement) debugElement.textContent = "Leaflet JS unavailable";
+                return;
+            }
             const fallback = routePoints[0] || planPoints[0];
-            const map = L.map(mapElement).setView(fallback, routePoints.length > 0 ? 15 : 13);
-
-            L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-                maxZoom: 19,
-                attribution: "&copy; OpenStreetMap"
-            }).addTo(map);
-
-            if (planPoints.length > 1) {
-                L.polyline(planPoints, { color: "#b36f25", weight: 4, opacity: 0.8, dashArray: "8 8" }).addTo(map);
-            }
-            if (routePoints.length > 0) {
-                const routeLine = L.polyline(routePoints, { color: "#2f6d5f", weight: 6, opacity: 0.9 }).addTo(map);
-                L.marker(routePoints[0]).addTo(map).bindPopup("Začetek");
-                L.marker(routePoints[routePoints.length - 1]).addTo(map).bindPopup("Cilj");
-            }
+            if (!fallback) return;
             const visiblePoints = routePoints.length > 1 ? routePoints : planPoints;
-            const bounds = visiblePoints.length > 1 ? L.latLngBounds(visiblePoints) : null;
-            let refreshFrame = null;
-            let framed = false;
+            let map = null;
+            let bounds = null;
+            let tileLoaded = false;
+            let lastError = "NONE";
+            let initSize = null;
+            let lastSize = null;
+            let stableSize = null;
+            let frame = null;
+            let sizeAttempts = 0;
+            let initializationAttempts = 0;
             let userMoved = false;
             let fitting = false;
-            let lastSize = null;
-            map.on("dragstart", () => { userMoved = true; });
-            map.on("zoomstart", () => { if (!fitting) userMoved = true; });
-            function refreshSummaryMap() {
-                if (refreshFrame !== null) cancelAnimationFrame(refreshFrame);
-                refreshFrame = requestAnimationFrame(() => {
-                    refreshFrame = null;
-                    const size = [mapElement.clientWidth, mapElement.clientHeight];
-                    const sizeChanged = !lastSize || Math.abs(size[0] - lastSize[0]) > 24 || Math.abs(size[1] - lastSize[1]) > 24;
+            let invalidateCount = 0;
+            let resizeCount = 0;
+
+            function sizeOfMap() {
+                return [mapElement.clientWidth, mapElement.clientHeight];
+            }
+
+            function updateDebug() {
+                if (!debugElement) return;
+                const size = sizeOfMap();
+                const leafletSize = map?.getSize();
+                debugElement.textContent = [
+                    `Init: ${initSize?.join(" x ") ?? "WAIT"}`,
+                    `Container: ${size.join(" x ")}`,
+                    `Leaflet: ${leafletSize ? `${leafletSize.x} x ${leafletSize.y}` : "NO"}`,
+                    `Tiles loaded: ${tileLoaded ? "YES" : "NO"}`,
+                    `GPS points: ${routePoints.length}`,
+                    `Bounds valid: ${bounds?.isValid() ? "YES" : "NO"}`,
+                    `Invalidations: ${invalidateCount}`,
+                    `Resizes: ${resizeCount}`,
+                    `Container position: ${getComputedStyle(mapElement).position}`,
+                    `Tile position: ${mapElement.querySelector(".leaflet-tile") ? getComputedStyle(mapElement.querySelector(".leaflet-tile")).position : "NO"}`,
+                    `Renderer: ${mapElement.querySelector(".leaflet-overlay-pane svg") ? "SVG" : "OTHER/NONE"}`,
+                    `Error: ${lastError}`
+                ].join("\n");
+            }
+
+            function initializeMap(size) {
+                if (initializationAttempts >= 2) return;
+                initializationAttempts++;
+                let createdMap = null;
+                try {
+                    initSize = size;
+                    createdMap = L.map(mapElement);
+                    map = createdMap;
+                    map.setView(fallback, routePoints.length > 0 ? 15 : 13);
+                    const tiles = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+                        maxZoom: 19,
+                        attribution: "&copy; OpenStreetMap"
+                    }).addTo(map);
+                    tiles.on("load", () => { tileLoaded = true; updateDebug(); });
+                    tiles.on("tileerror", () => { lastError = "Tile load failed"; updateDebug(); });
+                    if (planPoints.length > 1) {
+                        L.polyline(planPoints, { color: "#b36f25", weight: 4, opacity: 0.8, dashArray: "8 8" }).addTo(map);
+                    }
+                    if (routePoints.length > 0) {
+                        L.polyline(routePoints, { color: "#2f6d5f", weight: 6, opacity: 0.9 }).addTo(map);
+                        L.marker(routePoints[0]).addTo(map).bindPopup("Začetek");
+                        L.marker(routePoints[routePoints.length - 1]).addTo(map).bindPopup("Cilj");
+                    }
+                    bounds = visiblePoints.length > 1 ? L.latLngBounds(visiblePoints) : null;
+                    map.on("dragstart", () => { userMoved = true; });
+                    map.on("zoomstart", () => { if (!fitting) userMoved = true; });
                     lastSize = size;
                     map.invalidateSize({ pan: false });
-                    if (!userMoved && bounds?.isValid() && (!framed || sizeChanged) && size[0] > 0 && size[1] > 0) {
+                    invalidateCount++;
+                    if (bounds?.isValid()) {
                         fitting = true;
                         try { map.fitBounds(bounds.pad(0.2), { maxZoom: 17, animate: false }); }
                         finally { fitting = false; }
-                        framed = true;
                     }
-                });
+                    lastError = "NONE";
+                } catch {
+                    lastError = "Map initialization failed";
+                    try { createdMap?.remove(); } catch { }
+                    map = null;
+                    bounds = null;
+                    lastSize = null;
+                    stableSize = null;
+                    if (initializationAttempts < 2) queueMeasure();
+                }
+                updateDebug();
             }
-            refreshSummaryMap();
-            window.setTimeout(refreshSummaryMap, 150);
-            window.addEventListener("load", refreshSummaryMap, { once: true });
-            window.addEventListener("orientationchange", refreshSummaryMap);
-            if ("ResizeObserver" in window) new ResizeObserver(refreshSummaryMap).observe(mapElement);
+
+            function measureMap() {
+                frame = null;
+                const size = sizeOfMap();
+                if (!mapElement.isConnected || !mapElement.getClientRects().length ||
+                    getComputedStyle(mapElement).visibility === "hidden" || size[0] === 0 || size[1] === 0) {
+                    stableSize = null;
+                    sizeAttempts = 0;
+                    lastError = "Map has no usable size";
+                    updateDebug();
+                    return;
+                }
+                if (!map) {
+                    if (initializationAttempts >= 2) return;
+                    if (!stableSize || stableSize[0] !== size[0] || stableSize[1] !== size[1]) {
+                        stableSize = size;
+                        sizeAttempts++;
+                        if (sizeAttempts < 12) queueMeasure();
+                        else initializeMap(size);
+                        return;
+                    }
+                    initializeMap(size);
+                } else if (!lastSize || lastSize[0] !== size[0] || lastSize[1] !== size[1]) {
+                    lastSize = size;
+                    map.invalidateSize({ pan: false });
+                    invalidateCount++;
+                    if (!userMoved && bounds?.isValid()) {
+                        fitting = true;
+                        try { map.fitBounds(bounds.pad(0.2), { maxZoom: 17, animate: false }); }
+                        finally { fitting = false; }
+                    }
+                    updateDebug();
+                }
+            }
+
+            function queueMeasure() {
+                if (frame === null) frame = requestAnimationFrame(measureMap);
+            }
+
+            queueMeasure();
+            window.addEventListener("load", queueMeasure, { once: true });
+            window.addEventListener("orientationchange", queueMeasure);
+            window.addEventListener("resize", queueMeasure);
+            if ("ResizeObserver" in window) {
+                new ResizeObserver(() => { resizeCount++; queueMeasure(); }).observe(mapElement);
+            }
         });
 
         const gallery = document.getElementById("walkPhotoGallery");
@@ -1295,10 +1392,43 @@
     }
 
     #summaryMap {
-        height: 360px;
+        height: 300px;
         width: 100%;
+        position: relative;
         overflow: hidden;
         border-radius: 8px;
+    }
+
+    #summaryMap .leaflet-pane,
+    #summaryMap .leaflet-tile,
+    #summaryMap .leaflet-tile-container,
+    #summaryMap .leaflet-marker-icon,
+    #summaryMap .leaflet-marker-shadow,
+    #summaryMap .leaflet-pane > svg,
+    #summaryMap .leaflet-pane > canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+    }
+
+    #summaryMap .leaflet-tile { width: 256px; height: 256px; max-width: none; max-height: none; }
+    #summaryMap .leaflet-tile-pane { z-index: 200; }
+    #summaryMap .leaflet-overlay-pane { z-index: 400; }
+    #summaryMap .leaflet-marker-pane { z-index: 600; }
+    #summaryMap .leaflet-popup-pane { z-index: 700; }
+    #summaryMap .leaflet-top,
+    #summaryMap .leaflet-bottom { position: absolute; z-index: 1000; pointer-events: none; }
+    #summaryMap .leaflet-top { top: 0; }
+    #summaryMap .leaflet-bottom { bottom: 0; }
+    #summaryMap .leaflet-left { left: 0; }
+    #summaryMap .leaflet-right { right: 0; }
+    #summaryMap .leaflet-control { position: relative; pointer-events: auto; }
+
+    .walk-summary__map-debug {
+        margin: 8px 0 0;
+        padding: 8px;
+        font-size: .75rem;
+        white-space: pre-wrap;
     }
 
     .walk-share-preview {

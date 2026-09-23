@@ -439,23 +439,35 @@ namespace DoggyDrop.Controllers
         [Authorize]
         public async Task<IActionResult> Reject(int id, string? returnTo)
         {
-            var bin = await _context.TrashBins.FindAsync(id);
-            if (bin != null)
+            if (User.IsInRole("Admin"))
             {
-                var userId = _userManager.GetUserId(User);
-                if (!User.IsInRole("Admin") && bin.UserId != userId)
+                var bin = await _context.TrashBins.FindAsync(id);
+                if (bin != null)
                 {
-                    return Forbid();
+                    _context.TrashBins.Remove(bin);
+                    await _context.SaveChangesAsync();
                 }
-
-                _context.TrashBins.Remove(bin);
-                await _context.SaveChangesAsync();
+                return string.Equals(returnTo, "mybins", StringComparison.OrdinalIgnoreCase)
+                    ? RedirectToAction(nameof(MyBins))
+                    : RedirectToAction(nameof(Manage));
             }
 
-            if (!string.IsNullOrEmpty(returnTo) && returnTo.ToLower() == "mybins")
-                return RedirectToAction("MyBins");
+            var userId = _userManager.GetUserId(User);
+            if (string.IsNullOrWhiteSpace(userId)) return Forbid();
 
-            return RedirectToAction("Manage");
+            var deleted = await _context.TrashBins
+                .Where(bin => bin.Id == id && bin.UserId == userId && !bin.IsApproved)
+                .ExecuteDeleteAsync();
+            if (deleted == 0)
+            {
+                var approvedOwnBin = await _context.TrashBins.AsNoTracking()
+                    .AnyAsync(bin => bin.Id == id && bin.UserId == userId && bin.IsApproved);
+                if (!approvedOwnBin) return NotFound();
+
+                TempData["ErrorMessage"] = "Koša ni mogoče izbrisati, ker je bil medtem odobren.";
+            }
+
+            return RedirectToAction(nameof(MyBins));
         }
 
         // 🔥 Admin ročno brisanje

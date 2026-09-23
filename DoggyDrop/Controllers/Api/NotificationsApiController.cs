@@ -1,5 +1,6 @@
 using DoggyDrop.Data;
 using DoggyDrop.Models;
+using DoggyDrop.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -63,28 +64,33 @@ namespace DoggyDrop.Controllers.Api
             }
 
             var latest = await _context.UserNotifications
+                .AsNoTracking()
                 .Where(n => n.UserId == userId)
                 .OrderByDescending(n => n.CreatedAt)
                 .Take(6)
-                .Select(n => new
-                {
-                    n.Id,
-                    n.Type,
-                    n.Title,
-                    n.Body,
-                    n.LinkUrl,
-                    n.IsRead,
-                    n.CreatedAt
-                })
                 .ToListAsync();
 
             var unreadCount = await _context.UserNotifications.CountAsync(n => n.UserId == userId && !n.IsRead);
-            var latestUnread = latest.Where(n => !n.IsRead).ToList();
+            var nowUtc = DateTime.UtcNow;
+            var presented = latest.Select(n => new
+            {
+                n.Id,
+                n.Type,
+                n.Title,
+                n.Body,
+                n.LinkUrl,
+                n.IsRead,
+                n.CreatedAt,
+                DisplayTitle = NotificationPresentation.Title(n),
+                DisplayBody = NotificationPresentation.Body(n),
+                DisplayTime = NotificationPresentation.Time(n.CreatedAt, nowUtc)
+            }).ToList();
+            var latestUnread = presented.Where(n => !n.IsRead).ToList();
 
             return Ok(new
             {
                 unreadCount,
-                latest,
+                latest = presented,
                 latestUnread,
                 smart = await BuildSmartCardsAsync(userId)
             });

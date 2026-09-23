@@ -219,16 +219,6 @@
                     <a asp-controller="Notifications" asp-action="Index">Odpri inbox</a>
                 </div>
 
-                <section class="app-notification-center__smart">
-                    <div class="app-notification-center__section-head">
-                        <h3>Smart</h3>
-                        <span>Hitri namigi</span>
-                    </div>
-                    <div id="notificationCenterSmartList" class="app-notification-center__smart-list">
-                        <p class="app-notification-center__empty">Nalagam smart predloge...</p>
-                    </div>
-                </section>
-
                 <section class="app-notification-center__feed">
                     <div class="app-notification-center__section-head">
                         <h3>Zadnje</h3>
@@ -236,6 +226,15 @@
                     </div>
                     <div id="notificationCenterList" class="app-notification-center__list">
                         <p class="app-notification-center__empty">Nalagam obvestila...</p>
+                    </div>
+                </section>
+
+                <section class="app-notification-center__smart">
+                    <div class="app-notification-center__section-head">
+                        <h3>Namigi in vreme</h3>
+                    </div>
+                    <div id="notificationCenterSmartList" class="app-notification-center__smart-list">
+                        <p class="app-notification-center__empty">Nalagam namige...</p>
                     </div>
                 </section>
             </div>
@@ -356,79 +355,68 @@
                 function renderNotificationItem(item) {
                     const isUnread = item.isRead !== true;
                     const meta = getNotificationLabel(item.type || "");
-                    const body = escapeHtml(item.body || "");
-                    const title = escapeHtml(item.title || "DoggyDrop");
-                    const createdAt = formatDateTime(item.createdAt);
-                    const buttonLabel = item.linkUrl ? "Odpri" : "Označi prebrano";
+                    const displayTitle = item.displayTitle || item.title || "DoggyDrop";
+                    const body = escapeHtml(item.displayBody ?? item.body ?? "");
+                    const title = escapeHtml(displayTitle);
+                    const createdAt = escapeHtml(item.displayTime || "");
+                    const linkUrl = isLocalLink(item.linkUrl) ? item.linkUrl : "";
+                    const canOpen = Boolean(linkUrl);
+                    const actionLabel = item.type === "FriendRequest" ? "Poglej prošnjo" : `Odpri: ${displayTitle}`;
 
                     return `
-                        <article class="app-notification-mini ${isUnread ? "is-unread" : ""}">
-                            <div class="app-notification-mini__icon">${meta.icon}</div>
+                        <article class="app-notification-mini ${isUnread ? "is-unread" : ""}" aria-label="${isUnread ? "Neprebrano: " : ""}${title}">
+                            <div class="app-notification-mini__icon"><i class="bi ${meta.icon}" aria-hidden="true"></i></div>
                             <div class="app-notification-mini__content">
                                 <div class="app-notification-mini__top">
                                     <strong>${title}</strong>
-                                    <span>${createdAt}</span>
+                                    <time>${createdAt}</time>
                                 </div>
                                 <p>${body}</p>
-                                <div class="app-notification-mini__meta">
-                                    <span>${meta.label}</span>
-                                    ${isUnread ? "<span>Novo</span>" : ""}
-                                </div>
+                                <span class="app-notification-mini__category">${meta.label}</span>
                             </div>
-                            <button type="button"
-                                    data-notification-open
-                                    data-notification-id="${item.id}"
-                                    data-link-url="${item.linkUrl || ""}">${buttonLabel}</button>
+                            ${isUnread ? '<span class="app-notification-mini__unread" aria-hidden="true"></span>' : ""}
+                            ${canOpen ? '<i class="bi bi-chevron-right app-notification-mini__chevron" aria-hidden="true"></i>' : ""}
+                            ${canOpen || isUnread ? `<button type="button" class="app-notification-mini__action ${canOpen ? "is-open" : "is-read"}"
+                                    data-notification-open data-notification-id="${Number(item.id)}"
+                                    data-link-url="${escapeHtml(linkUrl)}"
+                                    aria-label="${escapeHtml(canOpen ? actionLabel : `Označi kot prebrano: ${displayTitle}`)}">${canOpen ? "" : '<i class="bi bi-check2" aria-hidden="true"></i>'}</button>` : ""}
                         </article>
                     `;
                 }
 
                 function renderSmartItem(item) {
                     const label = getNotificationLabel(item.type || "").label;
+                    const linkUrl = isLocalLink(item.linkUrl) ? item.linkUrl : "";
                     return `
                         <article class="app-notification-smart-item">
                             <span>${label}</span>
                             <strong>${escapeHtml(item.title || "DoggyDrop")}</strong>
                             <p>${escapeHtml(item.body || "")}</p>
-                            ${item.linkUrl ? `<a href="${item.linkUrl}">Odpri</a>` : ""}
+                            ${linkUrl ? `<a href="${escapeHtml(linkUrl)}" aria-label="Odpri: ${escapeHtml(item.title || "DoggyDrop")}"><i class="bi bi-arrow-up-right" aria-hidden="true"></i></a>` : ""}
                         </article>
                     `;
                 }
 
                 function getNotificationLabel(type) {
                     switch (type) {
-                        case "FriendStartedWalk": return { label: "Sprehodi", icon: "🐾" };
-                        case "NewBinNearby": return { label: "Zemljevid", icon: "🗑️" };
-                        case "BinApproved": return { label: "Prispevek", icon: "✅" };
-                        case "Achievement": return { label: "Dosežek", icon: "🏆" };
-                        case "WalkReminder": return { label: "Smart", icon: "⏰" };
-                        case "FirstDogProfile": return { label: "Profil", icon: "🐾" };
-                        case "NearbyMapTips": return { label: "Mapa", icon: "📍" };
-                        case "PopularParkNearby": return { label: "Smart", icon: "🌳" };
-                        case "WeatherAlert": return { label: "Vreme", icon: "☁️" };
-                        case "FriendRequest": return { label: "Prijatelji", icon: "🤝" };
-                        case "FriendAccepted": return { label: "Prijatelji", icon: "💚" };
-                        case "PlaydateInterest": return { label: "Playdates", icon: "🐶" };
-                        default: return { label: "DoggyDrop", icon: "D" };
+                        case "FriendStartedWalk": return { label: "Sprehodi", icon: "bi-signpost-2" };
+                        case "NewBinNearby": return { label: "Zemljevid", icon: "bi-trash3" };
+                        case "BinApproved": return { label: "Prispevek", icon: "bi-check-circle" };
+                        case "Achievement": return { label: "Dosežek", icon: "bi-award" };
+                        case "WalkReminder": return { label: "Sprehodi", icon: "bi-clock" };
+                        case "FirstDogProfile": return { label: "Profil", icon: "bi-person-plus" };
+                        case "NearbyMapTips": return { label: "Zemljevid", icon: "bi-geo-alt" };
+                        case "PopularParkNearby": return { label: "Parki", icon: "bi-tree" };
+                        case "WeatherAlert": return { label: "Vreme", icon: "bi-cloud" };
+                        case "FriendRequest": return { label: "Prijatelji", icon: "bi-person-plus" };
+                        case "FriendAccepted": return { label: "Prijatelji", icon: "bi-people" };
+                        case "PlaydateInterest": return { label: "Srečanja", icon: "bi-calendar-heart" };
+                        default: return { label: "DoggyDrop", icon: "bi-bell" };
                     }
                 }
 
-                function formatDateTime(value) {
-                    if (!value) {
-                        return "";
-                    }
-
-                    const date = new Date(value);
-                    if (Number.isNaN(date.getTime())) {
-                        return "";
-                    }
-
-                    return date.toLocaleString("sl-SI", {
-                        day: "2-digit",
-                        month: "2-digit",
-                        hour: "2-digit",
-                        minute: "2-digit"
-                    });
+                function isLocalLink(value) {
+                    return typeof value === "string" && value.startsWith("/") && !value.startsWith("//") && !value.startsWith("/\\");
                 }
 
                 function escapeHtml(value) {

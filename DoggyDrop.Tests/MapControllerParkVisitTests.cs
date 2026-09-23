@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Data.Common;
 using System.Text.Json;
 using DoggyDrop.Controllers;
 using DoggyDrop.Data;
@@ -11,7 +12,9 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Routing;
+using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -39,6 +42,80 @@ public sealed class MapControllerParkVisitTests : IDisposable
 
         Assert.NotNull(action);
         Assert.NotNull(action!.GetCustomAttributes(typeof(ValidateAntiForgeryTokenAttribute), inherit: true).SingleOrDefault());
+    }
+
+    [Fact]
+    public void Reject_RequiresAntiforgeryValidation()
+    {
+        var action = typeof(MapController).GetMethod(nameof(MapController.Reject));
+        Assert.NotNull(action);
+        Assert.NotNull(action!.GetCustomAttributes(typeof(ValidateAntiForgeryTokenAttribute), inherit: true).SingleOrDefault());
+    }
+
+    [Fact]
+    public async Task Reject_OwnerMayRemoveUnapprovedProposal()
+    {
+        var binId = await AddBinAsync();
+        await using var db = Context();
+        Assert.IsType<RedirectToActionResult>(await Controller(db).Reject(binId, "mybins"));
+        Assert.False(await db.TrashBins.AnyAsync(bin => bin.Id == binId));
+    }
+
+    [Fact]
+    public async Task Reject_OwnerCannotRemoveApprovedPublicBin()
+    {
+        var binId = await AddBinAsync(approved: true);
+        await using var db = Context();
+        var controller = Controller(db);
+        Assert.IsType<RedirectToActionResult>(await controller.Reject(binId, "mybins"));
+        Assert.Equal("Koša ni mogoče izbrisati, ker je bil medtem odobren.", controller.TempData["ErrorMessage"]);
+        Assert.True(await db.TrashBins.AnyAsync(bin => bin.Id == binId && bin.IsApproved));
+    }
+
+    [Fact]
+    public async Task Reject_ApprovalImmediatelyBeforeConditionalDeletePreservesBin()
+    {
+        var binId = await AddBinAsync();
+        var interceptor = new ApproveBeforeDeleteInterceptor(async () =>
+        {
+            await using var approvingDb = Context();
+            await approvingDb.TrashBins.Where(bin => bin.Id == binId)
+                .ExecuteUpdateAsync(update => update.SetProperty(bin => bin.IsApproved, true));
+        });
+        await using var db = Context(interceptor);
+        var controller = Controller(db);
+
+        Assert.IsType<RedirectToActionResult>(await controller.Reject(binId, "mybins"));
+        Assert.True(interceptor.ApprovalRan);
+        Assert.Equal("Koša ni mogoče izbrisati, ker je bil medtem odobren.", controller.TempData["ErrorMessage"]);
+        await using var verificationDb = Context();
+        Assert.True(await verificationDb.TrashBins.AnyAsync(bin => bin.Id == binId && bin.IsApproved));
+    }
+
+    [Fact]
+    public async Task Reject_ForeignUserCannotRemoveProposal()
+    {
+        var binId = await AddBinAsync(ownerId: "someone-else");
+        await using var db = Context();
+        Assert.IsType<NotFoundResult>(await Controller(db).Reject(binId, "mybins"));
+        Assert.True(await db.TrashBins.AnyAsync(bin => bin.Id == binId));
+    }
+
+    [Fact]
+    public async Task Reject_NonexistentBinReturnsSameResultAsForeignBin()
+    {
+        await SeedAsync();
+        await using var db = Context();
+        Assert.IsType<NotFoundResult>(await Controller(db).Reject(99999, "mybins"));
+    }
+
+    [Fact]
+    public async Task Reject_AdminCanStillModerateApprovedBin()
+    {
+        var binId = await AddBinAsync(approved: true, ownerId: "someone-else");
+        await using var db = Context();
+        Assert.IsType<RedirectToActionResult>(await Controller(db, admin: true).Reject(binId, null));
+        Assert.False(await db.TrashBins.AnyAsync(bin => bin.Id == binId));
     }
 
     [Fact] public async Task FirstDiscovery_SavesRewardsAndAcquiresStamp()
@@ -269,6 +346,16 @@ public sealed class MapControllerParkVisitTests : IDisposable
         return dog.Id;
     }
 
+    private async Task<int> AddBinAsync(bool approved = false, string ownerId = UserId)
+    {
+        await SeedAsync();
+        await using var db = Context();
+        var bin = new TrashBin { Name = "Testni koš", UserId = ownerId, IsApproved = approved, Latitude = 46, Longitude = 15 };
+        db.TrashBins.Add(bin);
+        await db.SaveChangesAsync();
+        return bin.Id;
+    }
+
     private async Task<int> AddDogAsync(string name)
     {
         await using var db = Context();
@@ -298,17 +385,49 @@ public sealed class MapControllerParkVisitTests : IDisposable
     }
 
     private static ParkVisitInput Input(int dogId, string key) => new() { DogId = dogId, PlaceKey = key };
-    private ApplicationDbContext Context() => new(new DbContextOptionsBuilder<ApplicationDbContext>().UseSqlite($"Data Source={_db};Default Timeout=15;Pooling=False").Options);
+    private ApplicationDbContext Context(DbCommandInterceptor? interceptor = null)
+    {
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseSqlite($"Data Source={_db};Default Timeout=15;Pooling=False");
+        if (interceptor != null) options.AddInterceptors(interceptor);
+        return new ApplicationDbContext(options.Options);
+    }
 
-    private MapController Controller(ApplicationDbContext db, TestGamificationCalendar? calendar = null)
+    private MapController Controller(ApplicationDbContext db, TestGamificationCalendar? calendar = null, bool admin = false)
     {
         calendar ??= new TestGamificationCalendar();
         var controller = new MapController(db, new TestEnvironment(), UserManager(db), new NoOpImages(), new NoOpEmail(), _notifications,
             new GamificationService(db, _notifications, calendar), new DogProgressionService(db), new MapStampService(), new GamificationRewardBuilder(), calendar,
             new UserAchievementService(db, _notifications));
-        controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, UserId)], "Test")) } };
+        var claims = new List<Claim> { new(ClaimTypes.NameIdentifier, UserId) };
+        if (admin) claims.Add(new Claim(ClaimTypes.Role, "Admin"));
+        controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity(claims, "Test")) } };
+        controller.TempData = new TempDataDictionary(controller.HttpContext, new MemoryTempDataProvider());
         controller.Url = new StubUrl();
         return controller;
+    }
+
+    private sealed class ApproveBeforeDeleteInterceptor(Func<Task> approve) : DbCommandInterceptor
+    {
+        public bool ApprovalRan { get; private set; }
+
+        public override async ValueTask<InterceptionResult<int>> NonQueryExecutingAsync(
+            DbCommand command, CommandEventData eventData, InterceptionResult<int> result,
+            CancellationToken cancellationToken = default)
+        {
+            if (!ApprovalRan && command.CommandText.Contains("DELETE FROM \"TrashBins\"", StringComparison.OrdinalIgnoreCase))
+            {
+                ApprovalRan = true;
+                await approve();
+            }
+            return result;
+        }
+    }
+
+    private sealed class MemoryTempDataProvider : ITempDataProvider
+    {
+        public IDictionary<string, object> LoadTempData(HttpContext context) => new Dictionary<string, object>();
+        public void SaveTempData(HttpContext context, IDictionary<string, object> values) { }
     }
 
     private static UserManager<ApplicationUser> UserManager(ApplicationDbContext db) => new(new UserStore<ApplicationUser, IdentityRole, ApplicationDbContext>(db), Options.Create(new IdentityOptions()), new PasswordHasher<ApplicationUser>(), [], [], new UpperInvariantLookupNormalizer(), new IdentityErrorDescriber(), new ServiceCollection().BuildServiceProvider(), NullLogger<UserManager<ApplicationUser>>.Instance);

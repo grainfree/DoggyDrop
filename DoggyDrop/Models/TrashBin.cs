@@ -56,7 +56,7 @@ namespace DoggyDrop.Models
                     value.StartsWith("https://", StringComparison.OrdinalIgnoreCase) ||
                     value.StartsWith("/", StringComparison.Ordinal))
                 {
-                    return value;
+                    return DoggyDrop.Services.CloudinaryImageDelivery.ForDisplay(value);
                 }
 
                 const string wwwrootMarker = "wwwroot/";

@@ -12,6 +12,10 @@
 }
 
 <section class="app-page my-bins-page">
+    @if (TempData["ErrorMessage"] is string errorMessage)
+    {
+        <div class="alert alert-warning" role="alert">@errorMessage</div>
+    }
     <header class="my-bins-hero">
         <div>
             <span>Prispevki skupnosti</span>
@@ -68,25 +72,22 @@
                     <div class="my-bin-card__image">
                         @if (!string.IsNullOrWhiteSpace(imageUrl))
                         {
-                            <img src="@imageUrl" alt="@bin.Name" />
+                            <img src="@imageUrl" alt="Fotografija koša @bin.Name" loading="lazy" />
                         }
                         else
                         {
-                            <span>B</span>
+                            <span class="my-bin-card__placeholder" aria-hidden="true"><i class="bi bi-trash3"></i></span>
                         }
+                        <span class="my-bin-card__status @(bin.IsApproved ? "is-approved" : "is-pending")">
+                            @(bin.IsApproved ? "Odobreno" : "V pregledu")
+                        </span>
+                        <div class="my-bin-card__photo-label">
+                            <h2 title="@bin.Name">@bin.Name</h2>
+                            <p>@DoggyDrop.ViewModels.WalkMemoryPresentation.LocalTime(bin.DateAdded).ToString("dd.MM.yyyy HH:mm")</p>
+                        </div>
                     </div>
 
                     <div class="my-bin-card__body">
-                        <div class="my-bin-card__header">
-                            <div>
-                                <h2>@bin.Name</h2>
-                                <p>@bin.DateAdded.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</p>
-                            </div>
-                            <span class="my-bin-card__status @(bin.IsApproved ? "is-approved" : "is-pending")">
-                                @(bin.IsApproved ? "Odobreno" : "V pregledu")
-                            </span>
-                        </div>
-
                         <div class="my-bin-card__metrics">
                             <span>@bin.UsedCount uporab</span>
                             <span>@bin.FullReports poln</span>
@@ -103,9 +104,15 @@
                             {
                                 <a asp-controller="Map" asp-action="Index">Odpri zemljevid</a>
                             }
-                            <form asp-action="Reject" asp-route-id="@bin.Id" asp-route-returnTo="mybins" method="post">
-                                <button type="submit" onclick="return confirm('Ali res želiš izbrisati ta koš?');">Izbriši</button>
-                            </form>
+                            else
+                            {
+                                <details class="my-bin-card__manage">
+                                    <summary aria-label="Upravljanje predloga @bin.Name" title="Upravljanje predloga"><i class="bi bi-three-dots" aria-hidden="true"></i></summary>
+                                    <form asp-action="Reject" asp-route-id="@bin.Id" asp-route-returnTo="mybins" method="post" onsubmit="return confirm('Ali res želiš izbrisati ta neodobren predlog koša? Tega ni mogoče razveljaviti.');">
+                                        <button type="submit">Izbriši predlog</button>
+                                    </form>
+                                </details>
+                            }
                         </div>
                     </div>
                 </article>
@@ -258,24 +265,68 @@
 
     .my-bin-card {
         display: grid;
-        grid-template-columns: 132px 1fr;
+        grid-template-columns: 180px minmax(0, 1fr);
         overflow: hidden;
+        min-width: 0;
     }
 
     .my-bin-card__image {
+        position: relative;
         display: grid;
         min-height: 132px;
         place-items: center;
-        background: linear-gradient(135deg, #e7f3e5, #fff3dd);
+        overflow: hidden;
+        background: #dcece2;
         color: #2f6d5f;
         font-size: 2.6rem;
         font-weight: 950;
     }
 
     .my-bin-card__image img {
+        position: absolute;
+        inset: 0;
         width: 100%;
         height: 100%;
         object-fit: cover;
+    }
+
+    .my-bin-card__image::after {
+        position: absolute;
+        inset: 30% 0 0;
+        content: "";
+        background: linear-gradient(transparent, rgba(9, 29, 23, .88));
+        pointer-events: none;
+    }
+
+    .my-bin-card__placeholder { font-size: 2rem; }
+
+    .my-bin-card__photo-label {
+        position: absolute;
+        z-index: 1;
+        right: 10px;
+        bottom: 9px;
+        left: 10px;
+        min-width: 0;
+        color: #fff;
+        text-shadow: 0 1px 3px rgba(0, 0, 0, .4);
+    }
+
+    .my-bin-card__photo-label h2 {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 850;
+        line-height: 1.2;
+        overflow-wrap: anywhere;
+    }
+
+    .my-bin-card__photo-label p {
+        margin: 2px 0 0;
+        color: #e5efe8;
+        font-size: .75rem;
     }
 
     .my-bin-card__body {
@@ -284,30 +335,13 @@
         padding: 14px;
     }
 
-    .my-bin-card__header {
-        display: flex;
-        align-items: flex-start;
-        justify-content: space-between;
-        gap: 10px;
-    }
-
-    .my-bin-card__header h2 {
-        margin: 0;
-        font-size: 1.08rem;
-        font-weight: 950;
-    }
-
-    .my-bin-card__header p {
-        margin: 4px 0 0;
-        color: #65716d;
-        font-size: 0.84rem;
-        font-weight: 750;
-    }
-
     .my-bin-card__status {
-        flex: 0 0 auto;
+        position: absolute;
+        z-index: 1;
+        top: 8px;
+        right: 8px;
         padding: 6px 10px;
-        border-radius: 999px;
+        border-radius: 6px;
         font-size: 0.76rem;
         font-weight: 900;
     }
@@ -340,6 +374,7 @@
     .my-bin-card__actions {
         display: flex;
         flex-wrap: wrap;
+        align-items: flex-start;
         gap: 8px;
     }
 
@@ -349,13 +384,29 @@
 
     .my-bin-card__actions a,
     .my-bin-card__actions button {
-        min-height: 36px;
+        min-height: 44px;
         padding: 8px 13px;
         border: 1px solid rgba(47, 109, 95, 0.16);
         background: #ffffff;
         color: #2f6d5f;
         font-size: 0.84rem;
     }
+
+    .my-bin-card__manage { margin-left: auto; }
+    .my-bin-card__manage summary {
+        display: grid;
+        width: 44px;
+        height: 44px;
+        place-items: center;
+        border: 1px solid #c7d8ce;
+        border-radius: 8px;
+        color: #2f6d5f;
+        cursor: pointer;
+        list-style: none;
+    }
+    .my-bin-card__manage summary::-webkit-details-marker { display: none; }
+    .my-bin-card__manage form { margin-top: 6px; }
+    .my-bin-card__manage button { width: 100%; border-color: #e1c4c1; color: #a43832; }
 
     @@media (max-width: 575.98px) {
         .my-bins-hero {
@@ -375,16 +426,13 @@
             aspect-ratio: 4 / 3;
         }
 
-        .my-bin-card__header {
-            flex-direction: column;
-        }
     }
     .my-bins-page { padding-bottom: var(--app-bottom-nav-clearance, 100px); }
     .my-bin-card__actions a { background: #2f6d5f; color: #fff; }
-    .my-bin-card__actions button { border-color: #e1c4c1; color: #a43832; }
     @@media (max-width: 575.98px) {
         .my-bin-card__image { aspect-ratio: 16 / 9; }
         .my-bin-card__body { gap: 8px; padding: 10px; }
         .my-bin-card__metrics span { padding: 4px 7px; }
+        .my-bin-card__actions a { flex: 1; min-width: 0; }
     }
 </style>
