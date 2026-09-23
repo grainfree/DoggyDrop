@@ -101,7 +101,10 @@
             }
         </section>
         <section class="dogs-dashboard__section">
-            <h2>Nedavni sprehodi</h2>
+            <div class="dogs-dashboard__section-head">
+                <h2>Nedavni sprehodi</h2>
+                <a asp-action="Adventures" asp-route-dogId="@dog.Id">Vsi sprehodi</a>
+            </div>
             @if (Model.RecentWalks.Count == 0) { <p>Prvi skupni sprehod vaju še čaka.</p> }
             else
             {
@@ -167,6 +170,8 @@
     .dogs-dashboard__active-note { margin: 7px 0 0; color: #52665e; font-size: .82rem; }
     .dogs-dashboard__section { margin-top: 18px; }
     .dogs-dashboard__section h2 { margin-bottom: 9px; font-size: 1.12rem; }
+    .dogs-dashboard__section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+    .dogs-dashboard__section-head a { color: #24695a; font-size: .86rem; font-weight: 800; white-space: nowrap; }
     .dogs-dashboard__section p { color: #52665e; }
     .dogs-dashboard__level { display: flex; justify-content: space-between; gap: 8px; color: #234339; }
     .dogs-dashboard__level span { color: #52665e; }

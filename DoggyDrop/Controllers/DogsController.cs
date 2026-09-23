@@ -85,6 +85,65 @@ namespace DoggyDrop.Controllers
         }
 
         [HttpGet]
+        public async Task<IActionResult> Adventures(int dogId, int page = 1)
+        {
+            var userId = _userManager.GetUserId(User);
+            if (string.IsNullOrWhiteSpace(userId)) return Challenge();
+            if (page < 1 || page > 1_000_000) return NotFound();
+
+            var dog = await _context.Dogs.AsNoTracking()
+                .FirstOrDefaultAsync(item => item.Id == dogId && item.OwnerId == userId);
+            if (dog == null) return NotFound();
+
+            const int pageSize = 12;
+            var walks = await _context.Walks.AsNoTracking()
+                .Where(walk => walk.OwnerId == userId && walk.DogId == dogId && walk.Status == "Completed")
+                .OrderByDescending(walk => walk.StartedAt)
+                .ThenByDescending(walk => walk.Id)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize + 1)
+                .Select(walk => new DogAdventureItemViewModel
+                {
+                    WalkId = walk.Id,
+                    StartedAt = walk.StartedAt,
+                    DistanceMeters = walk.DistanceMeters,
+                    PhotoCount = _context.WalkPhotos.Count(photo => photo.WalkId == walk.Id && photo.UserId == userId && photo.ImageUrl != ""),
+                    HeroPhotoUrl = _context.WalkPhotos
+                        .Where(photo => photo.WalkId == walk.Id && photo.UserId == userId && photo.ImageUrl != "")
+                        .OrderByDescending(photo => photo.CreatedAt).ThenByDescending(photo => photo.Id)
+                        .Select(photo => photo.ImageUrl).FirstOrDefault()
+                })
+                .ToListAsync();
+            if (page > 1 && walks.Count == 0) return NotFound();
+
+            var months = walks.Take(pageSize)
+                .GroupBy(walk =>
+                {
+                    var local = WalkMemoryPresentation.LocalTime(walk.StartedAt);
+                    return new DateTime(local.Year, local.Month, 1);
+                })
+                .Select(group => new DogAdventureMonthViewModel
+                {
+                    Label = group.Key.ToString("MMMM yyyy", System.Globalization.CultureInfo.GetCultureInfo("sl-SI")),
+                    Walks = group.ToList()
+                })
+                .ToList();
+            var activeWalkId = await _context.Walks.AsNoTracking()
+                .Where(walk => walk.OwnerId == userId && walk.Status == "Active")
+                .Select(walk => (int?)walk.Id)
+                .FirstOrDefaultAsync();
+
+            return View(new DogAdventuresViewModel
+            {
+                Dog = dog,
+                Months = months,
+                Page = page,
+                HasNext = walks.Count > pageSize,
+                ActiveWalkId = activeWalkId
+            });
+        }
+
+        [HttpGet]
         public async Task<IActionResult> Create(string? returnUrl = null, bool firstDog = false)
         {
             var userId = _userManager.GetUserId(User);

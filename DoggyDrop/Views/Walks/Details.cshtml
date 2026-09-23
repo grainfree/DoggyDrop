@@ -5,21 +5,22 @@
 @inject UserManager<DoggyDrop.Models.ApplicationUser> UserManager
 
 @{
-    ViewData["Title"] = "Povzetek sprehoda";
-    var showFirstWalkCelebration = TempData[$"FirstWalk:Show:{Model.Id}"] as bool? == true;
-    var firstWalkDistanceKm = TempData[$"FirstWalk:DistanceKm:{Model.Id}"] as string;
+    var memory = (WalkMemoryViewModel)ViewBag.WalkMemory;
+    ViewData["Title"] = memory.Title;
+    var currentUserId = UserManager.GetUserId(User);
+    var isOwner = currentUserId == Model.OwnerId;
+    var showFirstWalkCelebration = isOwner && TempData[$"FirstWalk:Show:{Model.Id}"] as bool? == true;
+    var firstWalkDistanceKm = isOwner ? TempData[$"FirstWalk:DistanceKm:{Model.Id}"] as string : null;
     var rewardResult = ViewBag.WalkRewardResult as DoggyDrop.ViewModels.GamificationRewardResultViewModel;
     var visibleRewardAchievements = rewardResult?.GetVisibleAchievements(showFirstWalkCelebration) ?? [];
-    var currentUserId = UserManager.GetUserId(User);
     var duration = Model.EndedAt.HasValue ? Model.EndedAt.Value - Model.StartedAt : TimeSpan.Zero;
-    var durationLabel = SlovenianFormatting.WalkDuration(duration);
-    var distanceKm = Model.DistanceMeters / 1000;
-    var distanceLabel = SlovenianFormatting.WalkDistance(Model.DistanceMeters);
-    var walkStory = ViewBag.WalkStory as string
-        ?? $"{Model.Dog?.Name ?? "Pes"} je danes prehodil {distanceKm:0.0} km v DoggyDrop.";
-    var shareText = showFirstWalkCelebration
-        ? $"{Model.Dog?.Name ?? "Pes"} je pravkar zaključil svoj prvi DoggyDrop sprehod. Skupaj sva prehodila {distanceKm:0.00} km."
-        : walkStory;
+    var distanceLabel = memory.DistanceLabel;
+    var shareMeta = string.Join(" · ", new[]
+    {
+        memory.DurationLabel,
+        Model.UsedBinsCount > 0 ? $"Prijavljeni koši: {Model.UsedBinsCount}" : null
+    }.Where(value => !string.IsNullOrWhiteSpace(value)));
+    var shareText = memory.ShareText;
     var shareTitle = showFirstWalkCelebration ? "Prvi DoggyDrop sprehod" : "DoggyDrop sprehod";
     var detailsShareUrl = Url.Action("Details", "Walks", new { id = Model.Id }, Context.Request.Scheme);
     var reactions = Model.Reactions ?? Array.Empty<DoggyDrop.Models.WalkReaction>();
@@ -28,7 +29,9 @@
         .OrderByDescending(comment => comment.CreatedAt)
         .ToList();
     var walkPhotos = (Model.Photos ?? Array.Empty<DoggyDrop.Models.WalkPhoto>())
+        .Where(photo => photo.WalkId == Model.Id && photo.UserId == Model.OwnerId && !string.IsNullOrWhiteSpace(photo.ImageUrl))
         .OrderByDescending(photo => photo.CreatedAt)
+        .ThenByDescending(photo => photo.Id)
         .ToList();
     var likedPhotoIds = walkPhotos
         .Where(photo => !string.IsNullOrWhiteSpace(currentUserId) && (photo.Reactions?.Any(reaction => reaction.UserId == currentUserId) ?? false))
@@ -65,9 +68,12 @@
 }
 
 @section Styles {
+    @if (memory.HasMap)
+    {
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
           integrity="sha256-p4NxAoJBhIINfQXh6ULpR5txR9wra5I3BcVsTPY1p3A="
           crossorigin="" />
+    }
     <style>
         .first-walk-celebration {
             display: grid;
@@ -416,60 +422,69 @@
         .walk-summary__top-actions button, .walk-summary__top-actions a { min-height: 44px; padding: 10px 15px; border-radius: 8px; font-weight: 800; }
         .walk-summary__top-actions button { border: 0; background: #24695a; color: white; }
         .walk-summary__top-actions a { border: 1px solid #c5d5cc; color: #24695a; text-decoration: none; }
+        .walk-memory__cover { position: relative; display: grid; width: 100%; max-height: 280px; aspect-ratio: 16 / 9; place-items: center; overflow: hidden; border-radius: 8px; background: #e3efe5; }
+        .walk-memory__cover-fallback { color: #24695a; font-size: 3rem; }
+        .walk-memory__cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+        .walk-memory__highlights { margin-top: 18px; }
+        .walk-memory__highlights h2 { font-size: 1.12rem; }
+        .walk-memory__highlight-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+        .walk-memory__highlight-list div { display: grid; gap: 3px; min-width: 0; padding: 10px 12px; border: 1px solid #dce7df; border-radius: 6px; }
+        .walk-memory__highlight-list span { color: #52665e; font-size: .8rem; }
+        .walk-memory__highlight-list strong { overflow-wrap: anywhere; }
+        @@media (max-width: 575.98px) { .walk-memory__highlight-list { grid-template-columns: 1fr; } }
     </style>
 }
 
 <section class="app-page walk-summary-page">
-    <a class="walk-summary__back" asp-controller="Walks" asp-action="Index">Nazaj na sprehode</a>
-
-    @if (showFirstWalkCelebration)
+    @if (currentUserId == Model.OwnerId)
     {
-        <article class="first-walk-celebration">
-            <div class="first-walk-celebration__badge" aria-hidden="true">
-                <i class="bi bi-award-fill"></i>
-            </div>
-            <div class="first-walk-celebration__content">
-                <span class="first-walk-celebration__eyebrow">Prva značka odklenjena</span>
-                <h2>Prvi sprehod je za tabo</h2>
-                <p>
-                    @Model.Dog?.Name je uspešno zaključil svoj prvi DoggyDrop sprehod.
-                    @if (!string.IsNullOrWhiteSpace(firstWalkDistanceKm))
-                    {
-                        <text>Danes sta skupaj prehodila @firstWalkDistanceKm km.</text>
-                    }
-                </p>
-                <div class="first-walk-celebration__actions">
-                    <span class="first-walk-celebration__pill">Prvi sprehod</span>
-                    <a class="btn btn-success rounded-pill fw-semibold" asp-controller="Walks" asp-action="Planner" asp-route-dogId="@Model.DogId">Na naslednji sprehod</a>
-                    <button type="button" class="btn btn-outline-secondary rounded-pill fw-semibold" data-share-walk-story>Deli dosežek</button>
-                </div>
-            </div>
-        </article>
+        <a class="walk-summary__back" asp-controller="Dogs" asp-action="Adventures" asp-route-dogId="@Model.DogId">Nazaj na dogodivščine</a>
     }
+    else
+    {
+        <a class="walk-summary__back" asp-controller="Walks" asp-action="Index">Nazaj na sprehode</a>
+    }
+    @if (TempData["ErrorMessage"] is string uploadError) { <div class="alert alert-danger" role="alert">@uploadError</div> }
 
     <header class="walk-summary__hero">
         <div>
             <span>Sprehod zaključen</span>
-            <h1>@Model.Dog?.Name - sprehod</h1>
-            <p>@Model.StartedAt.ToLocalTime().ToString("d. MMMM · HH:mm", System.Globalization.CultureInfo.GetCultureInfo("sl-SI"))</p>
+            <h1>@memory.Title</h1>
+            <p>@memory.DateLabel</p>
+            @if (!string.IsNullOrWhiteSpace(memory.OwnerPlanTitle)) { <p>@memory.OwnerPlanTitle</p> }
         </div>
         <a class="walk-summary__dog-link" asp-controller="Dogs" asp-action="Details" asp-route-id="@Model.DogId">Profil psa</a>
     </header>
 
+    <div class="walk-memory__cover">
+        <div class="walk-memory__cover-fallback" aria-hidden="true"><i class="bi bi-signpost-2-fill"></i></div>
+        @if (!string.IsNullOrWhiteSpace(memory.HeroPhotoUrl))
+        {
+            <img src="@memory.HeroPhotoUrl" alt="Fotografija s tega sprehoda" onerror="this.hidden=true" />
+        }
+    </div>
+
     <div class="walk-summary__stats">
         <article>
             <strong>@distanceLabel</strong>
-            <span>Razdalja</span>
+            <span>Prehojeno</span>
         </article>
+        @if (memory.DurationLabel != null)
+        {
+            <article>
+                <strong>@memory.DurationLabel</strong>
+                <span>Od začetka do konca</span>
+            </article>
+        }
         <article>
-            <strong>@durationLabel</strong>
-            <span>Trajanje</span>
+            <strong>@memory.PhotoCount</strong>
+            <span>Fotografije</span>
         </article>
         @if (Model.UsedBinsCount > 0)
         {
             <article>
                 <strong>@Model.UsedBinsCount</strong>
-                <span>Uporabljeni koši</span>
+                <span>Prijavljeni koši</span>
             </article>
         }
     </div>
@@ -481,8 +496,28 @@
 
     <div class="walk-summary__top-actions">
         <button type="button" data-share-walk-story><i class="bi bi-share" aria-hidden="true"></i> Deli sprehod</button>
-        <a href="#summaryMap">Poglej pot</a>
+        @if (memory.HasMap) { <a href="#summaryMap">Poglej pot</a> }
     </div>
+
+    @if (showFirstWalkCelebration)
+    {
+        <article class="first-walk-celebration">
+            <div class="first-walk-celebration__badge" aria-hidden="true"><i class="bi bi-award-fill"></i></div>
+            <div class="first-walk-celebration__content">
+                <span class="first-walk-celebration__eyebrow">Prva značka odklenjena</span>
+                <h2>Prvi sprehod je za tabo</h2>
+                <p>
+                    Zaključen je prvi DoggyDrop sprehod s psom @Model.Dog?.Name.
+                    @if (!string.IsNullOrWhiteSpace(firstWalkDistanceKm)) { <text>Prehojeno: @distanceLabel.</text> }
+                </p>
+                <div class="first-walk-celebration__actions">
+                    <span class="first-walk-celebration__pill">Prvi sprehod</span>
+                    <a class="btn btn-success rounded-pill fw-semibold" asp-controller="Walks" asp-action="Planner" asp-route-dogId="@Model.DogId">Na naslednji sprehod</a>
+                    <button type="button" class="btn btn-outline-secondary rounded-pill fw-semibold" data-share-walk-story>Deli dosežek</button>
+                </div>
+            </div>
+        </article>
+    }
 
     @if (rewardResult?.HasRewards == true)
     {
@@ -608,6 +643,19 @@
         </article>
     }
 
+    @if (memory.Highlights.Count > 0)
+    {
+        <section class="walk-memory__highlights" aria-labelledby="walkMemoryHighlightsTitle">
+            <h2 id="walkMemoryHighlightsTitle">Poudarki</h2>
+            <div class="walk-memory__highlight-list">
+                @foreach (var highlight in memory.Highlights)
+                {
+                    <div><span>@highlight.Title</span><strong>@highlight.Detail</strong></div>
+                }
+            </div>
+        </section>
+    }
+
     @if (plannedStops.Count > 0)
     {
         <article class="walk-summary__plan-card">
@@ -631,55 +679,16 @@
         </article>
     }
 
+    @if (memory.HasMap)
+    {
     <article class="walk-summary__map-card">
         <div class="walk-summary__map-header">
             <h2>Pot</h2>
-            @if ((Model.Points?.Count ?? 0) == 0)
-            {
-                <span>@((Model.PlannedWalk?.RoutePoints?.Count ?? 0) > 1 ? "Načrtovana pot" : "Brez GPS poti")</span>
-            }
-            else
-            {
-                <span>Shranjena pot</span>
-            }
+            <span>@(memory.HasActualTrail ? "Dejanska GPS pot" : "Samo načrtovana pot")</span>
         </div>
         <div id="summaryMap"></div>
     </article>
-
-    <article class="walk-story-card">
-        <div class="walk-story-card__content">
-            <span>Povzetek sprehoda</span>
-            <h2>@walkStory</h2>
-            <div class="walk-story-card__meta">
-                <strong>@distanceLabel</strong>
-                <strong>@durationLabel</strong>
-                <strong>@walkPhotos.Count foto</strong>
-            </div>
-            <p>Vsak sprehod ima svojo zgodbo. Shrani fotografije, zemljevid poti in najlepše trenutke s svojim psom.</p>
-            <div class="walk-story-card__actions">
-                <button type="button" id="copyWalkStory">Kopiraj povzetek</button>
-                <button type="button" data-share-walk-story>Deli sprehod</button>
-            </div>
-        </div>
-        <div class="walk-story-card__media">
-            <div class="walk-story-card__route">
-                <span>@((Model.Points?.Count ?? 0) > 0 ? "GPS pot shranjena" : "GPS pot ni na voljo")</span>
-            </div>
-            <div class="walk-story-card__photos">
-                @if (sharePhotos.Count == 0 && !string.IsNullOrWhiteSpace(Model.Dog?.PhotoUrl))
-                {
-                    <img src="@Model.Dog.PhotoUrl" alt="@Model.Dog?.Name" />
-                }
-                else
-                {
-                    @foreach (var photo in sharePhotos.Take(2))
-                    {
-                        <img src="@photo.ImageUrl" alt="Story fotografija sprehoda @Model.Dog?.Name" />
-                    }
-                }
-            </div>
-        </div>
-    </article>
+    }
 
     <section id="walkSharePreview" class="walk-share-preview" hidden aria-label="Predogled deljenja">
     <div class="walk-share-formats" role="radiogroup" aria-label="Oblika slike">
@@ -709,12 +718,12 @@
         <div class="walk-share-card__content">
             <div class="walk-share-card__brand">DoggyDrop</div>
             <div class="walk-share-card__dog">@Model.Dog?.Name</div>
-        <div class="walk-share-card__metric">@distanceLabel</div>
-            <div class="walk-share-card__grid">
-                <span>@durationLabel</span>
-                <span>@Model.UsedBinsCount košev</span>
-            </div>
-            <p>@Model.StartedAt.ToLocalTime().ToString("dd.MM.yyyy")</p>
+            <div class="walk-share-card__metric">@distanceLabel</div>
+            @if (!string.IsNullOrWhiteSpace(shareMeta))
+            {
+                <div class="walk-share-card__grid"><span>@shareMeta</span></div>
+            }
+            <p>@WalkMemoryPresentation.LocalTime(Model.StartedAt).ToString("dd.MM.yyyy")</p>
         </div>
     </article>
 
@@ -728,7 +737,7 @@
     <article class="walk-media-card">
         <div class="walk-summary__map-header">
             <h2>Fotografije sprehoda</h2>
-            <span>@walkPhotos.Count fotografij</span>
+            <span>Fotografije: @walkPhotos.Count</span>
         </div>
 
         @if (currentUserId == Model.OwnerId)
@@ -800,7 +809,7 @@
                         <img src="@photo.ImageUrl" alt="Galerija sprehoda @Model.Dog?.Name" />
                         <figcaption>
                             <strong>@(string.IsNullOrWhiteSpace(photo.Caption) ? "Fotografija sprehoda" : photo.Caption)</strong>
-                            <span>@photo.CreatedAt.ToLocalTime().ToString("dd.MM. HH:mm")</span>
+                            <span>@WalkMemoryPresentation.LocalTime(photo.CreatedAt).ToString("dd.MM. HH:mm")</span>
                         </figcaption>
                     </figure>
                 }
@@ -865,9 +874,12 @@
 </section>
 
 @section Scripts {
+    @if (memory.HasMap)
+    {
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
             integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
             crossorigin=""></script>
+    }
 
     <script>
         const summaryPoints = @pointsJson;
@@ -877,10 +889,11 @@
             const validPoints = points => points
                 .map(point => [Number(point.latitude), Number(point.longitude)])
                 .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180);
-            const routePoints = validPoints(summaryPoints);
-            const planPoints = validPoints(savedPlanPoints);
-            const fallback = routePoints[0] || planPoints[0] || [46.5547, 15.6459];
+            const routePoints = @JsonSerializer.Serialize(memory.HasActualTrail) ? validPoints(summaryPoints) : [];
+            const planPoints = @JsonSerializer.Serialize(memory.HasPlannedRoute) ? validPoints(savedPlanPoints) : [];
             const mapElement = document.getElementById("summaryMap");
+            if (!mapElement || typeof L === "undefined") return;
+            const fallback = routePoints[0] || planPoints[0];
             const map = L.map(mapElement).setView(fallback, routePoints.length > 0 ? 15 : 13);
 
             L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -938,16 +951,6 @@
             }
         });
 
-        document.getElementById("copyWalkStory")?.addEventListener("click", async function () {
-            const feedback = document.getElementById("walkShareFeedback");
-            try {
-                await navigator.clipboard.writeText(@Html.Raw(JsonSerializer.Serialize(walkStory)));
-                feedback.textContent = "Story kopiran.";
-            } catch {
-                feedback.textContent = "Kopiranje ni uspelo.";
-            }
-        });
-
         let preparedWalkShareImage = null;
         let selectedWalkShareFormat = "instagram-story";
         let shareRenderGeneration = 0;
@@ -994,8 +997,9 @@
                     ctx.font = "900 150px sans-serif";
                     ctx.fillText(@Html.Raw(JsonSerializer.Serialize(distanceLabel)), 80, height - 300, 920);
                     ctx.font = "600 44px sans-serif";
-                    ctx.fillText(@Html.Raw(JsonSerializer.Serialize($"{durationLabel} · {Model.UsedBinsCount} košev")), 80, height - 200);
-                    ctx.fillText(@Html.Raw(JsonSerializer.Serialize(Model.StartedAt.ToLocalTime().ToString("dd.MM.yyyy"))), 80, height - 130);
+                    const shareMeta = @Html.Raw(JsonSerializer.Serialize(shareMeta));
+                    if (shareMeta) ctx.fillText(shareMeta, 80, height - 200);
+                    ctx.fillText(@Html.Raw(JsonSerializer.Serialize(WalkMemoryPresentation.LocalTime(Model.StartedAt).ToString("dd.MM.yyyy"))), 80, height - 130);
                     ctx.font = "600 36px sans-serif";
                     ctx.fillText("doggydrop.app", 80, height - 50);
                     const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
@@ -1431,123 +1435,6 @@
         border-radius: 8px;
     }
 
-    .walk-story-card {
-        display: grid;
-        grid-template-columns: minmax(0, 1.25fr) minmax(260px, 0.75fr);
-        gap: 16px;
-        margin-top: 14px;
-        padding: 18px;
-        border: 1px solid rgba(47, 109, 95, 0.12);
-        border-radius: 8px;
-        background: linear-gradient(135deg, #f7fbf8, #fff7ed);
-        box-shadow: 0 14px 30px rgba(31, 45, 41, 0.08);
-    }
-
-    .walk-story-card__content span {
-        color: #ef8f42;
-        font-size: 0.76rem;
-        font-weight: 950;
-        text-transform: uppercase;
-    }
-
-    .walk-story-card__content h2 {
-        margin: 8px 0 12px;
-        color: #1f2d29;
-        font-size: clamp(1.25rem, 3vw, 2rem);
-        font-weight: 950;
-        line-height: 1.15;
-    }
-
-    .walk-story-card__content p {
-        margin: 12px 0 0;
-        color: #65716d;
-        font-weight: 750;
-        line-height: 1.5;
-    }
-
-    .walk-story-card__meta,
-    .walk-story-card__actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-    }
-
-    .walk-story-card__meta strong {
-        padding: 8px 11px;
-        border-radius: 999px;
-        background: rgba(47, 109, 95, 0.10);
-        color: #2f6d5f;
-        font-size: 0.82rem;
-        font-weight: 950;
-    }
-
-    .walk-story-card__actions {
-        margin-top: 14px;
-    }
-
-    .walk-story-card__actions button {
-        min-height: 38px;
-        padding: 8px 13px;
-        border: 0;
-        border-radius: 999px;
-        background: #2f6d5f;
-        color: #ffffff;
-        font-size: 0.84rem;
-        font-weight: 950;
-    }
-
-    .walk-story-card__actions button + button {
-        background: #ffffff;
-        color: #2f6d5f;
-        box-shadow: inset 0 0 0 1px rgba(47, 109, 95, 0.18);
-    }
-
-    .walk-story-card__media {
-        display: grid;
-        grid-template-rows: 1fr auto;
-        gap: 8px;
-        min-height: 220px;
-    }
-
-    .walk-story-card__route,
-    .walk-story-card__photos {
-        overflow: hidden;
-        border-radius: 8px;
-    }
-
-    .walk-story-card__route {
-        display: grid;
-        min-height: 120px;
-        place-items: end start;
-        padding: 12px;
-        background:
-            linear-gradient(135deg, rgba(47, 109, 95, 0.18), rgba(239, 143, 66, 0.14)),
-            repeating-linear-gradient(135deg, rgba(47, 109, 95, 0.12), rgba(47, 109, 95, 0.12) 2px, transparent 2px, transparent 18px),
-            #eef7ed;
-    }
-
-    .walk-story-card__route span {
-        padding: 6px 9px;
-        border-radius: 999px;
-        background: rgba(255, 255, 255, 0.84);
-        color: #2f6d5f;
-        font-size: 0.76rem;
-        font-weight: 950;
-    }
-
-    .walk-story-card__photos {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 8px;
-    }
-
-    .walk-story-card__photos img {
-        width: 100%;
-        height: 96px;
-        object-fit: cover;
-        border-radius: 8px;
-    }
-
     .walk-share-card {
         position: relative;
         overflow: hidden;
@@ -1884,6 +1771,8 @@
         background: rgba(8, 15, 13, 0.92);
     }
 
+    .walk-photo-gallery[hidden] { display: none; }
+
     .walk-photo-gallery__viewport {
         position: relative;
         min-height: 70vh;
@@ -1957,15 +1846,6 @@
             grid-template-columns: repeat(2, minmax(0, 1fr));
         }
 
-        .walk-story-card {
-            grid-template-columns: 1fr;
-            padding: 14px;
-        }
-
-        .walk-story-card__media {
-            min-height: 0;
-        }
-
         .walk-share-card__grid {
             grid-template-columns: 1fr;
         }
@@ -1998,7 +1878,7 @@
     .walk-summary-page { padding-bottom: var(--app-bottom-nav-clearance, 100px); }
     .walk-summary-page .walk-summary__hero { padding: 14px 18px; border-radius: 10px; }
     .walk-summary-page .walk-summary__hero h1 { font-size: 1.55rem; }
-    .walk-summary-page .walk-summary__stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .walk-summary-page .walk-summary__stats { grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); }
     .walk-summary-page .walk-summary__stats article { padding: 10px; border-radius: 8px; }
     .walk-summary-page .walk-summary__stats strong { font-size: 1.12rem; }
     .walk-share-card {
@@ -2038,7 +1918,6 @@
         .walk-summary__stats { gap: 6px; }
         .walk-summary__stats article { padding: 9px; }
         #summaryMap { height: 280px; }
-        .walk-story-card__media { display: none; }
         .walk-share-card__grid { flex-direction: row; }
         .walk-share-actions { flex-direction: row; }
         .walk-share-actions button { flex: 1; padding-inline: 8px; }

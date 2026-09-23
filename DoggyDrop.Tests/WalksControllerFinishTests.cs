@@ -4,6 +4,7 @@ using DoggyDrop.Data;
 using DoggyDrop.Models;
 using DoggyDrop.Services;
 using DoggyDrop.ViewModels;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -78,6 +79,142 @@ public sealed class WalksControllerFinishTests : IDisposable
         Assert.Equal($"/Walks/Details/{walkId}", redirectUrl);
         Assert.True(controller.TempData.ContainsKey($"WalkRewardResult:{walkId}"));
         Assert.Equal("Completed", (await context.Walks.SingleAsync()).Status);
+    }
+
+    [Fact]
+    public async Task Details_OwnerReopensCompletedMemoryWithDurableLinkedRewardsAndShareEntry()
+    {
+        var walkId = await SeedAsync(900, "Completed");
+        await using var context = CreateContext();
+        var walk = await context.Walks.SingleAsync();
+        var plan = new PlannedWalk { OwnerId = UserId, DogId = walk.DogId, Title = "Moj zasebni načrt" };
+        context.PlannedWalks.Add(plan);
+        await context.SaveChangesAsync();
+        walk.PlannedWalkId = plan.Id;
+        context.UserXpEvents.AddRange(new UserXpEvent
+        {
+            UserId = UserId, ActivityType = GamificationConstants.WalkDistance, XpAmount = 20,
+            ReferenceType = nameof(Walk), ReferenceId = walkId.ToString()
+        }, new UserXpEvent
+        {
+            UserId = UserId, ActivityType = GamificationConstants.WalkDistance, XpAmount = 90,
+            ReferenceType = nameof(Walk)
+        }, new UserXpEvent
+        {
+            UserId = UserId, ActivityType = GamificationConstants.WalkDistance, XpAmount = 90,
+            ReferenceType = nameof(Walk), ReferenceId = (walkId + 1).ToString()
+        });
+        context.DogXpEvents.AddRange(new DogXpEvent
+        {
+            DogId = walk.DogId, ActivityType = "CompletedWalk", XpAmount = 10,
+            ReferenceType = nameof(Walk), ReferenceId = walkId.ToString()
+        }, new DogXpEvent
+        {
+            DogId = walk.DogId, ActivityType = "CompletedWalk", XpAmount = 90,
+            ReferenceType = nameof(Walk)
+        }, new DogXpEvent
+        {
+            DogId = walk.DogId, ActivityType = "CompletedWalk", XpAmount = 90,
+            ReferenceType = nameof(Walk), ReferenceId = (walkId + 1).ToString()
+        });
+        context.UserAchievements.AddRange(new UserAchievement
+        {
+            UserId = UserId, AchievementKey = UserAchievementCatalog.WalkFirst,
+            SourceType = nameof(Walk), SourceId = walkId.ToString(),
+            UnlockedAt = DateTime.UtcNow, CreatedAt = DateTime.UtcNow
+        }, new UserAchievement
+        {
+            UserId = UserId, AchievementKey = UserAchievementCatalog.Walk10Km,
+            UnlockedAt = DateTime.UtcNow, CreatedAt = DateTime.UtcNow
+        }, new UserAchievement
+        {
+            UserId = UserId, AchievementKey = UserAchievementCatalog.Walk100Km,
+            SourceType = nameof(Walk), SourceId = (walkId + 1).ToString(),
+            UnlockedAt = DateTime.UtcNow, CreatedAt = DateTime.UtcNow
+        });
+        await context.SaveChangesAsync();
+        var controller = CreateController(context);
+
+        var result = Assert.IsType<ViewResult>(await controller.Details(walkId));
+        var memory = Assert.IsType<WalkMemoryViewModel>((object)controller.ViewBag.WalkMemory);
+
+        Assert.IsType<Walk>(result.Model);
+        Assert.Equal("Sprehod s Floyd", memory.Title);
+        Assert.Equal("Moj zasebni načrt", memory.OwnerPlanTitle);
+        Assert.Contains("0,90 km", memory.ShareText);
+        Assert.Equal(3, memory.Highlights.Count);
+        Assert.Contains(memory.Highlights, item => item.Title == "Tvoje izkušnje" && item.Detail == "+20 XP");
+        Assert.Contains(memory.Highlights, item => item.Title == "Pasji napredek" && item.Detail == "+10 XP");
+        Assert.Single(memory.Highlights, item => item.Title == "Odklenjen dosežek");
+        Assert.Null(controller.ViewBag.WalkRewardResult);
+        Assert.Equal(3, await context.UserXpEvents.CountAsync());
+        Assert.Equal(3, await context.DogXpEvents.CountAsync());
+    }
+
+    [Fact]
+    public async Task Details_RetainsExistingPublicCompletedWalkPrivacyWithoutPrivateRewards()
+    {
+        var walkId = await SeedAsync(900, "Completed");
+        await using var context = CreateContext();
+        var walk = await context.Walks.SingleAsync();
+        var plan = new PlannedWalk { OwnerId = UserId, DogId = walk.DogId, Title = "Moj zasebni načrt" };
+        context.PlannedWalks.Add(plan);
+        await context.SaveChangesAsync();
+        walk.PlannedWalkId = plan.Id;
+        context.UserXpEvents.Add(new UserXpEvent
+        {
+            UserId = UserId, ActivityType = GamificationConstants.WalkDistance, XpAmount = 20,
+            ReferenceType = nameof(Walk), ReferenceId = walkId.ToString()
+        });
+        await context.SaveChangesAsync();
+
+        var publicController = CreateController(context, userId: "another-user");
+        var result = Assert.IsType<ViewResult>(await publicController.Details(walkId));
+        var memory = Assert.IsType<WalkMemoryViewModel>((object)publicController.ViewBag.WalkMemory);
+
+        Assert.IsType<Walk>(result.Model);
+        Assert.Empty(memory.Highlights);
+        Assert.Null(memory.OwnerPlanTitle);
+        Assert.Null(publicController.ViewBag.WalkRewardResult);
+    }
+
+    [Theory]
+    [InlineData("Active", nameof(WalksController.Active))]
+    [InlineData("Interrupted", nameof(WalksController.Interrupted))]
+    public async Task Details_InProgressOrInterruptedRedirectsWithoutMemory(string status, string action)
+    {
+        var walkId = await SeedAsync(900, status);
+        await using var context = CreateContext();
+        var controller = CreateController(context);
+
+        var result = Assert.IsType<RedirectToActionResult>(await controller.Details(walkId));
+
+        Assert.Equal(action, result.ActionName);
+        Assert.Null(controller.ViewBag.WalkMemory);
+    }
+
+    [Theory]
+    [InlineData("Unknown")]
+    [InlineData("Paused")]
+    public async Task Details_UnknownStatusIsNotAMemory(string status)
+    {
+        var walkId = await SeedAsync(900, status);
+        await using var context = CreateContext();
+        var controller = CreateController(context);
+
+        Assert.IsType<NotFoundResult>(await controller.Details(walkId));
+        Assert.Null(controller.ViewBag.WalkMemory);
+    }
+
+    [Fact]
+    public async Task Details_NonexistentWalkIsNotFoundAndAnonymousRequestsRequireAuthorization()
+    {
+        await SeedAsync(0);
+        await using var context = CreateContext();
+        var controller = CreateController(context);
+
+        Assert.IsType<NotFoundResult>(await controller.Details(int.MaxValue));
+        Assert.NotNull(Attribute.GetCustomAttribute(typeof(WalksController), typeof(AuthorizeAttribute)));
     }
 
     [Fact]

@@ -49,6 +49,116 @@ public sealed class AchievementControllerIntegrationTests : IDisposable
     }
 
     [Fact]
+    public async Task Adventures_EmptyDogOffersFirstWalkWithoutMemories()
+    {
+        await using var context = Context();
+        var dog = new Dog { Name = "Luna", OwnerId = UserId };
+        context.Dogs.Add(dog);
+        await context.SaveChangesAsync();
+        var controller = Prepare(new DogsController(context, UserManager(context), new NoOpImages(), new DogProgressionService(context), new UserAchievementService(context, new NoOpNotifications())));
+
+        var model = Assert.IsType<DogAdventuresViewModel>(Assert.IsType<ViewResult>(await controller.Adventures(dog.Id)).Model);
+
+        Assert.Empty(model.Months);
+        Assert.False(model.HasNext);
+        Assert.Null(model.ActiveWalkId);
+    }
+
+    [Fact]
+    public async Task Adventures_OnlySelectedOwnedDogsCompletedWalksAndPhotosAreListed()
+    {
+        await using var context = Context();
+        var otherUser = new ApplicationUser { Id = "adventures-other", UserName = "adventures-other@example.test" };
+        context.Users.Add(otherUser);
+        var dog = new Dog { Name = "Luna", OwnerId = UserId };
+        var anotherDog = new Dog { Name = "Rex", OwnerId = UserId };
+        var foreignDog = new Dog { Name = "Tuj", OwnerId = otherUser.Id };
+        context.Dogs.AddRange(dog, anotherDog, foreignDog);
+        await context.SaveChangesAsync();
+        var started = new DateTime(2026, 9, 2, 10, 0, 0, DateTimeKind.Utc);
+        var completed = new Walk { DogId = dog.Id, OwnerId = UserId, Status = "Completed", StartedAt = started, EndedAt = started.AddHours(1), DistanceMeters = 500 };
+        var interrupted = new Walk { DogId = dog.Id, OwnerId = UserId, Status = "Interrupted", StartedAt = started.AddDays(1), EndedAt = started.AddDays(1).AddHours(1) };
+        var active = new Walk { DogId = dog.Id, OwnerId = UserId, Status = "Active", StartedAt = started.AddDays(2) };
+        var another = new Walk { DogId = anotherDog.Id, OwnerId = UserId, Status = "Completed", StartedAt = started.AddDays(3), EndedAt = started.AddDays(3).AddHours(1) };
+        var foreign = new Walk { DogId = foreignDog.Id, OwnerId = otherUser.Id, Status = "Completed", StartedAt = started.AddDays(4), EndedAt = started.AddDays(4).AddHours(1) };
+        context.Walks.AddRange(completed, interrupted, active, another, foreign);
+        await context.SaveChangesAsync();
+        context.WalkPhotos.AddRange(
+            new WalkPhoto { WalkId = completed.Id, UserId = UserId, ImageUrl = "https://example.test/owned.jpg" },
+            new WalkPhoto { WalkId = completed.Id, UserId = otherUser.Id, ImageUrl = "https://example.test/foreign.jpg" });
+        await context.SaveChangesAsync();
+        var controller = Prepare(new DogsController(context, UserManager(context), new NoOpImages(), new DogProgressionService(context), new UserAchievementService(context, new NoOpNotifications())));
+
+        var model = Assert.IsType<DogAdventuresViewModel>(Assert.IsType<ViewResult>(await controller.Adventures(dog.Id)).Model);
+
+        var item = Assert.Single(Assert.Single(model.Months).Walks);
+        Assert.Equal(completed.Id, item.WalkId);
+        Assert.Equal(1, item.PhotoCount);
+        Assert.Equal("https://example.test/owned.jpg", item.HeroPhotoUrl);
+        Assert.Equal(active.Id, model.ActiveWalkId);
+        Assert.IsType<NotFoundResult>(await controller.Adventures(foreignDog.Id));
+    }
+
+    [Fact]
+    public async Task Adventures_AreNewestFirstGroupedByLjubljanaMonthAndPaged()
+    {
+        await using var context = Context();
+        var dog = new Dog { Name = "Luna", OwnerId = UserId };
+        context.Dogs.Add(dog);
+        await context.SaveChangesAsync();
+        var august = new DateTime(2026, 8, 31, 20, 30, 0, DateTimeKind.Utc);
+        var september = august.AddHours(2);
+        context.Walks.Add(new Walk { DogId = dog.Id, OwnerId = UserId, Status = "Completed", StartedAt = august, EndedAt = september, DistanceMeters = 100 });
+        for (var i = 0; i < 12; i++)
+        {
+            var start = september.AddDays(i + 1);
+            context.Walks.Add(new Walk { DogId = dog.Id, OwnerId = UserId, Status = "Completed", StartedAt = start, EndedAt = start.AddMinutes(30), DistanceMeters = 200 + i });
+        }
+        await context.SaveChangesAsync();
+        var controller = Prepare(new DogsController(context, UserManager(context), new NoOpImages(), new DogProgressionService(context), new UserAchievementService(context, new NoOpNotifications())));
+
+        var first = Assert.IsType<DogAdventuresViewModel>(Assert.IsType<ViewResult>(await controller.Adventures(dog.Id)).Model);
+        var second = Assert.IsType<DogAdventuresViewModel>(Assert.IsType<ViewResult>(await controller.Adventures(dog.Id, 2)).Model);
+
+        Assert.Equal(12, first.Months.Sum(month => month.Walks.Count));
+        Assert.True(first.HasNext);
+        Assert.Single(second.Months);
+        Assert.Equal("avgust 2026", second.Months[0].Label);
+        Assert.Single(second.Months[0].Walks);
+        Assert.False(second.HasNext);
+        Assert.True(first.Months.SelectMany(month => month.Walks).Zip(first.Months.SelectMany(month => month.Walks).Skip(1),
+            (newer, older) => newer.StartedAt >= older.StartedAt).All(value => value));
+    }
+
+    [Fact]
+    public async Task Adventures_InvalidPagesAndTiedTimestampsRemainStableAcrossPageBoundary()
+    {
+        await using var context = Context();
+        var dog = new Dog { Name = "Luna", OwnerId = UserId };
+        context.Dogs.Add(dog);
+        await context.SaveChangesAsync();
+        var started = new DateTime(2026, 9, 2, 10, 0, 0, DateTimeKind.Utc);
+        for (var i = 0; i < 13; i++)
+            context.Walks.Add(new Walk { DogId = dog.Id, OwnerId = UserId, Status = "Completed", StartedAt = started, EndedAt = started.AddMinutes(30) });
+        await context.SaveChangesAsync();
+        var expectedIds = await context.Walks.OrderByDescending(walk => walk.Id).Select(walk => walk.Id).ToListAsync();
+        var controller = Prepare(new DogsController(context, UserManager(context), new NoOpImages(), new DogProgressionService(context), new UserAchievementService(context, new NoOpNotifications())));
+
+        Assert.IsType<NotFoundResult>(await controller.Adventures(dog.Id, 0));
+        Assert.IsType<NotFoundResult>(await controller.Adventures(dog.Id, -1));
+        Assert.IsType<NotFoundResult>(await controller.Adventures(dog.Id, 3));
+        var first = Assert.IsType<DogAdventuresViewModel>(Assert.IsType<ViewResult>(await controller.Adventures(dog.Id)).Model);
+        var second = Assert.IsType<DogAdventuresViewModel>(Assert.IsType<ViewResult>(await controller.Adventures(dog.Id, 2)).Model);
+        var actualIds = first.Months.SelectMany(month => month.Walks).Concat(second.Months.SelectMany(month => month.Walks))
+            .Select(walk => walk.WalkId).ToList();
+
+        Assert.Equal(expectedIds, actualIds);
+        Assert.Equal(13, actualIds.Distinct().Count());
+        Assert.True(first.HasNext);
+        Assert.False(second.HasNext);
+    }
+
+    [Fact]
     public async Task DogsDashboard_OneDogIsSelectedWithoutQueryParameter()
     {
         await using var context = Context();

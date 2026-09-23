@@ -1,0 +1,88 @@
+@model DoggyDrop.ViewModels.DogAdventuresViewModel
+
+@{
+    ViewData["Title"] = $"Dogodivščine · {Model.Dog.Name}";
+}
+
+<section class="app-page dog-adventures">
+    <a class="dog-adventures__back" asp-controller="Dogs" asp-action="Index" asp-route-dogId="@Model.Dog.Id">Nazaj na psa</a>
+    <header class="dog-adventures__header">
+        <h1>Dogodivščine · @Model.Dog.Name</h1>
+    </header>
+
+    @if (Model.Months.Count == 0)
+    {
+        <div class="dog-adventures__empty">
+            <h2>Prva dogodivščina še čaka.</h2>
+            @if (Model.ActiveWalkId.HasValue)
+            {
+                <a class="dog-adventures__primary" asp-controller="Walks" asp-action="Active" asp-route-id="@Model.ActiveWalkId.Value">Nadaljuj sprehod</a>
+            }
+            else
+            {
+                <form asp-controller="Walks" asp-action="Start" method="post">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="dogId" value="@Model.Dog.Id" />
+                    <button class="dog-adventures__primary" type="submit">Začni sprehod</button>
+                </form>
+            }
+        </div>
+    }
+    else
+    {
+        @foreach (var month in Model.Months)
+        {
+            <section class="dog-adventures__month">
+                <h2>@month.Label</h2>
+                <div class="dog-adventures__list">
+                    @foreach (var walk in month.Walks)
+                    {
+                        <a class="dog-adventures__item" asp-controller="Walks" asp-action="Details" asp-route-id="@walk.WalkId">
+                            <span class="dog-adventures__image">
+                                <span aria-hidden="true">@(string.IsNullOrWhiteSpace(Model.Dog.Name) ? "P" : Model.Dog.Name[..1].ToUpperInvariant())</span>
+                                @if (!string.IsNullOrWhiteSpace(walk.HeroPhotoUrl))
+                                {
+                                    <img src="@walk.HeroPhotoUrl" alt="" loading="lazy" onerror="this.hidden=true" />
+                                }
+                            </span>
+                            <span class="dog-adventures__body">
+                                <strong>@walk.DateLabel</strong>
+                                <span>@walk.DistanceLabel · @(walk.PhotoCount > 0 ? $"Fotografije: {walk.PhotoCount}" : "Brez fotografij")</span>
+                            </span>
+                            <i class="bi bi-chevron-right" aria-hidden="true"></i>
+                        </a>
+                    }
+                </div>
+            </section>
+        }
+        <nav class="dog-adventures__pages" aria-label="Strani dogodivščin">
+            @if (Model.Page > 1)
+            {
+                <a asp-action="Adventures" asp-route-dogId="@Model.Dog.Id" asp-route-page="@(Model.Page - 1)">Novejši sprehodi</a>
+            }
+            @if (Model.HasNext)
+            {
+                <a asp-action="Adventures" asp-route-dogId="@Model.Dog.Id" asp-route-page="@(Model.Page + 1)">Starejši sprehodi</a>
+            }
+        </nav>
+    }
+</section>
+
+<style>
+    .dog-adventures { max-width: 820px; }
+    .dog-adventures__back { display: inline-flex; min-height: 44px; align-items: center; color: #24695a; font-weight: 800; text-decoration: none; }
+    .dog-adventures__header h1 { margin: 4px 0 16px; font-size: 1.5rem; overflow-wrap: anywhere; }
+    .dog-adventures__month { margin-top: 20px; }
+    .dog-adventures__month h2 { margin-bottom: 8px; color: #52665e; font-size: .82rem; font-weight: 900; text-transform: uppercase; }
+    .dog-adventures__item { display: flex; min-height: 76px; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid #e4ebe5; color: #234339; text-decoration: none; }
+    .dog-adventures__image { position: relative; display: grid; flex: 0 0 60px; width: 60px; height: 60px; place-items: center; overflow: hidden; border-radius: 6px; background: #e3efe5; color: #24695a; font-size: 1.5rem; font-weight: 900; }
+    .dog-adventures__image img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+    .dog-adventures__body { display: grid; min-width: 0; gap: 3px; }
+    .dog-adventures__body strong, .dog-adventures__body span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .dog-adventures__body span { color: #52665e; font-size: .86rem; }
+    .dog-adventures__item > i { margin-left: auto; }
+    .dog-adventures__empty { padding: 26px 0; }
+    .dog-adventures__empty h2 { font-size: 1.18rem; }
+    .dog-adventures__primary, .dog-adventures__pages a { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; padding: 9px 16px; border: 0; border-radius: 6px; background: #24695a; color: #fff; font-weight: 800; text-decoration: none; }
+    .dog-adventures__pages { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin-top: 18px; }
+</style>

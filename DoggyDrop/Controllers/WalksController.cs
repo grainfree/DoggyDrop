@@ -722,6 +722,7 @@ namespace DoggyDrop.Controllers
                     .ThenInclude(photo => photo.Reactions)
                 .Include(w => w.Photos!)
                     .ThenInclude(photo => photo.PlannedWalkStop)
+                .AsSplitQuery()
                 .FirstOrDefaultAsync(w => w.Id == id && (w.OwnerId == userId || w.Status == "Completed"));
 
             if (walk == null)
@@ -739,6 +740,11 @@ namespace DoggyDrop.Controllers
                 return RedirectToAction(nameof(Interrupted), new { id = walk.Id });
             }
 
+            if (walk.Status != "Completed")
+            {
+                return NotFound();
+            }
+
             if (walk.OwnerId == userId && TempData.TryGetValue(GetWalkRewardTempDataKey(walk.Id), out var rewardResultJson))
             {
                 try
@@ -752,7 +758,24 @@ namespace DoggyDrop.Controllers
                 }
             }
 
-            ViewBag.WalkStory = BuildWalkStory(walk);
+            var walkReference = walk.Id.ToString(CultureInfo.InvariantCulture);
+            var userXpEvents = walk.OwnerId == userId
+                ? await _context.UserXpEvents.AsNoTracking()
+                    .Where(item => item.UserId == userId && item.ReferenceType == nameof(Walk) && item.ReferenceId == walkReference)
+                    .ToListAsync()
+                : [];
+            var dogXpEvents = walk.OwnerId == userId
+                ? await _context.DogXpEvents.AsNoTracking()
+                    .Where(item => item.DogId == walk.DogId && item.ReferenceType == nameof(Walk) && item.ReferenceId == walkReference)
+                    .ToListAsync()
+                : [];
+            var achievements = walk.OwnerId == userId
+                ? await _context.UserAchievements.AsNoTracking()
+                    .Where(item => item.UserId == userId && item.SourceType == nameof(Walk) && item.SourceId == walkReference)
+                    .ToListAsync()
+                : [];
+            var memory = WalkMemoryPresentation.Build(walk, userXpEvents, dogXpEvents, achievements, walk.OwnerId == userId);
+            ViewBag.WalkMemory = memory;
             return View(walk);
         }
 
@@ -1557,43 +1580,6 @@ namespace DoggyDrop.Controllers
             return walk.Status == "Active"
                 ? RedirectToAction(nameof(Active), new { id = walk.Id })
                 : RedirectToAction(nameof(Details), new { id = walk.Id });
-        }
-
-        private static string BuildWalkStory(Walk walk)
-        {
-            var dogName = walk.Dog?.Name ?? "Pes";
-            var distanceKm = walk.DistanceMeters / 1000;
-            var duration = walk.EndedAt.HasValue ? walk.EndedAt.Value - walk.StartedAt : TimeSpan.Zero;
-            var completedStops = (walk.StopCompletions ?? [])
-                .Where(completion => completion.PlannedWalkStop != null)
-                .Select(completion => completion.PlannedWalkStop!)
-                .ToList();
-            var completedStopNames = completedStops
-                .Select(stop => stop.Name)
-                .Where(name => !string.IsNullOrWhiteSpace(name))
-                .Distinct()
-                .Take(2)
-                .ToList();
-            var exploredCount = completedStops
-                .Select(stop => stop.Id)
-                .Distinct()
-                .Count();
-            var photoPart = (walk.Photos?.Count ?? 0) > 0
-                ? $" Posnetih fotografij: {walk.Photos!.Count}."
-                : string.Empty;
-            var binPart = walk.UsedBinsCount > 0
-                ? $" Uporabljenih košev: {walk.UsedBinsCount}."
-                : string.Empty;
-            var stopPart = completedStopNames.Count > 0
-                ? $" Najboljši postanki: {string.Join(", ", completedStopNames)}."
-                : exploredCount > 0
-                    ? $" Raziskal je {exploredCount} planiranih postankov."
-                    : string.Empty;
-            var durationPart = duration.TotalSeconds < 60
-                ? $" v {Math.Max(0, (int)duration.TotalSeconds)} sekundah"
-                : $" v {(int)duration.TotalMinutes} minutah";
-
-            return $"{dogName} je danes prehodil {distanceKm.ToString("0.0", CultureInfo.GetCultureInfo("sl-SI"))} km{durationPart}.{photoPart}{stopPart}{binPart}".Trim();
         }
 
         private static string BuildShareCardSvg(Walk walk)
