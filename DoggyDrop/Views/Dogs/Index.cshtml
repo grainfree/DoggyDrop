@@ -1,24 +1,34 @@
 @model DoggyDrop.ViewModels.DogsDashboardViewModel
+@using DoggyDrop.ViewModels
 @using System.Globalization
 
 @{
     ViewData["Title"] = "Moji psi";
     var sl = CultureInfo.GetCultureInfo("sl-SI");
     var dog = Model.SelectedDog;
+    var traits = new[]
+    {
+        new { Name = "Pustolovščina", Value = Model.Progression?.Adventure ?? 0 },
+        new { Name = "Družabnost", Value = Model.Progression?.Social ?? 0 },
+        new { Name = "Gozd", Value = Model.Progression?.Forest ?? 0 },
+        new { Name = "Mesto", Value = Model.Progression?.City ?? 0 },
+        new { Name = "Voda", Value = Model.Progression?.Water ?? 0 },
+        new { Name = "Hitrost", Value = Model.Progression?.Speed ?? 0 }
+    }.Where(item => item.Value > 0).OrderByDescending(item => item.Value).Take(3).ToList();
 }
 
 <section class="app-page dogs-dashboard">
     <header class="dogs-dashboard__header">
         <h1>Moji psi</h1>
-        <a asp-action="Create" title="Dodaj psa"><i class="bi bi-plus-lg" aria-hidden="true"></i> Dodaj psa</a>
+        @if (dog != null) { <a asp-action="Create" title="Dodaj psa"><i class="bi bi-plus-lg" aria-hidden="true"></i> Dodaj psa</a> }
     </header>
     @if (TempData["SuccessMessage"] != null) { <div class="alert alert-success">@TempData["SuccessMessage"]</div> }
     @if (dog == null)
     {
         <div class="dogs-dashboard__empty">
-            <h2>Začnita skupaj</h2>
-            <p>Dodaj psa in njegovi sprehodi, trenutki ter napredek bodo zbrani tukaj.</p>
-            <a asp-action="Create">Dodaj prvega psa</a>
+            <h2>Najprej dodaj svojega psa.</h2>
+            <p>Potem bosta tukaj našla skupne sprehode, fotografije in pasji napredek.</p>
+            <a asp-action="Create">Dodaj psa</a>
         </div>
     }
     else
@@ -28,60 +38,96 @@
             <nav class="dogs-dashboard__selector" aria-label="Izberi psa">
                 @foreach (var item in Model.Dogs)
                 {
-                    <a asp-action="Index" asp-route-dogId="@item.Id" class="@(item.Id == dog.Id ? "is-active" : "")" aria-current="@(item.Id == dog.Id ? "page" : null)">
+                    <a asp-action="Index" asp-route-dogId="@item.Id" class="@(item.Id == dog.Id ? "is-active" : "")" aria-current="@(item.Id == dog.Id ? "page" : null)" aria-label="Izberi psa @item.Name" title="@item.Name">
                         @if (!string.IsNullOrWhiteSpace(item.PhotoUrl)) { <img src="@item.PhotoUrl" alt="" /> }
-                        else { <span>@(string.IsNullOrWhiteSpace(item.Name) ? "P" : item.Name[..1].ToUpperInvariant())</span> }
-                        @item.Name
+                        else { <span class="dogs-dashboard__selector-avatar">@(string.IsNullOrWhiteSpace(item.Name) ? "P" : item.Name[..1].ToUpperInvariant())</span> }
+                        <span class="dogs-dashboard__selector-name">@item.Name</span>
                     </a>
                 }
+                <a class="dogs-dashboard__selector-add" asp-action="Create" aria-label="Dodaj psa"><i class="bi bi-plus-lg" aria-hidden="true"></i></a>
             </nav>
         }
         <div class="dogs-dashboard__dog">
             <div class="dogs-dashboard__portrait">
-                @if (!string.IsNullOrWhiteSpace(dog.PhotoUrl)) { <img src="@dog.PhotoUrl" alt="@dog.Name" /> }
-                else { <span>@(string.IsNullOrWhiteSpace(dog.Name) ? "P" : dog.Name[..1].ToUpperInvariant())</span> }
+                <span aria-hidden="true">@(string.IsNullOrWhiteSpace(dog.Name) ? "P" : dog.Name[..1].ToUpperInvariant())</span>
+                @if (!string.IsNullOrWhiteSpace(dog.PhotoUrl)) { <img src="@dog.PhotoUrl" alt="@dog.Name" onerror="this.hidden=true" /> }
             </div>
             <div class="dogs-dashboard__intro">
                 <span>Moj pes</span>
                 <h2>@dog.Name</h2>
-                <p>@Model.CompletedWalkCount sprehodov · @Model.TotalDistanceKm.ToString("0.#", sl) km</p>
-                @if (Model.Level != null) { <p>Stopnja @Model.Level.Level · @Model.Level.TotalXp XP</p> }
+                @if (!string.IsNullOrWhiteSpace(dog.Breed)) { <p>@dog.Breed</p> }
             </div>
         </div>
-        <div class="dogs-dashboard__actions">
-            <a class="dogs-dashboard__primary" asp-controller="Walks" asp-action="Planner" asp-route-dogId="@dog.Id"><i class="bi bi-play-fill" aria-hidden="true"></i> Začni sprehod</a>
-            <a asp-action="Details" asp-route-id="@dog.Id">Profil psa <i class="bi bi-chevron-right" aria-hidden="true"></i></a>
+        <div class="dogs-dashboard__facts" aria-label="Skupna aktivnost">
+            <div><strong>@Model.CompletedWalkCount</strong><span>sprehodi</span></div>
+            <div><strong>@SlovenianFormatting.WalkDistance(Model.TotalDistanceKm * 1000)</strong><span>prehojeno</span></div>
+            <div><strong>@Model.ParkLocationCount</strong><span>obiskani parki</span></div>
         </div>
-        <section class="dogs-dashboard__section">
-            <h2>@dog.Name - trenutki</h2>
-            @if (Model.RecentPhotos.Count == 0) { <p>Fotografije s sprehodov bodo prikazane tukaj.</p> }
+        <div class="dogs-dashboard__actions">
+            @if (Model.ActiveWalkId.HasValue)
+            {
+                <a class="dogs-dashboard__primary" asp-controller="Walks" asp-action="Active" asp-route-id="@Model.ActiveWalkId.Value"><i class="bi bi-play-fill" aria-hidden="true"></i> Nadaljuj sprehod</a>
+            }
             else
             {
-                <div class="dogs-dashboard__photos">
-                    @foreach (var photo in Model.RecentPhotos)
-                    {
-                        <a asp-controller="Walks" asp-action="Details" asp-route-id="@photo.WalkId" aria-label="Odpri sprehod s fotografijo">
-                            <img src="@photo.ImageUrl" alt="@(photo.Caption ?? $"Trenutek s sprehoda psa {dog.Name}")" loading="lazy" />
-                        </a>
-                    }
-                </div>
+                <form asp-controller="Walks" asp-action="Start" method="post">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="dogId" value="@dog.Id" />
+                    <button class="dogs-dashboard__primary" type="submit"><i class="bi bi-play-fill" aria-hidden="true"></i> Začni sprehod</button>
+                </form>
+            }
+            <a asp-action="Details" asp-route-id="@dog.Id">Profil psa <i class="bi bi-chevron-right" aria-hidden="true"></i></a>
+        </div>
+        @if (Model.ActiveWalkId.HasValue && !string.IsNullOrWhiteSpace(Model.ActiveWalkDogName) && Model.ActiveWalkDogName != dog.Name)
+        {
+            <p class="dogs-dashboard__active-note">Trenutni sprehod poteka s psom @Model.ActiveWalkDogName.</p>
+        }
+        <section class="dogs-dashboard__section dogs-dashboard__progression">
+            <h2>Napredek</h2>
+            @if (Model.Level == null)
+            {
+                <p>Pasji napredek se bo prikazal po prvi dejavnosti.</p>
+            }
+            else
+            {
+                <div class="dogs-dashboard__level"><strong>Stopnja @Model.Level.Level</strong><span>@Model.Level.TotalXp / @Model.Level.NextLevelXp XP</span></div>
+                <div class="dogs-dashboard__progress" role="progressbar" aria-label="Napredek psa do naslednje stopnje" aria-valuemin="0" aria-valuemax="100" aria-valuenow="@Model.Level.ProgressPercent"><span style="width: @Model.Level.ProgressPercent%"></span></div>
+                @if (traits.Count > 0)
+                {
+                    <div class="dogs-dashboard__traits">
+                        @foreach (var trait in traits) { <span>@trait.Name <strong>@trait.Value</strong></span> }
+                    </div>
+                }
             }
         </section>
         <section class="dogs-dashboard__section">
-            <h2>Zadnji sprehodi</h2>
+            <h2>Nedavni sprehodi</h2>
             @if (Model.RecentWalks.Count == 0) { <p>Prvi skupni sprehod vaju še čaka.</p> }
             else
             {
                 <div class="dogs-dashboard__walks">
                     @foreach (var walk in Model.RecentWalks)
                     {
-                        var duration = walk.EndedAt - walk.StartedAt;
-                        var showDuration = duration.HasValue && duration.Value.TotalMinutes >= 1 && duration.Value.TotalHours <= 12;
                         <a asp-controller="Walks" asp-action="Details" asp-route-id="@walk.Id">
-                            <span>@walk.StartedAt.ToLocalTime().ToString("d. MMMM yyyy", sl)</span>
-                            <strong>@(walk.DistanceMeters / 1000).ToString("0.#", sl) km</strong>
-                            @if (showDuration) { <small>@Math.Round(duration!.Value.TotalMinutes) min</small> }
+                            <span>@(walk.EndedAt ?? walk.StartedAt).ToLocalTime().ToString("d. MMM yyyy", sl)</span>
+                            <strong>@SlovenianFormatting.WalkDistance(walk.DistanceMeters)</strong>
                             <i class="bi bi-chevron-right" aria-hidden="true"></i>
+                        </a>
+                    }
+                </div>
+            }
+        </section>
+        <section class="dogs-dashboard__section">
+            <h2>Trenutki s psom @dog.Name</h2>
+            @if (Model.RecentPhotos.Count == 0) { <p>Fotografije s sprehodov se bodo pojavile tukaj.</p> }
+            else
+            {
+                <div class="dogs-dashboard__photos">
+                    @foreach (var photo in Model.RecentPhotos)
+                    {
+                        <a asp-controller="Walks" asp-action="Details" asp-route-id="@photo.WalkId" aria-label="Odpri sprehod s fotografijo">
+                            <span class="dogs-dashboard__photo-fallback">Fotografija ni na voljo</span>
+                            <img src="@photo.ImageUrl" alt="@(photo.Caption ?? $"Trenutek s sprehoda psa {dog.Name}")" loading="lazy" onerror="this.hidden=true" />
                         </a>
                     }
                 </div>
@@ -91,32 +137,51 @@
 </section>
 
 <style>
-    .dogs-dashboard { max-width: 820px; }
+    .dogs-dashboard { max-width: 820px; padding-bottom: var(--app-bottom-nav-clearance, 100px); }
     .dogs-dashboard__header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
     .dogs-dashboard__header h1 { margin: 0; font-size: 1.45rem; }
     .dogs-dashboard__header a { min-height: 44px; display: inline-flex; align-items: center; gap: 6px; color: #24695a; font-weight: 800; text-decoration: none; }
-    .dogs-dashboard__selector, .dogs-dashboard__photos { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; }
-    .dogs-dashboard__selector a { display: flex; flex: none; align-items: center; gap: 7px; min-height: 44px; padding: 4px 10px; border: 1px solid #d7e2d9; border-radius: 8px; color: #24483b; text-decoration: none; }
+    .dogs-dashboard__selector, .dogs-dashboard__photos { display: flex; max-width: 100%; gap: 8px; overflow-x: auto; padding-bottom: 8px; }
+    .dogs-dashboard__selector a { display: flex; flex: none; align-items: center; gap: 7px; max-width: min(240px, 72vw); min-height: 44px; padding: 4px 10px; border: 1px solid #d7e2d9; border-radius: 8px; color: #24483b; text-decoration: none; }
     .dogs-dashboard__selector a.is-active { border-color: #24695a; background: #e7f1e9; font-weight: 800; }
-    .dogs-dashboard__selector img, .dogs-dashboard__selector span { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; }
+    .dogs-dashboard__selector .dogs-dashboard__selector-add { min-width: 46px; justify-content: center; }
+    .dogs-dashboard__selector img, .dogs-dashboard__selector-avatar { flex: none; width: 30px; height: 30px; border-radius: 50%; object-fit: cover; }
+    .dogs-dashboard__selector-avatar { display: grid; place-items: center; background: #e3efe5; }
+    .dogs-dashboard__selector-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .dogs-dashboard__dog { display: grid; grid-template-columns: minmax(105px, 36%) 1fr; gap: 14px; align-items: center; margin-top: 8px; }
-    .dogs-dashboard__portrait { aspect-ratio: 1; display: grid; place-items: center; overflow: hidden; border-radius: 8px; background: #e3efe5; color: #24695a; font-size: 3rem; font-weight: 900; }
-    .dogs-dashboard__portrait img { width: 100%; height: 100%; object-fit: cover; }
+    .dogs-dashboard__portrait { position: relative; aspect-ratio: 1; display: grid; place-items: center; overflow: hidden; border-radius: 8px; background: #e3efe5; color: #24695a; font-size: 3rem; font-weight: 900; }
+    .dogs-dashboard__portrait img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
     .dogs-dashboard__intro h2 { margin: 2px 0 6px; font-size: 1.8rem; overflow-wrap: anywhere; }
     .dogs-dashboard__intro p { margin: 3px 0; color: #52665e; }
     .dogs-dashboard__intro span { color: #24695a; font-size: .76rem; font-weight: 800; text-transform: uppercase; }
-    .dogs-dashboard__actions { display: flex; gap: 8px; margin: 12px 0 20px; }
-    .dogs-dashboard__actions a, .dogs-dashboard__empty a { flex: 1; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 8px; border: 1px solid #24695a; border-radius: 8px; color: #24695a; font-weight: 800; text-decoration: none; }
+    .dogs-dashboard__facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 12px; border-top: 1px solid #dce7df; border-bottom: 1px solid #dce7df; }
+    .dogs-dashboard__facts div { min-width: 0; padding: 9px 5px; text-align: center; }
+    .dogs-dashboard__facts div + div { border-left: 1px solid #dce7df; }
+    .dogs-dashboard__facts strong, .dogs-dashboard__facts span { display: block; }
+    .dogs-dashboard__facts strong { color: #234339; font-size: 1.1rem; }
+    .dogs-dashboard__facts span { color: #52665e; font-size: .76rem; }
+    .dogs-dashboard__actions { display: grid; grid-template-columns: 1.25fr 1fr; gap: 8px; margin-top: 12px; }
+    .dogs-dashboard__actions form { margin: 0; }
+    .dogs-dashboard__actions a, .dogs-dashboard__actions button, .dogs-dashboard__empty a { width: 100%; min-height: 48px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 8px; border: 1px solid #24695a; border-radius: 6px; background: #fff; color: #24695a; font: inherit; font-weight: 800; text-decoration: none; cursor: pointer; }
     .dogs-dashboard__actions .dogs-dashboard__primary, .dogs-dashboard__empty a { background: #24695a; color: #fff; }
+    .dogs-dashboard__active-note { margin: 7px 0 0; color: #52665e; font-size: .82rem; }
     .dogs-dashboard__section { margin-top: 18px; }
     .dogs-dashboard__section h2 { margin-bottom: 9px; font-size: 1.12rem; }
     .dogs-dashboard__section p { color: #52665e; }
-    .dogs-dashboard__photos a { flex: 0 0 118px; aspect-ratio: 1; overflow: hidden; border-radius: 7px; }
-    .dogs-dashboard__photos img { width: 100%; height: 100%; object-fit: cover; }
+    .dogs-dashboard__level { display: flex; justify-content: space-between; gap: 8px; color: #234339; }
+    .dogs-dashboard__level span { color: #52665e; }
+    .dogs-dashboard__progress { height: 9px; margin-top: 8px; overflow: hidden; border-radius: 5px; background: #e4ebe6; }
+    .dogs-dashboard__progress > span { display: block; height: 100%; background: #d8754a; }
+    .dogs-dashboard__traits { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .dogs-dashboard__traits span { padding: 5px 8px; border-radius: 5px; background: #eaf1f4; color: #254a57; font-size: .8rem; }
+    .dogs-dashboard__traits strong { margin-left: 3px; }
+    .dogs-dashboard__photos a { position: relative; display: grid; flex: 0 0 118px; aspect-ratio: 1; place-items: center; overflow: hidden; border-radius: 7px; background: #eaf1f4; }
+    .dogs-dashboard__photo-fallback { padding: 8px; color: #52665e; font-size: .75rem; text-align: center; }
+    .dogs-dashboard__photos img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
     .dogs-dashboard__walks a { display: flex; align-items: center; gap: 10px; min-height: 50px; border-bottom: 1px solid #e4ebe5; color: #263c32; text-decoration: none; }
     .dogs-dashboard__walks strong { margin-left: auto; white-space: nowrap; }
     .dogs-dashboard__walks small { white-space: nowrap; color: #687a70; }
-    .dogs-dashboard__empty { padding: 28px 12px; text-align: center; }
-    .dogs-dashboard__empty a { flex: none; width: fit-content; margin: 0 auto; }
-    @@media (max-width: 420px) { .dogs-dashboard__intro h2 { font-size: 1.5rem; } }
+    .dogs-dashboard__empty { max-width: 440px; padding: 28px 0; }
+    .dogs-dashboard__empty a { width: fit-content; margin-top: 14px; padding-inline: 20px; }
+    @@media (max-width: 420px) { .dogs-dashboard__intro h2 { font-size: 1.5rem; } .dogs-dashboard__facts span { font-size: .7rem; } }
 </style>

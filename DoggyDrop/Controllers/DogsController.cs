@@ -36,29 +36,49 @@ namespace DoggyDrop.Controllers
         public async Task<IActionResult> Index(int? dogId = null)
         {
             var userId = _userManager.GetUserId(User);
+            if (string.IsNullOrWhiteSpace(userId)) return Challenge();
             var dogs = await _context.Dogs
                 .AsNoTracking()
                 .Where(d => d.OwnerId == userId)
                 .OrderBy(d => d.Name)
                 .ToListAsync();
-            var selectedDog = dogs.FirstOrDefault(dog => dog.Id == dogId) ?? dogs.FirstOrDefault();
+            if (dogId.HasValue && dogs.All(dog => dog.Id != dogId.Value)) return NotFound();
+            var selectedDog = dogId.HasValue ? dogs.First(dog => dog.Id == dogId.Value) : dogs.FirstOrDefault();
             var model = new DogsDashboardViewModel { Dogs = dogs, SelectedDog = selectedDog };
             if (selectedDog != null)
             {
+                var activeWalk = await _context.Walks.AsNoTracking()
+                    .Where(walk => walk.OwnerId == userId && walk.Status == "Active")
+                    .OrderByDescending(walk => walk.StartedAt)
+                    .ThenByDescending(walk => walk.Id)
+                    .Select(walk => new { walk.Id, DogName = walk.Dog != null && walk.Dog.OwnerId == userId ? walk.Dog.Name : null })
+                    .FirstOrDefaultAsync();
+                model.ActiveWalkId = activeWalk?.Id;
+                model.ActiveWalkDogName = activeWalk?.DogName;
+
                 var completed = _context.Walks.AsNoTracking()
                     .Where(walk => walk.DogId == selectedDog.Id && walk.OwnerId == userId && walk.Status == "Completed");
                 model.CompletedWalkCount = await completed.CountAsync();
                 model.TotalDistanceKm = await completed.SumAsync(walk => walk.DistanceMeters) / 1000;
-                model.RecentWalks = await completed.OrderByDescending(walk => walk.EndedAt)
+                model.RecentWalks = await completed.OrderByDescending(walk => walk.EndedAt ?? walk.StartedAt)
+                    .ThenByDescending(walk => walk.Id)
                     .Take(3).ToListAsync();
                 model.RecentPhotos = await _context.WalkPhotos.AsNoTracking()
                     .Where(photo => photo.UserId == userId && photo.Walk != null &&
-                        photo.Walk.OwnerId == userId && photo.Walk.DogId == selectedDog.Id && photo.Walk.Status == "Completed")
-                    .OrderByDescending(photo => photo.CreatedAt).Take(8).ToListAsync();
+                        photo.Walk.OwnerId == userId && photo.Walk.DogId == selectedDog.Id && photo.Walk.Status == "Completed" &&
+                        photo.ImageUrl != "")
+                    .OrderByDescending(photo => photo.CreatedAt).ThenByDescending(photo => photo.Id)
+                    .Take(6).ToListAsync();
+                model.ParkLocationCount = await _context.DogParkVisits.AsNoTracking()
+                    .Where(visit => visit.DogId == selectedDog.Id && visit.UserId == userId)
+                    .Select(visit => visit.PlaceKey).Distinct().CountAsync();
                 var progression = await _context.DogProgressionProfiles.AsNoTracking()
                     .FirstOrDefaultAsync(profile => profile.DogId == selectedDog.Id);
                 if (progression != null)
+                {
+                    model.Progression = progression;
                     model.Level = _dogProgressionService.CalculateLevelInfo(progression.TotalXp);
+                }
             }
 
             return View(model);
@@ -93,11 +113,12 @@ namespace DoggyDrop.Controllers
 
             var weekStart = DateTime.UtcNow.Date.AddDays(-6);
             var completedWalks = await _context.Walks
-                .Include(w => w.Photos)
+                .AsNoTracking()
                 .Where(w => w.DogId == dog.Id && w.OwnerId == userId && w.Status == "Completed")
                 .OrderByDescending(w => w.StartedAt)
                 .ToListAsync();
             var parkVisits = await _context.DogParkVisits
+                .AsNoTracking()
                 .Where(visit => visit.DogId == dog.Id && visit.UserId == userId)
                 .OrderByDescending(visit => visit.VisitedAt)
                 .ToListAsync();
@@ -105,11 +126,20 @@ namespace DoggyDrop.Controllers
             var progression = await _dogProgressionService.EnsureProfileAsync(dog.Id);
             var dogLevel = _dogProgressionService.CalculateLevelInfo(progression.TotalXp);
             var recentPhotos = await _context.WalkPhotos
-                .Include(photo => photo.Walk)
-                .Where(photo => photo.Walk != null && photo.Walk.DogId == dog.Id && photo.UserId == userId)
+                .AsNoTracking()
+                .Where(photo => photo.Walk != null && photo.Walk.DogId == dog.Id &&
+                    photo.Walk.OwnerId == userId && photo.Walk.Status == "Completed" && photo.UserId == userId && photo.ImageUrl != "")
                 .OrderByDescending(photo => photo.CreatedAt)
                 .Take(3)
                 .ToListAsync();
+            var longestWalkId = completedWalks.OrderByDescending(walk => walk.DistanceMeters).FirstOrDefault()?.Id;
+            var longestWalkPhotoUrl = longestWalkId.HasValue
+                ? await _context.WalkPhotos.AsNoTracking()
+                    .Where(photo => photo.WalkId == longestWalkId.Value && photo.UserId == userId && photo.ImageUrl != "")
+                    .OrderByDescending(photo => photo.CreatedAt)
+                    .Select(photo => photo.ImageUrl)
+                    .FirstOrDefaultAsync()
+                : null;
 
             var model = new DogDetailsViewModel
             {
@@ -118,10 +148,6 @@ namespace DoggyDrop.Controllers
                 TotalDistanceKm = totalDistanceKm,
                 CompletedWalkCount = completedWalks.Count,
                 WalksThisWeek = completedWalks.Count(w => w.StartedAt >= weekStart),
-                TotalDuration = TimeSpan.FromTicks(completedWalks
-                    .Where(w => w.EndedAt.HasValue)
-                    .Sum(w => (w.EndedAt!.Value - w.StartedAt).Ticks)),
-                EstimatedCalories = EstimateCalories(totalDistanceKm, dog.Size),
                 Achievements = GetDogAchievements(
                     completedWalks.Count,
                     completedWalks.Count(w => w.StartedAt >= weekStart),
@@ -143,7 +169,7 @@ namespace DoggyDrop.Controllers
                     Water = progression.Water,
                     Speed = progression.Speed
                 },
-                Memories = BuildDogMemories(completedWalks, parkVisits, recentPhotos),
+                Memories = BuildDogMemories(completedWalks, parkVisits, recentPhotos, longestWalkPhotoUrl),
                 FavoriteParks = parkVisits
                     .GroupBy(visit => new
                     {
@@ -162,7 +188,7 @@ namespace DoggyDrop.Controllers
                     .ThenByDescending(item => item.LastVisitedAt)
                     .Take(5)
                     .ToList(),
-                ParkVisitCount = parkVisits.Count
+                ParkLocationCount = parkVisits.Select(visit => visit.PlaceKey).Distinct().Count()
             };
 
             return View(model);
@@ -360,19 +386,20 @@ namespace DoggyDrop.Controllers
         {
             return
             [
-                BuildAchievement("Explorer", "Zakljuci prvi sprehod.", completedWalks, 1, suffix: "sprehodov"),
-                BuildAchievement("City walker", "Prehodi 10 km.", totalDistanceKm, 10, suffix: "km"),
-                BuildAchievement("Trail master", "Prehodi 100 km.", totalDistanceKm, 100, suffix: "km"),
-                BuildAchievement("Weekly streak", "Zakljuci 3 sprehode ta teden.", walksThisWeek, 3, suffix: "ta teden"),
-                BuildAchievement("Bin buddy", "Uporabi 5 pasjih kosev med sprehodi.", usedBinsCount, 5, suffix: "uporab"),
-                BuildAchievement("Park explorer", "Obisci 5 razlicnih pasjih parkov.", uniqueParkCount, 5, suffix: "parkov")
+                BuildAchievement("Prvi sprehod", "Zaključi prvi sprehod.", completedWalks, 1, suffix: "sprehodov"),
+                BuildAchievement("10 km skupaj", "Prehodita 10 km.", totalDistanceKm, 10, suffix: "km"),
+                BuildAchievement("100 km skupaj", "Prehodita 100 km.", totalDistanceKm, 100, suffix: "km"),
+                BuildAchievement("Reden teden", "Zaključita 3 sprehode ta teden.", walksThisWeek, 3, suffix: "ta teden"),
+                BuildAchievement("Koši na poti", "Uporabita 5 pasjih košev med sprehodi.", usedBinsCount, 5, suffix: "uporab"),
+                BuildAchievement("Pasji parki", "Obiščita 5 različnih pasjih parkov.", uniqueParkCount, 5, suffix: "parkov")
             ];
         }
 
         private static IReadOnlyList<DogMemoryItem> BuildDogMemories(
             IReadOnlyList<Walk> completedWalks,
             IReadOnlyList<DogParkVisit> parkVisits,
-            IReadOnlyList<WalkPhoto> recentPhotos)
+            IReadOnlyList<WalkPhoto> recentPhotos,
+            string? longestWalkPhotoUrl)
         {
             var memories = new List<DogMemoryItem>();
             var bestWalk = completedWalks.OrderByDescending(walk => walk.DistanceMeters).FirstOrDefault();
@@ -380,10 +407,10 @@ namespace DoggyDrop.Controllers
             {
                 memories.Add(new DogMemoryItem
                 {
-                    Title = "Best walk",
-                    Description = $"{bestWalk.DistanceMeters / 1000:0.0} km sprehod",
+                    Title = "Najdaljši sprehod",
+                    Description = $"Sprehod: {SlovenianFormatting.WalkDistance(bestWalk.DistanceMeters)}",
                     OccurredAt = bestWalk.StartedAt,
-                    ImageUrl = bestWalk.Photos?.OrderByDescending(photo => photo.CreatedAt).FirstOrDefault()?.ImageUrl
+                    ImageUrl = longestWalkPhotoUrl
                 });
             }
 
@@ -391,7 +418,7 @@ namespace DoggyDrop.Controllers
             {
                 memories.Add(new DogMemoryItem
                 {
-                    Title = "Photo memory",
+                    Title = "Fotografija s sprehoda",
                     Description = string.IsNullOrWhiteSpace(photo.Caption) ? "Nova fotografija s sprehoda" : photo.Caption,
                     OccurredAt = photo.CreatedAt,
                     ImageUrl = photo.ImageUrl
@@ -406,7 +433,7 @@ namespace DoggyDrop.Controllers
             {
                 memories.Add(new DogMemoryItem
                 {
-                    Title = "Map discovery",
+                    Title = "Odkrit park",
                     Description = visit.ParkName,
                     OccurredAt = visit.VisitedAt
                 });
@@ -422,7 +449,7 @@ namespace DoggyDrop.Controllers
         {
             var safeTarget = Math.Max(target, 1);
             var progressPercent = (int)Math.Min(100, Math.Round(current / safeTarget * 100));
-            var currentText = suffix == "km" ? current.ToString("0.0") : Math.Floor(current).ToString("0");
+            var currentText = suffix == "km" ? current.ToString("0.0", System.Globalization.CultureInfo.GetCultureInfo("sl-SI")) : Math.Floor(current).ToString("0");
             var targetText = suffix == "km" ? target.ToString("0") : target.ToString("0");
 
             return new AchievementItem
@@ -433,18 +460,6 @@ namespace DoggyDrop.Controllers
                 ProgressPercent = progressPercent,
                 ProgressText = $"{currentText} / {targetText} {suffix}"
             };
-        }
-
-        private static int EstimateCalories(double distanceKm, string? dogSize)
-        {
-            var caloriesPerKm = dogSize?.Trim().ToLowerInvariant() switch
-            {
-                "majhen" or "small" => 45,
-                "velik" or "large" => 85,
-                _ => 65
-            };
-
-            return (int)Math.Round(distanceKm * caloriesPerKm);
         }
 
         private static string NormalizeVisibility(string? visibility)

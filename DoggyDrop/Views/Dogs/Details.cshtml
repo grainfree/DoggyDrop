@@ -1,14 +1,23 @@
 @using DoggyDrop.ViewModels
+@using System.Globalization
 @model DoggyDrop.ViewModels.DogDetailsViewModel
 
 @{
     ViewData["Title"] = Model.Dog.Name;
-    var totalHours = Math.Floor(Model.TotalDuration.TotalHours);
-    var totalMinutes = Model.TotalDuration.Minutes;
+    var sl = CultureInfo.GetCultureInfo("sl-SI");
+    var dogClassLabel = Model.Progression.DogClass switch
+    {
+        "Speed Walker" => "Hiter sprehajalec",
+        "Water Dog" => "Ljubitelj vode",
+        "Trail Hunter" => "Raziskovalec poti",
+        "Social Pup" => "Družabni pes",
+        "Explorer" => "Raziskovalec",
+        _ => "Mestni raziskovalec"
+    };
 }
 
 <section class="app-page dog-profile">
-    <a class="dog-profile__back" asp-controller="Dogs" asp-action="Index">Nazaj na pse</a>
+    <a class="dog-profile__back" asp-controller="Dogs" asp-action="Index" asp-route-dogId="@Model.Dog.Id">Nazaj na pse</a>
 
     @if (TempData["SuccessMessage"] != null)
     {
@@ -58,7 +67,7 @@
                 }
             </div>
             <div class="dog-profile__hero-actions">
-                <a class="btn btn-success rounded-pill fw-semibold" asp-controller="Walks" asp-action="Index">Sprehodi</a>
+                <a class="btn btn-success rounded-pill fw-semibold" asp-controller="Walks" asp-action="Index" asp-route-dogId="@Model.Dog.Id">Sprehodi</a>
                 <a class="btn btn-outline-secondary rounded-pill" asp-controller="Dogs" asp-action="Edit" asp-route-id="@Model.Dog.Id">Uredi</a>
             </div>
         </div>
@@ -67,22 +76,22 @@
     <article class="dog-profile__section dog-progression">
         <div class="dog-profile__section-header">
             <div>
-                <h2>Level @Model.Progression.Level</h2>
-                <span>@Model.Progression.DogClass</span>
+                <h2>Stopnja @Model.Progression.Level</h2>
+                <span>@dogClassLabel</span>
             </div>
             <strong>@Model.Progression.TotalXp XP</strong>
         </div>
         <div class="dog-progression__bar">
             <span style="width: @Model.Progression.ProgressPercent%"></span>
         </div>
-        <p>@Model.Progression.XpRemaining XP do naslednjega levela.</p>
+        <p>Še @Model.Progression.XpRemaining XP do naslednje stopnje.</p>
         <div class="dog-progression__stats">
-            <div><strong>@Model.Progression.Adventure</strong><span>Adventure</span></div>
-            <div><strong>@Model.Progression.Social</strong><span>Social</span></div>
-            <div><strong>@Model.Progression.Forest</strong><span>Forest</span></div>
-            <div><strong>@Model.Progression.City</strong><span>City</span></div>
-            <div><strong>@Model.Progression.Water</strong><span>Water</span></div>
-            <div><strong>@Model.Progression.Speed</strong><span>Speed</span></div>
+            <div><strong>@Model.Progression.Adventure</strong><span>Pustolovščina</span></div>
+            <div><strong>@Model.Progression.Social</strong><span>Družabnost</span></div>
+            <div><strong>@Model.Progression.Forest</strong><span>Gozd</span></div>
+            <div><strong>@Model.Progression.City</strong><span>Mesto</span></div>
+            <div><strong>@Model.Progression.Water</strong><span>Voda</span></div>
+            <div><strong>@Model.Progression.Speed</strong><span>Hitrost</span></div>
         </div>
     </article>
 
@@ -104,7 +113,7 @@
 
     <div class="dog-profile__stats">
         <article>
-            <strong>@Model.TotalDistanceKm.ToString("0.0") km</strong>
+            <strong>@SlovenianFormatting.WalkDistance(Model.TotalDistanceKm * 1000)</strong>
             <span>Skupaj</span>
         </article>
         <article>
@@ -112,15 +121,7 @@
             <span>Sprehodi</span>
         </article>
         <article>
-            <strong>@($"{totalHours:0}h {totalMinutes:00}m")</strong>
-            <span>Aktivno</span>
-        </article>
-        <article>
-            <strong>@Model.EstimatedCalories</strong>
-            <span>kcal ocena</span>
-        </article>
-        <article>
-            <strong>@Model.ParkVisitCount</strong>
+            <strong>@Model.ParkLocationCount</strong>
             <span>Parki</span>
         </article>
     </div>
@@ -155,7 +156,7 @@
 
     <article class="dog-profile__section">
         <div class="dog-profile__section-header">
-            <h2>Memories</h2>
+            <h2>Trenutki</h2>
             <span>@Model.Memories.Count trenutkov</span>
         </div>
 
@@ -214,16 +215,17 @@
 
     <article class="dog-profile__section">
         <div class="dog-profile__section-header">
-            <h2>Dosežki</h2>
-            <span>@Model.Achievements.Count(achievement => achievement.IsUnlocked) / @Model.Achievements.Count odklenjenih</span>
+            <h2>Mejniki aktivnosti</h2>
+            <span>@Model.Achievements.Count(achievement => achievement.IsUnlocked) / @Model.Achievements.Count doseženih</span>
         </div>
+        <p>Mejniki temeljijo na sprehodih, uporabi košev in obiskanih parkih. Niso trajne pasje značke.</p>
         <div class="dog-profile__achievements">
             @foreach (var achievement in Model.Achievements)
             {
                 <div class="dog-profile__achievement @(achievement.IsUnlocked ? "is-unlocked" : "is-locked")">
                     <div>
                         <strong>@achievement.Name</strong>
-                        <span>@(achievement.IsUnlocked ? "Odklenjeno" : achievement.ProgressText)</span>
+                        <span>@(achievement.IsUnlocked ? "Doseženo" : achievement.ProgressText)</span>
                     </div>
                     <p>@achievement.Description</p>
                     <div class="dog-profile__achievement-bar">
@@ -249,13 +251,11 @@
             <div class="dog-profile__walk-list">
                 @foreach (var walk in Model.RecentWalks)
                 {
-                    var duration = walk.EndedAt.HasValue ? walk.EndedAt.Value - walk.StartedAt : TimeSpan.Zero;
                     <a class="dog-profile__walk-item" asp-controller="Walks" asp-action="Details" asp-route-id="@walk.Id">
                         <div>
-                            <strong>@walk.StartedAt.ToLocalTime().ToString("dd.MM.yyyy")</strong>
-                            <span>@walk.StartedAt.ToLocalTime().ToString("HH:mm") · @duration.ToString(@"hh\:mm")</span>
+                            <strong>@walk.StartedAt.ToLocalTime().ToString("d. MMM yyyy", sl)</strong>
                         </div>
-                        <span>@((walk.DistanceMeters / 1000).ToString("0.0")) km</span>
+                        <span>@SlovenianFormatting.WalkDistance(walk.DistanceMeters)</span>
                     </a>
                 }
             </div>
@@ -264,7 +264,7 @@
         <form asp-controller="Walks" asp-action="Start" method="post" class="dog-profile__start-form">
             <input type="hidden" name="dogId" value="@Model.Dog.Id" />
             <button type="submit" class="btn btn-success rounded-pill fw-semibold">Začni sprehod</button>
-            <a class="btn btn-outline-secondary rounded-pill" asp-controller="Walks" asp-action="Index">Vsi sprehodi</a>
+            <a class="btn btn-outline-secondary rounded-pill" asp-controller="Walks" asp-action="Index" asp-route-dogId="@Model.Dog.Id">Vsi sprehodi</a>
         </form>
     </article>
 </section>
@@ -670,7 +670,7 @@
 
     .dog-profile__stats {
         display: grid;
-        grid-template-columns: repeat(5, minmax(0, 1fr));
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 12px;
         margin-top: 14px;
     }

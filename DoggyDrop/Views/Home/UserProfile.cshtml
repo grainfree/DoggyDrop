@@ -50,7 +50,10 @@
     </header>
 
     <section class="profile-dogs-compact" aria-label="Moji psi">
-        <div class="profile-panel__header"><h2>Moji psi</h2><a asp-controller="Dogs" asp-action="Create">Dodaj</a></div>
+        <div class="profile-panel__header"><h2>Moji psi</h2>
+            @if (Model.Dogs.Count == 0) { <a asp-controller="Dogs" asp-action="Create">Dodaj</a> }
+            else { <a asp-controller="Dogs" asp-action="Index">Odpri</a> }
+        </div>
         @if (Model.Dogs.Count == 0)
         {
             <p class="profile-muted">Dodaj psa za skupne sprehode.</p>
@@ -60,13 +63,13 @@
             <div class="profile-dog-list">
                 @foreach (var dog in Model.Dogs)
                 {
-                    <a class="profile-dog" asp-controller="Dogs" asp-action="Details" asp-route-id="@dog.Id">
+                    <a class="profile-dog" asp-controller="Dogs" asp-action="Index" asp-route-dogId="@dog.Id">
                         <div class="profile-dog__avatar">
                             @if (!string.IsNullOrWhiteSpace(dog.PhotoUrl)) { <img src="@dog.PhotoUrl" alt="" /> }
                             else { <span>@(string.IsNullOrWhiteSpace(dog.Name) ? "P" : dog.Name.Substring(0, 1).ToUpperInvariant())</span> }
                         </div>
-                        <div><strong>@dog.Name</strong><span>@dog.WalkCount sprehodov</span></div>
-                        <em>@dog.DistanceKm.ToString("0.0", System.Globalization.CultureInfo.GetCultureInfo("sl-SI")) km <i class="bi bi-chevron-right" aria-hidden="true"></i></em>
+                        <div><strong>@dog.Name</strong></div>
+                        <em><i class="bi bi-chevron-right" aria-hidden="true"></i></em>
                     </a>
                 }
             </div>

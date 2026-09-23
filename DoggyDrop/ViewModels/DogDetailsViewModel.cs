@@ -14,10 +14,6 @@ namespace DoggyDrop.ViewModels
 
         public int WalksThisWeek { get; set; }
 
-        public TimeSpan TotalDuration { get; set; }
-
-        public int EstimatedCalories { get; set; }
-
         public IReadOnlyList<AchievementItem> Achievements { get; set; } = [];
 
         public ActivityInsightsViewModel ActivityInsights { get; set; } = new();
@@ -28,7 +24,7 @@ namespace DoggyDrop.ViewModels
 
         public IReadOnlyList<FavoriteParkItem> FavoriteParks { get; set; } = [];
 
-        public int ParkVisitCount { get; set; }
+        public int ParkLocationCount { get; set; }
     }
 
     public class DogProgressionViewModel

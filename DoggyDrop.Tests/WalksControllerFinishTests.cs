@@ -267,6 +267,19 @@ public sealed class WalksControllerFinishTests : IDisposable
         Assert.Equal("1 h 5 min", SlovenianFormatting.WalkDuration(TimeSpan.FromMinutes(65)));
     }
 
+    [Theory]
+    [InlineData(0, "0 m")]
+    [InlineData(4, "4 m")]
+    [InlineData(9, "9 m")]
+    [InlineData(10, "0,01 km")]
+    [InlineData(20, "0,02 km")]
+    [InlineData(100, "0,10 km")]
+    [InlineData(1000, "1,00 km")]
+    public void WalkDistance_FormatsShortAndLongDistances(double meters, string expected)
+    {
+        Assert.Equal(expected, SlovenianFormatting.WalkDistance(meters));
+    }
+
     [Fact]
     public async Task Finish_StaleWalkIsInterruptedAtLastGpsPointWithoutRewards()
     {

@@ -11,6 +11,10 @@ namespace DoggyDrop.ViewModels
         public IReadOnlyList<WalkPhoto> RecentPhotos { get; set; } = [];
         public int CompletedWalkCount { get; set; }
         public double TotalDistanceKm { get; set; }
+        public int ParkLocationCount { get; set; }
+        public int? ActiveWalkId { get; set; }
+        public string? ActiveWalkDogName { get; set; }
+        public DogProgressionProfile? Progression { get; set; }
         public DogProgressionLevelInfo? Level { get; set; }
     }
 }
