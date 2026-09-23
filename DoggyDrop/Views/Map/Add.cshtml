@@ -23,6 +23,10 @@
     }
 
     <form asp-action="Add" method="post" enctype="multipart/form-data" class="add-bin-form">
+        @if (ViewBag.WalkId != null)
+        {
+            <input type="hidden" name="walkId" value="@ViewBag.WalkId" />
+        }
         <div asp-validation-summary="All" class="text-danger small mb-3"></div>
 
         <article class="add-bin-panel add-bin-location-panel">

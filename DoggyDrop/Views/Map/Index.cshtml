@@ -51,7 +51,10 @@
     var hasActiveWalk = activeWalk != null;
     var activeWalkStartedAt = activeWalk?.StartedAt.ToString("O");
     var activeWalkPointCount = activeWalk?.Points?.Count ?? 0;
+    var homeWalkTrailJson = Html.Raw(JsonSerializer.Serialize(activeWalk?.Points?.OrderBy(point => point.RecordedAt).ThenBy(point => point.Id).Select(point => new[] { point.Latitude, point.Longitude }) ?? Enumerable.Empty<double[]>()));
+    var homeWalkPlanJson = Html.Raw(JsonSerializer.Serialize(activeWalk?.PlannedWalk?.RoutePoints?.OrderBy(point => point.Order).Select(point => new[] { point.Latitude, point.Longitude }) ?? Enumerable.Empty<double[]>()));
     var debugGpsEnabled = Context.Request.Query["debugGps"].ToString() == "1";
+    var quickStartDogId = ViewBag.QuickStartDogId as int?;
 }
 
 @section Styles {
@@ -1099,6 +1102,9 @@
     .map-action-stack--with-active {
         display: none;
     }
+
+    .map-quick-start-form { margin: 0; }
+    .map-quick-start-form .map-action-button { width: 100%; cursor: pointer; }
 
     .map-action-button {
         display: grid;
@@ -3114,10 +3120,19 @@
         </div>
         <h2>Super, @firstDogName je pripravljen za prvi sprehod</h2>
         <p>Zdaj lahko v enem tapu predlagava prvo pot, pogledava bližnje parke ali pa samo hitro začnemo hoditi.</p>
-        <a class="btn btn-success map-first-walk-card__cta" asp-controller="Walks" asp-action="Planner">
-            <i class="bi bi-play-circle-fill" aria-hidden="true"></i>
-            <span>Začni sprehod</span>
-        </a>
+        @if (quickStartDogId.HasValue)
+        {
+            <form asp-controller="Walks" asp-action="Start" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="dogId" value="@quickStartDogId.Value" />
+                <button type="submit" class="btn btn-success map-first-walk-card__cta"><i class="bi bi-play-circle-fill" aria-hidden="true"></i> Začni sprehod</button>
+            </form>
+        }
+        else
+        {
+            <a class="btn btn-success map-first-walk-card__cta" asp-controller="Walks" asp-action="Index" asp-fragment="walkEntry">Začni sprehod</a>
+        }
+        <a asp-controller="Walks" asp-action="Planner" asp-route-dogId="@quickStartDogId">Predlagaj pot</a>
         <div class="map-first-walk-card__meta">DoggyDrop bo medtem začel beležiti kilometre, značke in najljubše sprehode.</div>
     </section>
 }
@@ -3241,14 +3256,15 @@ else if (needsDogOnboarding)
                 <i class="bi bi-activity" aria-hidden="true"></i>
                 <span>Sledenje</span>
             </a>
-            <form asp-controller="Walks" asp-action="AddPhoto" asp-route-id="@activeWalk.Id" method="post" enctype="multipart/form-data">
+            <form id="homeWalkQuickPhotoForm" asp-controller="Walks" asp-action="AddPhoto" asp-route-id="@activeWalk.Id" method="post" enctype="multipart/form-data">
+                @Html.AntiForgeryToken()
                 <label class="map-active-walk-sheet__photo-label">
                     <i class="bi bi-camera-fill" aria-hidden="true"></i>
                     <span>Fotografija</span>
-                    <input type="file" name="photo" accept="image/*" capture="environment" onchange="if (this.files.length) this.form.submit();" />
+                    <input type="file" name="photo" accept="image/*" />
                 </label>
             </form>
-            <a asp-controller="Map" asp-action="Add">
+            <a asp-controller="Map" asp-action="Add" asp-route-walkId="@activeWalk.Id">
                 <i class="bi bi-plus-lg" aria-hidden="true"></i>
                 <span>Dodaj koš</span>
             </a>
@@ -3259,6 +3275,7 @@ else if (needsDogOnboarding)
                 </button>
             </form>
         </div>
+        <p id="homeWalkPhotoStatus" role="status" hidden></p>
         @if (debugGpsEnabled)
         {
             <p id="homeWalkGpsDebug">GPS callbacks: <span id="homeGpsCallbacks">0</span> · Stale: <span id="homeGpsStale">0</span> · Deferred: <span id="homeGpsDeferred">0</span> · Requests: <span id="homeGpsRequests">0</span> · Accepted: <span id="homeGpsSuccess">0</span> · Duplicate: <span id="homeGpsDuplicate">0</span> · Out-of-order: <span id="homeGpsOutOfOrder">0</span> · Invalid: <span id="homeGpsInvalid">0</span> · No longer active: <span id="homeGpsInactive">0</span> · Failure: <span id="homeGpsFailure">0</span> · Response: <span id="homeGpsResponse">none</span> · Persisted: <span id="homeGpsPersisted">@activeWalkPointCount</span> · Distance: <span id="homeGpsDistance">@Math.Round(activeWalk!.DistanceMeters) m</span></p>
@@ -3322,10 +3339,22 @@ else if (needsDogOnboarding)
 }
 
 <div class="map-action-stack @(hasActiveWalk ? "map-action-stack--with-active" : "")">
-    <a class="map-action-button map-action-button--primary" asp-controller="Walks" asp-action="@(hasActiveWalk ? "Active" : "Planner")" asp-route-id="@(hasActiveWalk ? activeWalk!.Id : null)">
-        <span class="map-action-button__icon" aria-hidden="true"><i class="bi bi-play-fill"></i></span>
-        <span>@(hasActiveWalk ? "Sprehod" : "Začni sprehod")</span>
-    </a>
+    @if (hasActiveWalk)
+    {
+        <a class="map-action-button map-action-button--primary" asp-controller="Walks" asp-action="Active" asp-route-id="@activeWalk!.Id"><span class="map-action-button__icon" aria-hidden="true"><i class="bi bi-play-fill"></i></span><span>Sprehod</span></a>
+    }
+    else if (quickStartDogId.HasValue)
+    {
+        <form class="map-quick-start-form" asp-controller="Walks" asp-action="Start" method="post">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="dogId" value="@quickStartDogId.Value" />
+            <button type="submit" class="map-action-button map-action-button--primary"><span class="map-action-button__icon" aria-hidden="true"><i class="bi bi-play-fill"></i></span><span>Začni sprehod</span></button>
+        </form>
+    }
+    else
+    {
+        <a class="map-action-button map-action-button--primary" asp-controller="Walks" asp-action="Index" asp-fragment="walkEntry"><span class="map-action-button__icon" aria-hidden="true"><i class="bi bi-play-fill"></i></span><span>Začni sprehod</span></a>
+    }
     <a class="map-action-button" asp-controller="Map" asp-action="Add">
         <span class="map-action-button__icon" aria-hidden="true"><i class="bi bi-plus-lg"></i></span>
         <span>Dodaj koš</span>
@@ -3522,6 +3551,10 @@ else if (needsDogOnboarding)
                 setActiveWalkSheetExpanded(false);
             }
             document.body.classList.toggle("map-bin-navigation-active", Boolean(isActive));
+            if (homeWalkPlanLayer) {
+                if (isActive) map.removeLayer(homeWalkPlanLayer);
+                else if (!map.hasLayer(homeWalkPlanLayer)) homeWalkPlanLayer.addTo(map);
+            }
         }
 
         function updateActiveWalkSheetSpace() {
@@ -3554,6 +3587,11 @@ else if (needsDogOnboarding)
         const mapFounderPromptText = document.getElementById("mapFounderPromptText");
         const activeWalkStartedAt = @Html.Raw(hasActiveWalk ? $"new Date(\"{activeWalkStartedAt}\")" : "null");
         const homeActiveWalkId = @(activeWalk?.Id ?? 0);
+        const validWalkPoints = points => points.filter(point => Array.isArray(point) && point.length === 2 && point.every(Number.isFinite) && Math.abs(point[0]) <= 90 && Math.abs(point[1]) <= 180);
+        const homeWalkTrailPoints = validWalkPoints(@homeWalkTrailJson);
+        const homeWalkPlanPoints = validWalkPoints(@homeWalkPlanJson);
+        let homeWalkTrailLayer = null;
+        let homeWalkPlanLayer = null;
         const homeActiveWalkDuration = document.getElementById("homeActiveWalkDuration");
         const homeWalkTracking = { watchId: null, generation: 0, sending: false, pending: null, lastCallback: 0, hiddenAt: 0, active: homeActiveWalkId > 0, finishSubmitting: false };
 
@@ -3661,6 +3699,13 @@ else if (needsDogOnboarding)
                     return;
                 }
                 countHomeGpsDebug("Success");
+                const acceptedPoint = [Number(position.coords.latitude), Number(position.coords.longitude)];
+                if (homeWalkTrailLayer && acceptedPoint.every(Number.isFinite)) {
+                    homeWalkTrailPoints.push(acceptedPoint);
+                    homeWalkTrailLayer.setLatLngs(homeWalkTrailPoints);
+                    if (navigation.active) navigation.routeLayer?.bringToFront();
+                    else homeWalkTrailLayer.bringToFront();
+                }
                 setHomeGpsDebug("Response", "accepted");
                 setHomeGpsDebug("Persisted", data.pointCount);
                 setHomeGpsDebug("Distance", `${Math.round(data.distanceMeters)} m`);
@@ -3780,9 +3825,35 @@ else if (needsDogOnboarding)
         document.addEventListener("DOMContentLoaded", function () {
             initActiveWalkCard();
             initMap();
+            if (homeActiveWalkId > 0 && new URLSearchParams(window.location.search).get("nearestBin") === "1") findNearestTrashBin();
         });
 
         function initActiveWalkCard() {
+            const photoForm = document.getElementById("homeWalkQuickPhotoForm");
+            const photoInput = photoForm?.querySelector('input[type="file"]');
+            photoInput?.addEventListener("change", async () => {
+                if (!photoInput.files.length) return;
+                const status = document.getElementById("homeWalkPhotoStatus");
+                const photo = photoInput.files[0];
+                photoInput.disabled = true;
+                status.hidden = false;
+                status.textContent = "Shranjujem fotografijo …";
+                try {
+                    const body = new FormData(photoForm);
+                    body.set("photo", photo);
+                    const response = await fetch(photoForm.action, { method: "POST", body, credentials: "same-origin", headers: { "Accept": "application/json" } });
+                    if (!response.ok || !(response.headers.get("content-type") || "").includes("application/json")) throw new Error();
+                    const result = await response.json();
+                    if (!result.message) throw new Error();
+                    status.textContent = "Fotografija je shranjena. Sprehod se nadaljuje.";
+                } catch {
+                    status.textContent = "Fotografije ni bilo mogoče shraniti. Poskusi znova.";
+                } finally {
+                    photoInput.disabled = false;
+                    photoInput.value = "";
+                    updateActiveWalkSheetSpace();
+                }
+            });
             const sheet = document.getElementById("homeActiveWalkSheet");
             const toggle = document.getElementById("homeActiveWalkToggle");
             if (sheet && toggle) {
@@ -3858,6 +3929,11 @@ else if (needsDogOnboarding)
                 attribution: "&copy; OpenStreetMap contributors &copy; CARTO"
             }).addTo(map);
 
+            if (homeActiveWalkId > 0) {
+                homeWalkPlanLayer = L.polyline(homeWalkPlanPoints, { color: "#d97706", weight: 4, opacity: 0.8, dashArray: "8 8" }).addTo(map);
+                homeWalkTrailLayer = L.polyline(homeWalkTrailPoints, { color: "#15803d", weight: 6, opacity: 1 }).addTo(map);
+            }
+
             binLayer = L.layerGroup().addTo(map);
             bins.forEach(bin => {
                 const marker = L.marker([bin.latitude, bin.longitude], { icon: createBinIcon(bin) })
@@ -3882,7 +3958,11 @@ else if (needsDogOnboarding)
             loadNearbyDogs();
             loadCommunityHeatmap();
 
-            if (bins.length > 0) {
+            if (homeWalkTrailLayer?.getLatLngs().length > 1) {
+                map.fitBounds(homeWalkTrailLayer.getBounds().pad(0.2), { maxZoom: 17 });
+            } else if (homeWalkPlanLayer?.getLatLngs().length > 1) {
+                map.fitBounds(homeWalkPlanLayer.getBounds().pad(0.2), { maxZoom: 16 });
+            } else if (bins.length > 0) {
                 const bounds = L.latLngBounds(bins.map(bin => [bin.latitude, bin.longitude]));
                 map.fitBounds(bounds.pad(0.2), { maxZoom: 16 });
             }
@@ -3949,6 +4029,10 @@ else if (needsDogOnboarding)
             });
             document.getElementById("parkCountLabel").textContent = `(${placeGroups.parks.length})`;
             applySavedMapSettings();
+            if (homeActiveWalkId > 0) {
+                map.removeLayer(communityLayer);
+                communityHeatPanel.hidden = true;
+            }
             renderExploreList();
             refreshNotificationPreview();
             window.setInterval(refreshNotificationPreview, 60000);

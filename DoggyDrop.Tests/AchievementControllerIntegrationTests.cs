@@ -104,6 +104,74 @@ public sealed class AchievementControllerIntegrationTests : IDisposable
     }
 
     [Fact]
+    public async Task BinSubmission_ReturnsToOwnedActiveWalkOnly()
+    {
+        await using var context = Context();
+        var dog = new Dog { Name = "Luna", OwnerId = UserId };
+        context.Dogs.Add(dog);
+        await context.SaveChangesAsync();
+        var walk = new Walk { DogId = dog.Id, OwnerId = UserId, Status = "Active" };
+        context.Walks.Add(walk);
+        await context.SaveChangesAsync();
+        var notifications = new NoOpNotifications();
+        var calendar = new TestGamificationCalendar();
+        var controller = Prepare(new MapController(
+            context, new TestEnvironment(), UserManager(context), new NoOpImages(), new NoOpEmail(), notifications,
+            new GamificationService(context, notifications, calendar), new DogProgressionService(context), new MapStampService(),
+            new GamificationRewardBuilder(), calendar, new UserAchievementService(context, notifications)));
+
+        var ownedResult = await controller.Add(new TrashBinViewModel { Name = "Koš A", Latitude = 46.05, Longitude = 14.5 }, walk.Id);
+        var unrelatedResult = await controller.Add(new TrashBinViewModel { Name = "Koš B", Latitude = 46.06, Longitude = 14.5 }, int.MaxValue);
+
+        Assert.Equal("Active", Assert.IsType<RedirectToActionResult>(ownedResult).ActionName);
+        Assert.Equal("Index", Assert.IsType<RedirectToActionResult>(unrelatedResult).ActionName);
+        Assert.Equal("Active", (await context.Walks.SingleAsync(item => item.Id == walk.Id)).Status);
+    }
+
+    [Fact]
+    public async Task HomeMap_LoadsGpsPointsAndPlannedRoutePoints()
+    {
+        await using var context = Context();
+        var dog = new Dog { Name = "Luna", OwnerId = UserId };
+        var plan = new PlannedWalk
+        {
+            OwnerId = UserId, Dog = dog, Title = "Pot", AreaKey = "maribor", AreaName = "Maribor",
+            RoutePoints = [
+                new PlannedWalkRoutePoint { Order = 1, Latitude = 46, Longitude = 15 },
+                new PlannedWalkRoutePoint { Order = 2, Latitude = 46.01, Longitude = 15.01 }
+            ]
+        };
+        var walk = new Walk
+        {
+            OwnerId = UserId, Dog = dog, PlannedWalk = plan, Status = "Active", StartedAt = DateTime.UtcNow,
+            Points = [
+                new WalkPoint { Latitude = 46, Longitude = 15, RecordedAt = DateTime.UtcNow.AddMinutes(-1) },
+                new WalkPoint { Latitude = 46.005, Longitude = 15.005, RecordedAt = DateTime.UtcNow }
+            ]
+        };
+        var olderWalk = new Walk
+        {
+            OwnerId = UserId, Dog = dog, Status = "Active", StartedAt = DateTime.UtcNow.AddHours(-1),
+            Points = [new WalkPoint { Latitude = 46, Longitude = 15, RecordedAt = DateTime.UtcNow.AddHours(-1) }]
+        };
+        context.Walks.AddRange(olderWalk, walk);
+        await context.SaveChangesAsync();
+        var notifications = new NoOpNotifications();
+        var calendar = new TestGamificationCalendar();
+        var controller = Prepare(new MapController(
+            context, new TestEnvironment(), UserManager(context), new NoOpImages(), new NoOpEmail(), notifications,
+            new GamificationService(context, notifications, calendar), new DogProgressionService(context), new MapStampService(),
+            new GamificationRewardBuilder(), calendar, new UserAchievementService(context, notifications)));
+
+        var result = Assert.IsType<ViewResult>(await controller.Index());
+        var activeWalk = Assert.IsType<Walk>(result.ViewData["ActiveWalk"]);
+        Assert.Equal(walk.Id, activeWalk.Id);
+        Assert.Equal(2, activeWalk.Points?.Count);
+        Assert.Equal(2, activeWalk.PlannedWalk?.RoutePoints?.Count);
+        Assert.Equal(dog.Id, activeWalk.Dog?.Id);
+    }
+
+    [Fact]
     public async Task DogCreation_NotificationFailureRollsBackDogAchievementAndNotification()
     {
         await using var context = Context();

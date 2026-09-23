@@ -350,6 +350,8 @@ namespace DoggyDrop.Controllers
                 }
             }
 
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+            await LockWalkStartUserAsync(userId);
             var hasActiveWalk = await _context.Walks.AnyAsync(w => w.OwnerId == userId && w.Status == "Active");
             if (hasActiveWalk)
             {
@@ -386,6 +388,7 @@ namespace DoggyDrop.Controllers
 
             _context.Walks.Add(walk);
             await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
             await NotifyFriendsAboutWalkStartAsync(walk.Id, userId, dogId, plannedWalk?.Title);
 
             return RedirectToAction(nameof(Active), new { id = walk.Id });
@@ -491,8 +494,23 @@ namespace DoggyDrop.Controllers
                 };
             }
 
-            _context.Walks.Add(walk);
-            await _context.SaveChangesAsync();
+            await using (var transaction = await _context.Database.BeginTransactionAsync())
+            {
+                await LockWalkStartUserAsync(userId);
+                var currentActiveWalkId = await _context.Walks
+                    .Where(candidate => candidate.OwnerId == userId && candidate.Status == "Active")
+                    .Select(candidate => (int?)candidate.Id)
+                    .FirstOrDefaultAsync();
+                if (currentActiveWalkId.HasValue)
+                {
+                    TempData["ErrorMessage"] = "Najprej zaključi trenutni sprehod.";
+                    return RedirectToAction(nameof(Active), new { id = currentActiveWalkId.Value });
+                }
+
+                _context.Walks.Add(walk);
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+            }
             await _gamificationService.AwardXpAsync(
                 userId,
                 GamificationConstants.CreateRoute,
@@ -742,6 +760,7 @@ namespace DoggyDrop.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> AddPhoto(int id, IFormFile? photo, string? caption, int? plannedWalkStopId = null)
         {
+            var wantsJson = Request.Headers.Accept.ToString().Contains("application/json", StringComparison.OrdinalIgnoreCase);
             var userId = _userManager.GetUserId(User);
             if (string.IsNullOrWhiteSpace(userId))
             {
@@ -761,6 +780,7 @@ namespace DoggyDrop.Controllers
 
             if (photo == null || photo.Length == 0)
             {
+                if (wantsJson) return BadRequest(new { error = "Fotografija ni bila izbrana." });
                 TempData["ErrorMessage"] = "Fotografija ni bila izbrana.";
                 return RedirectToPhotoSource(walk);
             }
@@ -768,6 +788,7 @@ namespace DoggyDrop.Controllers
             var imageUrl = await _cloudinaryService.UploadWalkImageAsync(photo);
             if (string.IsNullOrWhiteSpace(imageUrl))
             {
+                if (wantsJson) return BadRequest(new { error = "Fotografije ni bilo mogoče shraniti." });
                 TempData["ErrorMessage"] = "Fotografije ni bilo mogoce shraniti.";
                 return RedirectToPhotoSource(walk);
             }
@@ -777,6 +798,7 @@ namespace DoggyDrop.Controllers
                 var hasStop = walk.PlannedWalk?.Stops?.Any(stop => stop.Id == plannedWalkStopId.Value) ?? false;
                 if (!hasStop)
                 {
+                    if (wantsJson) return BadRequest(new { error = "Izbran postanek za fotografijo ni veljaven." });
                     TempData["ErrorMessage"] = "Izbran postanek za fotografijo ni veljaven.";
                     return RedirectToPhotoSource(walk);
                 }
@@ -811,6 +833,7 @@ namespace DoggyDrop.Controllers
                 walkPhoto.Id.ToString(),
                 "Fotografija s sprehoda");
 
+            if (wantsJson) return Ok(new { message = "Fotografija sprehoda je dodana." });
             TempData["SuccessMessage"] = "Fotografija sprehoda je dodana.";
             return RedirectToPhotoSource(walk);
         }
@@ -1317,6 +1340,21 @@ namespace DoggyDrop.Controllers
         }
 
         private static string GetWalkRewardTempDataKey(int walkId) => $"WalkRewardResult:{walkId}";
+
+        private async Task LockWalkStartUserAsync(string userId)
+        {
+            if (_context.Database.IsNpgsql())
+            {
+                await _context.Users.FromSqlInterpolated($"SELECT * FROM \"AspNetUsers\" WHERE \"Id\" = {userId} FOR UPDATE")
+                    .AsNoTracking().ToListAsync();
+            }
+            else if (_context.Database.ProviderName == "Microsoft.EntityFrameworkCore.Sqlite")
+            {
+                // SQLite has no row locks; take its writer lock before checking active walks.
+                await _context.Database.ExecuteSqlInterpolatedAsync($"UPDATE \"AspNetUsers\" SET \"Id\" = \"Id\" WHERE \"Id\" = {userId}");
+            }
+            else throw new NotSupportedException("Walk creation requires PostgreSQL or SQLite transaction locking.");
+        }
 
         private async Task LockWalkAsync(int id, string ownerId)
         {

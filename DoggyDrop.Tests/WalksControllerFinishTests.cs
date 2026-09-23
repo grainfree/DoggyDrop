@@ -478,6 +478,297 @@ public sealed class WalksControllerFinishTests : IDisposable
     }
 
     [Fact]
+    public async Task Active_PreservesOrderedActionableStopsWithoutRouteGeometry()
+    {
+        await SeedAsync(0, status: "Completed");
+        int dogId;
+        int planId;
+        await using (var setup = CreateContext())
+        {
+            dogId = await setup.Dogs.Select(dog => dog.Id).SingleAsync();
+            var plan = new PlannedWalk
+            {
+                OwnerId = UserId, DogId = dogId, Title = "Pot brez geometrije", AreaKey = "maribor", AreaName = "Maribor",
+                Stops = [
+                    new PlannedWalkStop { Order = 4, Name = "Cilj", Type = "finish", Latitude = 46.03, Longitude = 15.03 },
+                    new PlannedWalkStop { Order = 2, Name = "Prvi koš", Type = "bin", Latitude = 46.01, Longitude = 15.01 },
+                    new PlannedWalkStop { Order = 1, Name = "Start", Type = "start", Latitude = 46, Longitude = 15 },
+                    new PlannedWalkStop { Order = 3, Name = "Park", Type = "park", Latitude = 46.02, Longitude = 15.02 }
+                ]
+            };
+            setup.PlannedWalks.Add(plan);
+            await setup.SaveChangesAsync();
+            planId = plan.Id;
+        }
+
+        int walkId;
+        await using (var startContext = CreateContext())
+        {
+            await CreateController(startContext).Start(dogId, planId);
+            walkId = await startContext.Walks.Where(item => item.Status == "Active").Select(item => item.Id).SingleAsync();
+        }
+
+        await using var activeContext = CreateContext();
+        var result = Assert.IsType<ViewResult>(await CreateController(activeContext).Active(walkId));
+        var walk = Assert.IsType<Walk>(result.Model);
+        Assert.Empty(walk.PlannedWalk?.RoutePoints ?? []);
+        Assert.Equal(["Prvi koš", "Park"], walk.PlannedWalk!.Stops!
+            .OrderBy(stop => stop.Order)
+            .Where(stop => stop.Type is not ("start" or "finish"))
+            .Select(stop => stop.Name));
+        Assert.Equal("start", Assert.Single(walk.StopCompletions!).PlannedWalkStop?.Type);
+    }
+
+    [Fact]
+    public async Task Start_FreeWalk_CreatesActiveWalkWithoutPlanOrStops()
+    {
+        await SeedAsync(0, status: "Completed");
+        await using var context = CreateContext();
+        var dogId = await context.Dogs.Select(dog => dog.Id).SingleAsync();
+
+        var result = await CreateController(context).Start(dogId);
+
+        var walk = await context.Walks.SingleAsync(item => item.Status == "Active");
+        Assert.Null(walk.PlannedWalkId);
+        Assert.Equal(dogId, walk.DogId);
+        Assert.False(await context.WalkStopCompletions.AnyAsync(item => item.WalkId == walk.Id));
+        Assert.IsType<RedirectToActionResult>(result);
+    }
+
+    [Fact]
+    public async Task Start_RejectsDogNotOwnedByCurrentUser()
+    {
+        await SeedAsync(0, status: "Completed");
+        await using var context = CreateContext();
+
+        var result = await CreateController(context).Start(int.MaxValue);
+
+        Assert.IsType<NotFoundResult>(result);
+        Assert.False(await context.Walks.AnyAsync(item => item.Status == "Active"));
+    }
+
+    [Fact]
+    public async Task Start_WithoutOwnedDogsReturnsNotFound()
+    {
+        await using var context = CreateContext();
+        await context.Database.EnsureCreatedAsync();
+        context.Users.Add(new ApplicationUser { Id = UserId, UserName = "tester@example.test" });
+        await context.SaveChangesAsync();
+
+        Assert.IsType<NotFoundResult>(await CreateController(context).Start(1));
+        Assert.Empty(await context.Walks.ToListAsync());
+    }
+
+    [Fact]
+    public async Task Start_WithMultipleDogsUsesSelectedOwnedDog()
+    {
+        await SeedAsync(0, status: "Completed");
+        await using var context = CreateContext();
+        var selected = new Dog { Name = "Luna", OwnerId = UserId };
+        context.Dogs.Add(selected);
+        await context.SaveChangesAsync();
+
+        await CreateController(context).Start(selected.Id);
+
+        Assert.Equal(selected.Id, (await context.Walks.SingleAsync(item => item.Status == "Active")).DogId);
+    }
+
+    [Fact]
+    public async Task Start_RejectsExistingOtherUsersDog()
+    {
+        await SeedAsync(0, status: "Completed");
+        await using var context = CreateContext();
+        var otherUser = new ApplicationUser { Id = "other-user", UserName = "other@example.test" };
+        var otherDog = new Dog { Name = "Tuji pes", OwnerId = otherUser.Id };
+        context.Users.Add(otherUser);
+        context.Dogs.Add(otherDog);
+        await context.SaveChangesAsync();
+
+        Assert.IsType<NotFoundResult>(await CreateController(context).Start(otherDog.Id));
+        Assert.False(await context.Walks.AnyAsync(item => item.Status == "Active"));
+    }
+
+    [Fact]
+    public async Task Start_WhenAlreadyActiveDoesNotCreateAnotherWalk()
+    {
+        var existingId = await SeedAsync(0);
+        await using var context = CreateContext();
+        var dogId = await context.Dogs.Select(dog => dog.Id).SingleAsync();
+
+        var result = Assert.IsType<RedirectToActionResult>(await CreateController(context).Start(dogId));
+
+        Assert.Equal(nameof(WalksController.Index), result.ActionName);
+        Assert.Equal([existingId], await context.Walks.Where(item => item.Status == "Active").Select(item => item.Id).ToListAsync());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Start_ConcurrentRequestsCreateOneActiveWalk(bool withPlan)
+    {
+        await SeedAsync(0, status: "Completed");
+        int dogId;
+        int? planId = null;
+        await using (var setup = CreateContext())
+        {
+            dogId = await setup.Dogs.Select(dog => dog.Id).SingleAsync();
+            if (withPlan)
+            {
+                var plan = new PlannedWalk
+                {
+                    OwnerId = UserId, DogId = dogId, Title = "Testna pot", AreaKey = "maribor", AreaName = "Maribor",
+                    Stops = [
+                        new PlannedWalkStop { Order = 1, Name = "Start", Type = "start", Latitude = 46, Longitude = 15 },
+                        new PlannedWalkStop { Order = 2, Name = "Koš", Type = "bin", Latitude = 46.01, Longitude = 15.01 }
+                    ]
+                };
+                setup.PlannedWalks.Add(plan);
+                await setup.SaveChangesAsync();
+                planId = plan.Id;
+            }
+        }
+
+        async Task<IActionResult> RequestAsync()
+        {
+            await using var context = CreateContext();
+            await Task.Yield();
+            return await CreateController(context).Start(dogId, planId);
+        }
+
+        var results = await Task.WhenAll(RequestAsync(), RequestAsync());
+        Assert.Equal(1, results.Count(result => result is RedirectToActionResult redirect && redirect.ActionName == nameof(WalksController.Active)));
+        Assert.Equal(1, results.Count(result => result is RedirectToActionResult redirect && redirect.ActionName == nameof(WalksController.Index)));
+        await using var verification = CreateContext();
+        var active = Assert.Single(await verification.Walks.Where(item => item.Status == "Active").ToListAsync());
+        Assert.Equal(planId, active.PlannedWalkId);
+        Assert.Equal(withPlan ? 1 : 0, await verification.WalkStopCompletions.CountAsync(item => item.WalkId == active.Id));
+    }
+
+    [Fact]
+    public async Task Start_DifferentUsersCanEachCreateActiveWalk()
+    {
+        await SeedAsync(0, status: "Completed");
+        int firstDogId;
+        int secondDogId;
+        await using (var setup = CreateContext())
+        {
+            firstDogId = await setup.Dogs.Where(dog => dog.OwnerId == UserId).Select(dog => dog.Id).SingleAsync();
+            var secondUser = new ApplicationUser { Id = "second-user", UserName = "second@example.test" };
+            var secondDog = new Dog { Name = "Rex", OwnerId = secondUser.Id };
+            setup.Users.Add(secondUser);
+            setup.Dogs.Add(secondDog);
+            await setup.SaveChangesAsync();
+            secondDogId = secondDog.Id;
+        }
+
+        async Task<IActionResult> RequestAsync(int dogId, string ownerId)
+        {
+            await using var context = CreateContext();
+            await Task.Yield();
+            return await CreateController(context, userId: ownerId).Start(dogId);
+        }
+
+        var results = await Task.WhenAll(RequestAsync(firstDogId, UserId), RequestAsync(secondDogId, "second-user"));
+        Assert.All(results, result => Assert.Equal(nameof(WalksController.Active), Assert.IsType<RedirectToActionResult>(result).ActionName));
+        await using var verification = CreateContext();
+        Assert.Equal(2, await verification.Walks.CountAsync(item => item.Status == "Active"));
+    }
+
+    [Fact]
+    public async Task StartPlanned_ConcurrentRequestsCreateOneWalkAndPlan()
+    {
+        await SeedAsync(0, status: "Completed");
+        int dogId;
+        await using (var setup = CreateContext())
+            dogId = await setup.Dogs.Select(dog => dog.Id).SingleAsync();
+
+        async Task<IActionResult> RequestAsync()
+        {
+            await using var context = CreateContext();
+            await Task.Yield();
+            return await CreateController(context).StartPlanned(dogId, "maribor", 3, "balanced", "auto", null, null);
+        }
+
+        var results = await Task.WhenAll(RequestAsync(), RequestAsync());
+        Assert.All(results, result => Assert.Equal(nameof(WalksController.Active), Assert.IsType<RedirectToActionResult>(result).ActionName));
+        await using var verification = CreateContext();
+        Assert.Single(await verification.Walks.Where(item => item.Status == "Active").ToListAsync());
+        Assert.Single(await verification.PlannedWalks.ToListAsync());
+    }
+
+    [Fact]
+    public async Task AddPhoto_JsonUploadFailure_DoesNotEndActiveWalk()
+    {
+        var walkId = await SeedAsync(0);
+        await using var context = CreateContext();
+        var controller = CreateController(context);
+        controller.HttpContext.Request.Headers.Accept = "application/json";
+        var photo = new FormFile(new MemoryStream([1, 2, 3]), 0, 3, "photo", "walk.jpg");
+
+        var result = await controller.AddPhoto(walkId, photo, null);
+
+        Assert.IsType<BadRequestObjectResult>(result);
+        Assert.Equal("Active", (await context.Walks.SingleAsync(item => item.Id == walkId)).Status);
+        Assert.False(await context.WalkPhotos.AnyAsync(item => item.WalkId == walkId));
+    }
+
+    [Fact]
+    public async Task AddPhoto_JsonUploadSuccess_KeepsWalkActive()
+    {
+        var walkId = await SeedAsync(0);
+        await using var context = CreateContext();
+        var controller = CreateController(context, imageService: new NoOpImageService("https://example.test/walk.jpg"));
+        controller.HttpContext.Request.Headers.Accept = "application/json";
+        var photo = new FormFile(new MemoryStream([1, 2, 3]), 0, 3, "photo", "walk.jpg");
+
+        var result = await controller.AddPhoto(walkId, photo, null);
+
+        Assert.IsType<OkObjectResult>(result);
+        Assert.Equal("Active", (await context.Walks.SingleAsync(item => item.Id == walkId)).Status);
+        Assert.Single(await context.WalkPhotos.Where(item => item.WalkId == walkId).ToListAsync());
+    }
+
+    [Theory]
+    [InlineData("Interrupted", false)]
+    [InlineData("Completed", true)]
+    public async Task AddPhoto_RespectsExistingWalkStatusRules(string status, bool allowed)
+    {
+        var walkId = await SeedAsync(0, status);
+        await using var context = CreateContext();
+        var controller = CreateController(context, imageService: new NoOpImageService("https://example.test/walk.jpg"));
+        controller.HttpContext.Request.Headers.Accept = "application/json";
+        var photo = new FormFile(new MemoryStream([1, 2, 3]), 0, 3, "photo", "walk.jpg");
+
+        var result = await controller.AddPhoto(walkId, photo, null);
+
+        if (allowed) Assert.IsType<OkObjectResult>(result);
+        else Assert.IsType<NotFoundResult>(result);
+        Assert.Equal(allowed ? 1 : 0, await context.WalkPhotos.CountAsync(item => item.WalkId == walkId));
+        Assert.Equal(status, (await context.Walks.SingleAsync(item => item.Id == walkId)).Status);
+    }
+
+    [Fact]
+    public async Task AddPhoto_RejectsAnotherUsersWalkAndInvalidId()
+    {
+        await SeedAsync(0, status: "Completed");
+        await using var context = CreateContext();
+        var otherUser = new ApplicationUser { Id = "other-user", UserName = "other@example.test" };
+        var otherDog = new Dog { Name = "Tuji pes", OwnerId = otherUser.Id };
+        context.Users.Add(otherUser);
+        context.Dogs.Add(otherDog);
+        await context.SaveChangesAsync();
+        var otherWalk = new Walk { OwnerId = otherUser.Id, DogId = otherDog.Id, Status = "Active" };
+        context.Walks.Add(otherWalk);
+        await context.SaveChangesAsync();
+        var controller = CreateController(context, imageService: new NoOpImageService("https://example.test/walk.jpg"));
+        var photo = new FormFile(new MemoryStream([1, 2, 3]), 0, 3, "photo", "walk.jpg");
+
+        Assert.IsType<NotFoundResult>(await controller.AddPhoto(otherWalk.Id, photo, null));
+        Assert.IsType<NotFoundResult>(await controller.AddPhoto(int.MaxValue, photo, null));
+        Assert.False(await context.WalkPhotos.AnyAsync());
+    }
+
+    [Fact]
     public async Task FinishAcrossLjubljanaMidnight_UsesCapturedFinishDateOnce()
     {
         var walkId = await SeedAsync(1_000);
@@ -536,7 +827,7 @@ public sealed class WalksControllerFinishTests : IDisposable
         return new ApplicationDbContext(options);
     }
 
-    private WalksController CreateController(ApplicationDbContext context, TestGamificationCalendar? calendar = null)
+    private WalksController CreateController(ApplicationDbContext context, TestGamificationCalendar? calendar = null, ICloudinaryService? imageService = null, string userId = UserId)
     {
         var notifications = new NoOpNotificationService();
         calendar ??= new TestGamificationCalendar();
@@ -544,7 +835,7 @@ public sealed class WalksControllerFinishTests : IDisposable
             context,
             CreateUserManager(context),
             notifications,
-            new NoOpImageService(),
+            imageService ?? new NoOpImageService(),
             new GamificationService(context, notifications, calendar),
             new DogProgressionService(context),
             new NoOpPlannerService(),
@@ -555,7 +846,7 @@ public sealed class WalksControllerFinishTests : IDisposable
         var httpContext = new DefaultHttpContext
         {
             User = new ClaimsPrincipal(new ClaimsIdentity(
-                [new Claim(ClaimTypes.NameIdentifier, UserId)],
+                [new Claim(ClaimTypes.NameIdentifier, userId)],
                 "Test"))
         };
         controller.ControllerContext = new ControllerContext { HttpContext = httpContext };
@@ -612,9 +903,11 @@ public sealed class WalksControllerFinishTests : IDisposable
 
     private sealed class NoOpImageService : ICloudinaryService
     {
+        private readonly string? _walkImageUrl;
+        public NoOpImageService(string? walkImageUrl = null) => _walkImageUrl = walkImageUrl;
         public Task<string?> UploadImageAsync(IFormFile file) => Task.FromResult<string?>(null);
         public Task<string?> UploadTrashBinImageAsync(IFormFile file) => Task.FromResult<string?>(null);
-        public Task<string?> UploadWalkImageAsync(IFormFile file) => Task.FromResult<string?>(null);
+        public Task<string?> UploadWalkImageAsync(IFormFile file) => Task.FromResult(_walkImageUrl);
     }
 
     private sealed class NoOpPlannerService : IOsmWalkPlannerService

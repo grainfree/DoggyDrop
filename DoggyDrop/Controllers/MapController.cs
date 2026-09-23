@@ -67,13 +67,19 @@ namespace DoggyDrop.Controllers
         }
 
         // 📍 Prikaz obrazca za dodajanje koša
-        public IActionResult Add() => View();
+        public async Task<IActionResult> Add(int? walkId = null)
+        {
+            ViewBag.WalkId = await GetOwnedActiveWalkIdAsync(walkId);
+            return View();
+        }
 
         // 📍 Shrani novi koš
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Add(TrashBinViewModel model)
+        public async Task<IActionResult> Add(TrashBinViewModel model, int? walkId = null)
         {
+            var returnWalkId = await GetOwnedActiveWalkIdAsync(walkId);
+            ViewBag.WalkId = returnWalkId;
             if (!ModelState.IsValid)
                 return View(model);
 
@@ -128,7 +134,18 @@ namespace DoggyDrop.Controllers
             TempData["SuccessMessage"] = User.IsInRole("Admin")
                 ? "Kos je bil dodan in je ze viden na zemljevidu."
                 : "Hvala! Kos je shranjen in caka na odobritev.";
-            return RedirectToAction("Index");
+            return returnWalkId.HasValue
+                ? RedirectToAction("Active", "Walks", new { id = returnWalkId.Value })
+                : RedirectToAction("Index");
+        }
+
+        private async Task<int?> GetOwnedActiveWalkIdAsync(int? walkId)
+        {
+            if (!walkId.HasValue || walkId.Value <= 0) return null;
+            var userId = _userManager.GetUserId(User);
+            return await _context.Walks.AnyAsync(walk => walk.Id == walkId.Value && walk.OwnerId == userId && walk.Status == "Active")
+                ? walkId
+                : null;
         }
 
         // 🗺️ Glavna stran z zemljevidom
@@ -154,10 +171,16 @@ namespace DoggyDrop.Controllers
                     })
                     .ToListAsync();
                 var activeWalk = await _context.Walks
+                    .AsNoTracking()
+                    .AsSplitQuery()
                     .Include(walk => walk.Dog)
                     .Include(walk => walk.PlannedWalk)
+                        .ThenInclude(plan => plan!.RoutePoints)
                     .Include(walk => walk.Points)
-                    .FirstOrDefaultAsync(walk => walk.OwnerId == userId && walk.Status == "Active");
+                    .Where(walk => walk.OwnerId == userId && walk.Status == "Active")
+                    .OrderByDescending(walk => walk.StartedAt)
+                    .ThenByDescending(walk => walk.Id)
+                    .FirstOrDefaultAsync();
 
                 if (activeWalk != null && WalkStaleness.IsStale(activeWalk, activeWalk.Points ?? [], DateTime.UtcNow))
                 {
@@ -165,6 +188,7 @@ namespace DoggyDrop.Controllers
                 }
 
                 ViewBag.MyDogs = myDogs;
+                ViewBag.QuickStartDogId = myDogs.Count == 1 ? myDogs[0].Id : (int?)null;
                 ViewBag.ActiveWalk = activeWalk;
                 ViewBag.NeedsDogOnboarding = myDogs.Count == 0;
                 ViewBag.UserDisplayName = (await _userManager.GetUserAsync(User))?.DisplayName

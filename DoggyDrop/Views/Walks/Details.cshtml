@@ -465,10 +465,13 @@
             <strong>@durationLabel</strong>
             <span>Trajanje</span>
         </article>
-        <article>
-            <strong>@Model.UsedBinsCount</strong>
-            <span>Uporabljeni koši</span>
-        </article>
+        @if (Model.UsedBinsCount > 0)
+        {
+            <article>
+                <strong>@Model.UsedBinsCount</strong>
+                <span>Uporabljeni koši</span>
+            </article>
+        }
     </div>
 
     @if ((Model.Points?.Count ?? 0) < 10 && duration.TotalMinutes >= 10)

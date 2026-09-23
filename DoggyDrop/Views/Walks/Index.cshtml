@@ -13,7 +13,18 @@
             <p class="app-page__lead">Začni sprehod, spremljaj tedensko aktivnost in hitro izberi naslednjo pot.</p>
         </div>
         <div class="walks-hero__actions">
-            <a class="btn btn-success rounded-pill fw-semibold" asp-controller="Walks" asp-action="Planner">Planer poti</a>
+            @if (Model.ActiveWalk != null)
+            {
+                <a class="btn btn-success rounded-pill fw-semibold" asp-controller="Walks" asp-action="Active" asp-route-id="@Model.ActiveWalk.Id">Nadaljuj sprehod</a>
+            }
+            else if (Model.Dogs.Count == 0)
+            {
+                <a class="btn btn-success rounded-pill fw-semibold" asp-controller="Dogs" asp-action="Create">Dodaj psa</a>
+            }
+            else
+            {
+                <a class="btn btn-success rounded-pill fw-semibold" href="#walkEntry">Začni sprehod</a>
+            }
             <a class="btn btn-outline-secondary rounded-pill" asp-controller="Walks" asp-action="Suggestions">Predlogi poti</a>
         </div>
         <div class="walks-hero__pulse" aria-label="Povzetek sprehodov">
@@ -234,70 +245,32 @@
     }
     else
     {
-        <article class="walk-start-card">
+        <article class="walk-start-card" id="walkEntry">
             <div class="walk-start-card__header">
                 <div>
-                    <h2>Začni sprehod</h2>
-                    <p>Najprej izberi psa in dolžino. DoggyDrop ti takoj pripravi pot s koši, parkom, vodo in dog-friendly postanki.</p>
+                    <h2>Kam greva?</h2>
                 </div>
-                <span>Hitri plan</span>
             </div>
 
-            <form class="walk-quick-plan" asp-controller="Walks" asp-action="Planner" method="get">
-                <div>
-                    <label for="quickDogId">Pes</label>
-                    <select id="quickDogId" name="dogId">
+            <form class="walk-direct-start" asp-controller="Walks" asp-action="Start" method="post">
+                @Html.AntiForgeryToken()
+                @if (Model.Dogs.Count == 1)
+                {
+                    <input type="hidden" name="dogId" value="@Model.Dogs[0].Id" />
+                }
+                else
+                {
+                    <label for="directStartDogId">Pes</label>
+                    <select id="directStartDogId" name="dogId" required>
                         @foreach (var dog in Model.Dogs)
                         {
-                            <option value="@dog.Id">@dog.Name</option>
+                            <option value="@dog.Id" selected="@(Model.SelectedDogId == dog.Id)">@dog.Name</option>
                         }
                     </select>
-                </div>
-                <div>
-                    <label for="quickDistance">Dolžina</label>
-                    <select id="quickDistance" name="distanceKm">
-                        <option value="1.5">1,5 km</option>
-                        <option value="2.5">2,5 km</option>
-                        <option value="3.5" selected>3,5 km</option>
-                        <option value="5">5 km</option>
-                        <option value="7.5">7,5 km</option>
-                        <option value="10">10 km</option>
-                    </select>
-                </div>
-                <div>
-                    <label for="quickArea">Območje</label>
-                    <select id="quickArea" name="area">
-                        <option value="maribor">Maribor</option>
-                        <option value="ljubljana">Ljubljana</option>
-                        <option value="koper">Koper / Obala</option>
-                        <option value="celje">Celje</option>
-                        <option value="kranj">Kranj</option>
-                    </select>
-                </div>
-                <div>
-                    <label for="quickWalkStyle">Tip poti</label>
-                    <select id="quickWalkStyle" name="walkStyle">
-                        <option value="balanced" selected>Balanced</option>
-                        <option value="quick">Quick walk</option>
-                        <option value="park">Park walk</option>
-                        <option value="city">City walk</option>
-                        <option value="long">Long walk</option>
-                    </select>
-                </div>
-                <div>
-                    <label for="quickDogEnergy">Energija</label>
-                    <select id="quickDogEnergy" name="dogEnergy">
-                        <option value="auto" selected>Auto</option>
-                        <option value="low">Mirna</option>
-                        <option value="high">Aktivna</option>
-                    </select>
-                </div>
-                <input type="hidden" name="includeBins" value="true" />
-                <input type="hidden" name="includePark" value="true" />
-                <input type="hidden" name="includeWater" value="true" />
-                <input type="hidden" name="includeDogFriendly" value="true" />
-                <button type="submit">Predlagaj pot</button>
+                }
+                <button type="submit"><i class="bi bi-play-fill" aria-hidden="true"></i> Začni sprehod</button>
             </form>
+            <a class="walk-entry-planner" asp-controller="Walks" asp-action="Planner" asp-route-dogId="@(Model.Dogs.Count == 1 ? Model.Dogs[0].Id : Model.SelectedDogId)"><i class="bi bi-signpost-split" aria-hidden="true"></i> Predlagaj pot</a>
 
             @if (Model.QuickTemplates.Count > 0)
             {
@@ -307,7 +280,7 @@
                         <a class="walk-quick-template"
                            asp-controller="Walks"
                            asp-action="Planner"
-                           asp-route-dogId="@Model.Dogs.First().Id"
+                           asp-route-dogId="@(Model.SelectedDogId ?? (Model.Dogs.Count == 1 ? Model.Dogs[0].Id : (int?)null))"
                            asp-route-area="maribor"
                            asp-route-distanceKm="@template.DistanceKm.ToString(System.Globalization.CultureInfo.InvariantCulture)"
                            asp-route-walkStyle="@template.WalkStyle"
@@ -323,10 +296,6 @@
                 </div>
             }
 
-            <form class="walk-direct-start" asp-controller="Walks" asp-action="Start" method="post">
-                <input type="hidden" name="dogId" id="directStartDogId" value="@Model.Dogs.First().Id" />
-                <button type="submit">Zacni brez plana</button>
-            </form>
         </article>
 
         @if (Model.RecentPlans.Count > 0)
@@ -814,6 +783,8 @@
     .walk-direct-start {
         margin-top: 10px;
     }
+    .walk-direct-start select { width: 100%; min-height: 44px; margin: 6px 0 10px; padding: 8px; border: 1px solid #bccfc2; border-radius: 6px; background: #fff; }
+    .walk-entry-planner { display: inline-flex; align-items: center; min-height: 44px; margin-top: 8px; color: #245a47; font-weight: 800; }
 
     .walk-quick-template-grid {
         display: grid;
