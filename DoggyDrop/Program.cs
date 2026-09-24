@@ -157,6 +157,12 @@ builder.Services.AddRazorPages();
 
 var app = builder.Build();
 
+if (DatabaseMigrationCommand.IsRequested(args))
+{
+    Environment.ExitCode = await DatabaseMigrationCommand.RunAsync(app.Services);
+    return;
+}
+
 if (AchievementReconciliationCommand.IsRequested(args))
 {
     Environment.ExitCode = await AchievementReconciliationCommand.RunAsync(app.Services);
