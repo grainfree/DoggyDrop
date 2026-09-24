@@ -51,21 +51,32 @@ public sealed class NearbyDiscoverySettingsTests : IDisposable
         await using var db = Context();
         var controller = Controller(db, Owner);
         controller.HttpContext.Request.QueryString = new QueryString($"?userId={Other}");
-        await controller.SaveNearbyDiscovery(Input());
+        var enabled = Assert.IsType<RedirectToActionResult>(await controller.SaveNearbyDiscovery(Input()));
+        Assert.Equal("nearby-notifications", enabled.Fragment);
+        Assert.NotNull(controller.TempData["NearbyDiscoverySuccessMessage"]);
+        Assert.Null(controller.TempData["PrivacyZoneSuccessMessage"]);
         var first = await db.NearbyDiscoveryPreferences.AsNoTracking().SingleAsync();
         Assert.Equal(Owner, first.UserId);
         Assert.True(first.EnabledAt > DateTime.UtcNow.AddMinutes(-1));
         Assert.Null(typeof(NearbyDiscoverySettingsInput).GetProperty("UserId"));
 
-        await controller.SaveNearbyDiscovery(Input(radius: 5000));
+        var updatedRedirect = Assert.IsType<RedirectToActionResult>(await controller.SaveNearbyDiscovery(Input(radius: 5000)));
+        Assert.Equal("nearby-notifications", updatedRedirect.Fragment);
         var updated = await db.NearbyDiscoveryPreferences.AsNoTracking().SingleAsync();
         Assert.Equal(5000, updated.RadiusMeters);
+        Assert.True(updated.BinsEnabled);
         Assert.Equal(first.EnabledAt, updated.EnabledAt);
+        var updatedView = Assert.IsType<PrivacyZoneSettingsViewModel>(Assert.IsType<ViewResult>(await controller.Settings()).Model);
+        Assert.True(updatedView.Discovery.IsEnabled);
+        Assert.Equal(5000, updatedView.Discovery.RadiusMeters);
+        Assert.True(updatedView.Discovery.BinsEnabled);
 
-        await controller.SaveNearbyDiscovery(new NearbyDiscoverySettingsInput { Enabled = false });
+        var disabled = Assert.IsType<RedirectToActionResult>(await controller.SaveNearbyDiscovery(new NearbyDiscoverySettingsInput { Enabled = false }));
+        Assert.Equal("nearby-notifications", disabled.Fragment);
         Assert.Empty(await db.NearbyDiscoveryPreferences.ToListAsync());
         db.ChangeTracker.Clear();
-        await controller.SaveNearbyDiscovery(Input());
+        var reenabledRedirect = Assert.IsType<RedirectToActionResult>(await controller.SaveNearbyDiscovery(Input()));
+        Assert.Equal("nearby-notifications", reenabledRedirect.Fragment);
         var reenabled = await db.NearbyDiscoveryPreferences.AsNoTracking().SingleAsync();
         Assert.True(reenabled.EnabledAt >= first.EnabledAt);
     }
@@ -89,10 +100,13 @@ public sealed class NearbyDiscoverySettingsTests : IDisposable
         });
         await db.SaveChangesAsync();
 
-        await Controller(db, Owner).SaveNearbyDiscovery(new NearbyDiscoverySettingsInput
+        var controller = Controller(db, Owner);
+        var result = Assert.IsType<RedirectToActionResult>(await controller.SaveNearbyDiscovery(new NearbyDiscoverySettingsInput
         {
             Enabled = true, Latitude = latitude, Longitude = longitude, RadiusMeters = radius, BinsEnabled = bins
-        });
+        }));
+        Assert.Equal("nearby-notifications", result.Fragment);
+        Assert.NotNull(controller.TempData["NearbyDiscoveryErrorMessage"]);
 
         var saved = await db.NearbyDiscoveryPreferences.AsNoTracking().SingleAsync();
         Assert.Equal(46.1, saved.Latitude);

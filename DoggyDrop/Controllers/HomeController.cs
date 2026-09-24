@@ -114,8 +114,8 @@ namespace DoggyDrop.Controllers
             {
                 await _context.NearbyDiscoveryPreferences
                     .Where(item => item.UserId == userId).ExecuteDeleteAsync();
-                TempData["SuccessMessage"] = "Obvestila v bližini so izklopljena in izbrana lokacija je izbrisana.";
-                return RedirectToAction(nameof(Settings));
+                TempData["NearbyDiscoverySuccessMessage"] = "Obvestila v bližini so izklopljena in izbrana lokacija je izbrisana.";
+                return RedirectToAction(nameof(Settings), null, null, "nearby-notifications");
             }
 
             if (!ModelState.IsValid || !input.BinsEnabled ||
@@ -124,8 +124,8 @@ namespace DoggyDrop.Controllers
                 !double.TryParse(input.Longitude, NumberStyles.Float, CultureInfo.InvariantCulture, out var longitude) ||
                 !NearbyDiscoveryService.ValidCoordinate(latitude, longitude))
             {
-                TempData["ErrorMessage"] = "Izberi veljavno lokacijo, velikost območja in pasje koše. Prejšnja nastavitev je ohranjena.";
-                return RedirectToAction(nameof(Settings));
+                TempData["NearbyDiscoveryErrorMessage"] = "Izberi veljavno lokacijo, velikost območja in pasje koše. Prejšnja nastavitev je ohranjena.";
+                return RedirectToAction(nameof(Settings), null, null, "nearby-notifications");
             }
 
             var preference = await _context.NearbyDiscoveryPreferences
@@ -141,8 +141,8 @@ namespace DoggyDrop.Controllers
             preference.RadiusMeters = input.RadiusMeters;
             preference.BinsEnabled = input.BinsEnabled;
             await _context.SaveChangesAsync();
-            TempData["SuccessMessage"] = "Obvestila v bližini so shranjena. Obveščali te bomo o na novo odobrenih koših.";
-            return RedirectToAction(nameof(Settings));
+            TempData["NearbyDiscoverySuccessMessage"] = "Obvestila v bližini so shranjena. Obveščali te bomo o na novo odobrenih koših.";
+            return RedirectToAction(nameof(Settings), null, null, "nearby-notifications");
         }
 
         [Authorize]
@@ -156,8 +156,8 @@ namespace DoggyDrop.Controllers
             if (!input.Enabled)
             {
                 await _context.PrivacyZones.Where(item => item.UserId == userId).ExecuteDeleteAsync();
-                TempData["SuccessMessage"] = "Zasebno območje je izklopljeno in lokacija izbrisana.";
-                return RedirectToAction(nameof(Settings));
+                TempData["PrivacyZoneSuccessMessage"] = "Zasebno območje je izklopljeno in lokacija izbrisana.";
+                return RedirectToAction(nameof(Settings), null, null, "privacy-zone");
             }
 
             if (!ModelState.IsValid || input.RadiusMeters is not (200 or 300 or 500 or 1000) ||
@@ -166,8 +166,8 @@ namespace DoggyDrop.Controllers
                 !double.IsFinite(latitude) || !double.IsFinite(longitude) ||
                 latitude is < -90 or > 90 || longitude is < -180 or > 180)
             {
-                TempData["ErrorMessage"] = "Izberi veljavno lokacijo in velikost zasebnega območja. Prejšnja nastavitev je ohranjena.";
-                return RedirectToAction(nameof(Settings));
+                TempData["PrivacyZoneErrorMessage"] = "Izberi veljavno lokacijo in velikost zasebnega območja. Prejšnja nastavitev je ohranjena.";
+                return RedirectToAction(nameof(Settings), null, null, "privacy-zone");
             }
 
             var zone = await _context.PrivacyZones.SingleOrDefaultAsync(item => item.UserId == userId);
@@ -181,8 +181,8 @@ namespace DoggyDrop.Controllers
             zone.Longitude = longitude;
             zone.RadiusMeters = input.RadiusMeters;
             await _context.SaveChangesAsync();
-            TempData["SuccessMessage"] = "Zasebno območje je shranjeno.";
-            return RedirectToAction(nameof(Settings));
+            TempData["PrivacyZoneSuccessMessage"] = "Zasebno območje je shranjeno.";
+            return RedirectToAction(nameof(Settings), null, null, "privacy-zone");
         }
 
         [Authorize]

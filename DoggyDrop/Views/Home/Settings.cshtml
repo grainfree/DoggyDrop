@@ -13,32 +13,42 @@
         </div>
     </header>
 
-    <section class="settings-panel" aria-labelledby="privacyZoneHeading">
+    <section class="settings-panel" id="privacy-zone" aria-labelledby="privacyZoneHeading">
         <div class="settings-panel__header">
             <h2 id="privacyZoneHeading">Zasebnost poti</h2>
         </div>
-        <p class="settings-muted">Zasebno območje skrije natančne lokacije tvojih poti drugim uporabnikom. Ti še vedno vidiš celoten sprehod in pravilno razdaljo.</p>
-        <p class="settings-muted settings-privacy-note">Nastavitev velja tudi za pretekle sprehode. Drugim trenutno ne prikazujemo nobene natančne GPS poti. Ob izklopu se shranjena zasebna lokacija izbriše.</p>
-        <p class="settings-muted settings-privacy-note">Ko je območje vključeno, tvoji sprehodi ne prispevajo lokacij na zemljevid skupnosti.</p>
-        @if (TempData["SuccessMessage"] is string success)
+        @if (TempData["PrivacyZoneSuccessMessage"] is string privacySuccess)
         {
-            <p class="settings-privacy-message" role="status">@success</p>
+            <p class="settings-privacy-message" role="status">@privacySuccess</p>
         }
-        @if (TempData["ErrorMessage"] is string error)
+        @if (TempData["PrivacyZoneErrorMessage"] is string privacyError)
         {
-            <p class="settings-privacy-message settings-privacy-message--error" role="alert">@error</p>
+            <p class="settings-privacy-message settings-privacy-message--error" role="alert">@privacyError</p>
         }
-        <form asp-controller="Home" asp-action="SavePrivacyZone" method="post" id="privacyZoneForm" data-has-zone="@Model.IsEnabled.ToString().ToLowerInvariant()">
+        <p class="settings-state @(Model.IsEnabled ? "is-enabled" : "is-disabled")"><strong>@(Model.IsEnabled ? "Zaščita je vključena" : "Zaščita je izklopljena")</strong>@if (Model.IsEnabled) { <span>Zasebna lokacija · @Model.RadiusMeters m</span> }</p>
+        <p class="settings-muted">Zaščiti območje okoli doma ali druge zasebne lokacije. Tvoje poti ostanejo zate nespremenjene, drugim pa natančne lokacije niso prikazane.</p>
+        <details class="settings-more">
+            <summary>Več o zasebnosti poti</summary>
+            <p>Nastavitev velja tudi za pretekle sprehode. Drugim trenutno ne prikazujemo nobene natančne GPS poti. Ko je zaščita vključena, tvoji sprehodi ne prispevajo lokacij na zemljevid skupnosti. Ob izklopu se shranjena zasebna lokacija izbriše.</p>
+        </details>
+        <form asp-controller="Home" asp-action="SavePrivacyZone" method="post" id="privacyZoneForm">
             @Html.AntiForgeryToken()
-            <label class="settings-row settings-privacy-toggle">
-                <span><strong>Zaščiti zasebno lokacijo</strong><small>Lokacijo izberi, ko si na mestu, ki ga želiš zaščititi.</small></span>
-                <input type="checkbox" id="privacyZoneEnabled" name="Enabled" value="true" checked="@Model.IsEnabled" />
-            </label>
+            @if (Model.IsEnabled)
+            {
+                <input type="hidden" id="privacyZoneEnabled" name="Enabled" value="true" />
+            }
+            else
+            {
+                <label class="settings-row settings-privacy-toggle">
+                    <span><strong>Zaščiti zasebno lokacijo</strong><small>Lokacijo izberi, ko si na mestu, ki ga želiš zaščititi.</small></span>
+                    <input type="checkbox" id="privacyZoneEnabled" name="Enabled" value="true" />
+                </label>
+            }
             <div id="privacyZoneControls" class="settings-privacy-controls" hidden="@(!Model.IsEnabled)">
                 <input type="hidden" id="privacyLatitude" name="Latitude" value="@(Model.Latitude?.ToString("R", CultureInfo.InvariantCulture))" />
                 <input type="hidden" id="privacyLongitude" name="Longitude" value="@(Model.Longitude?.ToString("R", CultureInfo.InvariantCulture))" />
                 <button type="button" id="privacyUseLocation" class="settings-privacy-location"><i class="bi bi-crosshair" aria-hidden="true"></i> Uporabi trenutno lokacijo</button>
-                <p id="privacyLocationStatus" class="settings-muted" role="status" aria-live="polite">@(Model.IsEnabled ? "Zasebna lokacija je shranjena." : "Lokacija še ni izbrana.")</p>
+                <p id="privacyLocationStatus" class="settings-muted" role="status" aria-live="polite" hidden="@Model.IsEnabled">Lokacija še ni izbrana.</p>
                 <label class="settings-privacy-radius" for="privacyRadius"><strong>Velikost območja</strong></label>
                 <select id="privacyRadius" name="RadiusMeters">
                     <option value="200" selected="@(Model.RadiusMeters == 200)">200 m</option>
@@ -48,28 +58,55 @@
                 </select>
             </div>
             <div class="settings-actions">
-                <button type="submit" id="privacyZoneSave">Shrani zasebno območje</button>
+                <button type="submit" id="privacyZoneSave" class="settings-save-action">Shrani zasebno območje</button>
             </div>
         </form>
+        @if (Model.IsEnabled)
+        {
+            <form asp-controller="Home" asp-action="SavePrivacyZone" method="post" class="settings-actions settings-disable-form">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="Enabled" value="false" />
+                <button type="submit" class="settings-disable-action">Izklopi zaščito</button>
+            </form>
+        }
     </section>
 
-    <section class="settings-panel" aria-labelledby="nearbyDiscoveryHeading">
+    <section class="settings-panel" id="nearby-notifications" aria-labelledby="nearbyDiscoveryHeading">
         <div class="settings-panel__header">
             <h2 id="nearbyDiscoveryHeading">Obvestila v bližini</h2>
         </div>
-        <p class="settings-muted">Izberi območje in DoggyDrop te obvesti, ko je v njem na novo odobren pasji koš. Ne spremljamo tvojega gibanja.</p>
-        <p class="settings-muted settings-privacy-note">To območje je ločeno od zasebnega območja poti. Ob spremembi velikosti ali ponovnem vklopu ne pošiljamo obvestil za stare koše.</p>
-        <form asp-controller="Home" asp-action="SaveNearbyDiscovery" method="post" id="nearbyDiscoveryForm" data-has-preference="@Model.Discovery.IsEnabled.ToString().ToLowerInvariant()">
+        @if (TempData["NearbyDiscoverySuccessMessage"] is string nearbySuccess)
+        {
+            <p class="settings-privacy-message" role="status">@nearbySuccess</p>
+        }
+        @if (TempData["NearbyDiscoveryErrorMessage"] is string nearbyError)
+        {
+            <p class="settings-privacy-message settings-privacy-message--error" role="alert">@nearbyError</p>
+        }
+        <p class="settings-state @(Model.Discovery.IsEnabled ? "is-enabled" : "is-disabled")"><strong>@(Model.Discovery.IsEnabled ? "Obvestila so vključena" : "Obvestila so izklopljena")</strong>@if (Model.Discovery.IsEnabled) { <span>Pasji koši · območje @(Model.Discovery.RadiusMeters / 1000) km</span> }</p>
+        <p class="settings-muted">Izberi območje in obvestili te bomo, ko je v bližini na novo odobren pasji koš.</p>
+        <details class="settings-more">
+            <summary>Več o obvestilih v bližini</summary>
+            <p>Območje je ločeno od zasebnega območja poti. Ne spremljamo tvojega gibanja. Ob spremembi velikosti ali ponovnem vklopu ne pošiljamo obvestil za stare koše.</p>
+        </details>
+        <form asp-controller="Home" asp-action="SaveNearbyDiscovery" method="post" id="nearbyDiscoveryForm">
             @Html.AntiForgeryToken()
-            <label class="settings-row settings-privacy-toggle">
-                <span><strong>Obveščaj me o novih lokacijah</strong><small>Izberi območje, ki ga želiš spremljati.</small></span>
-                <input type="checkbox" id="nearbyDiscoveryEnabled" name="Enabled" value="true" checked="@Model.Discovery.IsEnabled" />
-            </label>
+            @if (Model.Discovery.IsEnabled)
+            {
+                <input type="hidden" id="nearbyDiscoveryEnabled" name="Enabled" value="true" />
+            }
+            else
+            {
+                <label class="settings-row settings-privacy-toggle">
+                    <span><strong>Obveščaj me o novih lokacijah</strong><small>Izberi območje, ki ga želiš spremljati.</small></span>
+                    <input type="checkbox" id="nearbyDiscoveryEnabled" name="Enabled" value="true" />
+                </label>
+            }
             <div id="nearbyDiscoveryControls" class="settings-privacy-controls" hidden="@(!Model.Discovery.IsEnabled)">
                 <input type="hidden" id="nearbyDiscoveryLatitude" name="Latitude" value="@(Model.Discovery.Latitude?.ToString("R", CultureInfo.InvariantCulture))" />
                 <input type="hidden" id="nearbyDiscoveryLongitude" name="Longitude" value="@(Model.Discovery.Longitude?.ToString("R", CultureInfo.InvariantCulture))" />
                 <button type="button" id="nearbyDiscoveryUseLocation" class="settings-privacy-location"><i class="bi bi-crosshair" aria-hidden="true"></i> Uporabi trenutno lokacijo</button>
-                <p id="nearbyDiscoveryLocationStatus" class="settings-muted" role="status" aria-live="polite">@(Model.Discovery.IsEnabled ? "Območje je shranjeno." : "Lokacija še ni izbrana.")</p>
+                <p id="nearbyDiscoveryLocationStatus" class="settings-muted" role="status" aria-live="polite" hidden="@Model.Discovery.IsEnabled">Lokacija še ni izbrana.</p>
                 <label class="settings-privacy-radius" for="nearbyDiscoveryRadius"><strong>Velikost območja</strong></label>
                 <select id="nearbyDiscoveryRadius" name="RadiusMeters">
                     <option value="1000" selected="@(Model.Discovery.RadiusMeters == 1000)">1 km</option>
@@ -83,9 +120,17 @@
                 </label>
             </div>
             <div class="settings-actions">
-                <button type="submit" id="nearbyDiscoverySave">Shrani obvestila v bližini</button>
+                <button type="submit" id="nearbyDiscoverySave" class="settings-save-action">Shrani obvestila</button>
             </div>
         </form>
+        @if (Model.Discovery.IsEnabled)
+        {
+            <form asp-controller="Home" asp-action="SaveNearbyDiscovery" method="post" class="settings-actions settings-disable-form">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="Enabled" value="false" />
+                <button type="submit" class="settings-disable-action">Izklopi obvestila</button>
+            </form>
+        }
     </section>
 
     <article class="settings-panel">
@@ -180,13 +225,6 @@
                 <input type="checkbox" data-notification-setting="badgeEarned" checked />
             </label>
 
-            <label class="settings-row">
-                <span>
-                    <strong>Nov kos v blizini</strong>
-                    <small>Opomnik, ko bo v okolici dodan nov pasji kos.</small>
-                </span>
-                <input type="checkbox" data-notification-setting="newBin" />
-            </label>
         </div>
     </article>
 </section>
@@ -234,6 +272,26 @@
         padding: 18px;
     }
 
+    #privacy-zone,
+    #nearby-notifications { scroll-margin-top: calc(84px + env(safe-area-inset-top, 0px)); }
+    .settings-state {
+        margin: 0 0 12px;
+        padding: 10px 12px;
+        border-left: 3px solid #2f6d5f;
+        background: #edf6f1;
+        color: #245c4d;
+    }
+    .settings-state.is-disabled {
+        border-left-color: #87928d;
+        background: #f2f4f2;
+        color: #56635e;
+    }
+    .settings-state strong,
+    .settings-state span { display: block; }
+    .settings-state span { margin-top: 2px; font-size: .88rem; }
+    .settings-more { margin-top: 8px; color: #56635e; font-size: .9rem; }
+    .settings-more summary { min-height: 44px; padding: 10px 0; cursor: pointer; font-weight: 750; }
+    .settings-more p { margin: 0 0 8px; }
     .settings-privacy-note { margin-top: 8px; }
     .settings-privacy-toggle { margin-top: 16px; }
     .settings-privacy-controls { display: grid; gap: 10px; margin-top: 12px; }
@@ -251,7 +309,7 @@
     .settings-privacy-radius { font-weight: 800; }
     .settings-privacy-message { margin: 12px 0 0; color: #245c4d; font-weight: 750; }
     .settings-privacy-message--error { color: #9e352f; }
-    #privacyZoneSave:disabled { opacity: .55; cursor: not-allowed; }
+    .settings-actions button:disabled { opacity: .55; cursor: not-allowed; }
 
     .settings-panel__header {
         display: flex;
@@ -313,7 +371,7 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        min-height: 42px;
+        min-height: 44px;
         padding: 10px 16px;
         border-radius: 999px;
         font-weight: 900;
@@ -330,6 +388,9 @@
         background: #ffffff;
         color: #2f6d5f;
     }
+    .settings-actions .settings-save-action { background: #2f6d5f; color: #ffffff; }
+    .settings-disable-form { margin-top: 6px; }
+    .settings-actions .settings-disable-action { border-color: #d6b6b3; color: #8a302e; }
 
     @@media (max-width: 575.98px) {
         .settings-panel__header,
@@ -354,17 +415,25 @@
         const privacyLatitude = document.getElementById("privacyLatitude");
         const privacyLongitude = document.getElementById("privacyLongitude");
         const privacyStatus = document.getElementById("privacyLocationStatus");
-        const hadPrivacyZone = privacyForm.dataset.hasZone === "true";
+        const privacyIsEnabled = () => privacyEnabled.type === "hidden" || privacyEnabled.checked;
+
+        function hasValidSettingsLocation(latitudeInput, longitudeInput) {
+            if (!latitudeInput.value || !longitudeInput.value) return false;
+            const latitude = Number(latitudeInput.value);
+            const longitude = Number(longitudeInput.value);
+            return Number.isFinite(latitude) && Number.isFinite(longitude) &&
+                Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180;
+        }
 
         function updatePrivacyControls() {
-            privacyControls.hidden = !privacyEnabled.checked;
-            privacySave.disabled = !privacyEnabled.checked && !hadPrivacyZone;
-            privacySave.textContent = privacyEnabled.checked ? "Shrani zasebno območje" : "Izklopi in izbriši območje";
+            privacyControls.hidden = !privacyIsEnabled();
+            privacySave.disabled = !privacyIsEnabled() || !hasValidSettingsLocation(privacyLatitude, privacyLongitude);
         }
 
         privacyEnabled.addEventListener("change", updatePrivacyControls);
         updatePrivacyControls();
         document.getElementById("privacyUseLocation").addEventListener("click", () => {
+            privacyStatus.hidden = false;
             if (!navigator.geolocation || !window.isSecureContext) {
                 privacyStatus.textContent = "Lokacija ni na voljo. Preveri dovoljenje za lokacijo in varno povezavo.";
                 return;
@@ -378,14 +447,16 @@
                 privacyLatitude.value = String(position.coords.latitude);
                 privacyLongitude.value = String(position.coords.longitude);
                 privacyStatus.textContent = "Lokacija je izbrana. Shrani zasebno območje.";
+                updatePrivacyControls();
             }, () => {
                 privacyStatus.textContent = "Lokacije ni bilo mogoče pridobiti. Prejšnja nastavitev je ohranjena.";
             }, { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 });
         });
 
         privacyForm.addEventListener("submit", event => {
-            if (privacyEnabled.checked && (!privacyLatitude.value || !privacyLongitude.value)) {
+            if (!privacyIsEnabled() || !hasValidSettingsLocation(privacyLatitude, privacyLongitude)) {
                 event.preventDefault();
+                privacyStatus.hidden = false;
                 privacyStatus.textContent = "Najprej izberi lokacijo.";
             }
         });
@@ -397,17 +468,20 @@
         const nearbyLongitude = document.getElementById("nearbyDiscoveryLongitude");
         const nearbyStatus = document.getElementById("nearbyDiscoveryLocationStatus");
         const nearbySave = document.getElementById("nearbyDiscoverySave");
-        const hadNearbyPreference = nearbyForm.dataset.hasPreference === "true";
+        const nearbyBins = document.getElementById("nearbyDiscoveryBins");
+        const nearbyIsEnabled = () => nearbyEnabled.type === "hidden" || nearbyEnabled.checked;
 
         function updateNearbyControls() {
-            nearbyControls.hidden = !nearbyEnabled.checked;
-            nearbySave.disabled = !nearbyEnabled.checked && !hadNearbyPreference;
-            nearbySave.textContent = nearbyEnabled.checked ? "Shrani obvestila v bližini" : "Izklopi in izbriši območje";
+            nearbyControls.hidden = !nearbyIsEnabled();
+            nearbySave.disabled = !nearbyIsEnabled() || !nearbyBins.checked ||
+                !hasValidSettingsLocation(nearbyLatitude, nearbyLongitude);
         }
 
         nearbyEnabled.addEventListener("change", updateNearbyControls);
+        nearbyBins.addEventListener("change", updateNearbyControls);
         updateNearbyControls();
         document.getElementById("nearbyDiscoveryUseLocation").addEventListener("click", () => {
+            nearbyStatus.hidden = false;
             if (!navigator.geolocation || !window.isSecureContext) {
                 nearbyStatus.textContent = "Lokacija ni na voljo. Preveri dovoljenje in varno povezavo; prejšnja nastavitev je ohranjena.";
                 return;
@@ -424,15 +498,18 @@
                 nearbyLatitude.value = String(coords.latitude);
                 nearbyLongitude.value = String(coords.longitude);
                 nearbyStatus.textContent = "Območje je izbrano. Shrani nastavitev.";
+                updateNearbyControls();
             }, () => {
                 nearbyStatus.textContent = "Lokacije ni bilo mogoče pridobiti. Prejšnja nastavitev je ohranjena.";
             }, { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 });
         });
 
         nearbyForm.addEventListener("submit", event => {
-            if (nearbyEnabled.checked && (!nearbyLatitude.value || !nearbyLongitude.value)) {
+            if (!nearbyIsEnabled() || !nearbyBins.checked ||
+                !hasValidSettingsLocation(nearbyLatitude, nearbyLongitude)) {
                 event.preventDefault();
-                nearbyStatus.textContent = "Najprej izberi lokacijo.";
+                nearbyStatus.hidden = false;
+                nearbyStatus.textContent = nearbyBins.checked ? "Najprej izberi lokacijo." : "Izberi pasje koše.";
             }
         });
 
@@ -448,8 +525,7 @@
         const notificationDefaults = {
             walkReminder: true,
             nearbyDog: false,
-            badgeEarned: true,
-            newBin: false
+            badgeEarned: true
         };
 
         document.querySelectorAll("[data-map-setting]").forEach(input => {

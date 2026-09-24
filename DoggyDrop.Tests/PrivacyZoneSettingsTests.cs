@@ -52,14 +52,18 @@ public sealed class PrivacyZoneSettingsTests : IDisposable
         await db.SaveChangesAsync();
 
         var owner = Controller(db, OwnerId);
-        Assert.IsType<RedirectToActionResult>(await owner.SavePrivacyZone(new PrivacyZoneSettingsInput
+        var created = Assert.IsType<RedirectToActionResult>(await owner.SavePrivacyZone(new PrivacyZoneSettingsInput
         {
             Enabled = true, Latitude = "46.1", Longitude = "14.1", RadiusMeters = 300
         }));
-        Assert.IsType<RedirectToActionResult>(await owner.SavePrivacyZone(new PrivacyZoneSettingsInput
+        Assert.Equal("privacy-zone", created.Fragment);
+        Assert.NotNull(owner.TempData["PrivacyZoneSuccessMessage"]);
+        Assert.Null(owner.TempData["NearbyDiscoverySuccessMessage"]);
+        var updated = Assert.IsType<RedirectToActionResult>(await owner.SavePrivacyZone(new PrivacyZoneSettingsInput
         {
             Enabled = true, Latitude = "46.2", Longitude = "14.2", RadiusMeters = 500
         }));
+        Assert.Equal("privacy-zone", updated.Fragment);
 
         Assert.Equal(2, await db.PrivacyZones.CountAsync());
         var saved = await db.PrivacyZones.AsNoTracking().SingleAsync(zone => zone.UserId == OwnerId);
@@ -95,10 +99,13 @@ public sealed class PrivacyZoneSettingsTests : IDisposable
         db.PrivacyZones.Add(new PrivacyZone { UserId = OwnerId, Latitude = 46.1, Longitude = 14.1, RadiusMeters = 300 });
         await db.SaveChangesAsync();
 
-        await Controller(db, OwnerId).SavePrivacyZone(new PrivacyZoneSettingsInput
+        var controller = Controller(db, OwnerId);
+        var result = Assert.IsType<RedirectToActionResult>(await controller.SavePrivacyZone(new PrivacyZoneSettingsInput
         {
             Enabled = true, Latitude = "91", Longitude = "14.2", RadiusMeters = 1000
-        });
+        }));
+        Assert.Equal("privacy-zone", result.Fragment);
+        Assert.NotNull(controller.TempData["PrivacyZoneErrorMessage"]);
 
         var saved = await db.PrivacyZones.AsNoTracking().SingleAsync(zone => zone.UserId == OwnerId);
         Assert.Equal(46.1, saved.Latitude);
@@ -115,7 +122,10 @@ public sealed class PrivacyZoneSettingsTests : IDisposable
             new PrivacyZone { UserId = OtherId, Latitude = 45, Longitude = 13, RadiusMeters = 200 });
         await db.SaveChangesAsync();
 
-        await Controller(db, OwnerId).SavePrivacyZone(new PrivacyZoneSettingsInput { Enabled = false });
+        var controller = Controller(db, OwnerId);
+        var result = Assert.IsType<RedirectToActionResult>(await controller.SavePrivacyZone(new PrivacyZoneSettingsInput { Enabled = false }));
+        Assert.Equal("privacy-zone", result.Fragment);
+        Assert.NotNull(controller.TempData["PrivacyZoneSuccessMessage"]);
 
         Assert.False(await db.PrivacyZones.AnyAsync(zone => zone.UserId == OwnerId));
         Assert.True(await db.PrivacyZones.AnyAsync(zone => zone.UserId == OtherId));
