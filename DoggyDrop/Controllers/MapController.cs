@@ -422,13 +422,7 @@ namespace DoggyDrop.Controllers
 
             if (!string.IsNullOrWhiteSpace(bin.UserId))
             {
-                await _notificationService.CreateUniqueRecentAsync(
-                    bin.UserId,
-                    "BinApproved",
-                    "Tvoj pasji kos je odobren",
-                    $"{bin.Name} je zdaj viden na DoggyDrop zemljevidu.",
-                    Url.Action(nameof(MyBins), "Map"),
-                    withinHours: 24 * 14);
+                await CreateBinApprovedNotificationAsync(bin);
                 await _gamificationService.AwardXpAsync(
                     bin.UserId,
                     GamificationConstants.ApprovedTrashBin,
@@ -442,6 +436,19 @@ namespace DoggyDrop.Controllers
             await transaction.CommitAsync();
 
             return RedirectToAction("Manage");
+        }
+
+        private async Task CreateBinApprovedNotificationAsync(TrashBin bin)
+        {
+            var sourceKey = $"BinApproved:{bin.Id}";
+            var body = $"{bin.Name} je zdaj viden na DoggyDrop zemljevidu.";
+            var link = Url.Action(nameof(MyBins), "Map");
+            await _context.Database.ExecuteSqlInterpolatedAsync($$"""
+                INSERT INTO "UserNotifications" ("UserId", "Type", "Title", "Body", "LinkUrl", "SourceKey", "IsRead", "CreatedAt")
+                VALUES ({{bin.UserId}}, 'BinApproved', 'Tvoj pasji kos je odobren',
+                    {{body}}, {{link}}, {{sourceKey}}, {{false}}, {{DateTime.UtcNow}})
+                ON CONFLICT ("UserId", "SourceKey") DO NOTHING
+                """);
         }
 
         // Moderator deletion remains available; contributor proposals are retained for reward integrity.

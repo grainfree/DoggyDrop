@@ -253,7 +253,67 @@ public sealed class NearbyDiscoveryServiceTests : IDisposable
         Assert.Equal(1, await db.UserNotifications.CountAsync(item => item.UserId == "near" && item.Type == "NewBinNearby"));
         Assert.Equal(1, await db.UserNotifications.CountAsync(item => item.UserId == "submitter" && item.Type == "BinApproved"));
         Assert.False(await db.UserNotifications.AnyAsync(item => item.UserId == "submitter" && item.Type == "NewBinNearby"));
+        Assert.True(await db.UserNotifications.AnyAsync(item => item.UserId == "submitter" && item.SourceKey == $"BinApproved:{bin.Id}"));
+        Assert.True(await db.UserNotifications.AnyAsync(item => item.UserId == "near" && item.SourceKey == $"Bin:{bin.Id}"));
         Assert.NotNull((await db.TrashBins.AsNoTracking().SingleAsync(item => item.Id == bin.Id)).ApprovedAt);
+    }
+
+    [Fact]
+    public async Task DifferentBinsForSameContributor_EachCreateOneApprovalNoticeWithinFourteenDays()
+    {
+        await SeedAsync("near", "submitter");
+        await using var db = Context();
+        db.NearbyDiscoveryPreferences.AddRange(Preference("near", 46, 14, 1000), Preference("submitter", 46, 14, 1000));
+        db.UserNotifications.Add(new UserNotification
+        {
+            UserId = "submitter", Type = "BinApproved", Title = "Tvoj pasji kos je odobren",
+            Body = "Starejše obvestilo brez ključa.", CreatedAt = DateTime.UtcNow.AddDays(-1)
+        });
+        db.TrashBins.AddRange(
+            new TrashBin { Name = "First", Latitude = 46, Longitude = 14, UserId = "submitter" },
+            new TrashBin { Name = "Second", Latitude = 46, Longitude = 14, UserId = "submitter" });
+        await db.SaveChangesAsync();
+        var ids = await db.TrashBins.OrderBy(bin => bin.Id).Select(bin => bin.Id).ToArrayAsync();
+        var controller = Controller(db);
+
+        await controller.Approve(ids[0]);
+        await controller.Approve(ids[1]);
+        await controller.Approve(ids[0]);
+        await controller.Approve(ids[1]);
+
+        var notices = await db.UserNotifications.AsNoTracking().ToListAsync();
+        Assert.Equal(3, notices.Count(item => item.UserId == "submitter" && item.Type == "BinApproved"));
+        Assert.Equal(2, notices.Count(item => item.UserId == "near" && item.Type == "NewBinNearby"));
+        Assert.DoesNotContain(notices, item => item.UserId == "submitter" && item.Type == "NewBinNearby");
+        foreach (var id in ids)
+        {
+            Assert.Single(notices, item => item.UserId == "submitter" && item.SourceKey == $"BinApproved:{id}");
+            Assert.Single(notices, item => item.UserId == "near" && item.SourceKey == $"Bin:{id}");
+        }
+    }
+
+    [Fact]
+    public async Task ExistingBinApprovalSourceKey_DoesNotDuplicateOrBlockApproval()
+    {
+        await SeedAsync("submitter");
+        await using var db = Context();
+        db.TrashBins.Add(new TrashBin
+        {
+            Name = "Pending", Latitude = 46, Longitude = 14, UserId = "submitter"
+        });
+        await db.SaveChangesAsync();
+        var binId = (await db.TrashBins.AsNoTracking().SingleAsync()).Id;
+        db.UserNotifications.Add(new UserNotification
+        {
+            UserId = "submitter", Type = "BinApproved", Title = "Tvoj pasji kos je odobren",
+            Body = "Obstoječe obvestilo.", SourceKey = $"BinApproved:{binId}"
+        });
+        await db.SaveChangesAsync();
+
+        await Controller(db).Approve(binId);
+
+        Assert.True((await db.TrashBins.AsNoTracking().SingleAsync()).IsApproved);
+        Assert.Equal(1, await db.UserNotifications.CountAsync(item => item.UserId == "submitter" && item.SourceKey == $"BinApproved:{binId}"));
     }
 
     [Fact]

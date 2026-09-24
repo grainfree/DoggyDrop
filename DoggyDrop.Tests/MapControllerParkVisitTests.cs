@@ -4,6 +4,7 @@ using DoggyDrop.Controllers;
 using DoggyDrop.Data;
 using DoggyDrop.Models;
 using DoggyDrop.Services;
+using DoggyDrop.ViewModels;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
@@ -56,6 +57,42 @@ public sealed class MapControllerParkVisitTests : IDisposable
         Assert.Equal(ownedDogCount == 0, (bool)controller.ViewBag.NeedsDogOnboarding);
         var quickStartDogId = (int?)controller.ViewBag.QuickStartDogId;
         Assert.Equal(ownedDogCount == 1, quickStartDogId.HasValue);
+    }
+
+    [Fact]
+    public async Task AdminCreatedApprovedBin_NotifiesNearbyUserButNotContributor()
+    {
+        await using var db = Context();
+        await db.Database.EnsureCreatedAsync();
+        db.Users.AddRange(
+            new ApplicationUser { Id = UserId, UserName = "admin@test" },
+            new ApplicationUser { Id = "nearby", UserName = "nearby@test" });
+        db.NearbyDiscoveryPreferences.AddRange(
+            new NearbyDiscoveryPreference
+            {
+                UserId = UserId, Latitude = 46.05, Longitude = 14.51,
+                RadiusMeters = 1000, BinsEnabled = true, EnabledAt = DateTime.UtcNow.AddDays(-1)
+            },
+            new NearbyDiscoveryPreference
+            {
+                UserId = "nearby", Latitude = 46.05, Longitude = 14.51,
+                RadiusMeters = 1000, BinsEnabled = true, EnabledAt = DateTime.UtcNow.AddDays(-1)
+            });
+        await db.SaveChangesAsync();
+
+        var result = await Controller(db, admin: true).Add(new TrashBinViewModel
+        {
+            Name = "Immediate approval", Latitude = 46.05, Longitude = 14.51
+        });
+
+        Assert.IsType<RedirectToActionResult>(result);
+        var bin = await db.TrashBins.AsNoTracking().SingleAsync();
+        Assert.True(bin.IsApproved);
+        Assert.NotNull(bin.ApprovedAt);
+        var notification = await db.UserNotifications.AsNoTracking().SingleAsync();
+        Assert.Equal("nearby", notification.UserId);
+        Assert.Equal("NewBinNearby", notification.Type);
+        Assert.Equal($"Bin:{bin.Id}", notification.SourceKey);
     }
 
     [Fact]
