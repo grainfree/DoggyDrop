@@ -20,6 +20,8 @@ namespace DoggyDrop.Models
 
         public bool IsApproved { get; set; } = false;
 
+        public DateTime? ApprovedAt { get; set; }
+
         public int UsedCount { get; set; }
 
         public int FullReports { get; set; }

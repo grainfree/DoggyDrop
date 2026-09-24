@@ -25,6 +25,7 @@ namespace DoggyDrop.Controllers
         private readonly IGamificationRewardBuilder _rewardBuilder;
         private readonly IGamificationCalendar _gamificationCalendar;
         private readonly IUserAchievementService _userAchievementService;
+        private readonly NearbyDiscoveryService _nearbyDiscoveryService;
         private static readonly IReadOnlyList<FounderArea> FounderAreas =
         [
             new("maribor", "Maribor", 46.5547, 15.6459, 6500),
@@ -50,7 +51,8 @@ namespace DoggyDrop.Controllers
                              IMapStampService mapStampService,
                              IGamificationRewardBuilder rewardBuilder,
                              IGamificationCalendar gamificationCalendar,
-                             IUserAchievementService userAchievementService)
+                             IUserAchievementService userAchievementService,
+                             NearbyDiscoveryService? nearbyDiscoveryService = null)
         {
             _context = context;
             _environment = environment;
@@ -64,6 +66,7 @@ namespace DoggyDrop.Controllers
             _rewardBuilder = rewardBuilder;
             _gamificationCalendar = gamificationCalendar;
             _userAchievementService = userAchievementService;
+            _nearbyDiscoveryService = nearbyDiscoveryService ?? new NearbyDiscoveryService(context);
         }
 
         // 📍 Prikaz obrazca za dodajanje koša
@@ -90,14 +93,17 @@ namespace DoggyDrop.Controllers
                 imageUrl = await _cloudinaryService.UploadTrashBinImageAsync(model.ImageFile);
             }
 
+            var createdAt = DateTime.UtcNow;
+            var approvedImmediately = User.IsInRole("Admin");
             var newBin = new TrashBin
             {
                 Name = model.Name,
                 Latitude = model.Latitude,
                 Longitude = model.Longitude,
                 ImageUrl = imageUrl,
-                DateAdded = DateTime.UtcNow,
-                IsApproved = User.IsInRole("Admin"),
+                DateAdded = createdAt,
+                IsApproved = approvedImmediately,
+                ApprovedAt = approvedImmediately ? createdAt : null,
                 UserId = _userManager.GetUserId(User)
             };
 
@@ -125,7 +131,7 @@ namespace DoggyDrop.Controllers
                 if (newBin.IsApproved)
                 {
                     await AwardFounderBadgeIfFirstInAreaAsync(newBin);
-                    await NotifyNearbyUsersAboutApprovedBinAsync(newBin, newBin.UserId);
+                    await _nearbyDiscoveryService.NotifyForApprovedBinAsync(newBin);
                 }
 
                 await transaction.CommitAsync();
@@ -402,33 +408,38 @@ namespace DoggyDrop.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Approve(int id)
         {
-            var bin = _context.TrashBins.Find(id);
-            if (bin != null)
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+            var approvedAt = DateTime.UtcNow;
+            var changed = await _context.TrashBins
+                .Where(bin => bin.Id == id && !bin.IsApproved)
+                .ExecuteUpdateAsync(update => update
+                    .SetProperty(bin => bin.IsApproved, true)
+                    .SetProperty(bin => bin.ApprovedAt, approvedAt));
+            if (changed == 0) return RedirectToAction(nameof(Manage));
+
+            var bin = await _context.TrashBins.AsNoTracking().SingleAsync(item => item.Id == id);
+            await AwardFounderBadgeIfFirstInAreaAsync(bin);
+
+            if (!string.IsNullOrWhiteSpace(bin.UserId))
             {
-                bin.IsApproved = true;
-                await _context.SaveChangesAsync();
-                await AwardFounderBadgeIfFirstInAreaAsync(bin);
-
-                if (!string.IsNullOrWhiteSpace(bin.UserId))
-                {
-                    await _notificationService.CreateUniqueRecentAsync(
-                        bin.UserId,
-                        "BinApproved",
-                        "Tvoj pasji kos je odobren",
-                        $"{bin.Name} je zdaj viden na DoggyDrop zemljevidu.",
-                        Url.Action(nameof(MyBins), "Map"),
-                        withinHours: 24 * 14);
-                    await _gamificationService.AwardXpAsync(
-                        bin.UserId,
-                        GamificationConstants.ApprovedTrashBin,
-                        GamificationConstants.ApprovedTrashBinXp,
-                        nameof(TrashBin),
-                        bin.Id.ToString(),
-                        "Kos je bil odobren");
-                }
-
-                await NotifyNearbyUsersAboutApprovedBinAsync(bin, bin.UserId);
+                await _notificationService.CreateUniqueRecentAsync(
+                    bin.UserId,
+                    "BinApproved",
+                    "Tvoj pasji kos je odobren",
+                    $"{bin.Name} je zdaj viden na DoggyDrop zemljevidu.",
+                    Url.Action(nameof(MyBins), "Map"),
+                    withinHours: 24 * 14);
+                await _gamificationService.AwardXpAsync(
+                    bin.UserId,
+                    GamificationConstants.ApprovedTrashBin,
+                    GamificationConstants.ApprovedTrashBinXp,
+                    nameof(TrashBin),
+                    bin.Id.ToString(),
+                    "Kos je bil odobren");
             }
+
+            await _nearbyDiscoveryService.NotifyForApprovedBinAsync(bin);
+            await transaction.CommitAsync();
 
             return RedirectToAction("Manage");
         }
@@ -777,59 +788,6 @@ namespace DoggyDrop.Controllers
         {
             var definition = UserAchievementCatalog.Get(key);
             return new RewardAchievementViewModel { Key = definition.Key, Name = definition.DisplayName, Description = definition.Description };
-        }
-
-        private async Task NotifyNearbyUsersAboutApprovedBinAsync(TrashBin bin, string? excludeUserId)
-        {
-            var candidateUsers = new HashSet<string>(StringComparer.Ordinal);
-            var pointCutoff = DateTime.UtcNow.AddDays(-30);
-            var recentWalkPoints = await _context.WalkPoints
-                .Include(point => point.Walk)
-                .Where(point => point.RecordedAt >= pointCutoff && point.Walk != null)
-                .ToListAsync();
-
-            foreach (var point in recentWalkPoints)
-            {
-                var ownerId = point.Walk?.OwnerId;
-                if (string.IsNullOrWhiteSpace(ownerId) || ownerId == excludeUserId)
-                {
-                    continue;
-                }
-
-                if (GetDistanceMeters(bin.Latitude, bin.Longitude, point.Latitude, point.Longitude) <= 4000)
-                {
-                    candidateUsers.Add(ownerId);
-                }
-            }
-
-            var visitCutoff = DateTime.UtcNow.AddDays(-60);
-            var recentParkVisits = await _context.DogParkVisits
-                .Where(visit => visit.VisitedAt >= visitCutoff)
-                .ToListAsync();
-
-            foreach (var visit in recentParkVisits)
-            {
-                if (string.IsNullOrWhiteSpace(visit.UserId) || visit.UserId == excludeUserId)
-                {
-                    continue;
-                }
-
-                if (GetDistanceMeters(bin.Latitude, bin.Longitude, visit.Latitude, visit.Longitude) <= 4000)
-                {
-                    candidateUsers.Add(visit.UserId);
-                }
-            }
-
-            foreach (var userId in candidateUsers.Take(20))
-            {
-                await _notificationService.CreateUniqueRecentAsync(
-                    userId,
-                    "NewBinNearby",
-                    "Nov pasji kos v tvoji okolici",
-                    $"{bin.Name} je zdaj na voljo blizu tvojih pogostih sprehodov.",
-                    Url.Action(nameof(Index), "Map"),
-                    withinHours: 48);
-            }
         }
 
         private static double GetDistanceMeters(double lat1, double lng1, double lat2, double lng2)

@@ -4048,6 +4048,10 @@ else if (needsDogOnboarding)
                 });
                 binMarkers.set(Number(bin.id), marker);
             });
+            const linkedBinId = Number(new URLSearchParams(window.location.search).get("binId"));
+            const linkedBin = Number.isSafeInteger(linkedBinId) && linkedBinId > 0
+                ? bins.find(bin => Number(bin.id) === linkedBinId)
+                : null;
 
             parkLayer = buildPlaceLayer(placeGroups.parks);
             waterLayer = buildPlaceLayer(placeGroups.water);
@@ -4060,7 +4064,9 @@ else if (needsDogOnboarding)
             loadNearbyDogs();
             loadCommunityHeatmap();
 
-            if (homeActiveWalkId > 0) {
+            if (linkedBin) {
+                map.setView([linkedBin.latitude, linkedBin.longitude], 16, { animate: false });
+            } else if (homeActiveWalkId > 0) {
                 frameHomeWalk();
             } else if (bins.length > 0) {
                 const bounds = L.latLngBounds(bins.map(bin => [bin.latitude, bin.longitude]));
@@ -4069,7 +4075,13 @@ else if (needsDogOnboarding)
 
             requestAnimationFrame(() => {
                 map.invalidateSize();
-                if (homeActiveWalkId > 0) {
+                if (linkedBin) {
+                    if (!map.hasLayer(binLayer)) {
+                        binLayer.addTo(map);
+                        document.getElementById("showBins").checked = true;
+                    }
+                    openBinDetail(linkedBin);
+                } else if (homeActiveWalkId > 0) {
                     if (homeWalkCamera.follow) frameHomeWalk();
                 } else if (bins.length > 0) {
                     const bounds = L.latLngBounds(bins.map(bin => [bin.latitude, bin.longitude]));
@@ -4146,7 +4158,7 @@ else if (needsDogOnboarding)
             window.setInterval(refreshNotificationPreview, 60000);
             updateFounderPrompt();
             map.on("moveend", updateFounderPrompt);
-            focusMapNearUser();
+            if (!linkedBin) focusMapNearUser();
 
             if (!window.isSecureContext) {
                 document.getElementById("mapLocationWarning").hidden = false;

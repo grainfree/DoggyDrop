@@ -53,6 +53,41 @@
         </form>
     </section>
 
+    <section class="settings-panel" aria-labelledby="nearbyDiscoveryHeading">
+        <div class="settings-panel__header">
+            <h2 id="nearbyDiscoveryHeading">Obvestila v bližini</h2>
+        </div>
+        <p class="settings-muted">Izberi območje in DoggyDrop te obvesti, ko je v njem na novo odobren pasji koš. Ne spremljamo tvojega gibanja.</p>
+        <p class="settings-muted settings-privacy-note">To območje je ločeno od zasebnega območja poti. Ob spremembi velikosti ali ponovnem vklopu ne pošiljamo obvestil za stare koše.</p>
+        <form asp-controller="Home" asp-action="SaveNearbyDiscovery" method="post" id="nearbyDiscoveryForm" data-has-preference="@Model.Discovery.IsEnabled.ToString().ToLowerInvariant()">
+            @Html.AntiForgeryToken()
+            <label class="settings-row settings-privacy-toggle">
+                <span><strong>Obveščaj me o novih lokacijah</strong><small>Izberi območje, ki ga želiš spremljati.</small></span>
+                <input type="checkbox" id="nearbyDiscoveryEnabled" name="Enabled" value="true" checked="@Model.Discovery.IsEnabled" />
+            </label>
+            <div id="nearbyDiscoveryControls" class="settings-privacy-controls" hidden="@(!Model.Discovery.IsEnabled)">
+                <input type="hidden" id="nearbyDiscoveryLatitude" name="Latitude" value="@(Model.Discovery.Latitude?.ToString("R", CultureInfo.InvariantCulture))" />
+                <input type="hidden" id="nearbyDiscoveryLongitude" name="Longitude" value="@(Model.Discovery.Longitude?.ToString("R", CultureInfo.InvariantCulture))" />
+                <button type="button" id="nearbyDiscoveryUseLocation" class="settings-privacy-location"><i class="bi bi-crosshair" aria-hidden="true"></i> Uporabi trenutno lokacijo</button>
+                <p id="nearbyDiscoveryLocationStatus" class="settings-muted" role="status" aria-live="polite">@(Model.Discovery.IsEnabled ? "Območje je shranjeno." : "Lokacija še ni izbrana.")</p>
+                <label class="settings-privacy-radius" for="nearbyDiscoveryRadius"><strong>Velikost območja</strong></label>
+                <select id="nearbyDiscoveryRadius" name="RadiusMeters">
+                    <option value="1000" selected="@(Model.Discovery.RadiusMeters == 1000)">1 km</option>
+                    <option value="3000" selected="@(Model.Discovery.RadiusMeters == 3000)">3 km</option>
+                    <option value="5000" selected="@(Model.Discovery.RadiusMeters == 5000)">5 km</option>
+                    <option value="10000" selected="@(Model.Discovery.RadiusMeters == 10000)">10 km</option>
+                </select>
+                <label class="settings-row" for="nearbyDiscoveryBins">
+                    <span><strong>Pasji koši</strong><small>Obvestilo šele po odobritvi novega koša.</small></span>
+                    <input type="checkbox" id="nearbyDiscoveryBins" name="BinsEnabled" value="true" checked="@Model.Discovery.BinsEnabled" />
+                </label>
+            </div>
+            <div class="settings-actions">
+                <button type="submit" id="nearbyDiscoverySave">Shrani obvestila v bližini</button>
+            </div>
+        </form>
+    </section>
+
     <article class="settings-panel">
         <div class="settings-panel__header">
             <h2>Zemljevid</h2>
@@ -352,6 +387,52 @@
             if (privacyEnabled.checked && (!privacyLatitude.value || !privacyLongitude.value)) {
                 event.preventDefault();
                 privacyStatus.textContent = "Najprej izberi lokacijo.";
+            }
+        });
+
+        const nearbyForm = document.getElementById("nearbyDiscoveryForm");
+        const nearbyEnabled = document.getElementById("nearbyDiscoveryEnabled");
+        const nearbyControls = document.getElementById("nearbyDiscoveryControls");
+        const nearbyLatitude = document.getElementById("nearbyDiscoveryLatitude");
+        const nearbyLongitude = document.getElementById("nearbyDiscoveryLongitude");
+        const nearbyStatus = document.getElementById("nearbyDiscoveryLocationStatus");
+        const nearbySave = document.getElementById("nearbyDiscoverySave");
+        const hadNearbyPreference = nearbyForm.dataset.hasPreference === "true";
+
+        function updateNearbyControls() {
+            nearbyControls.hidden = !nearbyEnabled.checked;
+            nearbySave.disabled = !nearbyEnabled.checked && !hadNearbyPreference;
+            nearbySave.textContent = nearbyEnabled.checked ? "Shrani obvestila v bližini" : "Izklopi in izbriši območje";
+        }
+
+        nearbyEnabled.addEventListener("change", updateNearbyControls);
+        updateNearbyControls();
+        document.getElementById("nearbyDiscoveryUseLocation").addEventListener("click", () => {
+            if (!navigator.geolocation || !window.isSecureContext) {
+                nearbyStatus.textContent = "Lokacija ni na voljo. Preveri dovoljenje in varno povezavo; prejšnja nastavitev je ohranjena.";
+                return;
+            }
+            nearbyStatus.textContent = "Pridobivam trenutno lokacijo ...";
+            navigator.geolocation.getCurrentPosition(position => {
+                const coords = position.coords;
+                if (!Number.isFinite(coords.accuracy) || coords.accuracy > 100 ||
+                    !Number.isFinite(coords.latitude) || !Number.isFinite(coords.longitude) ||
+                    Math.abs(coords.latitude) > 90 || Math.abs(coords.longitude) > 180) {
+                    nearbyStatus.textContent = "Lokacija ni dovolj natančna. Poskusi znova; prejšnja nastavitev je ohranjena.";
+                    return;
+                }
+                nearbyLatitude.value = String(coords.latitude);
+                nearbyLongitude.value = String(coords.longitude);
+                nearbyStatus.textContent = "Območje je izbrano. Shrani nastavitev.";
+            }, () => {
+                nearbyStatus.textContent = "Lokacije ni bilo mogoče pridobiti. Prejšnja nastavitev je ohranjena.";
+            }, { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 });
+        });
+
+        nearbyForm.addEventListener("submit", event => {
+            if (nearbyEnabled.checked && (!nearbyLatitude.value || !nearbyLongitude.value)) {
+                event.preventDefault();
+                nearbyStatus.textContent = "Najprej izberi lokacijo.";
             }
         });
 

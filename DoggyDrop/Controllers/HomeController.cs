@@ -83,13 +83,66 @@ namespace DoggyDrop.Controllers
 
             var zone = await _context.PrivacyZones.AsNoTracking()
                 .SingleOrDefaultAsync(item => item.UserId == userId);
+            var discovery = await _context.NearbyDiscoveryPreferences.AsNoTracking()
+                .SingleOrDefaultAsync(item => item.UserId == userId);
             return View(new PrivacyZoneSettingsViewModel
             {
                 IsEnabled = zone != null,
                 Latitude = zone?.Latitude,
                 Longitude = zone?.Longitude,
-                RadiusMeters = zone?.RadiusMeters ?? 300
+                RadiusMeters = zone?.RadiusMeters ?? 300,
+                Discovery = new NearbyDiscoverySettingsViewModel
+                {
+                    IsEnabled = discovery != null,
+                    Latitude = discovery?.Latitude,
+                    Longitude = discovery?.Longitude,
+                    RadiusMeters = discovery?.RadiusMeters ?? 3000,
+                    BinsEnabled = discovery?.BinsEnabled ?? true
+                }
             });
+        }
+
+        [Authorize]
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> SaveNearbyDiscovery(NearbyDiscoverySettingsInput input)
+        {
+            var userId = _userManager.GetUserId(User);
+            if (string.IsNullOrWhiteSpace(userId)) return Challenge();
+
+            if (!input.Enabled)
+            {
+                await _context.NearbyDiscoveryPreferences
+                    .Where(item => item.UserId == userId).ExecuteDeleteAsync();
+                TempData["SuccessMessage"] = "Obvestila v bližini so izklopljena in izbrana lokacija je izbrisana.";
+                return RedirectToAction(nameof(Settings));
+            }
+
+            if (!ModelState.IsValid || !input.BinsEnabled ||
+                input.RadiusMeters is not (1000 or 3000 or 5000 or 10000) ||
+                !double.TryParse(input.Latitude, NumberStyles.Float, CultureInfo.InvariantCulture, out var latitude) ||
+                !double.TryParse(input.Longitude, NumberStyles.Float, CultureInfo.InvariantCulture, out var longitude) ||
+                !NearbyDiscoveryService.ValidCoordinate(latitude, longitude))
+            {
+                TempData["ErrorMessage"] = "Izberi veljavno lokacijo, velikost območja in pasje koše. Prejšnja nastavitev je ohranjena.";
+                return RedirectToAction(nameof(Settings));
+            }
+
+            var preference = await _context.NearbyDiscoveryPreferences
+                .SingleOrDefaultAsync(item => item.UserId == userId);
+            if (preference == null)
+            {
+                preference = new NearbyDiscoveryPreference { UserId = userId, EnabledAt = DateTime.UtcNow };
+                _context.NearbyDiscoveryPreferences.Add(preference);
+            }
+
+            preference.Latitude = latitude;
+            preference.Longitude = longitude;
+            preference.RadiusMeters = input.RadiusMeters;
+            preference.BinsEnabled = input.BinsEnabled;
+            await _context.SaveChangesAsync();
+            TempData["SuccessMessage"] = "Obvestila v bližini so shranjena. Obveščali te bomo o na novo odobrenih koših.";
+            return RedirectToAction(nameof(Settings));
         }
 
         [Authorize]

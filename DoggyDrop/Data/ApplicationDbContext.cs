@@ -24,6 +24,8 @@ namespace DoggyDrop.Data
 
         public DbSet<PrivacyZone> PrivacyZones { get; set; }
 
+        public DbSet<NearbyDiscoveryPreference> NearbyDiscoveryPreferences { get; set; }
+
         public DbSet<PlaydateRequest> PlaydateRequests { get; set; }
 
         public DbSet<PlaydateInterest> PlaydateInterests { get; set; }
@@ -97,6 +99,19 @@ namespace DoggyDrop.Data
                 .WithMany()
                 .HasForeignKey(zone => zone.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<NearbyDiscoveryPreference>()
+                .HasOne(preference => preference.User)
+                .WithMany()
+                .HasForeignKey(preference => preference.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<NearbyDiscoveryPreference>()
+                .HasIndex(preference => new { preference.BinsEnabled, preference.Latitude });
+
+            builder.Entity<UserNotification>()
+                .HasIndex(notification => new { notification.UserId, notification.SourceKey })
+                .IsUnique();
 
             builder.Entity<WalkReaction>()
                 .HasOne(reaction => reaction.Walk)

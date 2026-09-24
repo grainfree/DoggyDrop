@@ -25,6 +25,9 @@ namespace DoggyDrop.Models
         [MaxLength(260)]
         public string? LinkUrl { get; set; }
 
+        [MaxLength(80)]
+        public string? SourceKey { get; set; }
+
         public bool IsRead { get; set; }
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
