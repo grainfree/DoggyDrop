@@ -469,7 +469,7 @@ namespace DoggyDrop.Controllers
                     Title = "Najdaljši sprehod",
                     Description = $"Sprehod: {SlovenianFormatting.WalkDistance(bestWalk.DistanceMeters)}",
                     OccurredAt = bestWalk.StartedAt,
-                    ImageUrl = longestWalkPhotoUrl
+                    ImageUrl = longestWalkPhotoUrl == null ? null : CloudinaryImageDelivery.ForDisplay(longestWalkPhotoUrl)
                 });
             }
 
@@ -480,7 +480,7 @@ namespace DoggyDrop.Controllers
                     Title = "Fotografija s sprehoda",
                     Description = string.IsNullOrWhiteSpace(photo.Caption) ? "Nova fotografija s sprehoda" : photo.Caption,
                     OccurredAt = photo.CreatedAt,
-                    ImageUrl = photo.ImageUrl
+                    ImageUrl = photo.DeliveryUrl
                 });
             }
 

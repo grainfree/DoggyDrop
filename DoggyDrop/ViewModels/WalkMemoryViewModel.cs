@@ -85,7 +85,7 @@ public static class WalkMemoryPresentation
             DistanceLabel = distance,
             DurationLabel = duration,
             OwnerPlanTitle = includeOwnerDetails ? walk.PlannedWalk?.Title : null,
-            HeroPhotoUrl = photos.FirstOrDefault()?.ImageUrl,
+            HeroPhotoUrl = photos.FirstOrDefault()?.DeliveryUrl,
             PhotoCount = photos.Count,
             HasActualTrail = hasActualTrail,
             HasPlannedRoute = hasPlannedRoute,
@@ -97,7 +97,7 @@ public static class WalkMemoryPresentation
                 Duration = duration,
                 Date = LocalTime(walk.StartedAt).ToString("dd.MM.yyyy", Slovenian),
                 Highlight = shareHighlight,
-                PhotoUrl = photos.FirstOrDefault()?.ImageUrl,
+                PhotoUrl = photos.FirstOrDefault()?.DeliveryUrl,
                 Text = shareText
             } : null,
             Highlights = highlights

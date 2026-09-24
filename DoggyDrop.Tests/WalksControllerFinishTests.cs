@@ -115,6 +115,7 @@ public sealed class WalksControllerFinishTests : IDisposable
         await using var context = CreateContext();
         var walk = await context.Walks.SingleAsync();
         var plan = new PlannedWalk { OwnerId = UserId, DogId = walk.DogId, Title = "Moj zasebni načrt" };
+        context.PrivacyZones.Add(new PrivacyZone { UserId = UserId, Latitude = 46.0511, Longitude = 14.5011, RadiusMeters = 300 });
         context.PlannedWalks.Add(plan);
         await context.SaveChangesAsync();
         walk.PlannedWalkId = plan.Id;
@@ -196,12 +197,15 @@ public sealed class WalksControllerFinishTests : IDisposable
         Assert.Equal(3, await context.DogXpEvents.CountAsync());
     }
 
-    [Fact]
-    public async Task Details_RetainsExistingPublicCompletedWalkPrivacyWithoutPrivateRewards()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Details_RetainsExistingPublicCompletedWalkPrivacyWithoutPrivateRewards(bool hasZone)
     {
         var walkId = await SeedAsync(900, "Completed");
         await using var context = CreateContext();
         var walk = await context.Walks.SingleAsync();
+        if (hasZone) context.PrivacyZones.Add(new PrivacyZone { UserId = UserId, Latitude = 46.0511, Longitude = 14.5011, RadiusMeters = 300 });
         var plan = new PlannedWalk { OwnerId = UserId, DogId = walk.DogId, Title = "Moj zasebni načrt" };
         context.PlannedWalks.Add(plan);
         await context.SaveChangesAsync();
@@ -213,7 +217,8 @@ public sealed class WalksControllerFinishTests : IDisposable
         context.PlannedWalkRoutePoints.Add(new PlannedWalkRoutePoint { PlannedWalkId = plan.Id, Order = 2, Latitude = 46.0523, Longitude = 14.5023 });
         context.WalkPoints.Add(new WalkPoint { WalkId = walkId, Latitude = 46.0511, Longitude = 14.5011 });
         context.WalkPoints.Add(new WalkPoint { WalkId = walkId, Latitude = 46.0512, Longitude = 14.5012 });
-        context.WalkPhotos.Add(new WalkPhoto { WalkId = walkId, UserId = UserId, ImageUrl = "https://example.test/walk.jpg", PlannedWalkStop = stop });
+        const string originalPhotoUrl = "https://res.cloudinary.com/example/image/upload/v1/doggydrop-walks/walk.jpg";
+        context.WalkPhotos.Add(new WalkPhoto { WalkId = walkId, UserId = UserId, ImageUrl = originalPhotoUrl, PlannedWalkStop = stop });
         context.UserXpEvents.Add(new UserXpEvent
         {
             UserId = UserId, ActivityType = GamificationConstants.WalkDistance, XpAmount = 20,
@@ -234,7 +239,10 @@ public sealed class WalksControllerFinishTests : IDisposable
         Assert.Empty(memory.Highlights);
         Assert.Null(memory.OwnerPlanTitle);
         Assert.Null(memory.ShareAsset);
+        Assert.Equal(CloudinaryImageDelivery.ForDisplay(originalPhotoUrl), memory.HeroPhotoUrl);
+        Assert.DoesNotContain(originalPhotoUrl, System.Text.Json.JsonSerializer.Serialize(memory), StringComparison.Ordinal);
         Assert.Null(publicController.ViewBag.WalkRewardResult);
+        Assert.Equal(900, publicWalk.DistanceMeters);
     }
 
     [Fact]
@@ -946,6 +954,42 @@ public sealed class WalksControllerFinishTests : IDisposable
         Assert.False(await context.WalkPhotos.AnyAsync(item => item.WalkId == walkId));
     }
 
+    [Theory]
+    [InlineData(0L, "Fotografija ni bila izbrana.")]
+    [InlineData(WalkPhotoUploadPolicy.MaxBytes + 1, "Fotografija je prevelika.")]
+    public async Task AddPhoto_InvalidByteSizeRejectsBeforeUploadOrRewards(long length, string expectedError)
+    {
+        var walkId = await SeedAsync(0);
+        await using var context = CreateContext();
+        var images = new NoOpImageService("https://example.test/walk.jpg");
+        var controller = CreateController(context, imageService: images);
+        controller.HttpContext.Request.Headers.Accept = "application/json";
+        var photo = new FormFile(new MemoryStream([1, 2, 3]), 0, length, "photo", "walk.jpg");
+
+        var result = Assert.IsType<BadRequestObjectResult>(await controller.AddPhoto(walkId, photo, null));
+
+        Assert.Contains(expectedError, result.Value!.ToString());
+        Assert.Equal(0, images.WalkUploadCount);
+        Assert.Empty(await context.WalkPhotos.ToListAsync());
+        Assert.Empty(await context.UserXpEvents.ToListAsync());
+        Assert.Empty(await context.DogXpEvents.ToListAsync());
+    }
+
+    [Fact]
+    public async Task AddPhoto_JustUnderByteLimitReachesUpload()
+    {
+        var walkId = await SeedAsync(0);
+        await using var context = CreateContext();
+        var images = new NoOpImageService("https://example.test/walk.jpg");
+        var controller = CreateController(context, imageService: images);
+        controller.HttpContext.Request.Headers.Accept = "application/json";
+        var photo = new FormFile(new MemoryStream([1, 2, 3]), 0,
+            WalkPhotoUploadPolicy.MaxBytes - 1, "photo", "walk.jpg");
+
+        Assert.IsType<OkObjectResult>(await controller.AddPhoto(walkId, photo, null));
+        Assert.Equal(1, images.WalkUploadCount);
+    }
+
     [Fact]
     public async Task AddPhoto_JsonUploadSuccess_KeepsWalkActive()
     {
@@ -1186,6 +1230,7 @@ public sealed class WalksControllerFinishTests : IDisposable
 
     private sealed class NoOpImageService : ICloudinaryService
     {
+        public int WalkUploadCount { get; private set; }
         private readonly string? _walkImageUrl;
         private readonly Func<Task>? _onUpload;
         public NoOpImageService(string? walkImageUrl = null, Func<Task>? onUpload = null)
@@ -1197,6 +1242,7 @@ public sealed class WalksControllerFinishTests : IDisposable
         public Task<string?> UploadTrashBinImageAsync(IFormFile file) => Task.FromResult<string?>(null);
         public async Task<string?> UploadWalkImageAsync(IFormFile file)
         {
+            WalkUploadCount++;
             if (_onUpload != null) await _onUpload();
             return _walkImageUrl;
         }

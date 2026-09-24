@@ -832,11 +832,18 @@ namespace DoggyDrop.Controllers
                 return RedirectToPhotoSource(walk);
             }
 
+            if (photo.Length > WalkPhotoUploadPolicy.MaxBytes)
+            {
+                if (wantsJson) return BadRequest(new { error = "Fotografija je prevelika." });
+                TempData["ErrorMessage"] = "Fotografija je prevelika.";
+                return RedirectToPhotoSource(walk);
+            }
+
             var imageUrl = await _cloudinaryService.UploadWalkImageAsync(photo);
             if (string.IsNullOrWhiteSpace(imageUrl))
             {
                 if (wantsJson) return BadRequest(new { error = "Fotografije ni bilo mogoče shraniti." });
-                TempData["ErrorMessage"] = "Fotografije ni bilo mogoce shraniti.";
+                TempData["ErrorMessage"] = "Fotografije ni bilo mogoče shraniti.";
                 return RedirectToPhotoSource(walk);
             }
 
@@ -1632,14 +1639,17 @@ namespace DoggyDrop.Controllers
             var dateText = walk.StartedAt.ToLocalTime().ToString("dd.MM.yyyy");
             var photoUrls = (walk.Photos ?? [])
                 .OrderByDescending(photo => photo.CreatedAt)
-                .Select(photo => photo.ImageUrl)
+                .Select(photo => photo.DeliveryUrl)
                 .Where(url => !string.IsNullOrWhiteSpace(url))
                 .Take(1)
                 .ToList();
 
-            if (photoUrls.Count == 0 && !string.IsNullOrWhiteSpace(walk.Dog?.PhotoUrl))
+            var dogPhotoUrl = string.IsNullOrWhiteSpace(walk.Dog?.PhotoUrl)
+                ? null
+                : CloudinaryImageDelivery.ForDisplay(walk.Dog.PhotoUrl);
+            if (photoUrls.Count == 0 && !string.IsNullOrWhiteSpace(dogPhotoUrl))
             {
-                photoUrls.Add(walk.Dog.PhotoUrl!);
+                photoUrls.Add(dogPhotoUrl);
             }
 
             var safePhotoUrls = photoUrls.Select(EscapeSvg).ToList();

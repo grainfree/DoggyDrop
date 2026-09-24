@@ -42,7 +42,7 @@
                                 <span aria-hidden="true">@(string.IsNullOrWhiteSpace(Model.Dog.Name) ? "P" : Model.Dog.Name[..1].ToUpperInvariant())</span>
                                 @if (!string.IsNullOrWhiteSpace(walk.HeroPhotoUrl))
                                 {
-                                    <img src="@walk.HeroPhotoUrl" alt="" loading="lazy" onerror="this.hidden=true" />
+                                    <img src="@DoggyDrop.Services.CloudinaryImageDelivery.ForDisplay(walk.HeroPhotoUrl)" alt="" loading="lazy" onerror="this.hidden=true" />
                                 }
                             </span>
                             <span class="dog-adventures__body">

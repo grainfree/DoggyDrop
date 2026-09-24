@@ -1,3 +1,5 @@
+@model DoggyDrop.ViewModels.PrivacyZoneSettingsViewModel
+@using System.Globalization
 @{
     ViewData["Title"] = "Nastavitve";
 }
@@ -10,6 +12,46 @@
             <p>Privzeti sloji zemljevida in manj motece obnasanje med testiranjem aplikacije na telefonu.</p>
         </div>
     </header>
+
+    <section class="settings-panel" aria-labelledby="privacyZoneHeading">
+        <div class="settings-panel__header">
+            <h2 id="privacyZoneHeading">Zasebnost poti</h2>
+        </div>
+        <p class="settings-muted">Zasebno območje skrije natančne lokacije tvojih poti drugim uporabnikom. Ti še vedno vidiš celoten sprehod in pravilno razdaljo.</p>
+        <p class="settings-muted settings-privacy-note">Nastavitev velja tudi za pretekle sprehode. Drugim trenutno ne prikazujemo nobene natančne GPS poti. Ob izklopu se shranjena zasebna lokacija izbriše.</p>
+        <p class="settings-muted settings-privacy-note">Ko je območje vključeno, tvoji sprehodi ne prispevajo lokacij na zemljevid skupnosti.</p>
+        @if (TempData["SuccessMessage"] is string success)
+        {
+            <p class="settings-privacy-message" role="status">@success</p>
+        }
+        @if (TempData["ErrorMessage"] is string error)
+        {
+            <p class="settings-privacy-message settings-privacy-message--error" role="alert">@error</p>
+        }
+        <form asp-controller="Home" asp-action="SavePrivacyZone" method="post" id="privacyZoneForm" data-has-zone="@Model.IsEnabled.ToString().ToLowerInvariant()">
+            @Html.AntiForgeryToken()
+            <label class="settings-row settings-privacy-toggle">
+                <span><strong>Zaščiti zasebno lokacijo</strong><small>Lokacijo izberi, ko si na mestu, ki ga želiš zaščititi.</small></span>
+                <input type="checkbox" id="privacyZoneEnabled" name="Enabled" value="true" checked="@Model.IsEnabled" />
+            </label>
+            <div id="privacyZoneControls" class="settings-privacy-controls" hidden="@(!Model.IsEnabled)">
+                <input type="hidden" id="privacyLatitude" name="Latitude" value="@(Model.Latitude?.ToString("R", CultureInfo.InvariantCulture))" />
+                <input type="hidden" id="privacyLongitude" name="Longitude" value="@(Model.Longitude?.ToString("R", CultureInfo.InvariantCulture))" />
+                <button type="button" id="privacyUseLocation" class="settings-privacy-location"><i class="bi bi-crosshair" aria-hidden="true"></i> Uporabi trenutno lokacijo</button>
+                <p id="privacyLocationStatus" class="settings-muted" role="status" aria-live="polite">@(Model.IsEnabled ? "Zasebna lokacija je shranjena." : "Lokacija še ni izbrana.")</p>
+                <label class="settings-privacy-radius" for="privacyRadius"><strong>Velikost območja</strong></label>
+                <select id="privacyRadius" name="RadiusMeters">
+                    <option value="200" selected="@(Model.RadiusMeters == 200)">200 m</option>
+                    <option value="300" selected="@(Model.RadiusMeters == 300)">300 m</option>
+                    <option value="500" selected="@(Model.RadiusMeters == 500)">500 m</option>
+                    <option value="1000" selected="@(Model.RadiusMeters == 1000)">1 km</option>
+                </select>
+            </div>
+            <div class="settings-actions">
+                <button type="submit" id="privacyZoneSave">Shrani zasebno območje</button>
+            </div>
+        </form>
+    </section>
 
     <article class="settings-panel">
         <div class="settings-panel__header">
@@ -157,6 +199,25 @@
         padding: 18px;
     }
 
+    .settings-privacy-note { margin-top: 8px; }
+    .settings-privacy-toggle { margin-top: 16px; }
+    .settings-privacy-controls { display: grid; gap: 10px; margin-top: 12px; }
+    .settings-privacy-controls[hidden] { display: none; }
+    .settings-privacy-location,
+    .settings-privacy-radius + select {
+        min-height: 44px;
+        padding: 9px 12px;
+        border: 1px solid rgba(47, 109, 95, 0.25);
+        border-radius: 8px;
+        background: #fff;
+        color: #245c4d;
+    }
+    .settings-privacy-location { justify-self: start; font-weight: 800; }
+    .settings-privacy-radius { font-weight: 800; }
+    .settings-privacy-message { margin: 12px 0 0; color: #245c4d; font-weight: 750; }
+    .settings-privacy-message--error { color: #9e352f; }
+    #privacyZoneSave:disabled { opacity: .55; cursor: not-allowed; }
+
     .settings-panel__header {
         display: flex;
         align-items: center;
@@ -251,6 +312,49 @@
 
 @section Scripts {
     <script>
+        const privacyForm = document.getElementById("privacyZoneForm");
+        const privacyEnabled = document.getElementById("privacyZoneEnabled");
+        const privacyControls = document.getElementById("privacyZoneControls");
+        const privacySave = document.getElementById("privacyZoneSave");
+        const privacyLatitude = document.getElementById("privacyLatitude");
+        const privacyLongitude = document.getElementById("privacyLongitude");
+        const privacyStatus = document.getElementById("privacyLocationStatus");
+        const hadPrivacyZone = privacyForm.dataset.hasZone === "true";
+
+        function updatePrivacyControls() {
+            privacyControls.hidden = !privacyEnabled.checked;
+            privacySave.disabled = !privacyEnabled.checked && !hadPrivacyZone;
+            privacySave.textContent = privacyEnabled.checked ? "Shrani zasebno območje" : "Izklopi in izbriši območje";
+        }
+
+        privacyEnabled.addEventListener("change", updatePrivacyControls);
+        updatePrivacyControls();
+        document.getElementById("privacyUseLocation").addEventListener("click", () => {
+            if (!navigator.geolocation || !window.isSecureContext) {
+                privacyStatus.textContent = "Lokacija ni na voljo. Preveri dovoljenje za lokacijo in varno povezavo.";
+                return;
+            }
+            privacyStatus.textContent = "Pridobivam trenutno lokacijo ...";
+            navigator.geolocation.getCurrentPosition(position => {
+                if (!Number.isFinite(position.coords.accuracy) || position.coords.accuracy > 100) {
+                    privacyStatus.textContent = "Lokacija ni dovolj natančna. Poskusi znova zunaj ali ob boljšem GPS-signalu; prejšnja nastavitev je ohranjena.";
+                    return;
+                }
+                privacyLatitude.value = String(position.coords.latitude);
+                privacyLongitude.value = String(position.coords.longitude);
+                privacyStatus.textContent = "Lokacija je izbrana. Shrani zasebno območje.";
+            }, () => {
+                privacyStatus.textContent = "Lokacije ni bilo mogoče pridobiti. Prejšnja nastavitev je ohranjena.";
+            }, { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 });
+        });
+
+        privacyForm.addEventListener("submit", event => {
+            if (privacyEnabled.checked && (!privacyLatitude.value || !privacyLongitude.value)) {
+                event.preventDefault();
+                privacyStatus.textContent = "Najprej izberi lokacijo.";
+            }
+        });
+
         const settingsPrefix = "doggydrop.map.";
         const notificationPrefix = "doggydrop.notifications.";
         const defaults = {

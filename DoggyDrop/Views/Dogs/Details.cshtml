@@ -172,7 +172,7 @@
                     <div class="dog-memory">
                         @if (!string.IsNullOrWhiteSpace(memory.ImageUrl))
                         {
-                            <img src="@memory.ImageUrl" alt="@memory.Title" />
+                            <img src="@DoggyDrop.Services.CloudinaryImageDelivery.ForDisplay(memory.ImageUrl)" alt="@memory.Title" />
                         }
                         else
                         {

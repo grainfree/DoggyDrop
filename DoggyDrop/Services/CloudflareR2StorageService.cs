@@ -52,7 +52,7 @@ namespace DoggyDrop.Services
 
         private async Task<string?> UploadFileAsync(IFormFile file, string folderName, ImageOptimizationPreset preset)
         {
-            if (file == null || file.Length == 0)
+            if (file == null || file.Length == 0 || (preset == ImageOptimizationPreset.Walk && file.Length > WalkPhotoUploadPolicy.MaxBytes))
             {
                 return null;
             }
@@ -67,6 +67,11 @@ namespace DoggyDrop.Services
             await using var stream = file.OpenReadStream();
             var optimizedImage = await _imageOptimizationService.OptimizeAsync(stream, file.ContentType, file.FileName, preset);
             await using var optimizedStream = optimizedImage.Content;
+            if (preset == ImageOptimizationPreset.Walk && !optimizedImage.WasOptimized)
+            {
+                _logger.LogWarning("Walk image could not be sanitized; R2 upload was rejected.");
+                return null;
+            }
             var key = BuildObjectKey(folderName, optimizedImage.Extension);
 
             var request = new PutObjectRequest

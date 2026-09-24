@@ -16,6 +16,9 @@ namespace DoggyDrop.Models
         [MaxLength(260)]
         public string ImageUrl { get; set; } = string.Empty;
 
+        [NotMapped]
+        public string DeliveryUrl => DoggyDrop.Services.CloudinaryImageDelivery.ForDisplay(ImageUrl);
+
         [MaxLength(120)]
         public string? Caption { get; set; }
 

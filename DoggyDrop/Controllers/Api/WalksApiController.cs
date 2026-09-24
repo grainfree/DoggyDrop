@@ -84,7 +84,22 @@ namespace DoggyDrop.Controllers.Api
                 })
                 .ToListAsync();
 
-            return Ok(walks);
+            return Ok(walks.Select(walk => new
+            {
+                walk.Id,
+                walk.DogId,
+                walk.DogName,
+                walk.StartedAt,
+                walk.EndedAt,
+                walk.DistanceKm,
+                walk.UsedBinsCount,
+                walk.PlannedWalkId,
+                walk.PlannedWalkTitle,
+                walk.LikeCount,
+                walk.CommentCount,
+                walk.PhotoCount,
+                CoverPhotoUrl = walk.CoverPhotoUrl == null ? null : CloudinaryImageDelivery.ForDisplay(walk.CoverPhotoUrl)
+            }).ToList());
         }
 
         [HttpGet("plans")]
@@ -219,7 +234,7 @@ namespace DoggyDrop.Controllers.Api
                     .Select(photo => new
                     {
                         photo.Id,
-                        photo.ImageUrl,
+                        ImageUrl = photo.DeliveryUrl,
                         photo.Caption,
                         photo.CreatedAt
                     })
@@ -250,7 +265,7 @@ namespace DoggyDrop.Controllers.Api
                     .Select(photo => new
                     {
                         photo.Id,
-                        photo.ImageUrl,
+                        ImageUrl = photo.DeliveryUrl,
                         photo.Caption,
                         photo.CreatedAt,
                         ReactionCount = photo.Reactions != null ? photo.Reactions.Count : 0,

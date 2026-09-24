@@ -29,20 +29,35 @@ namespace DoggyDrop.Services
     {
         public async Task<OptimizedImage> OptimizeAsync(Stream input, string? contentType, string? fileName, ImageOptimizationPreset preset)
         {
-            var original = new MemoryStream();
-            await input.CopyToAsync(original);
+            using var original = new MemoryStream();
+            if (preset == ImageOptimizationPreset.Walk && input.CanSeek && input.Length - input.Position > WalkPhotoUploadPolicy.MaxBytes)
+                return RejectedWalkImage();
+
+            var buffer = new byte[81920];
+            int read;
+            while ((read = await input.ReadAsync(buffer)) > 0)
+            {
+                if (preset == ImageOptimizationPreset.Walk && original.Length + read > WalkPhotoUploadPolicy.MaxBytes)
+                    return RejectedWalkImage();
+                await original.WriteAsync(buffer.AsMemory(0, read));
+            }
             original.Position = 0;
 
             try
             {
                 using var codec = SKCodec.Create(original);
+                if (preset == ImageOptimizationPreset.Walk &&
+                    (codec == null || !WalkPhotoUploadPolicy.HasSafeDimensions(codec.Info.Width, codec.Info.Height)))
+                    return RejectedWalkImage();
                 var origin = codec?.EncodedOrigin ?? SKEncodedOrigin.TopLeft;
                 original.Position = 0;
 
                 using var bitmap = SKBitmap.Decode(original);
                 if (bitmap == null)
                 {
-                    return BuildFallback(original, contentType, fileName);
+                    return preset == ImageOptimizationPreset.Walk
+                        ? RejectedWalkImage()
+                        : BuildFallback(original, contentType, fileName);
                 }
 
                 using var orientedBitmap = ApplyEncodedOrigin(bitmap, origin);
@@ -66,7 +81,9 @@ namespace DoggyDrop.Services
                 using var encoded = image.Encode(SKEncodedImageFormat.Webp, settings.WebpQuality);
                 if (encoded == null)
                 {
-                    return BuildFallback(original, contentType, fileName);
+                    return preset == ImageOptimizationPreset.Walk
+                        ? RejectedWalkImage()
+                        : BuildFallback(original, contentType, fileName);
                 }
 
                 var output = new MemoryStream((int)encoded.Size);
@@ -83,9 +100,13 @@ namespace DoggyDrop.Services
             }
             catch
             {
-                return BuildFallback(original, contentType, fileName);
+                return preset == ImageOptimizationPreset.Walk
+                    ? RejectedWalkImage()
+                    : BuildFallback(original, contentType, fileName);
             }
         }
+
+        private static OptimizedImage RejectedWalkImage() => new() { Content = Stream.Null };
 
         private static SKBitmap ResizeBitmap(SKBitmap source, int width, int height)
         {
@@ -155,12 +176,13 @@ namespace DoggyDrop.Services
 
         private static OptimizedImage BuildFallback(MemoryStream original, string? contentType, string? fileName)
         {
-            original.Position = 0;
+            var content = new MemoryStream(original.ToArray());
+            content.Position = 0;
             var extension = ResolveExtension(fileName, contentType);
 
             return new OptimizedImage
             {
-                Content = original,
+                Content = content,
                 ContentType = ResolveContentType(contentType, extension),
                 Extension = extension,
                 WasOptimized = false

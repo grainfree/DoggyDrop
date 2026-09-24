@@ -24,7 +24,13 @@ public static class CloudinaryImageDelivery
         var transformCount = Array.FindIndex(segments, segment => IsVersion(segment));
         if (transformCount < 0) transformCount = Math.Max(0, segments.Length - 1);
 
-        var tokens = segments.Take(transformCount).SelectMany(segment => segment.Split(','));
+        var tokens = segments.Take(transformCount).SelectMany(segment => segment.Split(',')).ToArray();
+        // Metadata-preserving flags would override Cloudinary's normal transformed-delivery stripping.
+        if (tokens.Any(token => token.Contains("fl_keep_iptc", StringComparison.OrdinalIgnoreCase) ||
+            token.Contains("fl_keep_dar", StringComparison.OrdinalIgnoreCase)))
+        {
+            return string.Empty;
+        }
         var existing = tokens.ToHashSet(StringComparer.OrdinalIgnoreCase);
         var missing = new[] { "f_auto", "q_auto" }.Where(token => !existing.Contains(token)).ToArray();
         if (missing.Length == 0)
@@ -32,7 +38,7 @@ public static class CloudinaryImageDelivery
             return url;
         }
 
-        // A Cloudinary transformation generates an EXIF-oriented delivery asset for old and new uploads.
+        // A transformed delivery strips EXIF while preserving the stored original for historical assets.
         return url.Insert(index + uploadPath.Length, string.Join(',', missing) + "/");
     }
 

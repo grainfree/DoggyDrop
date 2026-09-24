@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Globalization;
 
 namespace DoggyDrop.Controllers
 {
@@ -73,9 +74,62 @@ namespace DoggyDrop.Controllers
         }
 
         [Authorize]
-        public IActionResult Settings()
+        [HttpGet]
+        [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+        public async Task<IActionResult> Settings()
         {
-            return View();
+            var userId = _userManager.GetUserId(User);
+            if (string.IsNullOrWhiteSpace(userId)) return Challenge();
+
+            var zone = await _context.PrivacyZones.AsNoTracking()
+                .SingleOrDefaultAsync(item => item.UserId == userId);
+            return View(new PrivacyZoneSettingsViewModel
+            {
+                IsEnabled = zone != null,
+                Latitude = zone?.Latitude,
+                Longitude = zone?.Longitude,
+                RadiusMeters = zone?.RadiusMeters ?? 300
+            });
+        }
+
+        [Authorize]
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> SavePrivacyZone(PrivacyZoneSettingsInput input)
+        {
+            var userId = _userManager.GetUserId(User);
+            if (string.IsNullOrWhiteSpace(userId)) return Challenge();
+
+            if (!input.Enabled)
+            {
+                await _context.PrivacyZones.Where(item => item.UserId == userId).ExecuteDeleteAsync();
+                TempData["SuccessMessage"] = "Zasebno območje je izklopljeno in lokacija izbrisana.";
+                return RedirectToAction(nameof(Settings));
+            }
+
+            if (!ModelState.IsValid || input.RadiusMeters is not (200 or 300 or 500 or 1000) ||
+                !double.TryParse(input.Latitude, NumberStyles.Float, CultureInfo.InvariantCulture, out var latitude) ||
+                !double.TryParse(input.Longitude, NumberStyles.Float, CultureInfo.InvariantCulture, out var longitude) ||
+                !double.IsFinite(latitude) || !double.IsFinite(longitude) ||
+                latitude is < -90 or > 90 || longitude is < -180 or > 180)
+            {
+                TempData["ErrorMessage"] = "Izberi veljavno lokacijo in velikost zasebnega območja. Prejšnja nastavitev je ohranjena.";
+                return RedirectToAction(nameof(Settings));
+            }
+
+            var zone = await _context.PrivacyZones.SingleOrDefaultAsync(item => item.UserId == userId);
+            if (zone == null)
+            {
+                zone = new PrivacyZone { UserId = userId };
+                _context.PrivacyZones.Add(zone);
+            }
+
+            zone.Latitude = latitude;
+            zone.Longitude = longitude;
+            zone.RadiusMeters = input.RadiusMeters;
+            await _context.SaveChangesAsync();
+            TempData["SuccessMessage"] = "Zasebno območje je shranjeno.";
+            return RedirectToAction(nameof(Settings));
         }
 
         [Authorize]
@@ -127,7 +181,7 @@ namespace DoggyDrop.Controllers
                     {
                         WalkId = walk.Id,
                         PhotoId = photo.Id,
-                        ImageUrl = photo.ImageUrl,
+                        ImageUrl = photo.DeliveryUrl,
                         Caption = photo.Caption,
                         DogName = walk.Dog?.Name ?? "Pes",
                         DogPhotoUrl = walk.Dog?.PhotoUrl,
@@ -196,7 +250,7 @@ namespace DoggyDrop.Controllers
                     CommentCount = w.Comments?.Count(comment => !comment.IsDeleted) ?? 0,
                     CoverPhotoUrl = w.Photos?
                         .OrderByDescending(photo => photo.CreatedAt)
-                        .Select(photo => photo.ImageUrl)
+                        .Select(photo => photo.DeliveryUrl)
                         .FirstOrDefault(),
                     PhotoCount = w.Photos?.Count ?? 0,
                     IsLikedByCurrentUser = !string.IsNullOrWhiteSpace(userId)
@@ -215,7 +269,7 @@ namespace DoggyDrop.Controllers
                     CommentCount = w.Comments?.Count(comment => !comment.IsDeleted) ?? 0,
                     CoverPhotoUrl = w.Photos?
                         .OrderByDescending(photo => photo.CreatedAt)
-                        .Select(photo => photo.ImageUrl)
+                        .Select(photo => photo.DeliveryUrl)
                         .FirstOrDefault(),
                     PhotoCount = w.Photos?.Count ?? 0,
                     IsLikedByCurrentUser = !string.IsNullOrWhiteSpace(userId)

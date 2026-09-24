@@ -29,7 +29,8 @@ namespace DoggyDrop.Controllers.Api
 
             var walkPointsQuery = _context.WalkPoints
                 .Include(point => point.Walk)
-                .Where(point => point.RecordedAt >= from && point.Walk != null);
+                .Where(point => point.RecordedAt >= from && point.Walk != null &&
+                    !_context.PrivacyZones.Any(zone => zone.UserId == point.Walk.OwnerId));
 
             if (normalizedRange == "evening")
             {

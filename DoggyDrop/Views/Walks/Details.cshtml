@@ -452,7 +452,7 @@
         <div class="walk-memory__cover-fallback" aria-hidden="true"><i class="bi bi-signpost-2-fill"></i></div>
         @if (!string.IsNullOrWhiteSpace(memory.HeroPhotoUrl))
         {
-            <img src="@memory.HeroPhotoUrl" alt="Fotografija s tega sprehoda" onerror="this.hidden=true" />
+            <img src="@DoggyDrop.Services.CloudinaryImageDelivery.ForDisplay(memory.HeroPhotoUrl)" alt="Fotografija s tega sprehoda" onerror="this.hidden=true" />
         }
     </div>
 
@@ -481,9 +481,13 @@
         }
     </div>
 
-    @if ((Model.Points?.Count ?? 0) < 10 && duration.TotalMinutes >= 10)
+    @if (isOwner && (Model.Points?.Count ?? 0) < 10 && duration.TotalMinutes >= 10)
     {
         <p class="walk-gps-limited">GPS je med sprehodom zabeležil malo točk. Prikazana razdalja temelji le na shranjenem delu poti.</p>
+    }
+    @if (!isOwner)
+    {
+        <p class="walk-privacy-note">GPS pot ni javno prikazana zaradi zasebnosti.</p>
     }
 
     <div class="walk-summary__top-actions">
@@ -745,7 +749,7 @@
                 {
                     <figure class="walk-photo-item">
                         <button type="button" class="walk-photo-item__open" data-gallery-index="@walkPhotos.IndexOf(photo)">
-                            <img src="@photo.ImageUrl" alt="Fotografija sprehoda @Model.Dog?.Name" />
+                            <img src="@photo.DeliveryUrl" alt="Fotografija sprehoda @Model.Dog?.Name" />
                         </button>
                         <figcaption>
                             <div>
@@ -786,7 +790,7 @@
                 {
                     var photo = walkPhotos[i];
                     <figure class="walk-photo-gallery__slide @(i == 0 ? "is-active" : string.Empty)" data-gallery-slide="@i">
-                        <img src="@photo.ImageUrl" alt="Galerija sprehoda @Model.Dog?.Name" />
+                        <img src="@photo.DeliveryUrl" alt="Galerija sprehoda @Model.Dog?.Name" />
                         <figcaption>
                             <strong>@(string.IsNullOrWhiteSpace(photo.Caption) ? "Fotografija sprehoda" : photo.Caption)</strong>
                             <span>@WalkMemoryPresentation.LocalTime(photo.CreatedAt).ToString("dd.MM. HH:mm")</span>
@@ -1167,6 +1171,12 @@
         border-left: 3px solid #c2762f;
         background: #fff8ea;
         color: #59442b;
+        font-size: .86rem;
+    }
+
+    .walk-privacy-note {
+        margin: 0 0 12px;
+        color: #52635d;
         font-size: .86rem;
     }
 

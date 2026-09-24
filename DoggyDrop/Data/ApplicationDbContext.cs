@@ -22,6 +22,8 @@ namespace DoggyDrop.Data
 
         public DbSet<WalkPoint> WalkPoints { get; set; }
 
+        public DbSet<PrivacyZone> PrivacyZones { get; set; }
+
         public DbSet<PlaydateRequest> PlaydateRequests { get; set; }
 
         public DbSet<PlaydateInterest> PlaydateInterests { get; set; }
@@ -88,6 +90,12 @@ namespace DoggyDrop.Data
                 .HasOne(n => n.User)
                 .WithMany(u => u.Notifications)
                 .HasForeignKey(n => n.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<PrivacyZone>()
+                .HasOne(zone => zone.User)
+                .WithMany()
+                .HasForeignKey(zone => zone.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
 
             builder.Entity<WalkReaction>()

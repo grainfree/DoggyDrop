@@ -26,7 +26,7 @@
     @if (!string.IsNullOrWhiteSpace(Model.CoverPhotoUrl))
     {
         <div class="community-feed-card__cover">
-            <img src="@Model.CoverPhotoUrl" alt="Fotografija sprehoda psa @Model.DogName" loading="lazy" />
+            <img src="@DoggyDrop.Services.CloudinaryImageDelivery.ForDisplay(Model.CoverPhotoUrl)" alt="Fotografija sprehoda psa @Model.DogName" loading="lazy" />
         </div>
     }
     <div class="community-feed-card__footer">

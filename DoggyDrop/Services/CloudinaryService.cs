@@ -11,15 +11,18 @@ namespace DoggyDrop.Services
         private readonly Cloudinary _cloudinary;
         private readonly IWebHostEnvironment _environment;
         private readonly ILogger<CloudinaryService> _logger;
+        private readonly IImageOptimizationService _imageOptimizationService;
 
         public CloudinaryService(
             Cloudinary cloudinary,
             IWebHostEnvironment environment,
-            ILogger<CloudinaryService> logger)
+            ILogger<CloudinaryService> logger,
+            IImageOptimizationService imageOptimizationService)
         {
             _cloudinary = cloudinary;
             _environment = environment;
             _logger = logger;
+            _imageOptimizationService = imageOptimizationService;
         }
 
         // ✅ Nalaganje profilne slike
@@ -96,7 +99,7 @@ namespace DoggyDrop.Services
 
         public async Task<string?> UploadWalkImageAsync(IFormFile file)
         {
-            if (file == null || file.Length == 0)
+            if (file == null || file.Length == 0 || file.Length > WalkPhotoUploadPolicy.MaxBytes)
             {
                 return null;
             }
@@ -107,6 +110,7 @@ namespace DoggyDrop.Services
             {
                 File = new FileDescription(file.FileName, stream),
                 Folder = "doggydrop-walks",
+                Transformation = new Transformation().Angle("auto").Flags("force_strip"),
                 UseFilename = true,
                 UniqueFilename = true,
                 Overwrite = false
@@ -119,7 +123,26 @@ namespace DoggyDrop.Services
             }
 
             _logger.LogWarning("Cloudinary walk upload failed. Falling back to local storage. Error: {Error}", uploadResult.Error?.Message);
-            return await SaveLocalImageAsync(file, "walks");
+            return await SaveSanitizedWalkImageLocallyAsync(file);
+        }
+
+        private async Task<string?> SaveSanitizedWalkImageLocallyAsync(IFormFile file)
+        {
+            await using var input = file.OpenReadStream();
+            var optimized = await _imageOptimizationService.OptimizeAsync(input, file.ContentType, file.FileName, ImageOptimizationPreset.Walk);
+            await using var content = optimized.Content;
+            if (!optimized.WasOptimized)
+            {
+                _logger.LogWarning("Walk image could not be sanitized; local fallback upload was rejected.");
+                return null;
+            }
+
+            var uploadRoot = Path.Combine(_environment.WebRootPath, "uploads", "walks");
+            Directory.CreateDirectory(uploadRoot);
+            var fileName = $"{Guid.NewGuid():N}{optimized.Extension}";
+            await using var output = File.Create(Path.Combine(uploadRoot, fileName));
+            await content.CopyToAsync(output);
+            return $"/uploads/walks/{fileName}";
         }
 
         private async Task<string?> SaveLocalImageAsync(IFormFile file, string folderName)

@@ -187,7 +187,7 @@
                 @foreach (var photo in Model.PhotoFeed)
                 {
                     <article class="community-photo-card">
-                        <img src="@photo.ImageUrl" alt="Fotografija sprehoda @photo.DogName" />
+                        <img src="@DoggyDrop.Services.CloudinaryImageDelivery.ForDisplay(photo.ImageUrl)" alt="Fotografija sprehoda @photo.DogName" />
                         <div class="community-photo-card__overlay">
                             <strong>@photo.DogName</strong>
                             <span>@photo.OwnerName</span>

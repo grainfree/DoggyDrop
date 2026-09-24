@@ -291,6 +291,10 @@ namespace DoggyDrop.Controllers
                 item.Url,
                 ResolveOptimizationPreset(item.SourceType));
             await using var uploadStream = optimizedImage.Content;
+            if (item.SourceType == "Walk photo" && !optimizedImage.WasOptimized)
+            {
+                throw new InvalidOperationException("Walk photo could not be sanitized for public R2 delivery.");
+            }
             var key = BuildObjectKey(item.SourceType, item.EntityId, item.EntityKey, optimizedImage.Extension, forceOptimizedFolder || optimizedImage.WasOptimized);
 
             var request = new PutObjectRequest

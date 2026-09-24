@@ -97,7 +97,7 @@ namespace DoggyDrop.Services
                         UserId = group.Key.UserId,
                         Label = group.Key.OwnerName,
                         SubLabel = $"{group.Count()} fotografij",
-                        ImageUrl = group.OrderByDescending(photo => photo.Reactions?.Count ?? 0).FirstOrDefault()?.ImageUrl,
+                        ImageUrl = group.OrderByDescending(photo => photo.Reactions?.Count ?? 0).FirstOrDefault()?.DeliveryUrl,
                         Score = group.Sum(photo => photo.Reactions?.Count ?? 0),
                         ScoreText = $"{group.Sum(photo => photo.Reactions?.Count ?? 0):0} tack"
                     })),

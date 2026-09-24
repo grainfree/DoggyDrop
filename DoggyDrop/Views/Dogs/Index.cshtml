@@ -133,7 +133,7 @@
                     {
                         <a asp-controller="Walks" asp-action="Details" asp-route-id="@photo.WalkId" aria-label="Odpri sprehod s fotografijo">
                             <span class="dogs-dashboard__photo-fallback">Fotografija ni na voljo</span>
-                            <img src="@photo.ImageUrl" alt="@(photo.Caption ?? $"Trenutek s sprehoda psa {dog.Name}")" loading="lazy" onerror="this.hidden=true" />
+                            <img src="@photo.DeliveryUrl" alt="@(photo.Caption ?? $"Trenutek s sprehoda psa {dog.Name}")" loading="lazy" onerror="this.hidden=true" />
                         </a>
                     }
                 </div>

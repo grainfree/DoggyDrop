@@ -210,7 +210,7 @@
                 @foreach (var photo in walkPhotos.Take(6))
                 {
                     <figure class="active-walk-photo-item">
-                        <img src="@photo.ImageUrl" alt="Fotografija sprehoda @Model.Dog?.Name" />
+                        <img src="@photo.DeliveryUrl" alt="Fotografija sprehoda @Model.Dog?.Name" />
                         @if (!string.IsNullOrWhiteSpace(photo.Caption))
                         {
                             <figcaption>@photo.Caption</figcaption>
