@@ -6,6 +6,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
+using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
@@ -25,6 +27,7 @@ namespace DoggyDrop.Controllers
         private readonly IGamificationRewardBuilder _rewardBuilder;
         private readonly IGamificationCalendar _gamificationCalendar;
         private readonly IUserAchievementService _userAchievementService;
+        private readonly ILogger<WalksController> _logger;
 
         public WalksController(
             ApplicationDbContext context,
@@ -36,7 +39,8 @@ namespace DoggyDrop.Controllers
             IOsmWalkPlannerService osmWalkPlannerService,
             IGamificationRewardBuilder rewardBuilder,
             IGamificationCalendar gamificationCalendar,
-            IUserAchievementService userAchievementService)
+            IUserAchievementService userAchievementService,
+            ILogger<WalksController>? logger = null)
         {
             _context = context;
             _userManager = userManager;
@@ -48,6 +52,7 @@ namespace DoggyDrop.Controllers
             _rewardBuilder = rewardBuilder;
             _gamificationCalendar = gamificationCalendar;
             _userAchievementService = userAchievementService;
+            _logger = logger ?? NullLogger<WalksController>.Instance;
         }
 
         [HttpGet]
@@ -694,15 +699,39 @@ namespace DoggyDrop.Controllers
         [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
         public async Task<IActionResult> FinishStatus(int id)
         {
-            var userId = _userManager.GetUserId(User);
-            if (string.IsNullOrWhiteSpace(userId)) return Challenge();
+            var stopwatch = Stopwatch.StartNew();
+            var requestId = HttpContext.TraceIdentifier;
+            var reachedPhase = "request-started";
+            _logger.LogInformation("Walk FinishStatus timing RequestId={RequestId} WalkId={WalkId} Phase={Phase} ElapsedMs={ElapsedMs}",
+                requestId, id, reachedPhase, stopwatch.ElapsedMilliseconds);
+            try
+            {
+                var userId = _userManager.GetUserId(User);
+                if (string.IsNullOrWhiteSpace(userId))
+                {
+                    reachedPhase = "unauthenticated";
+                    _logger.LogInformation("Walk FinishStatus timing RequestId={RequestId} WalkId={WalkId} Phase={Phase} ElapsedMs={ElapsedMs}",
+                        requestId, id, reachedPhase, stopwatch.ElapsedMilliseconds);
+                    return Challenge();
+                }
 
-            var status = await _context.Walks.AsNoTracking()
-                .Where(walk => walk.Id == id && walk.OwnerId == userId)
-                .Select(walk => walk.Status)
-                .FirstOrDefaultAsync();
+                reachedPhase = "status-query-started";
+                var status = await _context.Walks.AsNoTracking()
+                    .Where(walk => walk.Id == id && walk.OwnerId == userId)
+                    .Select(walk => walk.Status)
+                    .FirstOrDefaultAsync();
 
-            return status == null ? NotFound() : Json(new { status });
+                reachedPhase = "status-read";
+                _logger.LogInformation("Walk FinishStatus timing RequestId={RequestId} WalkId={WalkId} Phase={Phase} ObservedStatus={ObservedStatus} ElapsedMs={ElapsedMs}",
+                    requestId, id, reachedPhase, status ?? "NotFound", stopwatch.ElapsedMilliseconds);
+                return status == null ? NotFound() : Json(new { status });
+            }
+            catch (Exception exception)
+            {
+                _logger.LogError("Walk FinishStatus failed RequestId={RequestId} WalkId={WalkId} Phase={Phase} ElapsedMs={ElapsedMs} ExceptionType={ExceptionType}",
+                    requestId, id, reachedPhase, stopwatch.ElapsedMilliseconds, exception.GetType().Name);
+                throw;
+            }
         }
 
         [HttpGet]
@@ -1264,18 +1293,44 @@ namespace DoggyDrop.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Finish(int id, string? manualDistanceKm, int? usedBinsCount)
         {
+            var stopwatch = Stopwatch.StartNew();
+            var previousElapsedMs = 0L;
+            var reachedPhase = "request-started";
+            var requestId = HttpContext.TraceIdentifier;
+            void LogPhase(string phase)
+            {
+                var elapsedMs = stopwatch.ElapsedMilliseconds;
+                _logger.LogInformation("Walk Finish timing RequestId={RequestId} WalkId={WalkId} Phase={Phase} ElapsedMs={ElapsedMs} DeltaMs={DeltaMs}",
+                    requestId, id, phase, elapsedMs, elapsedMs - previousElapsedMs);
+                previousElapsedMs = elapsedMs;
+                reachedPhase = phase;
+            }
+
+            LogPhase("request-started");
+            try
+            {
             IActionResult FinishRedirect(string action)
             {
                 var redirect = RedirectToAction(action, new { id });
-                return Request.Headers.Accept.ToString().Contains("application/json", StringComparison.OrdinalIgnoreCase)
+                IActionResult result = Request.Headers.Accept.ToString().Contains("application/json", StringComparison.OrdinalIgnoreCase)
                     ? Json(new { redirectUrl = Url.Action(action, "Walks", new { id }) })
                     : redirect;
+                LogPhase("response-prepared");
+                return result;
             }
 
             var userId = _userManager.GetUserId(User);
-            if (string.IsNullOrEmpty(userId)) return Challenge();
+            if (string.IsNullOrEmpty(userId))
+            {
+                LogPhase("unauthenticated");
+                var result = Challenge();
+                LogPhase("response-prepared");
+                return result;
+            }
             await using var transaction = await _context.Database.BeginTransactionAsync();
+            LogPhase("transaction-started");
             await LockWalkAsync(id, userId);
+            LogPhase("walk-lock-acquired");
             var walk = await _context.Walks
                 .AsNoTracking()
                 .Include(w => w.Dog)
@@ -1283,11 +1338,16 @@ namespace DoggyDrop.Controllers
 
             if (walk == null)
             {
-                return NotFound();
+                LogPhase("walk-not-found");
+                var result = NotFound();
+                LogPhase("response-prepared");
+                return result;
             }
+            LogPhase("walk-validated");
 
             if (walk.Status != "Active")
             {
+                LogPhase("terminal-status-decision-existing");
                 if (walk.Status == "Interrupted")
                 {
                     TempData["ErrorMessage"] = "Ta sprehod je bil prekinjen po dolgem premoru. Ohranili smo GPS pot in razdaljo, brez novih nagrad.";
@@ -1296,12 +1356,17 @@ namespace DoggyDrop.Controllers
                 return FinishRedirect(nameof(Details));
             }
 
-            if (await RecoverStaleWalkLockedAsync(walk))
+            var stale = await RecoverStaleWalkLockedAsync(walk);
+            LogPhase("stale-point-check-completed");
+            if (stale)
             {
+                LogPhase("terminal-status-decision-stale");
                 await transaction.CommitAsync();
+                LogPhase("transaction-committed");
                 TempData["ErrorMessage"] = "Sprehod je bil prekinjen pri zadnji GPS točki; zaključek po dolgem premoru ne podeli nagrad.";
                 return FinishRedirect(nameof(Interrupted));
             }
+            LogPhase("terminal-status-decision-active");
 
             var distanceMeters = TryParseDistanceKm(manualDistanceKm, out var parsedDistanceKm)
                 ? parsedDistanceKm * 1000
@@ -1321,9 +1386,12 @@ namespace DoggyDrop.Controllers
 
             if (completedRows == 0)
             {
+                LogPhase("walk-status-conflict");
                 await transaction.RollbackAsync();
+                LogPhase("transaction-rolled-back");
                 return FinishRedirect(nameof(Details));
             }
+            LogPhase("walk-status-persisted-uncommitted");
 
             walk = await _context.Walks
                 .AsNoTracking()
@@ -1375,6 +1443,7 @@ namespace DoggyDrop.Controllers
                 achievementUnlocks.Add(await _userAchievementService.TryUnlockAsync(userId!, UserAchievementCatalog.Walk10Km, endedAt, nameof(Walk), walk.Id.ToString()));
             if (currentTotalDistanceKm >= 100)
                 achievementUnlocks.Add(await _userAchievementService.TryUnlockAsync(userId!, UserAchievementCatalog.Walk100Km, endedAt, nameof(Walk), walk.Id.ToString()));
+            LogPhase("reward-progression-persistence-completed");
 
             var rewardResult = await BuildWalkRewardResultAsync(
                 walk,
@@ -1388,8 +1457,10 @@ namespace DoggyDrop.Controllers
                 userXpEvent,
                 dogXpEvent,
                 walkStreak);
+            LogPhase("reward-result-built");
 
             await transaction.CommitAsync();
+            LogPhase("transaction-committed");
 
             if (rewardResult.HasRewards)
             {
@@ -1405,6 +1476,13 @@ namespace DoggyDrop.Controllers
             }
 
             return FinishRedirect(nameof(Details));
+            }
+            catch (Exception exception)
+            {
+                _logger.LogError("Walk Finish failed RequestId={RequestId} WalkId={WalkId} PhaseReached={PhaseReached} ElapsedMs={ElapsedMs} ExceptionType={ExceptionType}",
+                    requestId, id, reachedPhase, stopwatch.ElapsedMilliseconds, exception.GetType().Name);
+                throw;
+            }
         }
 
         private static string GetWalkRewardTempDataKey(int walkId) => $"WalkRewardResult:{walkId}";
