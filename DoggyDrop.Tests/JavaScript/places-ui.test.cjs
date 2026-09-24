@@ -31,6 +31,7 @@ function runEditor(latitudeValue, longitudeValue) {
     const script = read("DoggyDrop/wwwroot/js/place-editor.js");
     const handlers = {};
     const views = [];
+    const observations = [];
     const button = {
         disabled: false, textContent: "Shrani lokacijo", attributes: new Map(),
         setAttribute(name, value) { this.attributes.set(name, value); },
@@ -45,14 +46,18 @@ function runEditor(latitudeValue, longitudeValue) {
     const longitude = input(longitudeValue);
     const map = {
         setView(point, zoom) { views.push([Array.from(point), zoom]); return this; },
-        getZoom() { return 14; }, on() {}, invalidateSize() {}
+        getZoom() { return 14; }, on() {}, invalidateSize(options) { observations.push(options ?? null); }
     };
     const leaflet = {
         map: () => map,
         tileLayer: () => ({ addTo() {} }),
         circleMarker: () => ({ addTo() { return this; }, setLatLng() {} })
     };
-    const window = { L: leaflet, addEventListener(name, handler) { handlers[name] = handler; } };
+    const window = {
+        L: leaflet,
+        ResizeObserver: class { constructor(callback) { handlers.resize = callback; } observe() {} },
+        addEventListener(name, handler) { handlers[name] = handler; }
+    };
     const document = {
         querySelector: () => form,
         getElementById(id) {
@@ -61,7 +66,7 @@ function runEditor(latitudeValue, longitudeValue) {
         }
     };
     vm.runInNewContext(script, { document, window, L: leaflet, requestAnimationFrame: callback => callback() });
-    return { handlers, views, button };
+    return { handlers, views, observations, button };
 }
 
 test("Create starts at Home default, while Edit centers on stored Place", () => {
@@ -72,6 +77,14 @@ test("Create starts at Home default, while Edit centers on stored Place", () => 
         [[46.5547, 15.6459], 14],
         [[46.2, 15.1], 16]
     ]);
+});
+
+test("Admin picker recalculates Leaflet size when its container changes", () => {
+    const { handlers, observations } = runEditor("", "");
+    assert.equal(observations.length, 1);
+    handlers.resize();
+    assert.equal(observations.length, 2);
+    assert.equal(observations[1].pan, false);
 });
 
 test("admin form blocks a second valid submit and resets on page restoration", () => {

@@ -1,11 +1,13 @@
 @model DoggyDrop.ViewModels.WalkPlannerViewModel
 @using System.Globalization
 @using System.Text.Json
+@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
 
 @{
     ViewData["Title"] = "Planer sprehoda";
     var debugRouteEnabled = Context.Request.Query["debugRoute"].ToString() == "1";
     var routePointsJson = Html.Raw(JsonSerializer.Serialize(Model.Route?.RoutePoints ?? []));
+    var cartoBasemapKeyJson = Html.Raw(JsonSerializer.Serialize(Configuration["CartoBasemap:PublicApiKey"]));
     var stopsJson = Html.Raw(JsonSerializer.Serialize(Model.Route?.Stops ?? []));
     var latitudeValue = Model.Latitude?.ToString("0.######", CultureInfo.InvariantCulture) ?? string.Empty;
     var longitudeValue = Model.Longitude?.ToString("0.######", CultureInfo.InvariantCulture) ?? string.Empty;
@@ -238,7 +240,9 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
             integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
             crossorigin=""></script>
+    <script src="~/js/map-basemap.js" asp-append-version="true"></script>
     <script>
+        const cartoBasemapKey = @cartoBasemapKeyJson;
         const plannerPoints = @routePointsJson;
         const plannerStops = @stopsJson;
         const debugRouteEnabled = @(debugRouteEnabled.ToString().ToLowerInvariant());
@@ -428,10 +432,7 @@
                 });
             }
 
-            L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
-                maxZoom: 20,
-                attribution: '&copy; OpenStreetMap &copy; CARTO'
-            }).addTo(map);
+            DoggyDropBasemap.addTo(map, cartoBasemapKey);
 
             const latLngs = previewRoutePoints.map(point => [point.lat, point.lng]);
             let routeLine = null;

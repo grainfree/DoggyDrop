@@ -1,0 +1,34 @@
+@model string
+@{
+    var controller = ViewContext.RouteData.Values["controller"]?.ToString();
+    var action = ViewContext.RouteData.Values["action"]?.ToString();
+    var profileUrl = ViewData["PrimaryNavigationProfileUrl"]?.ToString() ?? "/Identity/Account/Login";
+}
+
+<nav class="@Model" aria-label="Glavna navigacija">
+    <a class="app-bottom-nav__item @(controller == "Map" && action == "Index" ? "is-active" : "")"
+       asp-controller="Map" asp-action="Index">
+        <span class="app-bottom-nav__icon" aria-hidden="true"><i class="bi bi-house-heart-fill"></i></span>
+        <span>Domov</span>
+    </a>
+    <a class="app-bottom-nav__item @(controller == "Dogs" ? "is-active" : "")"
+       asp-controller="Dogs" asp-action="Index">
+        <span class="app-bottom-nav__icon" aria-hidden="true"><i class="bi bi-shield-fill"></i></span>
+        <span>Psi</span>
+    </a>
+    <a class="app-bottom-nav__item @(controller == "Walks" ? "is-active" : "")"
+       asp-controller="Walks" asp-action="Index">
+        <span class="app-bottom-nav__icon" aria-hidden="true"><i class="bi bi-signpost-2-fill"></i></span>
+        <span>Sprehodi</span>
+    </a>
+    <a class="app-bottom-nav__item @(controller == "Home" && action == "Community" ? "is-active" : "")"
+       asp-controller="Home" asp-action="Community">
+        <span class="app-bottom-nav__icon" aria-hidden="true"><i class="bi bi-hearts"></i></span>
+        <span>Skupnost</span>
+    </a>
+    <a class="app-bottom-nav__item @(controller == "Home" && action == "UserProfile" ? "is-active" : "")"
+       href="@profileUrl">
+        <span class="app-bottom-nav__icon" aria-hidden="true"><i class="bi bi-person-heart"></i></span>
+        <span>Profil</span>
+    </a>
+</nav>

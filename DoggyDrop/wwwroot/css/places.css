@@ -28,7 +28,18 @@
 .places-location { margin-top: 24px; padding-top: 20px; border-top: 1px solid #dbe7e0; }
 .places-location__head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; }
 .places-location__head p { margin: 0; color: #60736a; }
-.places-picker-map { height: 320px; width: 100%; border: 1px solid #c9d9ce; border-radius: 6px; }
+.places-picker-map { position: relative; height: 320px; width: 100%; max-width: 100%; overflow: hidden; border: 1px solid #c9d9ce; border-radius: 6px; }
+.places-picker-map .leaflet-pane,
+.places-picker-map .leaflet-tile,
+.places-picker-map .leaflet-marker-icon,
+.places-picker-map .leaflet-marker-shadow,
+.places-picker-map .leaflet-tile-container,
+.places-picker-map .leaflet-pane > svg,
+.places-picker-map .leaflet-pane > canvas,
+.places-picker-map .leaflet-zoom-box,
+.places-picker-map .leaflet-image-layer,
+.places-picker-map .leaflet-layer { position: absolute; left: 0; top: 0; }
+.places-picker-map .leaflet-tile { width: 256px; height: 256px; }
 .places-location__status { min-height: 20px; margin: 8px 0 14px; font-size: .87rem; color: #31584b; }
 .places-form__actions { display: flex; justify-content: flex-end; margin-top: 22px; }
 .places-back { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; color: #246e52; text-decoration: none; }
@@ -51,4 +62,8 @@
     .places-field--wide { grid-column: auto; }
     .places-details__media { aspect-ratio: 4 / 3; }
     .places-details__actions .places-button { flex: 1 1 auto; }
+}
+@media (min-width: 1024px) {
+    .places-page { padding-bottom: 40px; }
+    .places-admin { max-width: 1080px; }
 }

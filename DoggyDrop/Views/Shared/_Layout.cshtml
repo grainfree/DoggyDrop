@@ -21,6 +21,9 @@
         : "/Identity/Account/Login";
     var displayName = isSignedIn ? (UserManager.GetUserName(User) ?? "Profil") : "Gost";
     var displayInitial = string.IsNullOrWhiteSpace(displayName) ? "D" : displayName.Substring(0, 1).ToUpperInvariant();
+    var desktopNavigationClass = "app-desktop-nav";
+    var mobileNavigationClass = "app-bottom-nav";
+    ViewData["PrimaryNavigationProfileUrl"] = profileUrl;
 }
 
 <!DOCTYPE html>
@@ -60,12 +63,14 @@
 
 
 
-<body class="app-shell">
+<body class="app-shell @(controller == "Map" && action == "Index" ? "app-shell--map-home" : "")">
     <header class="app-topbar">
-        <nav class="app-topbar__inner" aria-label="DoggyDrop glava">
+        <div class="app-topbar__inner">
             <a class="app-brand" asp-area="" asp-controller="Map" asp-action="Index" aria-label="DoggyDrop domov">
                 <img src="~/images/logo_transparent.png" alt="" class="app-logo" />
             </a>
+
+            <partial name="_PrimaryNavigation" model="desktopNavigationClass" />
 
             <div class="app-topbar__actions">
                 @if (isSignedIn)
@@ -108,8 +113,10 @@
                     <i class="bi bi-grid-3x3-gap-fill" aria-hidden="true"></i>
                 </button>
             </div>
-        </nav>
+        </div>
     </header>
+
+    <partial name="_PrimaryNavigation" model="mobileNavigationClass" />
 
     <aside class="offcanvas offcanvas-bottom app-menu-sheet" tabindex="-1" id="appMenu" aria-labelledby="appMenuLabel">
         <div class="app-menu-sheet__handle" aria-hidden="true"></div>
@@ -441,34 +448,6 @@
         </script>
     }
 
-    <nav class="app-bottom-nav" aria-label="Glavna navigacija">
-        <a class="app-bottom-nav__item @(controller == "Map" && action == "Index" ? "is-active" : "")"
-           asp-controller="Map" asp-action="Index">
-            <span class="app-bottom-nav__icon" aria-hidden="true"><i class="bi bi-house-heart-fill"></i></span>
-            <span>Domov</span>
-        </a>
-        <a class="app-bottom-nav__item @(controller == "Dogs" ? "is-active" : "")"
-           asp-controller="Dogs" asp-action="Index">
-            <span class="app-bottom-nav__icon" aria-hidden="true"><i class="bi bi-shield-fill"></i></span>
-            <span>Psi</span>
-        </a>
-        <a class="app-bottom-nav__item @(controller == "Walks" ? "is-active" : "")"
-           asp-controller="Walks" asp-action="Index">
-            <span class="app-bottom-nav__icon" aria-hidden="true"><i class="bi bi-signpost-2-fill"></i></span>
-            <span>Sprehodi</span>
-        </a>
-        <a class="app-bottom-nav__item @(controller == "Home" && action == "Community" ? "is-active" : "")"
-           asp-controller="Home" asp-action="Community">
-            <span class="app-bottom-nav__icon" aria-hidden="true"><i class="bi bi-hearts"></i></span>
-            <span>Skupnost</span>
-        </a>
-        <a class="app-bottom-nav__item @(controller == "Home" && action == "UserProfile" ? "is-active" : "")"
-           href="@profileUrl">
-            <span class="app-bottom-nav__icon" aria-hidden="true"><i class="bi bi-person-heart"></i></span>
-            <span>Profil</span>
-        </a>
-    </nav>
-    
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

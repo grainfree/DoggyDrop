@@ -84,4 +84,7 @@
         });
     });
     requestAnimationFrame(() => map.invalidateSize());
+    if (window.ResizeObserver) {
+        new window.ResizeObserver(() => map.invalidateSize({ pan: false })).observe(element);
+    }
 })();

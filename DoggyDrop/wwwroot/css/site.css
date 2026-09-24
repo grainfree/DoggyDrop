@@ -721,6 +721,10 @@ body {
   backdrop-filter: blur(14px);
 }
 
+.app-desktop-nav {
+  display: none;
+}
+
 .app-bottom-nav__item {
   display: flex;
   min-width: 0;
@@ -754,6 +758,51 @@ body {
 .app-bottom-nav__icon {
   font-size: 1.05rem;
   line-height: 1;
+}
+
+@media (min-width: 768px) {
+  .app-shell--map-home #pwaPrompt {
+    top: 150px !important;
+    right: auto !important;
+    bottom: auto !important;
+    left: 50% !important;
+    z-index: 970 !important;
+    max-width: 320px !important;
+    transform: translateX(-50%);
+  }
+}
+
+@media (min-width: 1024px) {
+  .app-topbar { height: 64px; }
+  .app-topbar__inner { position: relative; width: min(1320px, 100%); min-height: 64px; padding-inline: 24px; }
+  .app-bottom-nav { display: none; }
+  .app-desktop-nav {
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    display: flex;
+    min-height: 48px;
+    gap: 4px;
+    transform: translateX(-50%);
+  }
+  .app-desktop-nav .app-bottom-nav__item {
+    flex-direction: row;
+    min-height: 48px;
+    gap: 7px;
+    padding: 0 12px;
+    border-radius: 6px;
+    font-size: .84rem;
+  }
+  .app-desktop-nav .app-bottom-nav__item.is-active { transform: none; box-shadow: none; }
+  .app-desktop-nav .app-bottom-nav__item:focus-visible,
+  .app-topbar a:focus-visible,
+  .app-topbar button:focus-visible { outline: 2px solid var(--dd-primary); outline-offset: 2px; }
+  .app-content { padding-bottom: 0; }
+  .app-content.container { max-width: 1200px; }
+  .app-main--full { min-height: calc(100dvh - 64px); }
+  .app-content .app-page { max-width: 1120px; padding-bottom: 40px; }
+  .admin-bins-page { max-width: 1100px; }
+  #pwaPrompt { bottom: 20px !important; }
 }
 
 .app-page {

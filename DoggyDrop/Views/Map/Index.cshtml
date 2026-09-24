@@ -2,6 +2,7 @@
 @using System.Text.Json
 @inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
 @inject DoggyDrop.Services.IWeeklyGoalsService WeeklyGoalsService
+@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
 
 @{
     ViewData["Title"] = "Zemljevid";
@@ -56,6 +57,7 @@
     var homeWalkTrailJson = Html.Raw(JsonSerializer.Serialize(activeWalk?.Points?.OrderBy(point => point.RecordedAt).ThenBy(point => point.Id).Select(point => new[] { point.Latitude, point.Longitude }) ?? Enumerable.Empty<double[]>()));
     var homeWalkPlanJson = Html.Raw(JsonSerializer.Serialize(activeWalk?.PlannedWalk?.RoutePoints?.OrderBy(point => point.Order).Select(point => new[] { point.Latitude, point.Longitude }) ?? Enumerable.Empty<double[]>()));
     var debugGpsEnabled = Context.Request.Query["debugGps"].ToString() == "1";
+    var cartoBasemapKeyJson = Html.Raw(JsonSerializer.Serialize(Configuration["CartoBasemap:PublicApiKey"]));
     var quickStartDogId = ViewBag.QuickStartDogId as int?;
     var weeklyUserId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
     var weeklyGoals = !string.IsNullOrWhiteSpace(weeklyUserId) && !hasActiveWalk && !needsDogOnboarding && !showFirstWalkPrompt
@@ -3111,6 +3113,154 @@
             text-align: center;
         }
     }
+    .map-home-panel,
+    .map-nearby-content { display: contents; }
+
+    @@media (min-width: 1024px) {
+        #map { height: calc(100dvh - 64px); min-height: 0; }
+        #map .leaflet-control-attribution { margin: 0; max-width: min(360px, 38vw); }
+
+        .map-home-panel {
+            position: fixed;
+            top: 80px;
+            left: 20px;
+            z-index: 980;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: min(316px, 30vw);
+            max-height: calc(100dvh - 176px);
+            overflow-x: hidden;
+            overflow-y: auto;
+            overscroll-behavior: contain;
+        }
+        body.map-bin-navigation-active .map-home-panel { display: none; }
+        .map-home-panel .map-quick-intro,
+        .map-home-panel .map-first-walk-card,
+        .map-home-panel .map-first-dog-card,
+        .map-home-panel .map-founder-prompt {
+            position: static;
+            flex: 0 0 auto;
+            width: 100%;
+            max-width: none;
+            margin: 0;
+            transform: none;
+        }
+        .map-home-panel .map-quick-intro { padding: 16px; }
+        .map-home-panel .map-quick-intro h1 { font-size: 1.45rem; line-height: 1.12; }
+        .map-home-panel .map-founder-prompt { padding: 12px 14px; }
+        .map-home-panel .map-founder-prompt a { min-height: 44px; }
+
+        .map-explore-panel--nearby {
+            display: flex;
+            flex-direction: column;
+            top: 80px;
+            right: 20px;
+            width: 300px;
+            max-height: min(380px, calc(100dvh - 336px));
+            padding: 10px 12px;
+            overflow: hidden;
+        }
+        .map-explore-panel--nearby .map-explore-panel__header { flex: 0 0 auto; }
+        .map-explore-panel--nearby .map-nearby-content {
+            display: block;
+            flex: 0 1 auto;
+            min-height: 0;
+            overflow-y: auto;
+            overscroll-behavior: contain;
+        }
+        .map-explore-panel--nearby .map-explore-list,
+        .map-explore-panel--nearby .map-nearby-dogs__list {
+            max-height: none;
+            overflow: visible;
+        }
+        .map-community-heat.is-collapsed {
+            top: 80px;
+            right: 348px;
+        }
+        .map-community-heat:not(.is-collapsed) {
+            top: 80px;
+            right: 348px;
+            width: min(280px, calc(100vw - 680px));
+            max-height: calc(100dvh - 112px);
+        }
+        .map-explore-panel--nearby .map-explore-close,
+        .map-filter-close { width: 44px; height: 44px; }
+
+        .map-action-stack {
+            right: 20px;
+            bottom: 24px;
+            width: 220px;
+            gap: 6px;
+        }
+        .map-action-button {
+            grid-template-columns: 30px minmax(0, 1fr);
+            gap: 8px;
+            min-height: 46px;
+            padding: 6px 10px;
+            border-radius: 6px;
+            box-shadow: 0 6px 18px rgba(31, 45, 41, 0.14);
+        }
+        .map-action-button::after { content: none; }
+        .map-action-button__icon { width: 28px; height: 28px; border-radius: 5px; }
+        .map-action-button > span:not(.map-action-button__icon) { justify-self: start; text-align: left; }
+        .map-action-button--primary { background: #24695a; }
+        .map-action-button:focus-visible,
+        .map-filter-toggle:focus-visible,
+        .map-filter-close:focus-visible,
+        .map-explore-panel button:focus-visible,
+        .map-home-panel a:focus-visible {
+            outline: 2px solid #24695a;
+            outline-offset: 2px;
+        }
+
+        .map-filter-toggle,
+        .map-filter-panel { left: 20px; }
+        .map-filter-toggle { bottom: 24px; border-radius: 6px; }
+        .map-filter-panel { bottom: 82px; }
+        .map-status-pill {
+            top: auto;
+            bottom: 24px;
+            left: 104px;
+            max-width: min(320px, calc(100vw - 460px));
+            padding: 9px 12px;
+            border-radius: 6px;
+            font-size: .78rem;
+            transform: none;
+        }
+
+        .map-active-walk-sheet {
+            bottom: 24px;
+            width: min(400px, calc(100vw - 640px));
+            max-height: calc(100dvh - 100px);
+            overflow-y: auto;
+            border-radius: 8px;
+        }
+        body.map-walk-active .map-active-walk-sheet.is-expanded { max-height: calc(100dvh - 100px); }
+        #directionsPanel.directions-panel--active-walk {
+            left: 20px;
+            bottom: 82px;
+            width: 280px;
+            max-width: 280px;
+            max-height: calc(100dvh - 180px);
+            overflow-y: auto;
+            transform: none;
+        }
+        body.map-bin-navigation-active #directionsPanel,
+        body.map-bin-navigation-active #directionsPanel.directions-panel--active-walk {
+            left: 50%;
+            bottom: 24px;
+            width: min(380px, calc(100vw - 520px));
+            max-width: none;
+            transform: translateX(-50%);
+        }
+        .nearest-bin-preview { bottom: 24px; }
+        .map-explore-panel:not(.map-explore-panel--nearby) { bottom: 24px; max-height: calc(100dvh - 104px); }
+        .home-walk-recenter { top: 80px; }
+    }
+    @@media (min-width: 1024px) and (max-height: 560px) {
+        .map-action-stack { max-height: calc(100dvh - 220px); overflow-y: auto; }
+    }
 </style>
 
 @if (TempData["SuccessMessage"] != null)
@@ -3126,6 +3276,7 @@
     <button type="button" class="home-walk-recenter" onclick="recenterHomeWalk()" aria-label="Nazaj na mojo lokacijo" title="Nazaj na mojo lokacijo"><i class="bi bi-crosshair" aria-hidden="true"></i></button>
 }
 
+<div class="map-home-panel">
 @if (!hasActiveWalk && !needsDogOnboarding)
 {
 <section class="map-quick-intro" aria-label="DoggyDrop zemljevid">
@@ -3205,6 +3356,14 @@ else if (needsDogOnboarding)
         });
     </script>
 }
+
+<aside id="mapFounderPrompt" class="map-founder-prompt" hidden>
+    <span>Founder opportunity</span>
+    <strong>Be the first DoggyDrop Explorer here.</strong>
+    <p id="mapFounderPromptText">V tej okolici še ni potrjenega pasjega koša. Dodaj prvega in odpri območje za skupnost.</p>
+    <a asp-controller="Map" asp-action="Add">Dodaj prvi koš</a>
+</aside>
+</div>
 
 <aside id="filterPanel" class="map-filter-panel" hidden>
     <div class="map-filter-panel__header">
@@ -3425,13 +3584,6 @@ else if (needsDogOnboarding)
     <span>pasjih košev na zemljevidu</span>
 </div>
 
-<aside id="mapFounderPrompt" class="map-founder-prompt" hidden>
-    <span>Founder opportunity</span>
-    <strong>Be the first DoggyDrop Explorer here.</strong>
-    <p id="mapFounderPromptText">V tej okolici še ni potrjenega pasjega koša. Dodaj prvega in odpri območje za skupnost.</p>
-    <a asp-controller="Map" asp-action="Add">Dodaj prvi koš</a>
-</aside>
-
 <aside id="communityHeatPanel" class="map-community-heat is-collapsed" aria-expanded="false">
     <button type="button" id="communityHeatToggle" class="map-community-heat__toggle" aria-label="Prikaži utrip skupnosti">
         <span class="map-community-heat__icon" aria-hidden="true"><i class="bi bi-fire"></i></span>
@@ -3473,6 +3625,7 @@ else if (needsDogOnboarding)
         <h2>Blizu tebe</h2>
         <button type="button" class="map-explore-close" aria-label="Osveži predloge" onclick="locateAndSuggestWalks()"><i class="bi bi-arrow-clockwise"></i></button>
     </div>
+    <div class="map-nearby-content">
     <div id="nearbySuggestionsStatus" class="map-location-warning">DoggyDrop lahko iz tvoje lokacije pripravi hiter začetek sprehoda.</div>
     <div id="nearbySuggestionsList" class="map-explore-list"></div>
     <div class="map-nearby-dogs">
@@ -3483,6 +3636,7 @@ else if (needsDogOnboarding)
         <div id="nearbyDogsList" class="map-nearby-dogs__list">
             <div class="map-nearby-dogs__empty">Ko bo lokacija pripravljena, se bodo tukaj pokazali psi in hitra playdate povabila.</div>
         </div>
+    </div>
     </div>
 </aside>
 
@@ -3539,8 +3693,10 @@ else if (needsDogOnboarding)
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
             integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
             crossorigin=""></script>
+    <script src="~/js/map-basemap.js" asp-append-version="true"></script>
 
     <script>
+        const cartoBasemapKey = @cartoBasemapKeyJson;
         const bins = @binsJson;
         const managedPlaces = (@managedPlacesJson).filter(place => {
             const id = Number(place.id);
@@ -4037,19 +4193,7 @@ else if (needsDogOnboarding)
         function initMap() {
             map = L.map("map").setView([46.5547, 15.6459], 14);
 
-            L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png", {
-                subdomains: "abcd",
-                maxZoom: 20,
-                attribution: "&copy; OpenStreetMap contributors &copy; CARTO"
-            }).addTo(map);
-
-            L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png", {
-                subdomains: "abcd",
-                maxZoom: 20,
-                pane: "tilePane",
-                opacity: 0.72,
-                attribution: "&copy; OpenStreetMap contributors &copy; CARTO"
-            }).addTo(map);
+            DoggyDropBasemap.addTo(map, cartoBasemapKey, true);
 
             if (homeActiveWalkId > 0) {
                 homeWalkPlanLayer = L.polyline(homeWalkPlanPoints, { color: "#d97706", weight: 4, opacity: 0.8, dashArray: "8 8" }).addTo(map);
