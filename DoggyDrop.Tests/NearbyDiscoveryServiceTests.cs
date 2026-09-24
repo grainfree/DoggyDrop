@@ -49,8 +49,124 @@ public sealed class NearbyDiscoveryServiceTests : IDisposable
             Assert.Equal($"Bin:{bin.Id}", item.SourceKey);
             Assert.Equal("NewBinNearby", item.Type);
             Assert.Equal($"/Map?binId={bin.Id}", item.LinkUrl);
-            Assert.DoesNotContain("0,", item.Body);
+            Assert.Equal("Nov pasji koš v bližini", item.Title);
+            Assert.Equal("V tvojem izbranem območju je bil dodan nov pasji koš.", item.Body);
+            Assert.False(item.IsRead);
         });
+    }
+
+    [Theory]
+    [InlineData(1000)]
+    [InlineData(3000)]
+    [InlineData(5000)]
+    [InlineData(10000)]
+    public async Task SupportedRadii_UseExactDistanceAfterBoundingBox(int radiusMeters)
+    {
+        await SeedAsync("inside", "boundary", "outside");
+        await using var db = Context();
+        const double binLatitude = 46.05;
+        const double binLongitude = 14.51;
+        const double earthRadiusMeters = 6_371_000;
+        var insideLatitude = binLatitude + radiusMeters * 0.99 / earthRadiusMeters * 180 / Math.PI;
+        var outsideLongitude = binLongitude + radiusMeters * 1.01 /
+            (earthRadiusMeters * Math.Cos(binLatitude * Math.PI / 180)) * 180 / Math.PI;
+        db.NearbyDiscoveryPreferences.AddRange(
+            Preference("inside", insideLatitude, binLongitude, radiusMeters),
+            Preference("boundary", binLatitude + radiusMeters / earthRadiusMeters * 180 / Math.PI,
+                binLongitude, radiusMeters),
+            Preference("outside", binLatitude, outsideLongitude, radiusMeters));
+        await db.SaveChangesAsync();
+
+        Assert.True(NearbyDiscoveryService.DistanceMeters(binLatitude, binLongitude, insideLatitude, binLongitude) < radiusMeters);
+        Assert.True(NearbyDiscoveryService.DistanceMeters(binLatitude, binLongitude, binLatitude, outsideLongitude) > radiusMeters);
+        await new NearbyDiscoveryService(db).NotifyForApprovedBinAsync(new TrashBin
+        {
+            Id = radiusMeters, IsApproved = true, ApprovedAt = DateTime.UtcNow,
+            Latitude = binLatitude, Longitude = binLongitude
+        });
+
+        Assert.Equal(["boundary", "inside"],
+            (await db.UserNotifications.AsNoTracking().Select(item => item.UserId).ToListAsync())
+                .OrderBy(id => id).ToArray());
+    }
+
+    [Fact]
+    public async Task NoConfiguredLocation_ProducesNoNotification()
+    {
+        await SeedAsync("without-location");
+        await using var db = Context();
+        await new NearbyDiscoveryService(db).NotifyForApprovedBinAsync(new TrashBin
+        {
+            Id = 50, IsApproved = true, ApprovedAt = DateTime.UtcNow,
+            Latitude = 46.05, Longitude = 14.51
+        });
+
+        Assert.Empty(await db.UserNotifications.AsNoTracking().ToListAsync());
+    }
+
+    [Fact]
+    public async Task PrivacyZoneAtDifferentLocation_DoesNotAffectDiscoveryRecipients()
+    {
+        await SeedAsync("private", "without-zone");
+        await using var db = Context();
+        db.PrivacyZones.Add(new PrivacyZone
+        {
+            UserId = "private", Latitude = 47, Longitude = 15, RadiusMeters = 300
+        });
+        db.NearbyDiscoveryPreferences.AddRange(
+            Preference("private", 46.05, 14.51, 5000),
+            Preference("without-zone", 46.05, 14.51, 5000));
+        await db.SaveChangesAsync();
+
+        await new NearbyDiscoveryService(db).NotifyForApprovedBinAsync(new TrashBin
+        {
+            Id = 51, IsApproved = true, ApprovedAt = DateTime.UtcNow,
+            Latitude = 46.05, Longitude = 14.51
+        });
+
+        Assert.Equal(["private", "without-zone"],
+            (await db.UserNotifications.AsNoTracking().Select(item => item.UserId).ToListAsync())
+                .OrderBy(id => id).ToArray());
+    }
+
+    [Fact]
+    public async Task SettingChangesAffectFutureApprovals_AndDisablingPreservesHistory()
+    {
+        await SeedAsync("near");
+        await using var db = Context();
+        var preference = Preference("near", 46.05, 14.51, 1000);
+        db.NearbyDiscoveryPreferences.Add(preference);
+        await db.SaveChangesAsync();
+        var service = new NearbyDiscoveryService(db);
+        var approvalTime = DateTime.UtcNow;
+
+        await service.NotifyForApprovedBinAsync(new TrashBin
+        {
+            Id = 60, IsApproved = true, ApprovedAt = approvalTime,
+            Latitude = 46.07, Longitude = 14.51
+        });
+        Assert.Empty(await db.UserNotifications.AsNoTracking().ToListAsync());
+
+        preference.Latitude = 46.06;
+        preference.RadiusMeters = 3000;
+        await db.SaveChangesAsync();
+        Assert.Empty(await db.UserNotifications.AsNoTracking().ToListAsync());
+
+        await service.NotifyForApprovedBinAsync(new TrashBin
+        {
+            Id = 61, IsApproved = true, ApprovedAt = approvalTime.AddSeconds(1),
+            Latitude = 46.07, Longitude = 14.51
+        });
+        Assert.Equal("Bin:61", (await db.UserNotifications.AsNoTracking().SingleAsync()).SourceKey);
+
+        db.NearbyDiscoveryPreferences.Remove(preference);
+        await db.SaveChangesAsync();
+        await service.NotifyForApprovedBinAsync(new TrashBin
+        {
+            Id = 62, IsApproved = true, ApprovedAt = approvalTime.AddSeconds(2),
+            Latitude = 46.07, Longitude = 14.51
+        });
+        Assert.Equal("Bin:61", (await db.UserNotifications.AsNoTracking().SingleAsync()).SourceKey);
     }
 
     [Fact]
