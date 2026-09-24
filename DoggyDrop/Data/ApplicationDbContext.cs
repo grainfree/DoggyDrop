@@ -16,6 +16,8 @@ namespace DoggyDrop.Data
 
         public DbSet<TrashBin> TrashBins { get; set; }
 
+        public DbSet<Place> Places { get; set; }
+
         public DbSet<Dog> Dogs { get; set; }
 
         public DbSet<Walk> Walks { get; set; }
@@ -87,6 +89,9 @@ namespace DoggyDrop.Data
             builder.Entity<Friendship>()
                 .HasIndex(f => new { f.RequesterId, f.AddresseeId })
                 .IsUnique();
+
+            builder.Entity<Place>()
+                .HasIndex(place => new { place.IsActive, place.Category });
 
             builder.Entity<UserNotification>()
                 .HasOne(n => n.User)

@@ -1,0 +1,18 @@
+@model DoggyDrop.ViewModels.PlaceInput
+@{ ViewData["Title"] = "Dodaj lokacijo"; }
+@section Styles {
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIINfQXh6ULpR5txR9wra5I3BcVsTPY1p3A=" crossorigin="" />
+    <link rel="stylesheet" href="~/css/places.css" asp-append-version="true" />
+}
+<main class="places-page places-admin">
+    <header class="places-page__header"><div><span class="places-eyebrow">Upravljanje</span><h1>Dodaj lokacijo</h1></div><a asp-action="Index">Nazaj na seznam</a></header>
+    <form asp-action="Create" method="post" class="places-form">
+        @Html.AntiForgeryToken()
+        <partial name="_Form" model="Model" />
+        <div class="places-form__actions"><button type="submit" class="places-button places-button--primary">Shrani lokacijo</button></div>
+    </form>
+</main>
+@section Scripts {
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="~/js/place-editor.js" asp-append-version="true"></script>
+}

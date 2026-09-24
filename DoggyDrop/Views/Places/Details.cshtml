@@ -1,0 +1,40 @@
+@model DoggyDrop.ViewModels.PlaceDetailsViewModel
+@using DoggyDrop.Models
+@{ ViewData["Title"] = Model.Name; }
+@section Styles {
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIINfQXh6ULpR5txR9wra5I3BcVsTPY1p3A=" crossorigin="" />
+    <link rel="stylesheet" href="~/css/places.css" asp-append-version="true" />
+}
+<main class="places-page places-details">
+    <a class="places-back" asp-controller="Map" asp-action="Index"><i class="bi bi-arrow-left" aria-hidden="true"></i> Zemljevid</a>
+    @if (!string.IsNullOrWhiteSpace(Model.ImageUrl))
+    {
+        <div class="places-details__media">
+            <img src="@Model.ImageUrl" alt="@Model.Name" loading="lazy" referrerpolicy="no-referrer" />
+            <div class="places-details__media-fallback" role="img" aria-label="Fotografija ni na voljo" hidden>
+                <i class="bi @(Model.Category == PlaceCategory.Veterinarian ? "bi-heart-pulse-fill" : "bi-bag-fill")" aria-hidden="true"></i>
+                <span>Fotografija ni na voljo</span>
+            </div>
+        </div>
+    }
+    <header class="places-details__header">
+        <span class="places-eyebrow">@Model.CategoryLabel</span>
+        <h1>@Model.Name</h1>
+        @if (!string.IsNullOrWhiteSpace(Model.Address)) { <p>@Model.Address</p> }
+    </header>
+    <div class="places-details__actions">
+        <a class="places-button places-button--primary" asp-controller="Map" asp-action="Index" asp-route-placeId="@Model.Id" asp-route-navigate="1"><i class="bi bi-signpost-2" aria-hidden="true"></i> Navodila za pot</a>
+        @if (Model.TelephoneHref != null) { <a class="places-button" href="@Model.TelephoneHref"><i class="bi bi-telephone" aria-hidden="true"></i> Pokliči</a> }
+        @if (Model.WebsiteUrl != null) { <a class="places-button" href="@Model.WebsiteUrl" target="_blank" rel="noopener noreferrer"><i class="bi bi-box-arrow-up-right" aria-hidden="true"></i> Spletna stran</a> }
+    </div>
+    <div class="places-details__information">
+        @if (!string.IsNullOrWhiteSpace(Model.OpeningHours)) { <section><h2>Delovni čas</h2><p>@Model.OpeningHours</p></section> }
+        @if (!string.IsNullOrWhiteSpace(Model.Description)) { <section><h2>O lokaciji</h2><p>@Model.Description</p></section> }
+        @if (!string.IsNullOrWhiteSpace(Model.Phone) && Model.TelephoneHref == null) { <section><h2>Telefon</h2><p>@Model.Phone</p></section> }
+    </div>
+    <div id="placeDetailsMap" class="places-details__map" data-latitude="@Model.Latitude.ToString(System.Globalization.CultureInfo.InvariantCulture)" data-longitude="@Model.Longitude.ToString(System.Globalization.CultureInfo.InvariantCulture)" aria-label="Lokacija na zemljevidu"></div>
+</main>
+@section Scripts {
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="~/js/place-details.js" asp-append-version="true"></script>
+}

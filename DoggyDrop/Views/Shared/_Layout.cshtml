@@ -168,6 +168,10 @@
                     </a>
                     @if (User.IsInRole("Admin"))
                     {
+                        <a asp-controller="AdminPlaces" asp-action="Index">
+                            <strong>Lokacije</strong>
+                            <span>Upravljanje</span>
+                        </a>
                         <a asp-controller="Map" asp-action="Manage">
                             <strong>Admin</strong>
                             <span>@pendingAdminBinCount v čakalni vrsti</span>

@@ -1,0 +1,64 @@
+@model IReadOnlyList<DoggyDrop.Models.Place>
+@using DoggyDrop.Models
+@using DoggyDrop.Services
+@{
+    ViewData["Title"] = "Lokacije";
+    var state = ViewBag.State as string;
+    var category = ViewBag.Category as PlaceCategory?;
+}
+@section Styles { <link rel="stylesheet" href="~/css/places.css" asp-append-version="true" /> }
+
+<main class="places-page places-admin">
+    <header class="places-page__header">
+        <div><span class="places-eyebrow">Upravljanje</span><h1>Lokacije</h1></div>
+        <a class="places-button places-button--primary" asp-action="Create"><i class="bi bi-plus-lg" aria-hidden="true"></i> Dodaj lokacijo</a>
+    </header>
+    @if (TempData["PlaceSuccess"] is string success)
+    {
+        <p class="places-feedback" role="status">@success</p>
+    }
+    <form method="get" class="places-filters">
+        <label>Stanje
+            <select name="state">
+                <option value="" selected="@(string.IsNullOrEmpty(state))">Vse</option>
+                <option value="active" selected="@(state == "active")">Aktivne</option>
+                <option value="inactive" selected="@(state == "inactive")">Neaktivne</option>
+            </select>
+        </label>
+        <label>Kategorija
+            <select name="category">
+                <option value="" selected="@(category == null)">Vse</option>
+                <option value="1" selected="@(category == PlaceCategory.Veterinarian)">Veterinar</option>
+                <option value="2" selected="@(category == PlaceCategory.PetShop)">Trgovina za male živali</option>
+            </select>
+        </label>
+        <button type="submit" class="places-button">Filtriraj</button>
+    </form>
+    @if (Model.Count == 0)
+    {
+        <p class="places-empty">Ni lokacij za izbrani filter.</p>
+    }
+    else
+    {
+        <div class="places-admin-list">
+            @foreach (var place in Model)
+            {
+                <article class="places-admin-row">
+                    <div class="places-admin-row__info">
+                        <strong>@place.Name</strong>
+                        <span>@PlaceCategories.Label(place.Category) · @(place.IsActive ? "Aktivno" : "Neaktivno")</span>
+                        <small>@(string.IsNullOrWhiteSpace(place.Address) ? "Brez naslova · lokacija je določena na zemljevidu" : place.Address)</small>
+                    </div>
+                    <div class="places-admin-row__actions">
+                        <a class="places-button" asp-action="Edit" asp-route-id="@place.Id">Uredi</a>
+                        <form asp-action="SetActive" asp-route-id="@place.Id" method="post">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="isActive" value="@(!place.IsActive ? "true" : "false")" />
+                            <button type="submit" class="places-button">@(place.IsActive ? "Deaktiviraj" : "Aktiviraj")</button>
+                        </form>
+                    </div>
+                </article>
+            }
+        </div>
+    }
+</main>

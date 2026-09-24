@@ -1,0 +1,59 @@
+@model DoggyDrop.ViewModels.PlaceInput
+
+<div asp-validation-summary="ModelOnly" class="places-validation" role="alert"></div>
+<div class="places-form-grid">
+    <label class="places-field">Ime *
+        <input asp-for="Name" maxlength="120" required />
+        <span asp-validation-for="Name"></span>
+    </label>
+    <label class="places-field">Kategorija *
+        <select asp-for="Category" required>
+            <option value="0">Izberi kategorijo</option>
+            <option value="1">Veterinar</option>
+            <option value="2">Trgovina za male živali</option>
+        </select>
+        <span asp-validation-for="Category"></span>
+    </label>
+    <label class="places-field">Naslov
+        <input asp-for="Address" maxlength="180" />
+        <span asp-validation-for="Address"></span>
+    </label>
+    <label class="places-field">Telefon
+        <input asp-for="Phone" type="tel" maxlength="40" />
+        <span asp-validation-for="Phone"></span>
+    </label>
+    <label class="places-field">Spletna stran
+        <input asp-for="WebsiteUrl" type="url" maxlength="500" placeholder="https://" />
+        <span asp-validation-for="WebsiteUrl"></span>
+    </label>
+    <label class="places-field">Delovni čas
+        <input asp-for="OpeningHours" maxlength="240" />
+        <span asp-validation-for="OpeningHours"></span>
+    </label>
+    <label class="places-field places-field--wide">URL slike (HTTPS)
+        <input asp-for="ImageUrl" type="url" maxlength="500" placeholder="https://" />
+        <span asp-validation-for="ImageUrl"></span>
+    </label>
+    <label class="places-field places-field--wide">Opis
+        <textarea asp-for="Description" maxlength="2000" rows="4"></textarea>
+        <span asp-validation-for="Description"></span>
+    </label>
+</div>
+<section class="places-location" aria-labelledby="placeLocationTitle">
+    <div class="places-location__head">
+        <div><h2 id="placeLocationTitle">Lokacija na zemljevidu *</h2><p>Dotakni se zemljevida, da določiš točko.</p></div>
+        <button id="placeUseLocation" type="button" class="places-button"><i class="bi bi-crosshair" aria-hidden="true"></i> Trenutna lokacija</button>
+    </div>
+    <div id="placePickerMap" class="places-picker-map" aria-label="Izberi lokacijo na zemljevidu"></div>
+    <p id="placePickerStatus" class="places-location__status" role="status"></p>
+    <div class="places-form-grid">
+        <label class="places-field">Zemljepisna širina *
+            <input asp-for="Latitude" type="number" step="any" min="-90" max="90" required />
+            <span asp-validation-for="Latitude"></span>
+        </label>
+        <label class="places-field">Zemljepisna dolžina *
+            <input asp-for="Longitude" type="number" step="any" min="-180" max="180" required />
+            <span asp-validation-for="Longitude"></span>
+        </label>
+    </div>
+</section>

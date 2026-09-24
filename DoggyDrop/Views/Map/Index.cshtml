@@ -30,6 +30,8 @@
     );
 
     var binsJson = Html.Raw(json);
+    var managedPlaces = (IReadOnlyList<DoggyDrop.ViewModels.PlaceMapItem>?)ViewBag.ManagedPlaces ?? [];
+    var managedPlacesJson = Html.Raw(JsonSerializer.Serialize(managedPlaces, new JsonSerializerOptions(JsonSerializerDefaults.Web)));
     var myDogsJson = Html.Raw(JsonSerializer.Serialize(ViewBag.MyDogs ?? Array.Empty<object>()));
     var parkLocationsJson = Html.Raw(JsonSerializer.Serialize(
         ((IEnumerable<DoggyDrop.Services.ParkLocation>?)ViewBag.ParkLocations ?? [])
@@ -68,6 +70,16 @@
 }
 
 <style>
+    .managed-place-pin { display: grid; place-items: center; width: 38px; height: 38px; border: 3px solid #fff; border-radius: 50%; box-shadow: 0 2px 8px rgba(13, 38, 31, .34); color: #fff; font-size: 1.1rem; }
+    .managed-place-pin--veterinarian { background: #18825c; }
+    .managed-place-pin--pet-shop { background: #226c76; }
+    .managed-place-popup { min-width: 180px; max-width: 240px; }
+    .managed-place-popup__category { display: block; color: #367059; font-size: .73rem; font-weight: 800; text-transform: uppercase; }
+    .managed-place-popup strong { display: block; margin: 3px 0 6px; font-size: 1rem; line-height: 1.25; overflow-wrap: anywhere; }
+    .managed-place-popup p { margin: 0 0 10px; color: #586e64; overflow-wrap: anywhere; }
+    .managed-place-popup__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .managed-place-popup__actions a, .managed-place-popup__actions button { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 6px 10px; border: 1px solid #c4d5c9; border-radius: 5px; background: #fff; color: #1e6249; font-weight: 750; text-decoration: none; cursor: pointer; }
+
     .leaflet-container {
         overflow: hidden;
         background: #ddd;
@@ -3530,11 +3542,18 @@ else if (needsDogOnboarding)
 
     <script>
         const bins = @binsJson;
+        const managedPlaces = (@managedPlacesJson).filter(place => {
+            const id = Number(place.id);
+            const lat = Number(place.latitude);
+            const lng = Number(place.longitude);
+            return Number.isSafeInteger(id) && id > 0 && Number.isFinite(lat) && Number.isFinite(lng) &&
+                Math.abs(lat) <= 90 && Math.abs(lng) <= 180 && (place.category === 1 || place.category === 2);
+        });
         const requestVerificationToken = @Html.Raw(JsonSerializer.Serialize(requestVerificationToken));
         let map;
         let userMarker;
         const navigation = {
-            active: false, destination: null, position: null, routeLayer: null,
+            active: false, destination: null, destinationType: "generic", position: null, routeLayer: null,
             distanceMeters: null, routeStatus: "loading", followUser: false,
             lastAttemptedPosition: null, lastSuccessfulPosition: null,
             requestSequence: 0, abortController: null, routePending: false,
@@ -3546,6 +3565,7 @@ else if (needsDogOnboarding)
         const navigationArrivalMeters = 30;
         const navigationRetryDelaysMs = [8000, 16000];
         let binLayer;
+        let managedPlaceLayer;
         let dogLayer;
         let parkLayer;
         let waterLayer;
@@ -4048,9 +4068,14 @@ else if (needsDogOnboarding)
                 });
                 binMarkers.set(Number(bin.id), marker);
             });
+            managedPlaceLayer = buildManagedPlaceLayer(managedPlaces).addTo(map);
             const linkedBinId = Number(new URLSearchParams(window.location.search).get("binId"));
             const linkedBin = Number.isSafeInteger(linkedBinId) && linkedBinId > 0
                 ? bins.find(bin => Number(bin.id) === linkedBinId)
+                : null;
+            const linkedPlaceId = Number(new URLSearchParams(window.location.search).get("placeId"));
+            const linkedManagedPlace = !linkedBin && Number.isSafeInteger(linkedPlaceId) && linkedPlaceId > 0
+                ? managedPlaces.find(place => Number(place.id) === linkedPlaceId)
                 : null;
 
             parkLayer = buildPlaceLayer(placeGroups.parks);
@@ -4066,11 +4091,15 @@ else if (needsDogOnboarding)
 
             if (linkedBin) {
                 map.setView([linkedBin.latitude, linkedBin.longitude], 16, { animate: false });
+            } else if (linkedManagedPlace) {
+                map.setView([linkedManagedPlace.latitude, linkedManagedPlace.longitude], 16, { animate: false });
             } else if (homeActiveWalkId > 0) {
                 frameHomeWalk();
             } else if (bins.length > 0) {
                 const bounds = L.latLngBounds(bins.map(bin => [bin.latitude, bin.longitude]));
                 map.fitBounds(bounds.pad(0.2), { maxZoom: 16 });
+            } else if (managedPlaces.length > 0) {
+                map.fitBounds(L.latLngBounds(managedPlaces.map(place => [place.latitude, place.longitude])).pad(0.2), { maxZoom: 16 });
             }
 
             requestAnimationFrame(() => {
@@ -4081,11 +4110,18 @@ else if (needsDogOnboarding)
                         document.getElementById("showBins").checked = true;
                     }
                     openBinDetail(linkedBin);
+                } else if (linkedManagedPlace) {
+                    const marker = managedPlaceLayer.getLayers().find(layer => Number(layer.options.placeId) === linkedPlaceId);
+                    if (new URLSearchParams(window.location.search).get("navigate") === "1")
+                        navigateToManagedPlaceInApp(linkedPlaceId);
+                    else marker?.openPopup();
                 } else if (homeActiveWalkId > 0) {
                     if (homeWalkCamera.follow) frameHomeWalk();
                 } else if (bins.length > 0) {
                     const bounds = L.latLngBounds(bins.map(bin => [bin.latitude, bin.longitude]));
                     map.fitBounds(bounds.pad(0.2), { maxZoom: 16 });
+                } else if (managedPlaces.length > 0) {
+                    map.fitBounds(L.latLngBounds(managedPlaces.map(place => [place.latitude, place.longitude])).pad(0.2), { maxZoom: 16 });
                 }
             });
 
@@ -4265,6 +4301,34 @@ else if (needsDogOnboarding)
                 `).join("");
             } catch {
             }
+        }
+
+        function buildManagedPlaceLayer(places) {
+            const layer = L.layerGroup();
+            places.forEach(place => {
+                const id = Number(place.id);
+                const lat = Number(place.latitude);
+                const lng = Number(place.longitude);
+                if (!Number.isSafeInteger(id) || id <= 0 || !Number.isFinite(lat) || !Number.isFinite(lng) ||
+                    Math.abs(lat) > 90 || Math.abs(lng) > 180) return;
+                const veterinarian = place.category === 1;
+                const label = veterinarian ? "Veterinar" : "Trgovina za male živali";
+                const icon = L.divIcon({
+                    className: "", iconSize: [38, 38], iconAnchor: [19, 19],
+                    html: `<span class="managed-place-pin managed-place-pin--${veterinarian ? "veterinarian" : "pet-shop"}"><i class="bi ${veterinarian ? "bi-heart-pulse-fill" : "bi-bag-fill"}" aria-hidden="true"></i></span>`
+                });
+                L.marker([lat, lng], { icon, placeId: id }).addTo(layer).bindPopup(`
+                    <div class="managed-place-popup">
+                        <span class="managed-place-popup__category">${label}</span>
+                        <strong>${escapeHtml(place.name)}</strong>
+                        ${place.address ? `<p>${escapeHtml(place.address)}</p>` : ""}
+                        <div class="managed-place-popup__actions">
+                            <a href="/Places/Details/${id}">Podrobnosti</a>
+                            <button type="button" onclick="navigateToManagedPlaceInApp(${id})">Navodila za pot</button>
+                        </div>
+                    </div>`);
+            });
+            return layer;
         }
 
         function buildPlaceLayer(places) {
@@ -5098,14 +5162,20 @@ else if (needsDogOnboarding)
             });
         }
 
-        function navigateToPlaceInApp(latitude, longitude) {
+        function navigateToManagedPlaceInApp(id) {
+            const place = managedPlaces.find(item => Number(item.id) === Number(id));
+            if (!place) return;
+            navigateToPlaceInApp(place.latitude, place.longitude, place.name, "place");
+        }
+
+        function navigateToPlaceInApp(latitude, longitude, name = null, destinationType = "generic") {
             const allPlaces = getExploreItems();
             const place = allPlaces.find(item =>
                 Math.abs(Number(item.latitude) - Number(latitude)) < 0.000001 &&
                 Math.abs(Number(item.longitude) - Number(longitude)) < 0.000001);
             const target = {
                 id: 0,
-                name: place?.name || "Izbrana lokacija",
+                name: name || place?.name || "Izbrana lokacija",
                 latitude,
                 longitude,
                 imageUrl: "",
@@ -5114,7 +5184,7 @@ else if (needsDogOnboarding)
 
             const beginNavigation = () => {
                 map.closePopup();
-                startInAppBinNavigation(0, target);
+                startInAppBinNavigation(0, target, destinationType);
             };
 
             if (userLocation) {
@@ -5149,7 +5219,15 @@ else if (needsDogOnboarding)
             });
         }
 
-        async function startInAppBinNavigation(binId, providedBin = null) {
+        function navigationDestinationType(type) {
+            return type === "bin" || type === "place" ? type : "generic";
+        }
+
+        function navigationHeading(type) {
+            return type === "bin" ? "NAVIGACIJA DO KOŠA" : "NAVIGACIJA DO LOKACIJE";
+        }
+
+        async function startInAppBinNavigation(binId, providedBin = null, destinationType = "bin") {
             const bin = providedBin || bins.find(item => Number(item.id ?? item.Id) === Number(binId));
             if (!bin || !userLocation) {
                 return;
@@ -5167,20 +5245,21 @@ else if (needsDogOnboarding)
             try {
             navigation.active = true;
             navigation.destination = bin;
+            navigation.destinationType = navigationDestinationType(destinationType);
             navigation.position = { ...userLocation };
             navigation.followUser = true;
-            navigation.previousLayers = [binLayer, parkLayer, waterLayer, cafeLayer, dogLayer, communityLayer]
+            navigation.previousLayers = [binLayer, managedPlaceLayer, parkLayer, waterLayer, cafeLayer, dogLayer, communityLayer]
                 .filter(layer => map.hasLayer(layer));
             const filterPanel = document.getElementById("filterPanel");
             const filterToggle = document.getElementById("filterToggle");
             navigation.previousFilterState = { panelOpen: !filterPanel.hidden, toggleHidden: filterToggle.hidden };
             closeFilterPanel();
-            [binLayer, parkLayer, waterLayer, cafeLayer, dogLayer, communityLayer].forEach(layer => map.removeLayer(layer));
+            [binLayer, managedPlaceLayer, parkLayer, waterLayer, cafeLayer, dogLayer, communityLayer].forEach(layer => map.removeLayer(layer));
             setBinNavigationMode(true);
             navigation.destinationMarker = L.marker([lat, lng], {
                 icon: L.divIcon({ className: "", html: '<span class="navigation-destination-icon"><i class="bi bi-geo-alt-fill" aria-hidden="true"></i></span>', iconSize: [40, 40], iconAnchor: [20, 40] }),
                 zIndexOffset: 1000
-            }).addTo(map).bindTooltip(bin.name || bin.Name || "Cilj", { direction: "top" });
+            }).addTo(map).bindTooltip(escapeHtml(bin.name || bin.Name || "Cilj"), { direction: "top" });
             updateDirectionsPanelForNavigation();
             requestNavigationRoute(true);
             if (navigator.geolocation && window.isSecureContext) {
@@ -5262,6 +5341,7 @@ else if (needsDogOnboarding)
             }
             navigation.active = false;
             navigation.destination = null;
+            navigation.destinationType = "generic";
             navigation.position = null;
             navigation.routeLayer = null;
             navigation.destinationMarker = null;
@@ -5390,13 +5470,15 @@ else if (needsDogOnboarding)
             const distance = navigation.distanceMeters;
             const eta = !approximate && Number.isFinite(distance) ? `~${Math.max(1, Math.round(distance / 82))} min hoje` : "Čas hoje ni na voljo";
             const distanceLabel = Number.isFinite(distance) ? formatDistance(distance) : "Računam razdaljo";
-            const routeNote = navigation.arrived ? (Number(bin.id ?? bin.Id) === 0 ? "Prispel si na cilj" : "Prispel si do koša") : navigation.gpsStatus ??
+            const routeNote = navigation.arrived ? (navigation.destinationType === "bin" ? "Prispel si do koša" : "Prispel si na cilj") : navigation.gpsStatus ??
                 (approximate ? "Le približna smer in zračna razdalja; preveri prehodnost poti."
                     : navigation.routeStatus === "loading" ? "Računam pot ..." : "Razdalja po predlagani poti");
+            const heading = navigationHeading(navigation.destinationType);
+            const panelLabel = navigation.destinationType === "bin" ? "Navigacija do koša" : "Navigacija do lokacije";
             panel.style.display = "block";
             panel.innerHTML = `
-                <article class="navigation-card" aria-label="Navigacija">
-                    <small class="navigation-card__eyebrow">NAVIGACIJA DO KOŠA</small>
+                <article class="navigation-card" aria-label="${panelLabel}">
+                    <small class="navigation-card__eyebrow">${heading}</small>
                     <h3 class="navigation-card__title">${escapeHtml(bin.name || bin.Name || "Cilj")}</h3>
                     <div class="navigation-card__metrics"><strong>${distanceLabel}</strong><span>${approximate ? `zračna razdalja · ${eta}` : eta}</span></div>
                     <p class="navigation-card__status" role="status">${escapeHtml(routeNote)}</p>
