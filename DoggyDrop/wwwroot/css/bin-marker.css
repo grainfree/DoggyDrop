@@ -1,32 +1,28 @@
 .map-bin-marker {
+    --bin-fill: #28745a;
     position: relative;
     display: grid;
-    width: 44px;
-    height: 52px;
+    width: 36px;
+    height: 36px;
+    margin: 4px;
     place-items: center;
-    border: 3px solid #ffffff;
-    border-radius: 22px 22px 22px 8px;
-    background: linear-gradient(145deg, #348171, #24695a);
-    box-shadow: 0 14px 26px rgba(31, 45, 41, 0.32);
-    color: #ffffff;
-    transform: rotate(-45deg);
+    border: 2px solid #fff;
+    border-radius: 12px;
+    background: var(--bin-fill);
+    box-shadow: 0 2px 6px rgba(20, 46, 34, .22);
+    color: #fff;
 }
 
-.map-bin-marker::before {
+.map-bin-marker::after {
     position: absolute;
-    inset: 7px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.16);
+    bottom: -7px;
+    left: 12px;
+    border: 4px solid transparent;
+    border-top-color: var(--bin-fill);
     content: "";
 }
 
-.map-bin-marker__icon {
-    position: relative;
-    z-index: 1;
-    width: 27px;
-    height: 27px;
-    transform: rotate(45deg) translateY(-1px);
-}
+.map-bin-marker__icon { width: 22px; height: 22px; }
 
 .map-bin-marker__lid,
 .map-bin-marker__body,
@@ -36,22 +32,26 @@
     stroke: currentColor;
     stroke-linecap: round;
     stroke-linejoin: round;
-    stroke-width: 2.4;
+    stroke-width: 2.5;
 }
 
-.map-bin-marker__paw { fill: currentColor; }
-
-.map-bin-marker__status {
+.map-bin-marker__status { display: none; }
+.map-bin-marker--full { --bin-fill: #a76627; }
+.map-bin-marker--missing { --bin-fill: #a9433a; }
+.map-bin-marker--full .map-bin-marker__status,
+.map-bin-marker--missing .map-bin-marker__status {
     position: absolute;
-    right: -5px;
-    bottom: 3px;
-    z-index: 2;
-    width: 14px;
-    height: 14px;
-    border: 3px solid #ffffff;
-    border-radius: 999px;
-    background: #f6b756;
+    right: -4px;
+    top: -4px;
+    display: block;
+    width: 10px;
+    height: 10px;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    background: var(--bin-fill);
 }
 
-.map-bin-marker--full { background: linear-gradient(145deg, #cf8842, #a95f27); }
-.map-bin-marker--missing { background: linear-gradient(145deg, #b84c4c, #893030); }
+.map-bin-marker--selected {
+    box-shadow: 0 0 0 3px #d9f2df, 0 3px 8px rgba(20, 46, 34, .27);
+    transform: scale(1.08);
+}

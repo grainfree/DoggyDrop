@@ -7,6 +7,12 @@ const vm = require("node:vm");
 const root = path.resolve(__dirname, "..", "..");
 const read = relative => fs.readFileSync(path.join(root, relative), "utf8");
 
+function loadPlaceMarker(L) {
+    const window = { L };
+    vm.runInNewContext(read("DoggyDrop/wwwroot/js/place-marker.js"), { window, URL });
+    return window.DoggyDropPlaceMarker;
+}
+
 function navigationFunction(source, name) {
     const match = source.match(new RegExp(`function ${name}\\(type\\) \\{([^{}]+)\\}`));
     assert.ok(match, `${name} exists`);
@@ -21,7 +27,7 @@ test("navigation headings keep bins distinct from Places and generic destination
     assert.equal(heading(normalize("place")), "NAVIGACIJA DO LOKACIJE");
     assert.equal(heading(normalize("generic")), "NAVIGACIJA DO LOKACIJE");
     assert.equal(heading(normalize("untrusted")), "NAVIGACIJA DO LOKACIJE");
-    assert.match(map, /navigateToPlaceInApp\(place\.latitude, place\.longitude, place\.name, "place"\)/);
+    assert.ok(map.includes('navigateToPlaceInApp(place.latitude, place.longitude, place.name, "place", place)'));
     assert.match(map, /startInAppBinNavigation\(0, target, destinationType\)/);
     assert.match(map, /escapeHtml\(bin\.name \|\| bin\.Name \|\| "Cilj"\)/);
     assert.match(map, /name: name \|\| place\?\.name \|\| "Izbrana lokacija"/);
@@ -141,18 +147,47 @@ test("Home Place markers and popups show safe logos without losing category fall
     const escapeEnd = map.indexOf("    </script>", escapeStart);
     assert.ok(buildStart > 0 && buildEnd > buildStart && escapeStart > 0 && escapeEnd > escapeStart);
 
+    let iconCreations = 0;
+    const classList = () => {
+        const values = new Set();
+        return {
+            add: value => values.add(value),
+            remove: value => values.delete(value),
+            contains: value => values.has(value)
+        };
+    };
     const L = {
         layerGroup: () => ({ markers: [] }),
-        divIcon: options => options,
-        marker: (coordinates, options) => ({
-            coordinates, options, handlers: {},
-            bindPopup(html) { this.popup = html; return this; },
-            on(event, handler) { this.handlers[event] = handler; return this; },
-            addTo(layer) { layer.markers.push(this); return this; }
-        })
+        divIcon: options => { iconCreations++; return options; },
+        marker: (coordinates, options) => {
+            const pin = { classList: classList() };
+            const src = options.icon.html.match(/src="([^"]+)"/)?.[1];
+            const image = src ? {
+                src, hidden: false, complete: true, naturalWidth: 40, dataset: {}, parentElement: pin,
+                listeners: {}, addEventListener(event, handler) { this.listeners[event] = handler; }
+            } : null;
+            const element = {
+                pin, image,
+                querySelector(selector) {
+                    return selector === ".managed-place-pin" ? pin
+                        : selector === ".managed-place-image" ? image : null;
+                }
+            };
+            return {
+                coordinates, options, element, handlers: {},
+                bindPopup(html) { this.popup = html; return this; },
+                on(event, handler) { this.handlers[event] = handler; return this; },
+                setIcon() { throw new Error("Popup selection must not rebuild the icon"); },
+                setZIndexOffset(value) { this.zIndexOffset = value; return this; },
+                getElement() { return this.element; },
+                getPopup() { return null; },
+                addTo(layer) { layer.markers.push(this); return this; }
+            };
+        }
     };
-    const build = new Function("L", "attachManagedPlaceImage",
-        `${map.slice(escapeStart, escapeEnd)}\n${map.slice(buildStart, buildEnd)}\nreturn buildManagedPlaceLayer;`)(L, () => {});
+    const placeMarker = loadPlaceMarker(L);
+    const build = new Function("L", "attachManagedPlaceImage", "DoggyDropPlaceMarker",
+        `${map.slice(escapeStart, escapeEnd)}\n${map.slice(buildStart, buildEnd)}\nreturn buildManagedPlaceLayer;`)(L, placeMarker.attachImage, placeMarker);
     const withLogo = build([{
         id: 1, name: "Mr.<Pet>", address: "<Unsafe> street", category: 2,
         latitude: 46.1, longitude: 15.1, imageUrl: "https://example.com/logo.png?x=1&y=2"
@@ -169,6 +204,24 @@ test("Home Place markers and popups show safe logos without losing category fall
     assert.doesNotMatch(withLogo.popup, /<Unsafe>/);
     assert.equal(typeof withLogo.handlers.add, "function");
     assert.equal(typeof withLogo.handlers.popupopen, "function");
+    const originalIcon = withLogo.options.icon;
+    const originalElement = withLogo.getElement();
+    const originalImage = originalElement.image;
+    const originalSrc = originalImage.src;
+    const initialIconCreations = iconCreations;
+    withLogo.handlers.add();
+    assert.equal(originalElement.pin.classList.contains("has-image"), true);
+    withLogo.handlers.popupopen();
+    assert.equal(originalElement.pin.classList.contains("managed-place-pin--selected"), true);
+    withLogo.handlers.popupclose();
+    assert.equal(originalElement.pin.classList.contains("managed-place-pin--selected"), false);
+    withLogo.handlers.popupopen();
+    assert.equal(withLogo.options.icon, originalIcon);
+    assert.equal(withLogo.getElement(), originalElement);
+    assert.equal(withLogo.getElement().image, originalImage);
+    assert.equal(originalImage.src, originalSrc);
+    assert.equal(iconCreations, initialIconCreations);
+    withLogo.handlers.popupclose();
 
     for (const imageUrl of [null, "javascript:alert(1)"]) {
         const fallback = build([{
@@ -177,15 +230,52 @@ test("Home Place markers and popups show safe logos without losing category fall
         assert.match(fallback.options.icon.html, /bi-heart-pulse-fill/);
         assert.doesNotMatch(fallback.options.icon.html, /<img/);
         assert.doesNotMatch(fallback.popup, /managed-place-popup__media/);
+        fallback.handlers.popupopen();
+        assert.equal(fallback.element.pin.classList.contains("managed-place-pin--selected"), true);
+        fallback.handlers.popupclose();
+        assert.equal(fallback.element.pin.classList.contains("managed-place-pin--selected"), false);
     }
+
+    const broken = build([{
+        id: 3, name: "Broken", category: 2, latitude: 46.1, longitude: 15.1,
+        imageUrl: "https://example.com/broken.png"
+    }]).markers[0];
+    broken.element.image.naturalWidth = 0;
+    broken.handlers.add();
+    const brokenImage = broken.element.image;
+    assert.equal(brokenImage.hidden, true);
+    broken.handlers.popupopen();
+    broken.handlers.popupclose();
+    assert.equal(broken.element.image, brokenImage);
+    assert.equal(brokenImage.hidden, true);
+    assert.equal(broken.element.pin.classList.contains("has-image"), false);
+
+    const other = build([{
+        id: 4, name: "Other", category: 1, latitude: 46.2, longitude: 15.2,
+        imageUrl: "https://example.com/other.png"
+    }]).markers[0];
+    const otherImage = other.element.image;
+    withLogo.handlers.popupopen();
+    withLogo.handlers.popupclose();
+    other.handlers.popupopen();
+    assert.equal(withLogo.element.pin.classList.contains("managed-place-pin--selected"), false);
+    assert.equal(other.element.pin.classList.contains("managed-place-pin--selected"), true);
+    assert.equal(withLogo.element.image, originalImage);
+    assert.equal(other.element.image, otherImage);
+    other.handlers.popupclose();
+    other.handlers.add();
+    other.handlers.popupopen();
+    assert.equal(other.element.pin.classList.contains("managed-place-pin--selected"), true);
+    assert.equal(other.element.image, otherImage);
+    other.element = null;
+    assert.doesNotThrow(() => {
+        other.handlers.popupclose();
+        other.handlers.popupopen();
+    });
 });
 
 test("Home Place image load and failure retain the category icon", () => {
-    const map = read("DoggyDrop/Views/Map/Index.cshtml");
-    const start = map.indexOf("        function attachManagedPlaceImage(container) {");
-    const end = map.indexOf("        function buildManagedPlaceLayer(places) {", start);
-    assert.ok(start > 0 && end > start);
-    const attach = new Function(`${map.slice(start, end)}\nreturn attachManagedPlaceImage;`)();
+    const attach = loadPlaceMarker({ divIcon: options => options }).attachImage;
     const image = (complete, naturalWidth) => {
         const classes = new Set();
         const listeners = {};
@@ -210,9 +300,9 @@ test("Home Place image load and failure retain the category icon", () => {
     assert.match(css, /\.managed-place-popup__media\.has-image/);
 });
 
-function runDetailsMap(category, latitude = "46.05", cartoKey = "") {
+function runDetailsMap(category, latitude = "46.05", cartoKey = "", imageUrl = "") {
     const observations = { maps: 0, layers: 0, markers: [], sizes: [], center: null, key: null, resize: null };
-    const element = { dataset: { latitude, longitude: "14.51", category, cartoBasemapKey: cartoKey } };
+    const element = { dataset: { latitude, longitude: "14.51", category, imageUrl, cartoBasemapKey: cartoKey } };
     const map = {
         setView(center) { observations.center = Array.from(center); return this; },
         invalidateSize(options) { observations.sizes.push(options); }
@@ -220,10 +310,11 @@ function runDetailsMap(category, latitude = "46.05", cartoKey = "") {
     const L = {
         map: () => { observations.maps++; return map; },
         divIcon: options => options,
-        marker: (position, options) => ({ addTo() { observations.markers.push({ position, options }); } })
+        marker: (position, options) => ({ addTo() { observations.markers.push({ position, options }); }, getElement() { return null; } })
     };
     const window = {
         L,
+        DoggyDropPlaceMarker: loadPlaceMarker(L),
         DoggyDropBasemap: { addTo(target, key) { assert.equal(target, map); observations.layers++; observations.key = key; } },
         ResizeObserver: class { constructor(callback) { observations.resize = callback; } observe(target) { assert.equal(target, element); } }
     };
@@ -252,6 +343,8 @@ test("Place Details map initializes once with guarded basemap and category marke
     }
     assert.equal(runDetailsMap("2", "NaN").maps, 0);
     assert.equal(runDetailsMap("2", "46.05", "public-test-key").key, "public-test-key");
+    assert.match(runDetailsMap("2", "46.05", "", "https://example.com/shop.png").markers[0].options.icon.html,
+        /src="https:\/\/example\.com\/shop\.png"/);
     assert.doesNotMatch(read("DoggyDrop/wwwroot/js/place-details.js"), /basemaps\.cartocdn\.com|L\.tileLayer\(/);
 });
 

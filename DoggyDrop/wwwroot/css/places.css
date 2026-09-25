@@ -41,11 +41,12 @@
 .places-leaflet-map .leaflet-layer { position: absolute; left: 0; top: 0; }
 .places-leaflet-map .leaflet-tile { width: 256px; height: 256px; max-width: none; }
 .places-picker-map { height: 320px; }
-.managed-place-pin { position: relative; display: grid; place-items: center; width: 38px; height: 38px; border: 3px solid #fff; border-radius: 50%; box-shadow: 0 2px 8px rgba(13, 38, 31, .34); color: #fff; font-size: 1.1rem; }
-.managed-place-pin--veterinarian { background: #18825c; }
-.managed-place-pin--pet-shop { background: #226c76; }
-.managed-place-pin__image { position: absolute; inset: 3px; width: calc(100% - 6px); height: calc(100% - 6px); border-radius: 50%; background: #fff; object-fit: contain; opacity: 0; }
+.managed-place-pin { position: relative; display: grid; place-items: center; width: 48px; height: 48px; margin: 2px; border: 3px solid #286b52; border-radius: 14px; background: #f5faf6; box-shadow: 0 3px 10px rgba(13, 38, 31, .24); color: #245d48; font-size: 1.3rem; }
+.managed-place-pin--veterinarian { border-color: #286b52; color: #286b52; }
+.managed-place-pin--pet-shop { border-color: #286f70; color: #286f70; }
+.managed-place-pin__image { position: absolute; inset: 5px; width: calc(100% - 10px); height: calc(100% - 10px); padding: 2px; border-radius: 8px; background: #fff; object-fit: contain; opacity: 0; }
 .managed-place-pin.has-image .managed-place-pin__image { opacity: 1; }
+.managed-place-pin--selected { box-shadow: 0 0 0 3px #d9f2df, 0 4px 12px rgba(13, 38, 31, .3); transform: scale(1.08); }
 .managed-place-popup { min-width: 180px; max-width: 240px; }
 .managed-place-popup__media { display: none; width: 48px; height: 48px; margin-bottom: 8px; border: 1px solid #d7e3db; border-radius: 8px; background: #fff; overflow: hidden; }
 .managed-place-popup__media.has-image { display: block; }

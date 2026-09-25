@@ -874,9 +874,9 @@
         height: 40px;
         border: 3px solid #fff;
         border-radius: 50%;
-        background: #ce4138;
+        background: #28745a;
         color: #fff;
-        box-shadow: 0 2px 10px rgba(0,0,0,.35);
+        box-shadow: 0 2px 8px rgba(20, 46, 34, .25);
         font-size: 20px;
     }
 
@@ -3655,6 +3655,7 @@ else if (needsDogOnboarding)
             crossorigin=""></script>
     <script src="~/js/map-basemap.js" asp-append-version="true"></script>
     <script src="~/js/bin-marker.js" asp-append-version="true"></script>
+    <script src="~/js/place-marker.js" asp-append-version="true"></script>
     <script src="~/js/walk-recording-auth.js" asp-append-version="true"></script>
 
     <script>
@@ -3936,7 +3937,7 @@ else if (needsDogOnboarding)
                     if (!navigation.active) {
                         userLocation = { ...homeWalkCamera.lastPosition };
                         if (userMarker) userMarker.setLatLng(acceptedPoint);
-                        else userMarker = L.marker(acceptedPoint, { icon: userIcon }).addTo(map).bindPopup("Tvoja lokacija");
+                        else userMarker = L.marker(acceptedPoint, { icon: userIcon, pane: "userMarkers" }).addTo(map).bindPopup("Tvoja lokacija");
                         if (homeWalkCamera.follow && map.distance(map.getCenter(), acceptedPoint) > 35)
                             map.panTo(acceptedPoint, { animate: true });
                     }
@@ -4152,6 +4153,10 @@ else if (needsDogOnboarding)
 
         function initMap() {
             map = L.map("map").setView([46.5547, 15.6459], 14);
+            map.createPane("binMarkers").style.zIndex = 590;
+            map.createPane("placeMarkers").style.zIndex = 610;
+            map.createPane("navigationMarkers").style.zIndex = 620;
+            map.createPane("userMarkers").style.zIndex = 630;
 
             DoggyDropBasemap.addTo(map, cartoBasemapKey, true);
 
@@ -4162,7 +4167,7 @@ else if (needsDogOnboarding)
 
             binLayer = L.layerGroup().addTo(map);
             bins.forEach(bin => {
-                const marker = L.marker([bin.latitude, bin.longitude], { icon: createBinIcon(bin) })
+                const marker = L.marker([bin.latitude, bin.longitude], { icon: createBinIcon(bin), pane: "binMarkers" })
                     .addTo(binLayer);
                 marker.on("click", event => {
                     if (event.originalEvent) {
@@ -4334,7 +4339,7 @@ else if (needsDogOnboarding)
                 if (userMarker) {
                     userMarker.setLatLng([userLocation.lat, userLocation.lng]);
                 } else {
-                    userMarker = L.marker([userLocation.lat, userLocation.lng], { icon: userIcon })
+                    userMarker = L.marker([userLocation.lat, userLocation.lng], { icon: userIcon, pane: "userMarkers" })
                         .addTo(map)
                         .bindPopup("Tvoja lokacija");
                 }
@@ -4423,20 +4428,7 @@ else if (needsDogOnboarding)
         }
 
         function attachManagedPlaceImage(container) {
-            const image = container?.querySelector(".managed-place-image");
-            if (!image || image.dataset.placeImageBound) return;
-            image.dataset.placeImageBound = "1";
-            const reveal = () => image.parentElement.classList.add("has-image");
-            const fallback = () => {
-                image.hidden = true;
-                image.parentElement.classList.remove("has-image");
-            };
-            image.addEventListener("load", reveal, { once: true });
-            image.addEventListener("error", fallback, { once: true });
-            if (image.complete) {
-                if (image.naturalWidth > 0) reveal();
-                else fallback();
-            }
+            DoggyDropPlaceMarker.attachImage(container);
         }
 
         function buildManagedPlaceLayer(places) {
@@ -4449,16 +4441,8 @@ else if (needsDogOnboarding)
                     Math.abs(lat) > 90 || Math.abs(lng) > 180) return;
                 const veterinarian = place.category === 1;
                 const label = veterinarian ? "Veterinar" : "Trgovina za male živali";
-                const imageUrl = typeof place.imageUrl === "string" && /^https:\/\//i.test(place.imageUrl)
-                    ? place.imageUrl : null;
-                const image = imageUrl
-                    ? `<img class="managed-place-image managed-place-pin__image" src="${escapeAttribute(imageUrl)}" alt="" decoding="async" referrerpolicy="no-referrer">`
-                    : "";
-                const icon = L.divIcon({
-                    className: "", iconSize: [38, 38], iconAnchor: [19, 19],
-                    html: `<span class="managed-place-pin managed-place-pin--${veterinarian ? "veterinarian" : "pet-shop"}"><i class="bi ${veterinarian ? "bi-heart-pulse-fill" : "bi-bag-fill"}" aria-hidden="true"></i>${image}</span>`
-                });
-                const marker = L.marker([lat, lng], { icon, placeId: id }).bindPopup(`
+                const imageUrl = DoggyDropPlaceMarker.safeImageUrl(place.imageUrl);
+                const marker = L.marker([lat, lng], { icon: DoggyDropPlaceMarker.createIcon(place), placeId: id, pane: "placeMarkers" }).bindPopup(`
                     <div class="managed-place-popup">
                         ${imageUrl ? `<span class="managed-place-popup__media"><img class="managed-place-image" src="${escapeAttribute(imageUrl)}" alt="" decoding="async" referrerpolicy="no-referrer"></span>` : ""}
                         <span class="managed-place-popup__category">${label}</span>
@@ -4470,7 +4454,15 @@ else if (needsDogOnboarding)
                         </div>
                     </div>`);
                 marker.on("add", () => attachManagedPlaceImage(marker.getElement()));
-                marker.on("popupopen", () => attachManagedPlaceImage(marker.getPopup()?.getElement()));
+                marker.on("popupopen", () => {
+                    marker.getElement()?.querySelector(".managed-place-pin")?.classList.add("managed-place-pin--selected");
+                    marker.setZIndexOffset(500);
+                    attachManagedPlaceImage(marker.getPopup()?.getElement());
+                });
+                marker.on("popupclose", () => {
+                    marker.getElement()?.querySelector(".managed-place-pin")?.classList.remove("managed-place-pin--selected");
+                    marker.setZIndexOffset(0);
+                });
                 marker.addTo(layer);
             });
             return layer;
@@ -4900,7 +4892,9 @@ else if (needsDogOnboarding)
         }
 
         function openBinDetail(bin) {
+            if (activeBinId !== null && activeBinId !== Number(bin.id)) setSelectedBinMarker(activeBinId, false);
             activeBinId = Number(bin.id);
+            setSelectedBinMarker(activeBinId, true);
             const panel = document.getElementById("binDetailPanel");
             const title = document.getElementById("binDetailTitle");
             const meta = document.getElementById("binDetailMeta");
@@ -4943,7 +4937,16 @@ else if (needsDogOnboarding)
             if (panel) {
                 panel.hidden = true;
             }
+            if (activeBinId !== null) setSelectedBinMarker(activeBinId, false);
             activeBinId = null;
+        }
+
+        function setSelectedBinMarker(binId, selected) {
+            const bin = bins.find(item => Number(item.id) === binId);
+            const marker = binMarkers.get(binId);
+            if (!bin || !marker) return;
+            marker.setIcon(createBinIcon(bin, { selected }));
+            marker.setZIndexOffset(selected ? 400 : 0);
         }
 
         function buildBinDetailImage(imageUrl, name) {
@@ -5133,7 +5136,7 @@ else if (needsDogOnboarding)
 
                 const marker = binMarkers.get(Number(binId));
                 if (marker) {
-                    marker.setIcon(createBinIcon(bin));
+                    marker.setIcon(createBinIcon(bin, { selected: activeBinId === Number(binId) }));
                 }
 
                 if (activeBinId === Number(binId)) {
@@ -5182,7 +5185,7 @@ else if (needsDogOnboarding)
                 if (userMarker) {
                     userMarker.setLatLng([userLocation.lat, userLocation.lng]);
                 } else {
-                    userMarker = L.marker([userLocation.lat, userLocation.lng], { icon: userIcon })
+                    userMarker = L.marker([userLocation.lat, userLocation.lng], { icon: userIcon, pane: "userMarkers" })
                         .addTo(map)
                         .bindPopup("Tvoja lokacija");
                 }
@@ -5247,7 +5250,7 @@ else if (needsDogOnboarding)
                 if (userMarker) {
                     userMarker.setLatLng([userLocation.lat, userLocation.lng]);
                 } else {
-                    userMarker = L.marker([userLocation.lat, userLocation.lng], { icon: userIcon })
+                    userMarker = L.marker([userLocation.lat, userLocation.lng], { icon: userIcon, pane: "userMarkers" })
                         .addTo(map)
                         .bindPopup("Tvoja lokacija");
                 }
@@ -5309,7 +5312,7 @@ else if (needsDogOnboarding)
                 if (userMarker) {
                     userMarker.setLatLng([userLocation.lat, userLocation.lng]);
                 } else {
-                    userMarker = L.marker([userLocation.lat, userLocation.lng], { icon: userIcon })
+                    userMarker = L.marker([userLocation.lat, userLocation.lng], { icon: userIcon, pane: "userMarkers" })
                         .addTo(map)
                         .bindPopup("Tvoja lokacija");
                 }
@@ -5325,10 +5328,10 @@ else if (needsDogOnboarding)
         function navigateToManagedPlaceInApp(id) {
             const place = managedPlaces.find(item => Number(item.id) === Number(id));
             if (!place) return;
-            navigateToPlaceInApp(place.latitude, place.longitude, place.name, "place");
+            navigateToPlaceInApp(place.latitude, place.longitude, place.name, "place", place);
         }
 
-        function navigateToPlaceInApp(latitude, longitude, name = null, destinationType = "generic") {
+        function navigateToPlaceInApp(latitude, longitude, name = null, destinationType = "generic", managedPlace = null) {
             const allPlaces = getExploreItems();
             const place = allPlaces.find(item =>
                 Math.abs(Number(item.latitude) - Number(latitude)) < 0.000001 &&
@@ -5338,7 +5341,8 @@ else if (needsDogOnboarding)
                 name: name || place?.name || "Izbrana lokacija",
                 latitude,
                 longitude,
-                imageUrl: "",
+                imageUrl: managedPlace?.imageUrl || "",
+                category: managedPlace?.category,
                 reliabilityScore: 100
             };
 
@@ -5366,7 +5370,7 @@ else if (needsDogOnboarding)
                 if (userMarker) {
                     userMarker.setLatLng([userLocation.lat, userLocation.lng]);
                 } else {
-                    userMarker = L.marker([userLocation.lat, userLocation.lng], { icon: userIcon })
+                    userMarker = L.marker([userLocation.lat, userLocation.lng], { icon: userIcon, pane: "userMarkers" })
                         .addTo(map)
                         .bindPopup("Tvoja lokacija");
                 }
@@ -5416,10 +5420,17 @@ else if (needsDogOnboarding)
             closeFilterPanel();
             [binLayer, managedPlaceLayer, parkLayer, waterLayer, cafeLayer, dogLayer, communityLayer].forEach(layer => map.removeLayer(layer));
             setBinNavigationMode(true);
+            const destinationIcon = navigation.destinationType === "bin"
+                ? createBinIcon(bin, { selected: true })
+                : navigation.destinationType === "place"
+                    ? DoggyDropPlaceMarker.createIcon(bin, { selected: true })
+                    : L.divIcon({ className: "", html: '<span class="navigation-destination-icon"><i class="bi bi-geo-alt-fill" aria-hidden="true"></i></span>', iconSize: [40, 40], iconAnchor: [20, 40] });
             navigation.destinationMarker = L.marker([lat, lng], {
-                icon: L.divIcon({ className: "", html: '<span class="navigation-destination-icon"><i class="bi bi-geo-alt-fill" aria-hidden="true"></i></span>', iconSize: [40, 40], iconAnchor: [20, 40] }),
+                icon: destinationIcon,
+                pane: "navigationMarkers",
                 zIndexOffset: 1000
             }).addTo(map).bindTooltip(escapeHtml(bin.name || bin.Name || "Cilj"), { direction: "top" });
+            if (navigation.destinationType === "place") attachManagedPlaceImage(navigation.destinationMarker.getElement());
             updateDirectionsPanelForNavigation();
             requestNavigationRoute(true);
             if (navigator.geolocation && window.isSecureContext) {

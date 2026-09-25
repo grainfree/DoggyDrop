@@ -117,13 +117,13 @@
             <span class="active-walk-cockpit__metrics">
                 <span><strong id="cockpitDuration">00:00</strong><small>Trajanje</small></span>
                 <span><strong id="cockpitDistance">@SlovenianFormatting.WalkDistance(Model.DistanceMeters)</strong><small>Razdalja</small></span>
-                <span><strong id="cockpitPointCount">@(Model.Points?.Count ?? 0)</strong><small>GPS točke</small></span>
             </span>
             <span id="cockpitGpsState" class="active-walk-cockpit__gps">
                 <span id="cockpitGpsHealth">GPS išče signal</span>
-                <small id="cockpitGpsAccuracy">Zadnja točnost: še ni podatka</small>
+                <small id="cockpitGpsAccuracy" hidden></small>
             </span>
         </button>
+        <button type="submit" form="finishWalkForm" id="finishWalkMobileButton" class="active-walk-cockpit__finish"><i class="bi bi-stop-circle-fill" aria-hidden="true"></i> Zaključi sprehod</button>
         <p id="cockpitGpsNotice" class="active-walk-cockpit__notice" role="status" hidden></p>
         <p id="cockpitPhotoStatus" class="active-walk-cockpit__notice" role="status" hidden></p>
         <p id="cockpitFinishStatus" class="active-walk-cockpit__notice" role="status" hidden></p>
@@ -137,6 +137,7 @@
         }
         <div id="walkCockpitActions" class="active-walk-cockpit__actions" hidden>
             <div id="mobileNextStopSlot"></div>
+            <div id="mobileTrackingSlot" class="active-walk-cockpit__tracking-slot"></div>
             <div class="active-walk-cockpit__action-grid">
                 <form asp-controller="Walks" asp-action="AddPhoto" asp-route-id="@Model.Id" method="post" enctype="multipart/form-data" class="active-walk-cockpit__photo-form">
                     @Html.AntiForgeryToken()
@@ -147,7 +148,7 @@
                 <a class="active-walk-cockpit__action" asp-controller="Map" asp-action="Index" asp-route-nearestBin="1"><i class="bi bi-geo-alt-fill" aria-hidden="true"></i><span>Najdi koš</span></a>
                 <a class="active-walk-cockpit__action" asp-controller="Map" asp-action="Add" asp-route-walkId="@Model.Id"><i class="bi bi-plus-circle-fill" aria-hidden="true"></i><span>Dodaj koš</span></a>
             </div>
-            <button type="submit" form="finishWalkForm" id="finishWalkMobileButton" class="active-walk-cockpit__finish"><i class="bi bi-stop-circle-fill" aria-hidden="true"></i> Zaključi sprehod</button>
+            <div id="mobileGpsDebugSlot"></div>
         </div>
     </aside>
 
@@ -313,6 +314,14 @@
         }
         <p id="finishWalkStatus" role="status" aria-live="polite" hidden></p>
     </form>
+    <dialog id="finishWalkDialog" class="active-walk-finish-dialog" aria-labelledby="finishWalkDialogTitle" aria-describedby="finishWalkDialogDescription">
+        <h2 id="finishWalkDialogTitle">Zaključi sprehod?</h2>
+        <p id="finishWalkDialogDescription">Sprehod s psom <strong>@(Model.Dog?.Name ?? "Pes")</strong> bo shranjen v tvojo zgodovino.</p>
+        <div class="active-walk-finish-dialog__actions">
+            <button type="button" id="confirmFinishWalk" class="active-walk-finish-dialog__confirm">Zaključi sprehod</button>
+            <button type="button" id="cancelFinishWalk" class="active-walk-finish-dialog__cancel">Nadaljuj sprehod</button>
+        </div>
+    </dialog>
 </section>
 
 @section Scripts {
@@ -342,7 +351,6 @@
         const cockpitGpsState = document.getElementById("cockpitGpsState");
         const cockpitGpsAccuracy = document.getElementById("cockpitGpsAccuracy");
         const cockpitRecording = document.getElementById("cockpitRecording");
-        const cockpitPointCount = document.getElementById("cockpitPointCount");
         const cockpitDistance = document.getElementById("cockpitDistance");
         const cockpitGpsNotice = document.getElementById("cockpitGpsNotice");
         const walkCockpitToggle = document.getElementById("walkCockpitToggle");
@@ -370,6 +378,8 @@
         const finishWalkForm = document.getElementById("finishWalkForm");
         const finishWalkButton = document.getElementById("finishWalkButton");
         const finishWalkStatus = document.getElementById("finishWalkStatus");
+        const finishWalkDialog = document.getElementById("finishWalkDialog");
+        let finishWalkTrigger = null;
         const autoCompletePreferenceKey = "doggydrop.walk.autoCompleteStops";
         const vibratePreferenceKey = "doggydrop.walk.vibrateOnStop";
         const autoCompleteRadiusMeters = 28;
@@ -465,19 +475,34 @@
                 }
             });
             const stopCard = document.getElementById("nextStopCard");
-            if (stopCard) {
-                const originalParent = stopCard.parentElement;
-                const originalNext = stopCard.nextElementSibling;
-                const syncStopPlacement = () => {
-                    if (window.matchMedia("(max-width: 575.98px)").matches) document.getElementById("mobileNextStopSlot").appendChild(stopCard);
-                    else originalParent.insertBefore(stopCard, originalNext);
-                };
-                syncStopPlacement();
-                window.matchMedia("(max-width: 575.98px)").addEventListener("change", syncStopPlacement);
-            }
+            const gpsDebugPanel = document.getElementById("gpsDebugPanel");
+            const mobileLayout = window.matchMedia("(max-width: 575.98px)");
+            const movableControls = [
+                [stopCard, document.getElementById("mobileNextStopSlot")],
+                [trackingToggle, document.getElementById("mobileTrackingSlot")],
+                [gpsDebugPanel, document.getElementById("mobileGpsDebugSlot")]
+            ].filter(([element]) => element).map(([element, slot]) => ({ element, slot, parent: element.parentElement, next: element.nextSibling }));
+            const syncMobileControls = () => {
+                for (const control of movableControls) {
+                    if (mobileLayout.matches) control.slot.appendChild(control.element);
+                    else control.parent.insertBefore(control.element, control.next);
+                }
+            };
+            syncMobileControls();
+            mobileLayout.addEventListener("change", syncMobileControls);
             document.addEventListener("visibilitychange", handleWalkVisibility);
             window.setInterval(checkGpsSilence, 30000);
-            finishWalkForm?.addEventListener("submit", finishWalk);
+            finishWalkForm?.addEventListener("submit", requestFinishConfirmation);
+            document.getElementById("cancelFinishWalk").addEventListener("click", () => finishWalkDialog.close());
+            document.getElementById("confirmFinishWalk").addEventListener("click", () => {
+                if (isFinishing) return;
+                finishWalkDialog.close();
+                void finishWalk();
+            });
+            finishWalkDialog.addEventListener("close", () => {
+                if (!isFinishing) finishWalkTrigger?.focus();
+                finishWalkTrigger = null;
+            });
             if (window.isSecureContext && navigator.geolocation) {
                 window.setTimeout(startTracking, 400);
             }
@@ -493,12 +518,14 @@
                 if (!navigator.geolocation) {
                     gpsStatusElement.textContent = "Ta brskalnik ne podpira GPS sledenja.";
                     setWalkGpsPresentation("unavailable", "GPS ni na voljo");
+                    showWalkNotice(gpsStatusElement.textContent);
                 }
                 return;
             }
 
             gpsStatusElement.textContent = "GPS zahteva HTTPS povezavo.";
             setWalkGpsPresentation("unavailable", "GPS zapis omejen");
+            showWalkNotice(gpsStatusElement.textContent);
             gpsSecurityWarning.hidden = false;
             if (proximityStatusElement) {
                 proximityStatusElement.textContent = "Za živo bližinsko opozarjanje telefon potrebuje GPS dovoljenje.";
@@ -591,6 +618,10 @@
             cockpitRecording.classList.toggle("is-paused", state === "paused");
             cockpitRecording.classList.toggle("is-unavailable", state === "unavailable");
             cockpitGpsHealth.textContent = health;
+            if (state !== "recording") {
+                cockpitGpsAccuracy.hidden = true;
+                cockpitGpsAccuracy.textContent = "";
+            }
             cockpitGpsState.classList.toggle("is-good", state === "recording" && health === "GPS dober");
             cockpitGpsState.classList.toggle("is-paused", state === "paused");
             cockpitGpsState.classList.toggle("is-unavailable", state === "unavailable");
@@ -984,16 +1015,16 @@
                 setGpsDebug("Distance", `${Math.round(data.distanceMeters)} m`);
                 gpsRecordingWarning.hidden = true;
                 showWalkNotice("");
-                setWalkGpsPresentation("recording", accuracy <= 50 ? "GPS dober" : "GPS išče signal");
+                setWalkGpsPresentation("recording", accuracy <= 50 ? "GPS dober" : "GPS šibek");
                 distanceMeters = data.distanceMeters;
                 routePoints.push([lat, lng]);
                 pointCountElement.textContent = data.pointCount;
-                cockpitPointCount.textContent = data.pointCount;
                 distanceElement.textContent = `${(distanceMeters / 1000).toLocaleString("sl-SI", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} km`;
                 cockpitDistance.textContent = distanceElement.textContent;
                 updateWalkCockpitLabel();
                 gpsStatusElement.textContent = `Zadnja točnost: ${accuracy} m`;
-                cockpitGpsAccuracy.textContent = gpsStatusElement.textContent;
+                cockpitGpsAccuracy.textContent = `· ${accuracy} m`;
+                cockpitGpsAccuracy.hidden = false;
                 updateRoute(lat, lng, position.coords.accuracy);
             } catch {
                 if (!recordingAuth.canRecord()) return;
@@ -1044,10 +1075,17 @@
             }
         }
 
-        async function finishWalk(event) {
+        function requestFinishConfirmation(event) {
             event.preventDefault();
             if (isFinishing) return;
-            if (!window.confirm("Zaključim sprehod?")) return;
+            if (finishWalkDialog.open) return;
+            finishWalkTrigger = event.submitter || document.activeElement;
+            finishWalkDialog.showModal();
+            document.getElementById("cancelFinishWalk").focus();
+        }
+
+        async function finishWalk() {
+            if (isFinishing) return;
             const wasTracking = isTracking;
             isFinishing = true;
             stopTracking();
@@ -2242,6 +2280,26 @@
 
     .active-walk-cockpit { display: none; }
 
+    .active-walk-finish-dialog {
+        width: min(100% - 32px, 400px);
+        max-height: calc(100dvh - 32px);
+        margin: auto;
+        padding: 24px;
+        border: 1px solid var(--dd-border);
+        border-radius: var(--dd-radius-lg);
+        background: var(--dd-surface-strong);
+        color: var(--dd-primary-strong);
+        box-shadow: 0 24px 64px rgba(24, 48, 38, .28);
+    }
+    .active-walk-finish-dialog::backdrop { background: rgba(20, 39, 33, .6); }
+    .active-walk-finish-dialog h2 { margin: 0 0 10px; font-size: 1.2rem; font-weight: 900; }
+    .active-walk-finish-dialog p { margin: 0 0 20px; color: var(--dd-muted); }
+    .active-walk-finish-dialog__actions { display: grid; gap: 8px; }
+    .active-walk-finish-dialog__actions button { min-height: 48px; padding: 8px 12px; border-radius: var(--dd-radius-md); font: inherit; font-weight: 850; }
+    .active-walk-finish-dialog__confirm { border: 0; background: #a94539; color: #fff; }
+    .active-walk-finish-dialog__cancel { border: 1px solid var(--dd-border); background: #fff; color: var(--dd-primary-strong); }
+    .active-walk-finish-dialog__actions button:focus-visible { outline: 3px solid var(--dd-primary); outline-offset: 2px; }
+
     @@media (max-width: 575.98px) {
         body:has(.active-walk-page) {
             overflow: hidden;
@@ -2283,7 +2341,7 @@
             left: 0;
             z-index: 930;
             display: block;
-            max-height: min(58dvh, 420px);
+            max-height: min(65dvh, 420px);
             padding: 0 14px 12px;
             overflow-y: auto;
             border-radius: var(--dd-radius-lg) var(--dd-radius-lg) 0 0;
@@ -2329,13 +2387,13 @@
         .active-walk-cockpit__recording.is-unavailable::before { background: #a94539; }
         .active-walk-cockpit__chevron { justify-self: end; font-size: 1.15rem; transition: transform .16s ease; }
         .active-walk-cockpit.is-expanded .active-walk-cockpit__chevron { transform: rotate(180deg); }
-        .active-walk-cockpit__metrics { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 6px 4px; border-radius: var(--dd-radius-md); background: var(--dd-primary-soft); }
+        .active-walk-cockpit__metrics { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; padding: 6px 4px; border-radius: var(--dd-radius-md); background: var(--dd-primary-soft); }
         .active-walk-cockpit__metrics > span { min-width: 0; padding: 0 4px; text-align: center; }
         .active-walk-cockpit__metrics > span + span { border-left: 1px solid rgba(36, 105, 90, .16); }
         .active-walk-cockpit__metrics strong, .active-walk-cockpit__metrics small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .active-walk-cockpit__metrics strong { color: var(--dd-primary-strong); font-size: .98rem; font-weight: 900; line-height: 1.25; }
         .active-walk-cockpit__metrics small { color: var(--dd-muted); font-size: .68rem; font-weight: 800; }
-        .active-walk-cockpit__gps { grid-column: 1 / -1; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 8px; color: var(--dd-muted); font-size: .72rem; font-weight: 800; }
+        .active-walk-cockpit__gps { grid-column: 1 / -1; display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 2px 4px; color: var(--dd-muted); font-size: .72rem; font-weight: 800; }
         .active-walk-cockpit__gps > span { color: var(--dd-primary-strong); }
         .active-walk-cockpit__gps > span::before { display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: var(--dd-accent); content: ""; }
         .active-walk-cockpit__gps.is-good > span::before { background: #23ae69; }
@@ -2385,7 +2443,11 @@
             font-weight: 900;
             box-shadow: 0 7px 18px rgba(117, 47, 40, .18);
         }
+        .active-walk-cockpit__finish:focus-visible { outline: 3px solid var(--dd-primary); outline-offset: 2px; }
         .active-walk-cockpit__finish:disabled { opacity: .65; }
+        .active-walk-cockpit__tracking-slot { margin: 0 0 8px; }
+        .active-walk-cockpit__tracking-slot #trackingToggle { width: 100%; min-height: 44px; }
+        #mobileGpsDebugSlot .gps-debug-panel { margin-top: 10px; overflow-wrap: anywhere; }
         #mobileNextStopSlot .active-walk-next-stop-card:not([hidden]) {
             position: static;
             margin: 0 0 9px;
@@ -2413,47 +2475,19 @@
             background: #eaf4ea;
         }
 
-        .active-walk-map-card__header {
+        .active-walk-map-card__header { display: none; }
+
+        .walk-auth-recovery:not([hidden]) {
             position: absolute;
             top: calc(12px + env(safe-area-inset-top, 0px));
             left: 10px;
             right: 10px;
             z-index: 910;
-            align-items: center;
-            flex-direction: row;
-            gap: 8px;
-            margin: 0;
-            padding: 10px;
-            border: 1px solid rgba(31, 45, 41, 0.12);
-            border-radius: 18px;
-            background: rgba(255, 255, 255, 0.94);
-            box-shadow: 0 14px 34px rgba(31, 45, 41, 0.18);
-            backdrop-filter: blur(16px);
-        }
-
-        .active-walk-map-card__header h2 {
-            font-size: 1rem;
-        }
-
-        .active-walk-page.gps-recording .active-walk-map-card__header p { color: var(--dd-primary); }
-
-        .active-walk-map-card__header p {
-            overflow: hidden;
-            max-width: 54vw;
-            font-size: 0.76rem;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        #trackingToggle {
-            min-height: 44px;
-            padding: 8px 12px;
-            white-space: nowrap;
         }
 
         #gpsSecurityWarning {
             position: absolute;
-            top: calc(84px + env(safe-area-inset-top, 0px));
+            top: calc(12px + env(safe-area-inset-top, 0px));
             left: 10px;
             right: 10px;
             z-index: 910;
@@ -2468,35 +2502,7 @@
             border-radius: 0;
         }
 
-        .active-walk-metrics {
-            position: absolute;
-            top: calc(86px + env(safe-area-inset-top, 0px));
-            left: 10px;
-            right: 10px;
-            z-index: 900;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 7px;
-            margin: 0;
-        }
-
-        .active-walk-metrics article {
-            padding: 8px 6px;
-            border: 1px solid rgba(36, 105, 90, .13);
-            border-radius: var(--dd-radius-md);
-            background: rgba(238, 247, 237, .94);
-            box-shadow: 0 10px 24px rgba(31, 45, 41, 0.14);
-            text-align: center;
-            backdrop-filter: blur(14px);
-        }
-
-        .active-walk-metrics strong {
-            font-size: 0.9rem;
-        }
-
-        .active-walk-metrics span {
-            font-size: 0.64rem;
-            line-height: 1.1;
-        }
+        .active-walk-metrics { display: none; }
 
         .active-walk-next-stop-card {
             position: absolute;
