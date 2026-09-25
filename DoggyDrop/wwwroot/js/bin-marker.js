@@ -19,8 +19,8 @@
                     <span class="map-bin-marker__status" aria-hidden="true"></span>
                 </span>`,
             iconSize: [44, 48],
-            iconAnchor: [22, 45],
-            popupAnchor: [0, -40]
+            iconAnchor: [22, 43],
+            popupAnchor: [0, -38]
         });
     }
 

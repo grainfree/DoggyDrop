@@ -56,7 +56,7 @@
 .managed-place-pin { position: relative; display: grid; place-items: center; width: 48px; height: 48px; margin: 2px; border: 3px solid #286b52; border-radius: 14px; background: #f5faf6; box-shadow: 0 3px 10px rgba(13, 38, 31, .24); color: #245d48; font-size: 1.3rem; }
 .managed-place-pin--veterinarian { border-color: #286b52; color: #286b52; }
 .managed-place-pin--pet-shop { border-color: #286f70; color: #286f70; }
-.managed-place-pin__image { position: absolute; inset: 3px; width: calc(100% - 6px); height: calc(100% - 6px); padding: 1px; border-radius: 8px; background: #fff; object-fit: contain; opacity: 0; }
+.managed-place-pin__image { position: absolute; inset: 2px; width: calc(100% - 4px); height: calc(100% - 4px); padding: 0; border-radius: 8px; background: #fff; object-fit: contain; opacity: 0; }
 .managed-place-pin.has-image .managed-place-pin__image { opacity: 1; }
 .managed-place-pin--selected { box-shadow: 0 0 0 3px #d9f2df, 0 4px 12px rgba(13, 38, 31, .3); transform: scale(1.12); }
 .managed-place-popup { min-width: 180px; max-width: 240px; }

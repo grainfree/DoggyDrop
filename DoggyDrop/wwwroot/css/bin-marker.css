@@ -2,9 +2,9 @@
     --bin-fill: #28745a;
     position: relative;
     display: grid;
-    width: 36px;
-    height: 36px;
-    margin: 4px;
+    width: 32px;
+    height: 32px;
+    margin: 6px;
     place-items: center;
     border: 2px solid #fff;
     border-radius: 12px;
@@ -22,7 +22,7 @@
     content: "";
 }
 
-.map-bin-marker__icon { width: 26px; height: 26px; }
+.map-bin-marker__icon { width: 23px; height: 23px; }
 
 .map-bin-marker__lid,
 .map-bin-marker__body,

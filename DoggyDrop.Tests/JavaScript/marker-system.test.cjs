@@ -17,7 +17,7 @@ function load(file, name) {
 const bins = load("DoggyDrop/wwwroot/js/bin-marker.js", "DoggyDropBinMarker");
 const places = load("DoggyDrop/wwwroot/js/place-marker.js", "DoggyDropPlaceMarker");
 
-test("shared bin is 36px visually with a 44px touch box and no default badge", () => {
+test("shared bin is 32px visually with a 44px touch box and no default badge", () => {
     const normal = bins.createIcon({ status: "ok" });
     const selected = bins.createIcon({ status: "ok" }, { selected: true });
     const full = bins.createIcon({ status: "full" });
@@ -25,13 +25,15 @@ test("shared bin is 36px visually with a 44px touch box and no default badge", (
     const css = read("DoggyDrop/wwwroot/css/bin-marker.css");
     assert.equal(Number(normal.iconSize[0]), 44);
     assert.equal(Number(normal.iconSize[1]), 48);
-    assert.match(css, /\.map-bin-marker\s*\{[^}]*width: 36px;[^}]*height: 36px;/);
+    assert.deepEqual(Array.from(normal.iconAnchor), [22, 43]);
+    assert.deepEqual(Array.from(normal.popupAnchor), [0, -38]);
+    assert.match(css, /\.map-bin-marker\s*\{[^}]*width: 32px;[^}]*height: 32px;[^}]*margin: 6px;/);
     assert.match(css, /\.map-bin-marker__status \{ display: none; \}/);
     assert.match(normal.html, /map-bin-marker__icon/);
     assert.match(normal.html, /class="map-bin-marker__lid" d="M7 10h18v3H7z"/);
     assert.match(normal.html, /class="map-bin-marker__body" d="M9 14h14l-1\.5 12h-11z"/);
     assert.doesNotMatch(normal.html, /<text\b|<image\b|bi-trash|>T<\/i>/i);
-    assert.match(css, /\.map-bin-marker__icon \{ width: 26px; height: 26px; \}/);
+    assert.match(css, /\.map-bin-marker__icon \{ width: 23px; height: 23px; \}/);
     assert.match(css, /\.map-bin-marker__lid,[\s\S]*?\.map-bin-marker__body,[\s\S]*?\.map-bin-marker__handle \{\s*fill: currentColor;/);
     assert.match(css, /\.map-bin-marker__line \{[^}]*stroke: var\(--bin-fill\)/);
     assert.doesNotMatch(normal.html, /map-bin-marker--selected/);
@@ -50,8 +52,10 @@ test("Places use a 48px branded marker, safe contained logos, and distinct fallb
     assert.equal(Number(shop.iconSize[0]), 52);
     assert.ok(Number(shop.iconSize[0]) > Number(bins.createIcon({}).iconSize[0]));
     assert.match(css, /\.managed-place-pin \{[^}]*width: 48px;[^}]*height: 48px;/);
-    assert.match(css, /\.managed-place-pin__image \{[^}]*inset: 3px;[^}]*width: calc\(100% - 6px\);[^}]*padding: 1px;[^}]*object-fit: contain;/);
+    assert.match(css, /\.managed-place-pin__image \{[^}]*inset: 2px;[^}]*width: calc\(100% - 4px\);[^}]*padding: 0;[^}]*object-fit: contain;/);
+    assert.doesNotMatch(css, /\.managed-place-pin__image \{[^}]*object-fit: cover;/);
     assert.match(css, /\.managed-place-pin--selected \{[^}]*transform: scale\(1\.12\);/);
+    assert.ok(Math.abs(48 * 1.12 - 54) < 1);
     assert.match(shop.html, /src="https:\/\/example\.com\/logo\.png\?x=1&amp;y=2"/);
     assert.match(shop.html, /referrerpolicy="no-referrer"/);
     assert.match(shop.html, /bi-bag-fill/);
