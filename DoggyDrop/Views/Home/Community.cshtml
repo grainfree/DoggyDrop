@@ -18,18 +18,21 @@
         </div>
     </header>
 
-    <div class="community-stats">
-        <article>
-            <strong>@Model.KilometersThisWeek.ToString("0.0", sl) km</strong>
-            <span>Zadnjih 7 dni</span>
+    <div class="community-stats dd-metric-grid">
+        <article class="dd-metric dd-metric--primary">
+            <i class="bi bi-signpost-split dd-metric__icon" aria-hidden="true"></i>
+            <strong class="dd-metric__value">@Model.KilometersThisWeek.ToString("0.0", sl) km</strong>
+            <span class="dd-metric__label">Zadnjih 7 dni</span>
         </article>
-        <article>
-            <strong>@Model.WalksThisWeek</strong>
-            <span>Sprehodi</span>
+        <article class="dd-metric">
+            <i class="bi bi-person-walking dd-metric__icon" aria-hidden="true"></i>
+            <strong class="dd-metric__value">@Model.WalksThisWeek</strong>
+            <span class="dd-metric__label">Sprehodi</span>
         </article>
-        <article>
-            <strong>@Model.ActiveDogsThisWeek</strong>
-            <span>Aktivni psi</span>
+        <article class="dd-metric">
+            <i class="bi bi-hearts dd-metric__icon" aria-hidden="true"></i>
+            <strong class="dd-metric__value">@Model.ActiveDogsThisWeek</strong>
+            <span class="dd-metric__label">Aktivni psi</span>
         </article>
     </div>
 

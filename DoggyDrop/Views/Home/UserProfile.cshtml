@@ -37,7 +37,7 @@
             <p>Stopnja @Model.Gamification.Level · @Model.Gamification.Title · @Model.Gamification.TotalXp XP</p>
             <div class="profile-achievement__bar" role="progressbar" aria-label="Napredek do naslednje stopnje" aria-valuemin="0" aria-valuemax="100" aria-valuenow="@Model.Gamification.ProgressPercent"><span style="width: @Model.Gamification.ProgressPercent%"></span></div>
             <div class="profile-hero__actions" aria-label="Profil akcije">
-                <a asp-controller="Home" asp-action="Settings" title="Nastavitve" aria-label="Nastavitve"><i class="bi bi-gear" aria-hidden="true"></i></a>
+                <a class="profile-settings" asp-controller="Home" asp-action="Settings"><i class="bi bi-gear" aria-hidden="true"></i> Nastavitve</a>
                 @if (User.IsInRole("Admin"))
                 {
                     <a asp-controller="Map" asp-action="Manage">Admin koši</a>
@@ -57,31 +57,35 @@
         <div class="profile-streak-grid">
             @foreach (var streak in Model.Gamification.Streaks)
             {
-                <div class="profile-streak profile-streak--@streak.FlameTier">
-                    <span class="profile-streak__flame" aria-hidden="true"></span>
+                var isWalkStreak = streak.StreakType == DoggyDrop.Services.GamificationStreakConstants.Walk;
+                <div class="profile-streak profile-streak--@streak.FlameTier @(isWalkStreak ? "profile-streak--walk" : "profile-streak--explorer") @(streak.CurrentDays > 0 ? "profile-streak--active" : "profile-streak--inactive")">
+                    <span class="profile-streak__icon" aria-hidden="true"><i class="bi @(isWalkStreak ? "bi-fire" : "bi-compass")"></i></span>
                     <div>
                         <strong>@SlovenianFormatting.Days(streak.CurrentDays)</strong>
                         <span>@streak.Label</span>
+                        <em>rekord @SlovenianFormatting.Days(streak.LongestDays)</em>
                         <small>@streak.Guidance</small>
                     </div>
-                    <em>rekord @SlovenianFormatting.Days(streak.LongestDays)</em>
                 </div>
             }
         </div>
     </article>
 
-    <div class="profile-stats">
-        <article>
-            <strong>@Model.TotalDistanceKm.ToString("0.0", System.Globalization.CultureInfo.GetCultureInfo("sl-SI")) km</strong>
-            <span>Razdalja</span>
+    <div class="profile-stats dd-metric-grid">
+        <article class="dd-metric dd-metric--primary">
+            <i class="bi bi-signpost-split dd-metric__icon" aria-hidden="true"></i>
+            <strong class="dd-metric__value">@Model.TotalDistanceKm.ToString("0.0", System.Globalization.CultureInfo.GetCultureInfo("sl-SI")) km</strong>
+            <span class="dd-metric__label">Razdalja</span>
         </article>
-        <article>
-            <strong>@Model.TotalWalks</strong>
-            <span>Sprehodi</span>
+        <article class="dd-metric">
+            <i class="bi bi-person-walking dd-metric__icon" aria-hidden="true"></i>
+            <strong class="dd-metric__value">@Model.TotalWalks</strong>
+            <span class="dd-metric__label">Sprehodi</span>
         </article>
-        <article>
-            <strong>@Model.TotalBins</strong>
-            <span>Koši</span>
+        <article class="dd-metric">
+            <i class="bi bi-trash3 dd-metric__icon" aria-hidden="true"></i>
+            <strong class="dd-metric__value">@Model.TotalBins</strong>
+            <span class="dd-metric__label">Koši</span>
         </article>
     </div>
 
@@ -475,34 +479,14 @@
         background: rgba(255, 255, 255, 0.72);
     }
 
-    .profile-streak__flame {
-        width: 22px;
-        height: 28px;
-        border-radius: 65% 65% 65% 10%;
-        background: #d7ddd9;
-        transform: rotate(45deg);
-    }
-
-    .profile-streak--small .profile-streak__flame {
-        background: linear-gradient(135deg, #ffbf4c, #ef6f3b);
-    }
-
     .profile-streak--glowing {
         box-shadow: 0 0 0 1px rgba(239, 143, 66, 0.20), 0 10px 24px rgba(239, 143, 66, 0.18);
-    }
-
-    .profile-streak--glowing .profile-streak__flame {
-        background: linear-gradient(135deg, #ffe26b, #ff8b36 55%, #e24631);
     }
 
     .profile-streak--legendary {
         border-color: rgba(239, 143, 66, 0.42);
         background: linear-gradient(135deg, rgba(255, 250, 230, 0.96), rgba(255, 239, 212, 0.92));
         box-shadow: 0 0 0 1px rgba(239, 143, 66, 0.22), 0 14px 30px rgba(239, 143, 66, 0.22);
-    }
-
-    .profile-streak--legendary .profile-streak__flame {
-        background: linear-gradient(135deg, #fff48a, #ff9d3f 46%, #dd342d);
     }
 
     .profile-streak strong,
@@ -1399,4 +1383,60 @@
     .profile-page details.profile-panel > summary i { margin-left: auto; color: #24695a; }
     .profile-page details.profile-panel[open] > summary { margin-bottom: 12px; }
     .profile-page details.profile-panel[open] > summary i { transform: rotate(180deg); }
+
+    .profile-page .profile-hero__text .profile-achievement__bar { margin: 10px 0 12px; }
+    .profile-page .profile-hero__text h1 { overflow-wrap: anywhere; }
+    .profile-page .profile-hero__actions { gap: 6px 10px; }
+    .profile-page .profile-hero__actions .profile-settings {
+        gap: 8px;
+        border-color: #bddcca;
+        background: #e3f0e9;
+        color: #1d5b4c;
+    }
+    .profile-page .profile-hero__actions .profile-logout {
+        border-color: transparent;
+        background: transparent;
+        color: #8b443c;
+        opacity: 1;
+    }
+    .profile-page .profile-stats.dd-metric-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .profile-page .profile-streak-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .profile-page .profile-streak {
+        grid-template-columns: 34px minmax(0, 1fr);
+        align-items: start;
+        gap: 4px 10px;
+        min-height: 106px;
+        border-radius: 8px;
+        background: #f7faf7;
+        box-shadow: none;
+    }
+    .profile-page .profile-streak__icon {
+        display: grid;
+        place-items: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        background: #e1efe6;
+        color: #24695a;
+        font-size: 1.1rem;
+    }
+    .profile-page .profile-streak--walk.profile-streak--active .profile-streak__icon {
+        background: #fbe9d5;
+        color: #9a5522;
+    }
+    .profile-page .profile-streak--inactive .profile-streak__icon {
+        background: #ecf1ed;
+        color: #697a70;
+    }
+    .profile-page .profile-streak strong { color: #17322c; font-size: 1.5rem; line-height: 1.1; }
+    .profile-page .profile-streak span:not(.profile-streak__icon) { color: #314b40; font-size: .9rem; }
+    .profile-page .profile-streak small { display: block; margin-top: 4px; color: #52665d; line-height: 1.3; }
+    .profile-page .profile-streak em { margin-top: 2px; font-size: .8rem; }
+    @@media (max-width: 575.98px) {
+        .profile-page .profile-hero__actions a,
+        .profile-page .profile-hero__actions form,
+        .profile-page .profile-hero__actions button { width: auto; }
+        .profile-page .profile-stats.dd-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .profile-page .profile-streak-grid { grid-template-columns: 1fr; }
+    }
 </style>

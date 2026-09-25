@@ -29,18 +29,21 @@
             }
             <a class="btn btn-outline-secondary rounded-pill" asp-controller="Walks" asp-action="Suggestions">Predlogi poti</a>
         </div>
-        <div class="walks-hero__pulse" aria-label="Povzetek sprehodov">
-            <article>
-                <strong>@(Model.TotalDistanceKm.ToString("0.00", slCulture))</strong>
-                <span>km skupaj</span>
+        <div class="walks-hero__pulse dd-metric-grid" aria-label="Napredek zadnjih 7 dni">
+            <article class="dd-metric dd-metric--primary">
+                <i class="bi bi-signpost-split dd-metric__icon" aria-hidden="true"></i>
+                <strong class="dd-metric__value">@SlovenianFormatting.WalkDistance(Model.ActivityInsights.WeeklyDistanceKm * 1000d)</strong>
+                <span class="dd-metric__label">Zadnjih 7 dni</span>
             </article>
-            <article>
-                <strong>@Model.WalksThisWeek</strong>
-                <span>zadnjih 7 dni</span>
+            <article class="dd-metric">
+                <i class="bi bi-person-walking dd-metric__icon" aria-hidden="true"></i>
+                <strong class="dd-metric__value">@Model.WalksThisWeek</strong>
+                <span class="dd-metric__label">Sprehodi v 7 dneh</span>
             </article>
-            <article>
-                <strong>@Model.WalkStreak.CurrentDays</strong>
-                <span>dni sprehajalnega niza</span>
+            <article class="dd-metric dd-metric--accent">
+                <i class="bi bi-fire dd-metric__icon" aria-hidden="true"></i>
+                <strong class="dd-metric__value">@SlovenianFormatting.Days(Model.WalkStreak.CurrentDays)</strong>
+                <span class="dd-metric__label">Sprehajalni niz</span>
             </article>
         </div>
     </header>
@@ -66,32 +69,36 @@
         </section>
     }
 
-    <div class="walk-stat-row">
-        <article>
-            <strong>@SlovenianFormatting.WalkDistance(Model.TotalDistanceKm * 1000d)</strong>
-            <span>Skupaj</span>
-        </article>
-        <article>
-            <strong>@Model.WalksThisWeek</strong>
-            <span>Zadnjih 7 dni</span>
-        </article>
-        <article>
-            <strong>@Model.CompletedWalkCount</strong>
-            <span>Zaključeni</span>
-        </article>
-        <article>
-            <strong>@SlovenianFormatting.WalkDistance(Model.AverageDistanceKm * 1000d)</strong>
-            <span>Povprečje</span>
-        </article>
-        <article>
-            <strong>@SlovenianFormatting.WalkDistance(Model.LongestWalkKm * 1000d)</strong>
-            <span>Najdaljši</span>
-        </article>
-        <article>
-            <strong>@Model.UsedBinsCount</strong>
-            <span>Koši</span>
-        </article>
-    </div>
+    <section class="walk-statistics" aria-labelledby="walkStatisticsTitle">
+        <h2 id="walkStatisticsTitle">Statistika</h2>
+        <div class="walk-stat-row dd-metric-grid">
+            <article class="dd-metric dd-metric--primary">
+                <i class="bi bi-signpost-split dd-metric__icon" aria-hidden="true"></i>
+                <strong class="dd-metric__value">@SlovenianFormatting.WalkDistance(Model.TotalDistanceKm * 1000d)</strong>
+                <span class="dd-metric__label">Skupaj</span>
+            </article>
+            <article class="dd-metric">
+                <i class="bi bi-check2-circle dd-metric__icon" aria-hidden="true"></i>
+                <strong class="dd-metric__value">@Model.CompletedWalkCount</strong>
+                <span class="dd-metric__label">Zaključeni</span>
+            </article>
+            <article class="dd-metric">
+                <i class="bi bi-graph-up dd-metric__icon" aria-hidden="true"></i>
+                <strong class="dd-metric__value">@SlovenianFormatting.WalkDistance(Model.AverageDistanceKm * 1000d)</strong>
+                <span class="dd-metric__label">Povprečje</span>
+            </article>
+            <article class="dd-metric">
+                <i class="bi bi-flag dd-metric__icon" aria-hidden="true"></i>
+                <strong class="dd-metric__value">@SlovenianFormatting.WalkDistance(Model.LongestWalkKm * 1000d)</strong>
+                <span class="dd-metric__label">Najdaljši</span>
+            </article>
+            <article class="dd-metric">
+                <i class="bi bi-trash3 dd-metric__icon" aria-hidden="true"></i>
+                <strong class="dd-metric__value">@Model.UsedBinsCount</strong>
+                <span class="dd-metric__label">Koši</span>
+            </article>
+        </div>
+    </section>
 
     <section class="walk-week-card">
         <div class="walk-section-header">
@@ -1424,5 +1431,41 @@
         .walks-page .walk-plan-item {
             gap: 8px;
         }
+    }
+
+    .walks-page .walk-statistics { margin-bottom: 14px; }
+    .walks-page .walks-hero { grid-template-columns: minmax(0, 1fr) auto; }
+    .walks-page .walks-hero__pulse {
+        grid-column: 1 / -1;
+        padding-top: 12px;
+        border-top: 1px solid rgba(36, 105, 90, .16);
+    }
+    .app-page.walks-page .walks-hero__pulse .dd-metric.dd-metric {
+        min-height: 74px;
+        padding: 4px 12px;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+    }
+    .app-page.walks-page .walks-hero__pulse .dd-metric.dd-metric + .dd-metric {
+        border-left: 1px solid rgba(36, 105, 90, .16);
+    }
+    .walks-page .walk-statistics h2 {
+        margin: 0 0 10px;
+        color: #142823;
+        font-size: 1.1rem;
+        font-weight: 900;
+    }
+    .walks-page .walk-stat-row.dd-metric-grid {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        margin-bottom: 0;
+    }
+    @@media (max-width: 980px) {
+        .walks-page .walks-hero { grid-template-columns: 1fr; }
+        .walks-page .walk-stat-row.dd-metric-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+    @@media (max-width: 575.98px) {
+        .walks-page .walk-stat-row.dd-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .app-page.walks-page .walks-hero__pulse .dd-metric.dd-metric:nth-child(2) { border-left: 0; }
     }
 </style>

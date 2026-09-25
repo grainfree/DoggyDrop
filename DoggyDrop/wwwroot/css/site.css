@@ -458,6 +458,84 @@ body {
   gap: 6px;
 }
 
+/* Compact metrics shared by Profile, Walks and Community. */
+.app-page .dd-metric-grid.dd-metric-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.app-page .profile-stats.dd-metric-grid,
+.app-page .community-stats.dd-metric-grid { max-width: 840px; }
+
+.app-page .dd-metric.dd-metric {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 4px;
+  min-width: 0;
+  min-height: 100px;
+  padding: 12px 14px;
+  border: 1px solid #dce9df;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: none;
+  text-align: left;
+}
+
+.app-page .dd-metric.dd-metric--primary {
+  background: #e9f4eb;
+  border-color: #cfe6d4;
+}
+
+.app-page .dd-metric.dd-metric--accent {
+  background: #fff5eb;
+  border-color: #f2dcc6;
+}
+
+.app-page .dd-metric .dd-metric__icon {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: #e9f4eb;
+  color: #24695a;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.app-page .dd-metric--primary .dd-metric__icon { background: #d6eadb; }
+.app-page .dd-metric--accent .dd-metric__icon { background: #fbe6cf; color: #98501f; }
+
+.app-page .dd-metric .dd-metric__value {
+  display: block;
+  max-width: 100%;
+  color: #17322c;
+  font-size: 1.85rem;
+  font-weight: 900;
+  line-height: 1.12;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+}
+
+.app-page .dd-metric .dd-metric__label {
+  display: block;
+  margin: 0;
+  color: #52665d;
+  font-size: 1rem;
+  font-weight: 750;
+  line-height: 1.25;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 575.98px) {
+  .app-page .dd-metric-grid.dd-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .app-page .dd-metric-grid.dd-metric-grid > .dd-metric:first-child { grid-column: 1 / -1; }
+  .app-page:is(.profile-page, .walks-page, .community-page) { padding-bottom: var(--app-bottom-nav-clearance); }
+}
+
 .app-notification-smart-item,
 .app-notification-mini {
   border: 1px solid rgba(31, 45, 41, 0.08);
