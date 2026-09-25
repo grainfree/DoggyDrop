@@ -24,6 +24,18 @@
 .places-empty { padding: 24px 0; color: #5c6f64; }
 .places-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .places-field--wide { grid-column: 1 / -1; }
+.places-logo { margin-top: 24px; padding-top: 20px; border-top: 1px solid #dbe7e0; }
+.places-logo p { margin: 0 0 12px; color: #536b60; }
+.places-logo__preview { width: 104px; height: 104px; margin-bottom: 12px; padding: 6px; border: 1px solid #c9d9ce; border-radius: 6px; background: #fff; }
+.places-logo__preview[hidden] { display: none; }
+.places-logo__preview img { width: 100%; height: 100%; object-fit: contain; }
+.places-logo input[type=file] { display: block; width: 100%; max-width: 100%; min-height: 44px; padding: 9px; border: 1px solid #aebfb7; border-radius: 5px; background: #fff; }
+.places-logo__remove { display: flex; align-items: center; gap: 8px; min-height: 44px; margin-top: 8px; }
+.places-logo__remove input { width: 18px; height: 18px; }
+#placeLogoFileName { display: block; overflow-wrap: anywhere; }
+.places-details__logo { display: block; width: 72px; height: 72px; margin: 8px 0; padding: 5px; border: 1px solid #dbe7e0; border-radius: 6px; background: #fff; }
+.places-details__logo[hidden] { display: none; }
+.places-details__logo img { width: 100%; height: 100%; object-fit: contain; }
 .places-validation { color: #a83232; }
 .places-location { margin-top: 24px; padding-top: 20px; border-top: 1px solid #dbe7e0; }
 .places-location__head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; }

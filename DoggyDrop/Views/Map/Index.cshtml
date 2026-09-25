@@ -4441,7 +4441,7 @@ else if (needsDogOnboarding)
                     Math.abs(lat) > 90 || Math.abs(lng) > 180) return;
                 const veterinarian = place.category === 1;
                 const label = veterinarian ? "Veterinar" : "Trgovina za male živali";
-                const imageUrl = DoggyDropPlaceMarker.safeImageUrl(place.imageUrl);
+                const imageUrl = DoggyDropPlaceMarker.safeImageUrl(place.logoUrl);
                 const marker = L.marker([lat, lng], { icon: DoggyDropPlaceMarker.createIcon(place), placeId: id, pane: "placeMarkers" }).bindPopup(`
                     <div class="managed-place-popup">
                         ${imageUrl ? `<span class="managed-place-popup__media"><img class="managed-place-image" src="${escapeAttribute(imageUrl)}" alt="" decoding="async" referrerpolicy="no-referrer"></span>` : ""}
@@ -5341,7 +5341,7 @@ else if (needsDogOnboarding)
                 name: name || place?.name || "Izbrana lokacija",
                 latitude,
                 longitude,
-                imageUrl: managedPlace?.imageUrl || "",
+                logoUrl: managedPlace?.logoUrl || "",
                 category: managedPlace?.category,
                 reliabilityScore: 100
             };

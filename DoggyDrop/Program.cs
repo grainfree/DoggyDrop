@@ -61,6 +61,20 @@ var r2Settings = new CloudflareR2Settings
 var cloudName = GetConfiguredValue(builder.Configuration, "Cloudinary:CloudName", "CLOUDINARY_CLOUD_NAME");
 var apiKey = GetConfiguredValue(builder.Configuration, "Cloudinary:ApiKey", "CLOUDINARY_API_KEY");
 var apiSecret = GetConfiguredValue(builder.Configuration, "Cloudinary:ApiSecret", "CLOUDINARY_API_SECRET");
+var cloudinaryConfigured = !string.IsNullOrWhiteSpace(cloudName) &&
+    !string.IsNullOrWhiteSpace(apiKey) && !string.IsNullOrWhiteSpace(apiSecret);
+builder.Services.AddSingleton(new PlaceLogoCloudName(cloudName));
+if (cloudinaryConfigured)
+{
+    builder.Services.AddSingleton(new Cloudinary(new Account(cloudName, apiKey, apiSecret)));
+    builder.Services.AddScoped<IPlaceLogoCloudinaryClient, CloudinaryPlaceLogoClient>();
+    builder.Services.AddScoped<IPlaceLogoStorage, CloudinaryPlaceLogoStorage>();
+}
+else
+{
+    builder.Services.AddScoped<IPlaceLogoStorage, MissingPlaceLogoStorage>();
+}
+builder.Services.AddScoped<IPlaceLogoReferenceReader, PlaceLogoReferenceReader>();
 
 if (r2Settings.IsConfigured)
 {
@@ -92,11 +106,8 @@ if (r2Settings.IsConfigured)
     builder.Services.AddScoped<ICloudinaryService, CloudflareR2StorageService>();
     Console.WriteLine("Cloudflare R2 storage is configured. New image uploads will use R2.");
 }
-else if (!string.IsNullOrWhiteSpace(cloudName) &&
-    !string.IsNullOrWhiteSpace(apiKey) &&
-    !string.IsNullOrWhiteSpace(apiSecret))
+else if (cloudinaryConfigured)
 {
-    builder.Services.AddSingleton(new Cloudinary(new Account(cloudName, apiKey, apiSecret)));
     builder.Services.AddScoped<ICloudinaryService, CloudinaryService>();
 }
 else

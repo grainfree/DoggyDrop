@@ -123,7 +123,7 @@ test("Place image uses no-referrer and a failed image shows a fallback", () => {
     };
     const fallback = { hidden: true };
     const document = {
-        querySelector(selector) { return selector.endsWith("img") ? image : fallback; },
+        querySelector(selector) { return selector === ".places-details__media img" ? image : selector === ".places-details__media-fallback" ? fallback : null; },
         getElementById() { return null; }
     };
     vm.runInNewContext(read("DoggyDrop/wwwroot/js/place-details.js"), { document, window: {} });
@@ -190,7 +190,7 @@ test("Home Place markers and popups show safe logos without losing category fall
         `${map.slice(escapeStart, escapeEnd)}\n${map.slice(buildStart, buildEnd)}\nreturn buildManagedPlaceLayer;`)(L, placeMarker.attachImage, placeMarker);
     const withLogo = build([{
         id: 1, name: "Mr.<Pet>", address: "<Unsafe> street", category: 2,
-        latitude: 46.1, longitude: 15.1, imageUrl: "https://example.com/logo.png?x=1&y=2"
+        latitude: 46.1, longitude: 15.1, logoUrl: "https://example.com/logo.png?x=1&y=2"
     }]).markers[0];
     assert.match(withLogo.options.icon.html, /managed-place-pin--pet-shop/);
     assert.match(withLogo.options.icon.html, /bi-bag-fill/);
@@ -223,9 +223,9 @@ test("Home Place markers and popups show safe logos without losing category fall
     assert.equal(iconCreations, initialIconCreations);
     withLogo.handlers.popupclose();
 
-    for (const imageUrl of [null, "javascript:alert(1)"]) {
+    for (const logoUrl of [null, "javascript:alert(1)"]) {
         const fallback = build([{
-            id: 2, name: "Vet", category: 1, latitude: 46.1, longitude: 15.1, imageUrl
+            id: 2, name: "Vet", category: 1, latitude: 46.1, longitude: 15.1, logoUrl
         }]).markers[0];
         assert.match(fallback.options.icon.html, /bi-heart-pulse-fill/);
         assert.doesNotMatch(fallback.options.icon.html, /<img/);
@@ -238,7 +238,7 @@ test("Home Place markers and popups show safe logos without losing category fall
 
     const broken = build([{
         id: 3, name: "Broken", category: 2, latitude: 46.1, longitude: 15.1,
-        imageUrl: "https://example.com/broken.png"
+        logoUrl: "https://example.com/broken.png"
     }]).markers[0];
     broken.element.image.naturalWidth = 0;
     broken.handlers.add();
@@ -252,7 +252,7 @@ test("Home Place markers and popups show safe logos without losing category fall
 
     const other = build([{
         id: 4, name: "Other", category: 1, latitude: 46.2, longitude: 15.2,
-        imageUrl: "https://example.com/other.png"
+        logoUrl: "https://example.com/other.png"
     }]).markers[0];
     const otherImage = other.element.image;
     withLogo.handlers.popupopen();
@@ -300,9 +300,9 @@ test("Home Place image load and failure retain the category icon", () => {
     assert.match(css, /\.managed-place-popup__media\.has-image/);
 });
 
-function runDetailsMap(category, latitude = "46.05", cartoKey = "", imageUrl = "") {
+function runDetailsMap(category, latitude = "46.05", cartoKey = "", logoUrl = "") {
     const observations = { maps: 0, layers: 0, markers: [], sizes: [], center: null, key: null, resize: null };
-    const element = { dataset: { latitude, longitude: "14.51", category, imageUrl, cartoBasemapKey: cartoKey } };
+    const element = { dataset: { latitude, longitude: "14.51", category, logoUrl, cartoBasemapKey: cartoKey } };
     const map = {
         setView(center) { observations.center = Array.from(center); return this; },
         invalidateSize(options) { observations.sizes.push(options); }

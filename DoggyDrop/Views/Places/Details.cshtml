@@ -20,6 +20,10 @@
     }
     <header class="places-details__header">
         <span class="places-eyebrow">@Model.CategoryLabel</span>
+        @if (!string.IsNullOrWhiteSpace(Model.LogoUrl))
+        {
+            <span class="places-details__logo"><img src="@Model.LogoUrl" alt="Logotip @Model.Name" loading="lazy" referrerpolicy="no-referrer" /></span>
+        }
         <h1>@Model.Name</h1>
         @if (!string.IsNullOrWhiteSpace(Model.Address)) { <p>@Model.Address</p> }
     </header>
@@ -33,7 +37,7 @@
         @if (!string.IsNullOrWhiteSpace(Model.Description)) { <section><h2>O lokaciji</h2><p>@Model.Description</p></section> }
         @if (!string.IsNullOrWhiteSpace(Model.Phone) && Model.TelephoneHref == null) { <section><h2>Telefon</h2><p>@Model.Phone</p></section> }
     </div>
-    <div id="placeDetailsMap" class="places-details__map places-leaflet-map" data-latitude="@Model.Latitude.ToString(System.Globalization.CultureInfo.InvariantCulture)" data-longitude="@Model.Longitude.ToString(System.Globalization.CultureInfo.InvariantCulture)" data-category="@((int)Model.Category)" data-image-url="@Model.ImageUrl" data-carto-basemap-key="@Configuration["CartoBasemap:PublicApiKey"]" aria-label="Lokacija na zemljevidu"></div>
+    <div id="placeDetailsMap" class="places-details__map places-leaflet-map" data-latitude="@Model.Latitude.ToString(System.Globalization.CultureInfo.InvariantCulture)" data-longitude="@Model.Longitude.ToString(System.Globalization.CultureInfo.InvariantCulture)" data-category="@((int)Model.Category)" data-logo-url="@Model.LogoUrl" data-carto-basemap-key="@Configuration["CartoBasemap:PublicApiKey"]" aria-label="Lokacija na zemljevidu"></div>
 </main>
 @section Scripts {
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>

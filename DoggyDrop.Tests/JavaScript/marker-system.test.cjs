@@ -43,8 +43,8 @@ test("shared bin is 36px visually with a 44px touch box and no default badge", (
 });
 
 test("Places use a 48px branded marker, safe contained logos, and distinct fallbacks", () => {
-    const vet = places.createIcon({ category: 1, imageUrl: null });
-    const shop = places.createIcon({ category: 2, imageUrl: "https://example.com/logo.png?x=1&y=2" });
+    const vet = places.createIcon({ category: 1, logoUrl: null });
+    const shop = places.createIcon({ category: 2, logoUrl: "https://example.com/logo.png?x=1&y=2" });
     const generic = places.createIcon({ category: 99 });
     const css = read("DoggyDrop/wwwroot/css/places.css");
     assert.equal(Number(shop.iconSize[0]), 52);
@@ -58,9 +58,13 @@ test("Places use a 48px branded marker, safe contained logos, and distinct fallb
     assert.match(vet.html, /bi-heart-pulse-fill/);
     assert.doesNotMatch(vet.html, /<img/);
     assert.match(generic.html, /bi-geo-alt-fill/);
-    const selectedShop = places.createIcon({ category: 2, imageUrl: "https://example.com/logo.png" }, { selected: true });
+    const selectedShop = places.createIcon({ category: 2, logoUrl: "https://example.com/logo.png" }, { selected: true });
     assert.match(selectedShop.html, /managed-place-pin--selected/);
     assert.match(selectedShop.html, /src="https:\/\/example\.com\/logo\.png"/);
+    const separatePhoto = places.createIcon({ category: 2, logoUrl: "https://example.com/logo.png", imageUrl: "https://example.com/photo.jpg" });
+    assert.match(separatePhoto.html, /logo\.png/);
+    assert.doesNotMatch(separatePhoto.html, /photo\.jpg/);
+    assert.doesNotMatch(places.createIcon({ category: 2, imageUrl: "https://example.com/photo.jpg" }).html, /<img/);
     assert.equal(vet.iconSize[0], shop.iconSize[0]);
 });
 
@@ -68,9 +72,9 @@ test("unsafe or missing logos never create an image request or inject markup", (
     for (const url of [null, "", "http://example.com/logo.png", "javascript:alert(1)",
         "https://user:password@example.com/logo.png", "https://example.com/a b.png", "https://example.com/\\evil.png"]) {
         assert.equal(places.safeImageUrl(url), null);
-        assert.doesNotMatch(places.createIcon({ category: 1, imageUrl: url }).html, /<img/);
+        assert.doesNotMatch(places.createIcon({ category: 1, logoUrl: url }).html, /<img/);
     }
-    const injected = places.createIcon({ category: 2, imageUrl: 'https://example.com/logo.png?q="evil"' }).html;
+    const injected = places.createIcon({ category: 2, logoUrl: 'https://example.com/logo.png?q="evil"' }).html;
     assert.doesNotMatch(injected, /onerror="alert/);
     assert.match(injected, /&quot;/);
     assert.doesNotMatch(injected, /<script/);
@@ -100,9 +104,9 @@ test("Place Details uses the same marker and already-projected safe image URL", 
     const script = read("DoggyDrop/wwwroot/js/place-details.js");
     assert.match(map, /<script src="~\/js\/place-marker\.js"/);
     assert.match(details, /<script src="~\/js\/place-marker\.js"/);
-    assert.match(details, /data-image-url="@Model\.ImageUrl"/);
+    assert.match(details, /data-logo-url="@Model\.LogoUrl"/);
     assert.match(script, /DoggyDropPlaceMarker\.createIcon/);
     assert.match(script, /DoggyDropPlaceMarker\.attachImage/);
-    assert.match(read("DoggyDrop/Controllers/MapController.cs"), /place with \{ ImageUrl = PlaceLinks\.SafeImage\(place\.ImageUrl\) \}/);
+    assert.match(read("DoggyDrop/Controllers/MapController.cs"), /place with \{ LogoUrl = PlaceLogoDelivery\.ForMarker\(place\.LogoUrl, _placeLogoCloud\.Value\) \}/);
     assert.doesNotMatch(script, /fetch\(|XMLHttpRequest/);
 });

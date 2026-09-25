@@ -1,5 +1,7 @@
 using DoggyDrop.Models;
 using DoggyDrop.Services;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 
 namespace DoggyDrop.ViewModels;
 
@@ -15,6 +17,10 @@ public sealed class PlaceInput
     public string? OpeningHours { get; set; }
     public string? Description { get; set; }
     public string? ImageUrl { get; set; }
+    [BindNever]
+    public string? LogoUrl { get; set; }
+    public IFormFile? LogoFile { get; set; }
+    public bool RemoveLogo { get; set; }
 
     public IEnumerable<(string Field, string Message)> Validate()
     {
@@ -52,12 +58,13 @@ public sealed class PlaceInput
         place.ImageUrl = Clean(ImageUrl);
     }
 
-    public static PlaceInput FromPlace(Place place) => new()
+    public static PlaceInput FromPlace(Place place, string? cloudName) => new()
     {
         Name = place.Name, Category = place.Category,
         Latitude = place.Latitude, Longitude = place.Longitude,
         Address = place.Address, Phone = place.Phone, WebsiteUrl = place.WebsiteUrl,
-        OpeningHours = place.OpeningHours, Description = place.Description, ImageUrl = place.ImageUrl
+        OpeningHours = place.OpeningHours, Description = place.Description, ImageUrl = place.ImageUrl,
+        LogoUrl = PlaceLogoDelivery.ForMarker(place.LogoUrl, cloudName)
     };
 
     private static bool TooLong(string? value, int max) => value?.Trim().Length > max;
@@ -65,16 +72,16 @@ public sealed class PlaceInput
 }
 
 public sealed record PlaceMapItem(int Id, string Name, PlaceCategory Category,
-    double Latitude, double Longitude, string? Address, string? ImageUrl);
+    double Latitude, double Longitude, string? Address, string? LogoUrl);
 
 public sealed record PlaceDetailsViewModel(
     int Id, string Name, PlaceCategory Category, string CategoryLabel, double Latitude, double Longitude,
     string? Address, string? Phone, string? TelephoneHref, string? WebsiteUrl,
-    string? OpeningHours, string? Description, string? ImageUrl)
+    string? OpeningHours, string? Description, string? ImageUrl, string? LogoUrl)
 {
-    public static PlaceDetailsViewModel FromPlace(Place place) => new(
+    public static PlaceDetailsViewModel FromPlace(Place place, string? cloudName) => new(
         place.Id, place.Name, place.Category, PlaceCategories.Label(place.Category), place.Latitude, place.Longitude,
         place.Address, place.Phone, PlaceLinks.TelephoneHref(place.Phone),
         PlaceLinks.SafeWebsite(place.WebsiteUrl), place.OpeningHours, place.Description,
-        PlaceLinks.SafeImage(place.ImageUrl));
+        PlaceLinks.SafeImage(place.ImageUrl), PlaceLogoDelivery.ForMarker(place.LogoUrl, cloudName));
 }

@@ -30,7 +30,7 @@
         <input asp-for="OpeningHours" maxlength="240" />
         <span asp-validation-for="OpeningHours"></span>
     </label>
-    <label class="places-field places-field--wide">URL slike (HTTPS)
+    <label class="places-field places-field--wide">URL fotografije lokacije (HTTPS)
         <input asp-for="ImageUrl" type="url" maxlength="500" placeholder="https://" />
         <span asp-validation-for="ImageUrl"></span>
     </label>
@@ -39,6 +39,21 @@
         <span asp-validation-for="Description"></span>
     </label>
 </div>
+<section class="places-logo" aria-labelledby="placeLogoTitle">
+    <h2 id="placeLogoTitle">Logotip</h2>
+    <p>PNG, JPG ali WebP, največ 5 MB. Logotip se prikaže na zemljevidu.</p>
+    <div class="places-logo__preview" id="placeLogoPreview" @(string.IsNullOrWhiteSpace(Model.LogoUrl) ? "hidden" : "")>
+        <img id="placeLogoImage" src="@Model.LogoUrl" alt="Trenutni logotip" referrerpolicy="no-referrer" />
+    </div>
+    <label class="places-field" for="LogoFile">@(string.IsNullOrWhiteSpace(Model.LogoUrl) ? "Izberi logotip" : "Zamenjaj logotip")</label>
+    <input asp-for="LogoFile" type="file" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" />
+    <span asp-validation-for="LogoFile"></span>
+    <span id="placeLogoFileName" aria-live="polite"></span>
+    @if (!string.IsNullOrWhiteSpace(Model.LogoUrl))
+    {
+        <label class="places-logo__remove"><input asp-for="RemoveLogo" type="checkbox" /> Odstrani logotip</label>
+    }
+</section>
 <section class="places-location" aria-labelledby="placeLocationTitle">
     <div class="places-location__head">
         <div><h2 id="placeLocationTitle">Lokacija na zemljevidu *</h2><p>Dotakni se zemljevida, da določiš točko.</p></div>

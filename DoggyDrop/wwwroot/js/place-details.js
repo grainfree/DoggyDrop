@@ -9,6 +9,8 @@
         image.addEventListener("error", showFallback, { once: true });
         if (image.complete && image.naturalWidth === 0) showFallback();
     }
+    const logo = document.querySelector(".places-details__logo img");
+    logo?.addEventListener("error", () => { logo.parentElement.hidden = true; }, { once: true });
 
     const element = document.getElementById("placeDetailsMap");
     if (!element || !window.L || !window.DoggyDropBasemap || !window.DoggyDropPlaceMarker) return;
@@ -20,7 +22,7 @@
     window.DoggyDropBasemap.addTo(map, element.dataset.cartoBasemapKey);
     const icon = window.DoggyDropPlaceMarker.createIcon({
         category: element.dataset.category,
-        imageUrl: element.dataset.imageUrl
+        logoUrl: element.dataset.logoUrl
     });
     const marker = L.marker([lat, lng], { icon });
     marker.addTo(map);

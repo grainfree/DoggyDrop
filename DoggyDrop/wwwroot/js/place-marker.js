@@ -19,7 +19,7 @@
         const kind = category === 1 ? "veterinarian" : category === 2 ? "pet-shop" : "other";
         const label = category === 1 ? "Veterinar" : category === 2 ? "Trgovina za male živali" : "Lokacija";
         const symbol = category === 1 ? "bi-heart-pulse-fill" : category === 2 ? "bi-bag-fill" : "bi-geo-alt-fill";
-        const logo = safeImageUrl(place?.imageUrl);
+        const logo = safeImageUrl(place?.logoUrl);
         const image = logo
             ? `<img class="managed-place-image managed-place-pin__image" src="${escapeAttribute(logo)}" alt="" decoding="async" referrerpolicy="no-referrer">`
             : "";

@@ -6,7 +6,7 @@
 }
 <main class="places-page places-admin">
     <header class="places-page__header"><div><span class="places-eyebrow">Upravljanje</span><h1>Dodaj lokacijo</h1></div><a asp-action="Index">Nazaj na seznam</a></header>
-    <form asp-action="Create" method="post" class="places-form">
+    <form asp-action="Create" method="post" enctype="multipart/form-data" class="places-form">
         @Html.AntiForgeryToken()
         <partial name="_Form" model="Model" />
         <div class="places-form__actions"><button type="submit" class="places-button places-button--primary">Shrani lokacijo</button></div>

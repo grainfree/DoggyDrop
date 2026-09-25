@@ -1,4 +1,37 @@
 (() => {
+    const logoFile = document.getElementById("LogoFile");
+    const logoRemove = document.getElementById("RemoveLogo");
+    const logoPreview = document.getElementById("placeLogoPreview");
+    const logoImage = document.getElementById("placeLogoImage");
+    const logoName = document.getElementById("placeLogoFileName");
+    const savedLogoUrl = logoImage?.getAttribute("src");
+    let previewUrl = null;
+    const restoreLogo = () => {
+        if (logoImage) logoImage.src = savedLogoUrl || "";
+        if (logoPreview) logoPreview.hidden = !savedLogoUrl || Boolean(logoRemove?.checked);
+    };
+    logoFile?.addEventListener("change", () => {
+        if (previewUrl) URL.revokeObjectURL(previewUrl);
+        previewUrl = null;
+        const file = logoFile.files?.[0];
+        logoName.textContent = file?.name || "";
+        if (file && ["image/png", "image/jpeg", "image/webp"].includes(file.type) && file.size <= 5 * 1024 * 1024) {
+            previewUrl = URL.createObjectURL(file);
+            logoImage.src = previewUrl;
+            logoPreview.hidden = false;
+            if (logoRemove) logoRemove.checked = false;
+        } else restoreLogo();
+    });
+    logoRemove?.addEventListener("change", () => {
+        if (logoRemove.checked) {
+            logoFile.value = "";
+            logoName.textContent = "";
+            logoPreview.hidden = true;
+            if (previewUrl) URL.revokeObjectURL(previewUrl);
+            previewUrl = null;
+        } else restoreLogo();
+    });
+    window.addEventListener("pagehide", () => { if (previewUrl) URL.revokeObjectURL(previewUrl); });
     const form = document.querySelector(".places-form");
     const submitButton = form?.querySelector('button[type="submit"]');
     const submitLabel = submitButton?.textContent;

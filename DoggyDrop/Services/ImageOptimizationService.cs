@@ -11,7 +11,8 @@ namespace DoggyDrop.Services
     {
         Profile,
         TrashBin,
-        Walk
+        Walk,
+        PlaceLogo
     }
 
     public sealed class OptimizedImage
@@ -30,14 +31,16 @@ namespace DoggyDrop.Services
         public async Task<OptimizedImage> OptimizeAsync(Stream input, string? contentType, string? fileName, ImageOptimizationPreset preset)
         {
             using var original = new MemoryStream();
-            if (preset == ImageOptimizationPreset.Walk && input.CanSeek && input.Length - input.Position > WalkPhotoUploadPolicy.MaxBytes)
+            var strict = preset is ImageOptimizationPreset.Walk or ImageOptimizationPreset.PlaceLogo;
+            var maxBytes = preset == ImageOptimizationPreset.PlaceLogo ? PlaceLogoUploadPolicy.MaxBytes : WalkPhotoUploadPolicy.MaxBytes;
+            if (strict && input.CanSeek && input.Length - input.Position > maxBytes)
                 return RejectedWalkImage();
 
             var buffer = new byte[81920];
             int read;
             while ((read = await input.ReadAsync(buffer)) > 0)
             {
-                if (preset == ImageOptimizationPreset.Walk && original.Length + read > WalkPhotoUploadPolicy.MaxBytes)
+                if (strict && original.Length + read > maxBytes)
                     return RejectedWalkImage();
                 await original.WriteAsync(buffer.AsMemory(0, read));
             }
@@ -45,23 +48,31 @@ namespace DoggyDrop.Services
 
             try
             {
-                using var codec = SKCodec.Create(original);
-                if (preset == ImageOptimizationPreset.Walk &&
-                    (codec == null || !WalkPhotoUploadPolicy.HasSafeDimensions(codec.Info.Width, codec.Info.Height)))
+                using var logoCodecStream = preset == ImageOptimizationPreset.PlaceLogo
+                    ? new MemoryStream(original.ToArray()) : null;
+                using var codec = SKCodec.Create(logoCodecStream ?? original);
+                if (strict && (codec == null ||
+                    !(preset == ImageOptimizationPreset.PlaceLogo
+                        ? PlaceLogoUploadPolicy.HasSafeDimensions(codec.Info.Width, codec.Info.Height)
+                        : WalkPhotoUploadPolicy.HasSafeDimensions(codec.Info.Width, codec.Info.Height))))
                     return RejectedWalkImage();
                 var origin = codec?.EncodedOrigin ?? SKEncodedOrigin.TopLeft;
-                original.Position = 0;
+                if (preset != ImageOptimizationPreset.PlaceLogo) original.Position = 0;
 
-                using var bitmap = SKBitmap.Decode(original);
+                using var bitmap = preset == ImageOptimizationPreset.PlaceLogo
+                    ? SKBitmap.Decode(original.ToArray())
+                    : SKBitmap.Decode(original);
                 if (bitmap == null)
                 {
-                    return preset == ImageOptimizationPreset.Walk
+                    return strict
                         ? RejectedWalkImage()
                         : BuildFallback(original, contentType, fileName);
                 }
 
                 using var orientedBitmap = ApplyEncodedOrigin(bitmap, origin);
-                var sourceBitmap = orientedBitmap ?? bitmap;
+                var oriented = orientedBitmap ?? bitmap;
+                using var trimmedBitmap = preset == ImageOptimizationPreset.PlaceLogo ? TrimTransparentEdges(oriented) : null;
+                var sourceBitmap = trimmedBitmap ?? oriented;
                 var settings = ResolveSettings(preset);
                 var outputWidth = sourceBitmap.Width;
                 var outputHeight = sourceBitmap.Height;
@@ -81,7 +92,7 @@ namespace DoggyDrop.Services
                 using var encoded = image.Encode(SKEncodedImageFormat.Webp, settings.WebpQuality);
                 if (encoded == null)
                 {
-                    return preset == ImageOptimizationPreset.Walk
+                    return strict
                         ? RejectedWalkImage()
                         : BuildFallback(original, contentType, fileName);
                 }
@@ -100,13 +111,37 @@ namespace DoggyDrop.Services
             }
             catch
             {
-                return preset == ImageOptimizationPreset.Walk
+                return strict
                     ? RejectedWalkImage()
                     : BuildFallback(original, contentType, fileName);
             }
         }
 
         private static OptimizedImage RejectedWalkImage() => new() { Content = Stream.Null };
+
+        private static SKBitmap? TrimTransparentEdges(SKBitmap source)
+        {
+            if (source.AlphaType == SKAlphaType.Opaque) return null;
+            var left = source.Width;
+            var top = source.Height;
+            var right = -1;
+            var bottom = -1;
+            for (var y = 0; y < source.Height; y++)
+            for (var x = 0; x < source.Width; x++)
+            {
+                if (source.GetPixel(x, y).Alpha == 0) continue;
+                left = Math.Min(left, x);
+                top = Math.Min(top, y);
+                right = Math.Max(right, x);
+                bottom = Math.Max(bottom, y);
+            }
+            if (right < left || (left == 0 && top == 0 && right == source.Width - 1 && bottom == source.Height - 1))
+                return null;
+            var trimmed = new SKBitmap(new SKImageInfo(right - left + 1, bottom - top + 1, source.ColorType, source.AlphaType));
+            using var canvas = new SKCanvas(trimmed);
+            canvas.DrawBitmap(source, new SKRect(left, top, right + 1, bottom + 1), new SKRect(0, 0, trimmed.Width, trimmed.Height));
+            return trimmed;
+        }
 
         private static SKBitmap ResizeBitmap(SKBitmap source, int width, int height)
         {
@@ -196,6 +231,7 @@ namespace DoggyDrop.Services
                 ImageOptimizationPreset.Profile => (640, 74),
                 ImageOptimizationPreset.TrashBin => (1200, 76),
                 ImageOptimizationPreset.Walk => (1600, 78),
+                ImageOptimizationPreset.PlaceLogo => (1024, 86),
                 _ => (1200, 76)
             };
         }

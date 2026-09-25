@@ -26,6 +26,7 @@ namespace DoggyDrop.Controllers
         private readonly IGamificationCalendar _gamificationCalendar;
         private readonly IUserAchievementService _userAchievementService;
         private readonly NearbyDiscoveryService _nearbyDiscoveryService;
+        private readonly PlaceLogoCloudName _placeLogoCloud;
         private static readonly IReadOnlyList<FounderArea> FounderAreas =
         [
             new("maribor", "Maribor", 46.5547, 15.6459, 6500),
@@ -52,7 +53,8 @@ namespace DoggyDrop.Controllers
                              IGamificationRewardBuilder rewardBuilder,
                              IGamificationCalendar gamificationCalendar,
                              IUserAchievementService userAchievementService,
-                             NearbyDiscoveryService? nearbyDiscoveryService = null)
+                             NearbyDiscoveryService? nearbyDiscoveryService = null,
+                             PlaceLogoCloudName? placeLogoCloud = null)
         {
             _context = context;
             _environment = environment;
@@ -67,6 +69,7 @@ namespace DoggyDrop.Controllers
             _gamificationCalendar = gamificationCalendar;
             _userAchievementService = userAchievementService;
             _nearbyDiscoveryService = nearbyDiscoveryService ?? new NearbyDiscoveryService(context);
+            _placeLogoCloud = placeLogoCloud ?? new PlaceLogoCloudName(null);
         }
 
         // 📍 Prikaz obrazca za dodajanje koša
@@ -214,10 +217,10 @@ namespace DoggyDrop.Controllers
                 .Where(place => place.IsActive)
                 .OrderBy(place => place.Id)
                 .Select(place => new PlaceMapItem(place.Id, place.Name, place.Category,
-                    place.Latitude, place.Longitude, place.Address, place.ImageUrl))
+                    place.Latitude, place.Longitude, place.Address, place.LogoUrl))
                 .ToListAsync();
             ViewBag.ManagedPlaces = managedPlaces
-                .Select(place => place with { ImageUrl = PlaceLinks.SafeImage(place.ImageUrl) })
+                .Select(place => place with { LogoUrl = PlaceLogoDelivery.ForMarker(place.LogoUrl, _placeLogoCloud.Value) })
                 .ToList();
 
             return View(bins);
