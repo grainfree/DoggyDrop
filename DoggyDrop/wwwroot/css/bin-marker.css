@@ -22,17 +22,19 @@
     content: "";
 }
 
-.map-bin-marker__icon { width: 22px; height: 22px; }
+.map-bin-marker__icon { width: 26px; height: 26px; }
 
 .map-bin-marker__lid,
 .map-bin-marker__body,
-.map-bin-marker__line,
 .map-bin-marker__handle {
+    fill: currentColor;
+}
+
+.map-bin-marker__line {
     fill: none;
-    stroke: currentColor;
+    stroke: var(--bin-fill);
     stroke-linecap: round;
-    stroke-linejoin: round;
-    stroke-width: 2.5;
+    stroke-width: 1.7;
 }
 
 .map-bin-marker__status { display: none; }
@@ -44,8 +46,8 @@
     right: -4px;
     top: -4px;
     display: block;
-    width: 10px;
-    height: 10px;
+    width: 8px;
+    height: 8px;
     border: 2px solid #fff;
     border-radius: 50%;
     background: var(--bin-fill);

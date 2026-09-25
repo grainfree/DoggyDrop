@@ -28,10 +28,17 @@ test("shared bin is 36px visually with a 44px touch box and no default badge", (
     assert.match(css, /\.map-bin-marker\s*\{[^}]*width: 36px;[^}]*height: 36px;/);
     assert.match(css, /\.map-bin-marker__status \{ display: none; \}/);
     assert.match(normal.html, /map-bin-marker__icon/);
+    assert.match(normal.html, /class="map-bin-marker__lid" d="M7 10h18v3H7z"/);
+    assert.match(normal.html, /class="map-bin-marker__body" d="M9 14h14l-1\.5 12h-11z"/);
+    assert.doesNotMatch(normal.html, /<text\b|<image\b|bi-trash|>T<\/i>/i);
+    assert.match(css, /\.map-bin-marker__icon \{ width: 26px; height: 26px; \}/);
+    assert.match(css, /\.map-bin-marker__lid,[\s\S]*?\.map-bin-marker__body,[\s\S]*?\.map-bin-marker__handle \{\s*fill: currentColor;/);
+    assert.match(css, /\.map-bin-marker__line \{[^}]*stroke: var\(--bin-fill\)/);
     assert.doesNotMatch(normal.html, /map-bin-marker--selected/);
     assert.match(selected.html, /map-bin-marker--selected/);
     assert.match(full.html, /map-bin-marker--full/);
     assert.match(missing.html, /map-bin-marker--missing/);
+    assert.match(css, /\.map-bin-marker--full \.map-bin-marker__status,[\s\S]*?width: 8px;[^}]*height: 8px;/);
     assert.doesNotMatch(css, /14px 26px|rotate\(-45deg\)/);
 });
 
@@ -43,14 +50,18 @@ test("Places use a 48px branded marker, safe contained logos, and distinct fallb
     assert.equal(Number(shop.iconSize[0]), 52);
     assert.ok(Number(shop.iconSize[0]) > Number(bins.createIcon({}).iconSize[0]));
     assert.match(css, /\.managed-place-pin \{[^}]*width: 48px;[^}]*height: 48px;/);
-    assert.match(css, /\.managed-place-pin__image \{[^}]*padding: 2px;[^}]*object-fit: contain;/);
+    assert.match(css, /\.managed-place-pin__image \{[^}]*inset: 3px;[^}]*width: calc\(100% - 6px\);[^}]*padding: 1px;[^}]*object-fit: contain;/);
+    assert.match(css, /\.managed-place-pin--selected \{[^}]*transform: scale\(1\.12\);/);
     assert.match(shop.html, /src="https:\/\/example\.com\/logo\.png\?x=1&amp;y=2"/);
     assert.match(shop.html, /referrerpolicy="no-referrer"/);
     assert.match(shop.html, /bi-bag-fill/);
     assert.match(vet.html, /bi-heart-pulse-fill/);
     assert.doesNotMatch(vet.html, /<img/);
     assert.match(generic.html, /bi-geo-alt-fill/);
-    assert.match(places.createIcon({ category: 2 }, { selected: true }).html, /managed-place-pin--selected/);
+    const selectedShop = places.createIcon({ category: 2, imageUrl: "https://example.com/logo.png" }, { selected: true });
+    assert.match(selectedShop.html, /managed-place-pin--selected/);
+    assert.match(selectedShop.html, /src="https:\/\/example\.com\/logo\.png"/);
+    assert.equal(vet.iconSize[0], shop.iconSize[0]);
 });
 
 test("unsafe or missing logos never create an image request or inject markup", () => {
