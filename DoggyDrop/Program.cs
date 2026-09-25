@@ -42,6 +42,11 @@ builder.Services.AddDataProtection()
 builder.Services.AddDefaultIdentity<ApplicationUser>(options => options.SignIn.RequireConfirmedAccount = false)
     .AddRoles<IdentityRole>()
     .AddEntityFrameworkStores<ApplicationDbContext>();
+builder.Services.ConfigureApplicationCookie(options =>
+{
+    options.Events.OnRedirectToLogin = WalkPointCookieRedirects.ToLogin;
+    options.Events.OnRedirectToAccessDenied = WalkPointCookieRedirects.ToAccessDenied;
+});
 
 var r2Settings = new CloudflareR2Settings
 {

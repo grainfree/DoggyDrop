@@ -39,6 +39,7 @@
         .Distinct()
         .ToList();
     var completedStopCount = completedStopIds.Count;
+    var activeWalkReturnUrl = Url.Action("Active", "Walks", new { id = Model.Id });
     var debugGpsEnabled = Context.Request.Query["debugGps"].ToString() == "1";
     var plannedStopCount = Model.PlannedWalk?.Stops?.Count ?? 0;
     var walkPhotos = (Model.Photos ?? Array.Empty<DoggyDrop.Models.WalkPhoto>())
@@ -54,6 +55,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
           integrity="sha256-p4NxAoJBhIINfQXh6ULpR5txR9wra5I3BcVsTPY1p3A="
           crossorigin="" />
+    <link rel="stylesheet" href="~/css/bin-marker.css" asp-append-version="true" />
 }
 
 <section class="app-page active-walk-page">
@@ -75,14 +77,19 @@
             </div>
             <button type="button" id="trackingToggle" class="btn btn-success rounded-pill fw-semibold">Začni GPS zapis</button>
         </div>
+        <div id="walkAuthRecovery" class="walk-auth-recovery" role="alert" hidden>
+            <span>Prijava je potekla. Beleženje je ustavljeno.</span>
+            <a id="walkAuthLogin" asp-area="Identity" asp-page="/Account/Login" asp-route-returnUrl="@activeWalkReturnUrl">Ponovno se prijavi</a>
+        </div>
         <div id="gpsSecurityWarning" class="gps-security-warning" hidden>
             GPS na telefonu deluje samo prek HTTPS povezave. Lokalni LAN naslov na http:// ne more zahtevati dovoljenja za lokacijo.
         </div>
-        <div id="binProximityToast" class="active-walk-bin-toast" hidden>
+        <div id="binProximityToast" class="active-walk-bin-toast" role="status" aria-live="polite" hidden>
             <div>
-                <strong>Koš je blizu</strong>
+                <strong>Pasji koš je blizu</strong>
                 <span id="binProximityText">Planirani koš je na tvoji poti.</span>
             </div>
+            <a id="binProximityAction" href="#" hidden>Navigiraj</a>
             <button type="button" id="dismissBinProximityToast" aria-label="Zapri obvestilo">×</button>
         </div>
         <div id="walkMap"></div>
@@ -312,9 +319,13 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
             integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
             crossorigin=""></script>
+    <script src="~/js/bin-marker.js" asp-append-version="true"></script>
+    <script src="~/js/active-bin-proximity.js" asp-append-version="true"></script>
+    <script src="~/js/walk-recording-auth.js" asp-append-version="true"></script>
 
     <script>
         const walkId = @Model.Id;
+        const recordingAuth = DoggyDropWalkRecordingAuth.createGuard(walkId, handleRecordingAuthLost);
         const startedAt = new Date("@Model.StartedAt.ToString("O")");
         const initialPoints = @pointsJson;
         const plannedRoutePoints = @plannedRoutePointsJson;
@@ -352,6 +363,7 @@
         const vibrateOnStopToggle = document.getElementById("vibrateOnStopToggle");
         const binProximityToast = document.getElementById("binProximityToast");
         const binProximityText = document.getElementById("binProximityText");
+        const binProximityAction = document.getElementById("binProximityAction");
         const dismissBinProximityToast = document.getElementById("dismissBinProximityToast");
         const recenterWalkMapButton = document.getElementById("recenterWalkMap");
         const fitWalkRouteButton = document.getElementById("fitWalkRoute");
@@ -362,12 +374,15 @@
         const vibratePreferenceKey = "doggydrop.walk.vibrateOnStop";
         const autoCompleteRadiusMeters = 28;
         const approachRadiusMeters = 60;
-        const binAlertRadiusMeters = 85;
 
         let map;
         let routeLine;
         let plannedRouteLine;
         let userMarker;
+        let approvedBinLayer;
+        let approvedBins = [];
+        const binAlertStorageKey = `doggydrop.walk.binAlerts.${walkId}`;
+        const publicBinAlerts = DoggyDropWalkBinProximity.createTracker(walkId, readStoredBinAlerts());
         let plannedStopMarkers = [];
         let checklistCheckboxes = [];
         let routePoints = initialPoints.map(point => [point.latitude, point.longitude]);
@@ -384,13 +399,13 @@
         let distanceMeters = @Model.DistanceMeters.ToString(System.Globalization.CultureInfo.InvariantCulture);
         let lastApproachStopId = null;
         let lastCompletedByProximityStopId = null;
-        let lastBinToastStopId = null;
         let binToastTimeout = null;
         let isFinishing = false;
 
         document.addEventListener("DOMContentLoaded", function () {
             initTimer();
             initMap();
+            void loadApprovedBins();
             setWalkCockpitExpanded(false);
             if (window.ResizeObserver) {
                 new ResizeObserver(entries => {
@@ -588,6 +603,19 @@
             cockpitGpsNotice.textContent = message || "";
         }
 
+        function handleRecordingAuthLost() {
+            stopTracking();
+            trackingToggle.disabled = true;
+            trackingToggle.textContent = "GPS ustavljen";
+            const message = "Prijava je potekla. Beleženje je ustavljeno.";
+            gpsStatusElement.textContent = message;
+            showWalkNotice(message);
+            setWalkGpsPresentation("unavailable", "Prijava je potekla");
+            document.getElementById("walkAuthLogin").href = recordingAuth.loginUrl;
+            document.getElementById("walkAuthRecovery").hidden = false;
+            setGpsDebug("Response", "auth required");
+        }
+
         function initMap() {
             const plannedPoints = plannedRoutePoints.map(point => [point.latitude, point.longitude]);
             const fallback = routePoints.length > 0
@@ -604,6 +632,8 @@
                 maxZoom: 19,
                 attribution: "&copy; OpenStreetMap"
             }).addTo(map);
+
+            approvedBinLayer = L.layerGroup().addTo(map);
 
             if (plannedPoints.length > 1) {
                 plannedRouteLine = L.polyline(plannedPoints, {
@@ -642,6 +672,48 @@
             }
 
             scheduleMapRefresh();
+        }
+
+        function readStoredBinAlerts() {
+            try {
+                const stored = JSON.parse(sessionStorage.getItem(binAlertStorageKey) || "[]");
+                return stored && typeof stored === "object" && !Array.isArray(stored) ? stored : null;
+            } catch {
+                return null;
+            }
+        }
+
+        async function loadApprovedBins() {
+            try {
+                const response = await fetch("/Map/FindNearest", { credentials: "same-origin" });
+                if (!response.ok) return;
+                const result = await response.json();
+                if (!Array.isArray(result)) return;
+                approvedBins = result.map(item => ({
+                    id: Number(item.id ?? item.Id),
+                    name: String(item.name ?? item.Name ?? "Pasji koš"),
+                    latitude: Number(item.latitude ?? item.Latitude),
+                    longitude: Number(item.longitude ?? item.Longitude)
+                })).filter(item => Number.isInteger(item.id) && item.id > 0 && isValidStopCoordinate(item.latitude, item.longitude));
+
+                approvedBinLayer.clearLayers();
+                approvedBins.forEach(bin => {
+                    const marker = L.marker([bin.latitude, bin.longitude], { icon: DoggyDropBinMarker.createIcon(bin) });
+                    marker.bindPopup(() => {
+                        const content = document.createElement("div");
+                        const name = document.createElement("strong");
+                        name.textContent = bin.name;
+                        const link = document.createElement("a");
+                        link.href = `/Map?navigateBin=${bin.id}`;
+                        link.textContent = "Navigiraj do koša";
+                        content.append(name, document.createElement("br"), link);
+                        return content;
+                    });
+                    marker.addTo(approvedBinLayer);
+                });
+            } catch {
+                // The walk and GPS recording remain usable if public bins cannot load.
+            }
         }
 
         function isValidStopCoordinate(lat, lng) {
@@ -739,7 +811,7 @@
         }
 
         function startTracking() {
-            if (isFinishing || isTracking) return;
+            if (isFinishing || isTracking || !recordingAuth.canRecord()) return;
             if (!window.isSecureContext) {
                 gpsStatusElement.textContent = "Brskalnik ne dovoli GPS-a na tej povezavi.";
                 gpsSecurityWarning.hidden = false;
@@ -764,6 +836,7 @@
         }
 
         function startGpsWatch() {
+            if (!recordingAuth.canRecord()) return;
             const options = { enableHighAccuracy: true, maximumAge: 0, timeout: 12000 };
             const generation = ++watchGeneration;
             pendingPosition = null;
@@ -782,7 +855,7 @@
                 pageHiddenAt = Date.now();
                 return;
             }
-            if (!isTracking || isFinishing) return;
+            if (!isTracking || isFinishing || !recordingAuth.canRecord()) return;
             if (pageHiddenAt && Date.now() - pageHiddenAt > 30000) {
                 gpsRecordingWarning.hidden = false;
                 gpsRecordingWarning.textContent = "Aplikacija je bila v ozadju. V tem času GPS pot morda ni bila zabeležena.";
@@ -841,7 +914,7 @@
                 incrementGpsDebug("Callbacks");
                 lastGpsCallbackAt = Date.now();
             }
-            if (isFinishing || !isTracking) {
+            if (isFinishing || !isTracking || !recordingAuth.canRecord()) {
                 return;
             }
 
@@ -862,7 +935,8 @@
                 const response = await fetch(`/Walks/AddPoint/${walkId}`, {
                     method: "POST",
                     headers: {
-                        "Content-Type": "application/json"
+                        "Content-Type": "application/json",
+                        "Accept": "application/json"
                     },
                     credentials: "same-origin",
                     body: JSON.stringify({
@@ -872,6 +946,9 @@
                         recordedAt: new Date(position.timestamp).toISOString()
                     })
                 });
+
+                if (isFinishing || generation !== watchGeneration) return;
+                if (await recordingAuth.check(response)) return;
 
                 if (!response.ok) {
                     incrementGpsDebug("Failure");
@@ -917,8 +994,9 @@
                 updateWalkCockpitLabel();
                 gpsStatusElement.textContent = `Zadnja točnost: ${accuracy} m`;
                 cockpitGpsAccuracy.textContent = gpsStatusElement.textContent;
-                updateRoute(lat, lng);
+                updateRoute(lat, lng, position.coords.accuracy);
             } catch {
+                if (!recordingAuth.canRecord()) return;
                 incrementGpsDebug("Failure");
                 setGpsDebug("Response", "network error");
                 if (!isFinishing) gpsStatusElement.textContent = "GPS točka ni bila shranjena. Preveri povezavo.";
@@ -928,7 +1006,7 @@
                 isSending = false;
                 const next = pendingPosition;
                 pendingPosition = null;
-                if (next && isTracking && !isFinishing) void handlePosition(next.position, true, next.generation);
+                if (next && isTracking && !isFinishing && recordingAuth.canRecord()) void handlePosition(next.position, true, next.generation);
             }
         }
 
@@ -1020,7 +1098,7 @@
             }
         }
 
-        function updateRoute(lat, lng) {
+        function updateRoute(lat, lng, accuracyMeters) {
             routeLine.setLatLngs(routePoints);
 
             if (userMarker) {
@@ -1032,6 +1110,7 @@
             currentPosition = [lat, lng];
             updateNextStopCard();
             evaluateStopProximity();
+            try { evaluateBinProximity(lat, lng, accuracyMeters); } catch { }
             map.invalidateSize({ pan: false });
             map.setView([lat, lng], Math.max(map.getZoom(), 17));
         }
@@ -1268,15 +1347,6 @@
 
             const nearest = remainingStops[0];
             const nearestName = nearest.stop.name ?? nearest.stop.Name;
-            const nearestBin = remainingStops.find(item => item.type === "bin");
-
-            if (nearestBin && nearestBin.distance <= binAlertRadiusMeters && lastBinToastStopId !== nearestBin.stopId) {
-                lastBinToastStopId = nearestBin.stopId;
-                showBinProximityToast(nearestBin.stop, nearestBin.distance);
-            } else if (nearestBin && nearestBin.distance > binAlertRadiusMeters * 1.6 && lastBinToastStopId === nearestBin.stopId) {
-                lastBinToastStopId = null;
-            }
-
             if (nearest.distance <= approachRadiusMeters && lastApproachStopId !== nearest.stopId) {
                 lastApproachStopId = nearest.stopId;
                 proximityStatusElement.textContent = `Blizu si postanka ${nearestName} (${formatDistance(nearest.distance)}).`;
@@ -1308,13 +1378,40 @@
             }
         }
 
-        function showBinProximityToast(stop, distance) {
+        function evaluateBinProximity(lat, lng, accuracyMeters) {
+            if (document.hidden || !Number.isFinite(accuracyMeters) || accuracyMeters > DoggyDropWalkBinProximity.maxAccuracyMeters ||
+                (binProximityToast && !binProximityToast.hidden)) return;
+            const plannedCandidates = getUpcomingStops()
+                .filter(stop => (stop.type ?? stop.Type ?? "").toLowerCase() === "bin")
+                .map(stop => ({
+                    id: Number(stop.id ?? stop.Id),
+                    stop,
+                    distanceMeters: getDistanceMeters(lat, lng, Number(stop.latitude ?? stop.Latitude), Number(stop.longitude ?? stop.Longitude))
+                }));
+            const candidates = approvedBins
+                .filter(bin => Math.abs(bin.latitude - lat) < 0.003 && Math.abs(bin.longitude - lng) < 0.003)
+                .filter(bin => !plannedStops.some(stop =>
+                    (stop.type ?? stop.Type ?? "").toLowerCase() === "bin" &&
+                    isValidStopCoordinate(Number(stop.latitude ?? stop.Latitude), Number(stop.longitude ?? stop.Longitude)) &&
+                    getDistanceMeters(bin.latitude, bin.longitude, Number(stop.latitude ?? stop.Latitude), Number(stop.longitude ?? stop.Longitude)) < 20))
+                .map(bin => ({ id: bin.id, bin, distanceMeters: getDistanceMeters(lat, lng, bin.latitude, bin.longitude) }));
+            const nearby = publicBinAlerts.check(candidates, accuracyMeters, Date.now(), plannedCandidates);
+            if (!nearby) return;
+            try { sessionStorage.setItem(binAlertStorageKey, JSON.stringify(publicBinAlerts.state())); } catch { }
+            showBinProximityToast(nearby.source === "planned" ? nearby.stop : nearby.bin,
+                nearby.distanceMeters, nearby.source === "public" ? nearby.id : null);
+        }
+
+        function showBinProximityToast(stop, distance, binId = null) {
             if (!binProximityToast || !binProximityText) {
                 return;
             }
 
             const stopName = stop.name ?? stop.Name ?? "Koš";
             binProximityText.textContent = `${stopName} je približno ${formatDistance(distance)} stran. Če ga potrebuješ, je zdaj pravi trenutek.`;
+            binProximityAction.hidden = !binId;
+            if (binId) binProximityAction.href = `/Map?navigateBin=${binId}`;
+            else binProximityAction.removeAttribute("href");
             binProximityToast.hidden = false;
             binProximityToast.classList.add("is-visible");
 
@@ -1791,6 +1888,23 @@
         font-weight: 800;
     }
 
+    .walk-auth-recovery[hidden] { display: none; }
+    .walk-auth-recovery {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 12px;
+        padding: 10px 12px;
+        border: 1px solid #d39289;
+        border-radius: 8px;
+        background: #fff1ef;
+        color: #7b2922;
+        font-weight: 700;
+    }
+    .walk-auth-recovery a { color: #7b2922; font-weight: 900; }
+
     .gps-security-warning {
         margin-bottom: 12px;
         padding: 10px 12px;
@@ -1984,6 +2098,12 @@
         backdrop-filter: blur(14px);
         text-decoration: none;
     }
+
+    .active-walk-bin-toast[hidden],
+    .active-walk-bin-toast a[hidden] { display: none; }
+
+    .active-walk-bin-toast > div { min-width: 0; }
+    .active-walk-bin-toast a { display: grid; flex: 0 0 auto; min-height: 44px; place-items: center; color: #24695a; font-weight: 850; }
 
     .gps-debug-panel,
     #gpsRecordingWarning {

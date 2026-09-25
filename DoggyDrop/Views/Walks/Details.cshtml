@@ -414,9 +414,9 @@
         .walk-summary__top-actions button, .walk-summary__top-actions a { min-height: 44px; padding: 10px 15px; border-radius: 8px; font-weight: 800; }
         .walk-summary__top-actions button { border: 0; background: #24695a; color: white; }
         .walk-summary__top-actions a { border: 1px solid #c5d5cc; color: #24695a; text-decoration: none; }
-        .walk-memory__cover { position: relative; display: grid; width: 100%; max-height: 280px; aspect-ratio: 16 / 9; place-items: center; overflow: hidden; border-radius: 8px; background: #e3efe5; }
+        .walk-memory__cover { position: relative; display: grid; width: min(100%, 360px); max-height: 450px; aspect-ratio: 4 / 5; margin-inline: auto; place-items: center; overflow: hidden; border-radius: 8px; background: #e3efe5; }
         .walk-memory__cover-fallback { color: #24695a; font-size: 3rem; }
-        .walk-memory__cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+        .walk-memory__cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 40%; }
         .walk-memory__highlights { margin-top: 18px; }
         .walk-memory__highlights h2 { font-size: 1.12rem; }
         .walk-memory__highlight-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }

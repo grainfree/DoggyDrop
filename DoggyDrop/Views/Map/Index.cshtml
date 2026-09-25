@@ -68,20 +68,12 @@
 @section Styles {
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
           integrity="sha256-p4NxAoJBhIINfQXh6ULpR5txR9wra5I3BcVsTPY1p3A="
-          crossorigin="" />
+            crossorigin="" />
+    <link rel="stylesheet" href="~/css/bin-marker.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/places.css" asp-append-version="true" />
 }
 
 <style>
-    .managed-place-pin { display: grid; place-items: center; width: 38px; height: 38px; border: 3px solid #fff; border-radius: 50%; box-shadow: 0 2px 8px rgba(13, 38, 31, .34); color: #fff; font-size: 1.1rem; }
-    .managed-place-pin--veterinarian { background: #18825c; }
-    .managed-place-pin--pet-shop { background: #226c76; }
-    .managed-place-popup { min-width: 180px; max-width: 240px; }
-    .managed-place-popup__category { display: block; color: #367059; font-size: .73rem; font-weight: 800; text-transform: uppercase; }
-    .managed-place-popup strong { display: block; margin: 3px 0 6px; font-size: 1rem; line-height: 1.25; overflow-wrap: anywhere; }
-    .managed-place-popup p { margin: 0 0 10px; color: #586e64; overflow-wrap: anywhere; }
-    .managed-place-popup__actions { display: flex; flex-wrap: wrap; gap: 8px; }
-    .managed-place-popup__actions a, .managed-place-popup__actions button { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 6px 10px; border: 1px solid #c4d5c9; border-radius: 5px; background: #fff; color: #1e6249; font-weight: 750; text-decoration: none; cursor: pointer; }
-
     .leaflet-container {
         overflow: hidden;
         background: #ddd;
@@ -633,71 +625,6 @@
         font-size: 0.74rem;
         font-weight: 900;
         text-decoration: none;
-    }
-
-    .map-bin-marker {
-        position: relative;
-        display: grid;
-        width: 44px;
-        height: 52px;
-        place-items: center;
-        border: 3px solid #ffffff;
-        border-radius: 22px 22px 22px 8px;
-        background: linear-gradient(145deg, #348171, #24695a);
-        box-shadow: 0 14px 26px rgba(31, 45, 41, 0.32);
-        color: #ffffff;
-        transform: rotate(-45deg);
-    }
-
-    .map-bin-marker::before {
-        position: absolute;
-        inset: 7px;
-        border-radius: 999px;
-        background: rgba(255, 255, 255, 0.16);
-        content: "";
-    }
-
-    .map-bin-marker__icon {
-        position: relative;
-        z-index: 1;
-        width: 27px;
-        height: 27px;
-        transform: rotate(45deg) translateY(-1px);
-    }
-
-    .map-bin-marker__lid,
-    .map-bin-marker__body,
-    .map-bin-marker__line,
-    .map-bin-marker__handle {
-        fill: none;
-        stroke: currentColor;
-        stroke-linecap: round;
-        stroke-linejoin: round;
-        stroke-width: 2.4;
-    }
-
-    .map-bin-marker__paw {
-        fill: currentColor;
-    }
-
-    .map-bin-marker__status {
-        position: absolute;
-        right: -5px;
-        bottom: 3px;
-        z-index: 2;
-        width: 14px;
-        height: 14px;
-        border: 3px solid #ffffff;
-        border-radius: 999px;
-        background: #f6b756;
-    }
-
-    .map-bin-marker--full {
-        background: linear-gradient(145deg, #cf8842, #a95f27);
-    }
-
-    .map-bin-marker--missing {
-        background: linear-gradient(145deg, #b84c4c, #893030);
     }
 
     .map-place-marker {
@@ -2010,6 +1937,35 @@
         content: "";
     }
 
+    .map-active-walk-sheet.is-auth-lost .map-active-walk-sheet__live { color: #a13b31; }
+    .map-active-walk-sheet.is-auth-lost .map-active-walk-sheet__live::before {
+        background: #a13b31;
+        box-shadow: none;
+    }
+
+    .map-walk-auth-recovery[hidden] { display: none; }
+    .map-walk-auth-recovery {
+        position: fixed;
+        top: calc(72px + env(safe-area-inset-top));
+        left: 50%;
+        z-index: 1400;
+        width: min(460px, calc(100vw - 24px));
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 12px;
+        border: 1px solid #d39289;
+        border-radius: 8px;
+        background: #fff1ef;
+        color: #7b2922;
+        box-shadow: 0 8px 24px rgba(31, 45, 41, 0.18);
+        transform: translateX(-50%);
+        font-weight: 700;
+    }
+    .map-walk-auth-recovery a { color: #7b2922; font-weight: 900; }
+
     .map-active-walk-sheet h2 {
         margin: 5px 0 0;
         color: #17322c;
@@ -2301,7 +2257,7 @@
     }
 
     .map-community-heat__toggle small,
-    .map-community-heat__stats span {
+    .map-community-heat__stats > span {
         color: #65716d;
         font-size: 0.78rem;
         font-weight: 850;
@@ -3406,6 +3362,10 @@ else if (needsDogOnboarding)
 
 @if (hasActiveWalk)
 {
+    <div id="homeWalkAuthRecovery" class="map-walk-auth-recovery" role="alert" hidden>
+        <span>Prijava je potekla. Beleženje je ustavljeno.</span>
+        <a id="homeWalkAuthLogin" asp-area="Identity" asp-page="/Account/Login" asp-route-returnUrl="@Url.Action("Active", "Walks", new { id = activeWalk!.Id })">Ponovno se prijavi</a>
+    </div>
     <aside id="homeActiveWalkSheet" class="map-active-walk-sheet" aria-label="Aktiven sprehod">
         <button id="homeActiveWalkToggle" type="button" class="map-active-walk-sheet__toggle" aria-expanded="false" aria-controls="homeActiveWalkDetails" aria-label="Razširi kontrole sprehoda">
             <span class="map-active-walk-sheet__grabber" aria-hidden="true"></span>
@@ -3595,7 +3555,7 @@ else if (needsDogOnboarding)
     </button>
     <div class="map-community-heat__body">
         <div class="map-community-heat__stats">
-            <span><b id="communityActiveWalkers">0</b> aktivnih</span>
+            <span><b id="communityActiveWalkers">0</b> <span id="communityActiveWalkersLabel">aktivnih</span></span>
             <span><b id="communityPopularParks">0</b> parkov</span>
             <span><b id="communityTrendingRoutes">0</b> poti</span>
         </div>
@@ -3694,6 +3654,8 @@ else if (needsDogOnboarding)
             integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
             crossorigin=""></script>
     <script src="~/js/map-basemap.js" asp-append-version="true"></script>
+    <script src="~/js/bin-marker.js" asp-append-version="true"></script>
+    <script src="~/js/walk-recording-auth.js" asp-append-version="true"></script>
 
     <script>
         const cartoBasemapKey = @cartoBasemapKeyJson;
@@ -3728,6 +3690,8 @@ else if (needsDogOnboarding)
         let cafeLayer;
         let communityLayer;
         let communityHeatRange = "today";
+        let communityRefreshTimer = null;
+        let communityRequestId = 0;
         let exploreFilter = "all";
         let userLocation = null;
         let activeBinId = null;
@@ -3801,6 +3765,9 @@ else if (needsDogOnboarding)
         const mapFounderPromptText = document.getElementById("mapFounderPromptText");
         const activeWalkStartedAt = @Html.Raw(hasActiveWalk ? $"new Date(\"{activeWalkStartedAt}\")" : "null");
         const homeActiveWalkId = @(activeWalk?.Id ?? 0);
+        const homeRecordingAuth = homeActiveWalkId > 0
+            ? DoggyDropWalkRecordingAuth.createGuard(homeActiveWalkId, handleHomeRecordingAuthLost)
+            : null;
         const validWalkPoints = points => points.filter(point => Array.isArray(point) && point.length === 2 && point.every(Number.isFinite) && Math.abs(point[0]) <= 90 && Math.abs(point[1]) <= 180);
         const homeWalkTrailPoints = validWalkPoints(@homeWalkTrailJson);
         const homeWalkPlanPoints = validWalkPoints(@homeWalkPlanJson);
@@ -3859,8 +3826,22 @@ else if (needsDogOnboarding)
             updateActiveWalkSheetSpace();
         }
 
+        function handleHomeRecordingAuthLost() {
+            homeWalkTracking.active = false;
+            stopHomeWalkWatch();
+            const message = "Prijava je potekla. Beleženje je ustavljeno.";
+            showHomeGpsStatus(message);
+            const sheet = document.getElementById("homeActiveWalkSheet");
+            sheet?.classList.add("is-auth-lost");
+            const liveLabel = sheet?.querySelector(".map-active-walk-sheet__live");
+            if (liveLabel) liveLabel.textContent = "Beleženje ustavljeno";
+            document.getElementById("homeWalkAuthLogin").href = homeRecordingAuth.loginUrl;
+            document.getElementById("homeWalkAuthRecovery").hidden = false;
+            setHomeGpsDebug("Response", "auth required");
+        }
+
         function startHomeWalkWatch() {
-            if (!homeWalkTracking.active) return;
+            if (!homeWalkTracking.active || !homeRecordingAuth?.canRecord()) return;
             if (!window.isSecureContext || !navigator.geolocation) {
                 showHomeGpsStatus("GPS zapis ni na voljo. Sprehoda ne moremo zanesljivo beležiti.");
                 return;
@@ -3894,7 +3875,7 @@ else if (needsDogOnboarding)
                 countHomeGpsDebug("Callbacks");
                 homeWalkTracking.lastCallback = Date.now();
             }
-            if (!homeWalkTracking.active) return;
+            if (!homeWalkTracking.active || !homeRecordingAuth?.canRecord()) return;
             if (homeWalkTracking.sending) {
                 homeWalkTracking.pending = { position, generation };
                 countHomeGpsDebug("Deferred");
@@ -3905,7 +3886,7 @@ else if (needsDogOnboarding)
             try {
                 const response = await fetch(`/Walks/AddPoint/${homeActiveWalkId}`, {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: { "Content-Type": "application/json", "Accept": "application/json" },
                     credentials: "same-origin",
                     body: JSON.stringify({
                         latitude: position.coords.latitude,
@@ -3914,6 +3895,8 @@ else if (needsDogOnboarding)
                         recordedAt: new Date(position.timestamp).toISOString()
                     })
                 });
+                if (generation !== homeWalkTracking.generation || !homeWalkTracking.active) return;
+                if (await homeRecordingAuth.check(response)) return;
                 if (!response.ok) {
                     countHomeGpsDebug("Failure");
                     setHomeGpsDebug("Response", `HTTP ${response.status}`);
@@ -3974,6 +3957,7 @@ else if (needsDogOnboarding)
                 });
                 showHomeGpsStatus("");
             } catch {
+                if (!homeRecordingAuth.canRecord()) return;
                 countHomeGpsDebug("Failure");
                 setHomeGpsDebug("Response", "network error");
                 showHomeGpsStatus("GPS točka ni bila shranjena. Preveri povezavo.");
@@ -3981,7 +3965,7 @@ else if (needsDogOnboarding)
                 homeWalkTracking.sending = false;
                 const pending = homeWalkTracking.pending;
                 homeWalkTracking.pending = null;
-                if (pending && homeWalkTracking.active) void recordHomeWalkPosition(pending.position, true, pending.generation);
+                if (pending && homeWalkTracking.active && homeRecordingAuth.canRecord()) void recordHomeWalkPosition(pending.position, true, pending.generation);
             }
         }
 
@@ -4007,35 +3991,7 @@ else if (needsDogOnboarding)
             { key: "kranj", name: "Kranj", latitude: 46.2397, longitude: 14.3556 }
         ];
 
-        function createBinIcon(bin) {
-            const statusClass = bin.status === "missing"
-                ? " map-bin-marker--missing"
-                : bin.status === "full"
-                    ? " map-bin-marker--full"
-                    : "";
-
-            return L.divIcon({
-                className: "",
-                html: `
-                    <span class="map-bin-marker${statusClass}" aria-label="Pasji koš">
-                        <svg class="map-bin-marker__icon" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
-                            <path class="map-bin-marker__handle" d="M12.5 9.5c.7-2 2.1-3 3.5-3s2.8 1 3.5 3" />
-                            <path class="map-bin-marker__lid" d="M9 11h14" />
-                            <path class="map-bin-marker__body" d="M11 13h10l-1.1 11h-7.8L11 13z" />
-                            <path class="map-bin-marker__line" d="M14 16.5v4.8M18 16.5v4.8" />
-                            <circle class="map-bin-marker__paw" cx="16" cy="18.1" r="1.45" />
-                            <circle class="map-bin-marker__paw" cx="13.6" cy="16.7" r="0.9" />
-                            <circle class="map-bin-marker__paw" cx="18.4" cy="16.7" r="0.9" />
-                            <circle class="map-bin-marker__paw" cx="14.5" cy="14.7" r="0.8" />
-                            <circle class="map-bin-marker__paw" cx="17.5" cy="14.7" r="0.8" />
-                        </svg>
-                        <span class="map-bin-marker__status"></span>
-                    </span>`,
-                iconSize: [44, 52],
-                iconAnchor: [22, 48],
-                popupAnchor: [0, -46]
-            });
-        }
+        const createBinIcon = DoggyDropBinMarker.createIcon;
 
         const userIcon = L.icon({
             iconUrl: "/images/jack%20russel%20terrier.png",
@@ -4085,7 +4041,10 @@ else if (needsDogOnboarding)
                 if (window.ResizeObserver) new ResizeObserver(positionHomeCommunityHeat).observe(intro);
                 window.addEventListener("resize", positionHomeCommunityHeat);
             }
-            if (homeActiveWalkId > 0 && new URLSearchParams(window.location.search).get("nearestBin") === "1") findNearestTrashBin();
+            const mapQuery = new URLSearchParams(window.location.search);
+            const requestedBinId = Number(mapQuery.get("navigateBin"));
+            if (Number.isInteger(requestedBinId) && requestedBinId > 0) navigateToBinInApp(requestedBinId);
+            else if (homeActiveWalkId > 0 && mapQuery.get("nearestBin") === "1") findNearestTrashBin();
         });
 
         function positionHomeCommunityHeat() {
@@ -4177,6 +4136,7 @@ else if (needsDogOnboarding)
             });
             window.addEventListener("pagehide", stopHomeWalkWatch);
             window.addEventListener("pageshow", event => {
+                if (!homeRecordingAuth.canRecord()) return;
                 if (event.persisted && homeWalkTracking.finishSubmitting) {
                     homeWalkTracking.finishSubmitting = false;
                     homeWalkTracking.active = true;
@@ -4232,6 +4192,21 @@ else if (needsDogOnboarding)
             cafeLayer.addTo(map);
             loadNearbyDogs();
             loadCommunityHeatmap();
+            startCommunityRefresh();
+            document.addEventListener("visibilitychange", () => {
+                if (document.hidden) stopCommunityRefresh();
+                else {
+                    void loadCommunityHeatmap();
+                    startCommunityRefresh();
+                }
+            });
+            window.addEventListener("pagehide", stopCommunityRefresh);
+            window.addEventListener("pageshow", event => {
+                if (event.persisted && !document.hidden) {
+                    void loadCommunityHeatmap();
+                    startCommunityRefresh();
+                }
+            });
 
             if (linkedBin) {
                 map.setView([linkedBin.latitude, linkedBin.longitude], 16, { animate: false });
@@ -4447,6 +4422,23 @@ else if (needsDogOnboarding)
             }
         }
 
+        function attachManagedPlaceImage(container) {
+            const image = container?.querySelector(".managed-place-image");
+            if (!image || image.dataset.placeImageBound) return;
+            image.dataset.placeImageBound = "1";
+            const reveal = () => image.parentElement.classList.add("has-image");
+            const fallback = () => {
+                image.hidden = true;
+                image.parentElement.classList.remove("has-image");
+            };
+            image.addEventListener("load", reveal, { once: true });
+            image.addEventListener("error", fallback, { once: true });
+            if (image.complete) {
+                if (image.naturalWidth > 0) reveal();
+                else fallback();
+            }
+        }
+
         function buildManagedPlaceLayer(places) {
             const layer = L.layerGroup();
             places.forEach(place => {
@@ -4457,12 +4449,18 @@ else if (needsDogOnboarding)
                     Math.abs(lat) > 90 || Math.abs(lng) > 180) return;
                 const veterinarian = place.category === 1;
                 const label = veterinarian ? "Veterinar" : "Trgovina za male živali";
+                const imageUrl = typeof place.imageUrl === "string" && /^https:\/\//i.test(place.imageUrl)
+                    ? place.imageUrl : null;
+                const image = imageUrl
+                    ? `<img class="managed-place-image managed-place-pin__image" src="${escapeAttribute(imageUrl)}" alt="" decoding="async" referrerpolicy="no-referrer">`
+                    : "";
                 const icon = L.divIcon({
                     className: "", iconSize: [38, 38], iconAnchor: [19, 19],
-                    html: `<span class="managed-place-pin managed-place-pin--${veterinarian ? "veterinarian" : "pet-shop"}"><i class="bi ${veterinarian ? "bi-heart-pulse-fill" : "bi-bag-fill"}" aria-hidden="true"></i></span>`
+                    html: `<span class="managed-place-pin managed-place-pin--${veterinarian ? "veterinarian" : "pet-shop"}"><i class="bi ${veterinarian ? "bi-heart-pulse-fill" : "bi-bag-fill"}" aria-hidden="true"></i>${image}</span>`
                 });
-                L.marker([lat, lng], { icon, placeId: id }).addTo(layer).bindPopup(`
+                const marker = L.marker([lat, lng], { icon, placeId: id }).bindPopup(`
                     <div class="managed-place-popup">
+                        ${imageUrl ? `<span class="managed-place-popup__media"><img class="managed-place-image" src="${escapeAttribute(imageUrl)}" alt="" decoding="async" referrerpolicy="no-referrer"></span>` : ""}
                         <span class="managed-place-popup__category">${label}</span>
                         <strong>${escapeHtml(place.name)}</strong>
                         ${place.address ? `<p>${escapeHtml(place.address)}</p>` : ""}
@@ -4471,6 +4469,9 @@ else if (needsDogOnboarding)
                             <button type="button" onclick="navigateToManagedPlaceInApp(${id})">Navodila za pot</button>
                         </div>
                     </div>`);
+                marker.on("add", () => attachManagedPlaceImage(marker.getElement()));
+                marker.on("popupopen", () => attachManagedPlaceImage(marker.getPopup()?.getElement()));
+                marker.addTo(layer);
             });
             return layer;
         }
@@ -4748,11 +4749,23 @@ else if (needsDogOnboarding)
             document.getElementById(inputId).checked = getMapSetting(inputId, fallback);
         }
 
+        function startCommunityRefresh() {
+            if (communityRefreshTimer !== null || document.hidden) return;
+            communityRefreshTimer = window.setInterval(() => void loadCommunityHeatmap(), 60000);
+        }
+
+        function stopCommunityRefresh() {
+            if (communityRefreshTimer === null) return;
+            window.clearInterval(communityRefreshTimer);
+            communityRefreshTimer = null;
+        }
+
         async function loadCommunityHeatmap() {
-            if (!communityLayer) {
+            if (!communityLayer || document.hidden) {
                 return;
             }
 
+            const requestId = ++communityRequestId;
             try {
                 const response = await fetch(`/api/community-map/heatmap?range=${encodeURIComponent(communityHeatRange)}`, {
                     headers: { "X-Requested-With": "XMLHttpRequest" }
@@ -4763,6 +4776,7 @@ else if (needsDogOnboarding)
                 }
 
                 const data = await response.json();
+                if (requestId !== communityRequestId || document.hidden) return;
                 renderCommunityHeatmap(data);
             } catch {
             }
@@ -4806,6 +4820,8 @@ else if (needsDogOnboarding)
 
             communityHeatRangeLabel.textContent = getHeatRangeLabel(data.range || communityHeatRange);
             communityActiveWalkers.textContent = Number(data.activeWalkers || 0).toString();
+            document.getElementById("communityActiveWalkersLabel").textContent = Number(data.activeWalkers || 0) === 1
+                ? "aktiven" : "aktivnih";
             communityPopularParks.textContent = Number(data.popularParks || 0).toString();
             communityTrendingRoutes.textContent = Number(data.trendingRoutes || 0).toString();
             if (communityHeatBadge) {

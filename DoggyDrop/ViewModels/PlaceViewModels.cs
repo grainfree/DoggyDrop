@@ -65,7 +65,7 @@ public sealed class PlaceInput
 }
 
 public sealed record PlaceMapItem(int Id, string Name, PlaceCategory Category,
-    double Latitude, double Longitude, string? Address);
+    double Latitude, double Longitude, string? Address, string? ImageUrl);
 
 public sealed record PlaceDetailsViewModel(
     int Id, string Name, PlaceCategory Category, string CategoryLabel, double Latitude, double Longitude,

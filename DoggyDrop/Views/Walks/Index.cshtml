@@ -1,8 +1,10 @@
 @using DoggyDrop.ViewModels
 @model DoggyDrop.ViewModels.WalksIndexViewModel
+@using System.Globalization
 
 @{
     ViewData["Title"] = "Sprehodi";
+    var slCulture = CultureInfo.GetCultureInfo("sl-SI");
 }
 
 <section class="app-page walks-page">
@@ -29,7 +31,7 @@
         </div>
         <div class="walks-hero__pulse" aria-label="Povzetek sprehodov">
             <article>
-                <strong>@Model.TotalDistanceKm.ToString("0.0")</strong>
+                <strong>@(Model.TotalDistanceKm.ToString("0.00", slCulture))</strong>
                 <span>km skupaj</span>
             </article>
             <article>
@@ -59,14 +61,14 @@
             <h2>Prekinjeni sprehodi</h2>
             @foreach (var walk in Model.InterruptedWalks)
             {
-                <p><a asp-controller="Walks" asp-action="Interrupted" asp-route-id="@walk.Id">@walk.Dog?.Name · @walk.StartedAt.ToLocalTime().ToString("dd.MM.yyyy") · @(walk.DistanceMeters / 1000d).ToString("0.00") km</a></p>
+                <p><a asp-controller="Walks" asp-action="Interrupted" asp-route-id="@walk.Id">@walk.Dog?.Name · @(walk.StartedAt.ToLocalTime().ToString("dd.MM.yyyy")) · @SlovenianFormatting.WalkDistance(walk.DistanceMeters)</a></p>
             }
         </section>
     }
 
     <div class="walk-stat-row">
         <article>
-            <strong>@Model.TotalDistanceKm.ToString("0.0") km</strong>
+            <strong>@SlovenianFormatting.WalkDistance(Model.TotalDistanceKm * 1000d)</strong>
             <span>Skupaj</span>
         </article>
         <article>
@@ -78,11 +80,11 @@
             <span>Zaključeni</span>
         </article>
         <article>
-            <strong>@Model.AverageDistanceKm.ToString("0.0") km</strong>
+            <strong>@SlovenianFormatting.WalkDistance(Model.AverageDistanceKm * 1000d)</strong>
             <span>Povprečje</span>
         </article>
         <article>
-            <strong>@Model.LongestWalkKm.ToString("0.0") km</strong>
+            <strong>@SlovenianFormatting.WalkDistance(Model.LongestWalkKm * 1000d)</strong>
             <span>Najdaljši</span>
         </article>
         <article>
@@ -104,7 +106,7 @@
                         <span style="height: @Math.Max(day.IntensityPercent, day.WalkCount > 0 ? 12 : 4)%"></span>
                     </div>
                     <strong>@day.DayLabel</strong>
-                    <small>@day.DistanceKm.ToString("0.0") km</small>
+                    <small>@SlovenianFormatting.WalkDistance(day.DistanceKm * 1000d)</small>
                 </div>
             }
         </div>
@@ -119,12 +121,12 @@
         <div class="walk-goal-grid">
             <article>
                 <strong>Zadnjih 7 dni</strong>
-                <span>@Model.ActivityInsights.WeeklyDistanceKm.ToString("0.0") / @Model.ActivityInsights.WeeklyGoalKm.ToString("0") km</span>
+                <span>@(Model.ActivityInsights.WeeklyDistanceKm.ToString("0.00", slCulture)) / @(Model.ActivityInsights.WeeklyGoalKm.ToString("0", slCulture)) km</span>
                 <div><span style="width: @Model.ActivityInsights.WeeklyGoalPercent%"></span></div>
             </article>
             <article>
                 <strong>Mesec</strong>
-                <span>@Model.ActivityInsights.MonthlyDistanceKm.ToString("0.0") / @Model.ActivityInsights.MonthlyGoalKm.ToString("0") km</span>
+                <span>@(Model.ActivityInsights.MonthlyDistanceKm.ToString("0.00", slCulture)) / @(Model.ActivityInsights.MonthlyGoalKm.ToString("0", slCulture)) km</span>
                 <div><span style="width: @Model.ActivityInsights.MonthlyGoalPercent%"></span></div>
             </article>
             <article>
@@ -229,7 +231,7 @@
             <div>
                 <span class="walk-active-card__label">Aktiven sprehod</span>
                 <h2>@Model.ActiveWalk.Dog?.Name</h2>
-                <p>Začetek: @Model.ActiveWalk.StartedAt.ToLocalTime().ToString("HH:mm")</p>
+                <p>Začetek: @(Model.ActiveWalk.StartedAt.ToLocalTime().ToString("HH:mm"))</p>
             </div>
             <a class="btn btn-success rounded-pill fw-semibold"
                asp-controller="Walks" asp-action="Active" asp-route-id="@Model.ActiveWalk.Id">Odpri</a>
@@ -311,7 +313,7 @@
                         <article class="walk-plan-item">
                             <a asp-controller="Walks" asp-action="Plan" asp-route-id="@plan.Id">
                                 <strong>@plan.Title</strong>
-                                <span>@(plan.DogName ?? "Brez psa") · @plan.AreaName · @plan.TargetDistanceKm.ToString("0.#") km · ~@plan.EstimatedMinutes min</span>
+                                <span>@(plan.DogName ?? "Brez psa") · @plan.AreaName · @(plan.TargetDistanceKm.ToString("0.#", slCulture)) km · ~@plan.EstimatedMinutes min</span>
                             </a>
                             @if (plan.UsedAt.HasValue)
                             {
@@ -349,7 +351,7 @@
                     <h3>@suggestion.Title</h3>
                     <p>@suggestion.Description</p>
                     <div>
-                        <strong>@suggestion.DistanceKm.ToString("0.0") km</strong>
+                        <strong>@(suggestion.DistanceKm.ToString("0.0", slCulture)) km</strong>
                         <em>@suggestion.Difficulty</em>
                     </div>
                 </article>
@@ -372,19 +374,19 @@
                     var completedStopCount = walk.StopCompletions?.Count ?? 0;
                     var photoCount = walk.Photos?.Count ?? 0;
                     <a class="walk-history__item" asp-controller="Walks" asp-action="Details" asp-route-id="@walk.Id">
-                        <div>
+                        <div class="walk-history__details">
                             <strong>@walk.Dog?.Name</strong>
-                            <span>@walk.StartedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</span>
+                            <span>@(walk.StartedAt.ToLocalTime().ToString("dd. MM. yyyy HH:mm"))</span>
                             @if (plannedStopCount > 0)
                             {
                                 <small>@completedStopCount / @plannedStopCount planiranih postankov</small>
                             }
                             @if (photoCount > 0)
                             {
-                                <small>@photoCount walk photo@(photoCount == 1 ? string.Empty : "s")</small>
+                                <small>@SlovenianFormatting.PhotoCount(photoCount)</small>
                             }
                         </div>
-                        <span>@(walk.DistanceMeters / 1000).ToString("0.0") km</span>
+                        <span class="walk-history__distance">@SlovenianFormatting.WalkDistance(walk.DistanceMeters)</span>
                     </a>
                 }
             </div>
@@ -946,6 +948,9 @@
     .walk-history__item:first-child {
         border-top: 0;
     }
+
+    .walk-history__details { min-width: 0; overflow-wrap: anywhere; }
+    .walk-history__distance { flex: 0 0 auto; white-space: nowrap; }
 
     .walk-history__item:hover,
     .walk-history__item:focus {

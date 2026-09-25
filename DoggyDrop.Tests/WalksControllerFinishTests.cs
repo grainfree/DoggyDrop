@@ -52,6 +52,31 @@ public sealed class WalksControllerFinishTests : IDisposable
     }
 
     [Fact]
+    public async Task Active_AfterNewSignInLoadsSamePersistedWalkAndPoints()
+    {
+        var walkId = await SeedAsync(100);
+        await using (var firstSession = CreateContext())
+        {
+            firstSession.WalkPoints.Add(new WalkPoint
+            {
+                WalkId = walkId,
+                Latitude = 46.55,
+                Longitude = 15.64,
+                RecordedAt = DateTime.UtcNow.AddMinutes(-1)
+            });
+            await firstSession.SaveChangesAsync();
+        }
+
+        await using var newSession = CreateContext();
+        var result = Assert.IsType<ViewResult>(await CreateController(newSession).Active(walkId));
+        var walk = Assert.IsType<Walk>(result.Model);
+        Assert.Equal(walkId, walk.Id);
+        Assert.Equal(100, walk.DistanceMeters);
+        Assert.Single(walk.Points!);
+        Assert.Single(await newSession.Walks.ToListAsync());
+    }
+
+    [Fact]
     public async Task Finish_CompletesAndAwardsEachRewardOnce()
     {
         var walkId = await SeedAsync(distanceMeters: 2_000);

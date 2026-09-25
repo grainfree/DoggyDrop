@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Text.Json;
 using DoggyDrop.Controllers;
 using DoggyDrop.Data;
 using DoggyDrop.Models;
@@ -52,7 +53,10 @@ public sealed class PlacesTests : IDisposable
         var image = Input();
         image.ImageUrl = "http://example.com/photo.jpg";
         Assert.Contains(image.Validate(), error => error.Field == nameof(PlaceInput.ImageUrl));
+        image.ImageUrl = "javascript:alert(1)";
+        Assert.Contains(image.Validate(), error => error.Field == nameof(PlaceInput.ImageUrl));
         image.ImageUrl = "https://example.com/photo.jpg";
+        Assert.DoesNotContain(image.Validate(), error => error.Field == nameof(PlaceInput.ImageUrl));
         Assert.Empty(image.Validate());
         Assert.Null(PlaceLinks.TelephoneHref("+386;alert(1)"));
         Assert.Equal("tel:+38640123456", PlaceLinks.TelephoneHref("+386 (40) 123-456"));
@@ -199,9 +203,14 @@ public sealed class PlacesTests : IDisposable
     public async Task HomeMapProjectsOnlyActiveCompactPlacesForAnonymousZeroDogUser()
     {
         await using var db = await ContextAsync();
-        db.Places.AddRange(NewPlace("Vet", PlaceCategory.Veterinarian), NewPlace("Shop", PlaceCategory.PetShop));
+        var vet = NewPlace("Vet", PlaceCategory.Veterinarian);
+        vet.ImageUrl = "https://example.com/vet-logo.png";
+        var shop = NewPlace("Shop", PlaceCategory.PetShop);
+        shop.ImageUrl = "data:image/png,unsafe";
+        db.Places.AddRange(vet, shop);
         var inactive = NewPlace("Inactive", PlaceCategory.Veterinarian);
         inactive.IsActive = false;
+        inactive.ImageUrl = "https://example.com/inactive-logo.png";
         db.Places.Add(inactive);
         db.TrashBins.Add(new TrashBin { Name = "Bin", Latitude = 46.05, Longitude = 14.51, IsApproved = true });
         await db.SaveChangesAsync();
@@ -213,7 +222,13 @@ public sealed class PlacesTests : IDisposable
         Assert.Equal(["Shop", "Vet"], items.Select(item => item.Name).OrderBy(name => name).ToArray());
         Assert.Equal([PlaceCategory.Veterinarian, PlaceCategory.PetShop], items.Select(item => item.Category).ToArray());
         Assert.All(items, item => Assert.True(item.Id > 0 && !string.IsNullOrWhiteSpace(item.Name)));
-        Assert.Equal(6, typeof(PlaceMapItem).GetProperties().Length);
+        Assert.Equal("https://example.com/vet-logo.png", items.Single(item => item.Name == "Vet").ImageUrl);
+        Assert.Null(items.Single(item => item.Name == "Shop").ImageUrl);
+        var mapJson = JsonSerializer.Serialize(items, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        Assert.Contains("\"imageUrl\":\"https://example.com/vet-logo.png\"", mapJson);
+        Assert.DoesNotContain("inactive-logo.png", mapJson);
+        Assert.DoesNotContain("data:image", mapJson);
+        Assert.Equal(7, typeof(PlaceMapItem).GetProperties().Length);
         Assert.Single(Assert.IsAssignableFrom<IEnumerable<TrashBin>>(view.Model));
     }
 

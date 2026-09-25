@@ -8,6 +8,9 @@ namespace DoggyDrop.Controllers.Api
     [Route("api/community-map")]
     public class CommunityMapApiController : ControllerBase
     {
+        private const double PresenceLatitudeCellDegrees = 0.00225;
+        private const double PresenceLongitudeCellDegrees = 0.00325;
+        private static readonly TimeSpan PresenceFreshness = TimeSpan.FromMinutes(8);
         private readonly ApplicationDbContext _context;
 
         public CommunityMapApiController(ApplicationDbContext context)
@@ -27,9 +30,51 @@ namespace DoggyDrop.Controllers.Api
                 _ => now.Date
             };
 
-            var walkPointsQuery = _context.WalkPoints
-                .Include(point => point.Walk)
+            var activePoints = _context.WalkPoints.AsNoTracking()
+                .Where(point => point.RecordedAt >= now - PresenceFreshness && point.RecordedAt <= now &&
+                    point.Walk != null && point.Walk.Status == "Active" &&
+                    !_context.PrivacyZones.Any(zone => zone.UserId == point.Walk.OwnerId));
+
+            var activeLocations = await activePoints
+                .Select(point => new
+                {
+                    point.Latitude,
+                    point.Longitude,
+                    point.RecordedAt,
+                    point.WalkId,
+                    OwnerId = point.Walk!.OwnerId
+                })
+                .ToListAsync();
+
+            var activeWalkers = activeLocations
+                .Where(point => double.IsFinite(point.Latitude) && double.IsFinite(point.Longitude) &&
+                    point.Latitude is >= -90 and <= 90 && point.Longitude is >= -180 and <= 180)
+                .GroupBy(point => point.OwnerId)
+                .Select(group => group.OrderByDescending(point => point.RecordedAt).ThenByDescending(point => point.WalkId).First())
+                .ToList();
+
+            // A fixed ~250 m cell in Slovenia keeps repeated positions stable within the cell.
+            // A single walker never creates a public location, even at this coarse precision.
+            var activeHotspots = activeWalkers
+                .GroupBy(point => (
+                    LatitudeCell: Math.Floor(point.Latitude / PresenceLatitudeCellDegrees),
+                    LongitudeCell: Math.Floor(point.Longitude / PresenceLongitudeCellDegrees)))
+                .Where(group => group.Count() >= 2)
+                .Select(group => new CommunityHotspot(
+                    "active",
+                    (group.Key.LatitudeCell + 0.5) * PresenceLatitudeCellDegrees,
+                    (group.Key.LongitudeCell + 0.5) * PresenceLongitudeCellDegrees,
+                    group.Count(),
+                    group.Count() == 2 ? "2 aktivna sprehajalca" : $"{group.Count()} aktivnih sprehajalcev",
+                    "Približna aktivnost na območju",
+                    Math.Min(1, group.Count() / 8d)))
+                .OrderByDescending(item => item.Count)
+                .Take(20)
+                .ToList();
+
+            var walkPointsQuery = _context.WalkPoints.AsNoTracking()
                 .Where(point => point.RecordedAt >= from && point.Walk != null &&
+                    point.Walk.Status == "Completed" &&
                     !_context.PrivacyZones.Any(zone => zone.UserId == point.Walk.OwnerId));
 
             if (normalizedRange == "evening")
@@ -42,30 +87,32 @@ namespace DoggyDrop.Controllers.Api
                 {
                     point.Latitude,
                     point.Longitude,
-                    point.RecordedAt,
-                    WalkStatus = point.Walk!.Status,
-                    point.WalkId
+                    point.WalkId,
+                    OwnerId = point.Walk!.OwnerId
                 })
                 .ToListAsync();
 
-            var activeWalks = walkPoints
-                .Where(point => point.WalkStatus == "Active" && point.RecordedAt >= now.AddHours(-2))
-                .GroupBy(point => point.WalkId)
-                .Select(group => group.OrderByDescending(point => point.RecordedAt).First())
-                .ToList();
-
             var routeHotspots = walkPoints
-                .Where(point => point.WalkStatus == "Completed")
-                .GroupBy(point => Bucket(point.Latitude, point.Longitude, 3))
-                .Select(group => new CommunityHotspot(
+                .Where(point => double.IsFinite(point.Latitude) && double.IsFinite(point.Longitude) &&
+                    point.Latitude is >= -90 and <= 90 && point.Longitude is >= -180 and <= 180)
+                .GroupBy(point => (
+                    LatitudeCell: Math.Floor(point.Latitude / PresenceLatitudeCellDegrees),
+                    LongitudeCell: Math.Floor(point.Longitude / PresenceLongitudeCellDegrees)))
+                .Select(group => new
+                {
+                    group.Key,
+                    Count = group.Select(point => point.WalkId).Distinct().Count(),
+                    Contributors = group.Select(point => point.OwnerId).Distinct().Count()
+                })
+                .Where(cell => cell.Contributors >= 2)
+                .Select(cell => new CommunityHotspot(
                     "route",
-                    group.Average(point => point.Latitude),
-                    group.Average(point => point.Longitude),
-                    group.Select(point => point.WalkId).Distinct().Count(),
+                    (cell.Key.LatitudeCell + 0.5) * PresenceLatitudeCellDegrees,
+                    (cell.Key.LongitudeCell + 0.5) * PresenceLongitudeCellDegrees,
+                    cell.Count,
                     "Priljubljena pot",
-                    $"{group.Select(point => point.WalkId).Distinct().Count()} sprehodov na tem območju",
-                    Math.Min(1, group.Select(point => point.WalkId).Distinct().Count() / 8d)))
-                .Where(item => item.Count > 0)
+                    $"{cell.Count} sprehodov na tem območju",
+                    Math.Min(1, cell.Count / 8d)))
                 .OrderByDescending(item => item.Count)
                 .Take(18)
                 .ToList();
@@ -124,18 +171,6 @@ namespace DoggyDrop.Controllers.Api
                 .Take(12)
                 .ToList();
 
-            var activeHotspots = activeWalks
-                .Select(point => new CommunityHotspot(
-                    "active",
-                    point.Latitude,
-                    point.Longitude,
-                    1,
-                    "Active walker",
-                    "Sprehod v teku",
-                    1))
-                .Take(20)
-                .ToList();
-
             var allHotspots = activeHotspots
                 .Concat(parkHotspots)
                 .Concat(routeHotspots)
@@ -148,7 +183,7 @@ namespace DoggyDrop.Controllers.Api
             {
                 Range = normalizedRange,
                 GeneratedAt = now,
-                ActiveWalkers = activeHotspots.Count,
+                ActiveWalkers = activeWalkers.Count,
                 PopularParks = parkHotspots.Count,
                 TrendingRoutes = routeHotspots.Count,
                 DogDensitySpots = dogDensity.Count,

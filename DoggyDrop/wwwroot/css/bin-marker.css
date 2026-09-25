@@ -1,0 +1,57 @@
+.map-bin-marker {
+    position: relative;
+    display: grid;
+    width: 44px;
+    height: 52px;
+    place-items: center;
+    border: 3px solid #ffffff;
+    border-radius: 22px 22px 22px 8px;
+    background: linear-gradient(145deg, #348171, #24695a);
+    box-shadow: 0 14px 26px rgba(31, 45, 41, 0.32);
+    color: #ffffff;
+    transform: rotate(-45deg);
+}
+
+.map-bin-marker::before {
+    position: absolute;
+    inset: 7px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.16);
+    content: "";
+}
+
+.map-bin-marker__icon {
+    position: relative;
+    z-index: 1;
+    width: 27px;
+    height: 27px;
+    transform: rotate(45deg) translateY(-1px);
+}
+
+.map-bin-marker__lid,
+.map-bin-marker__body,
+.map-bin-marker__line,
+.map-bin-marker__handle {
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 2.4;
+}
+
+.map-bin-marker__paw { fill: currentColor; }
+
+.map-bin-marker__status {
+    position: absolute;
+    right: -5px;
+    bottom: 3px;
+    z-index: 2;
+    width: 14px;
+    height: 14px;
+    border: 3px solid #ffffff;
+    border-radius: 999px;
+    background: #f6b756;
+}
+
+.map-bin-marker--full { background: linear-gradient(145deg, #cf8842, #a95f27); }
+.map-bin-marker--missing { background: linear-gradient(145deg, #b84c4c, #893030); }

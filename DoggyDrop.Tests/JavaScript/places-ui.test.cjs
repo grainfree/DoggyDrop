@@ -132,3 +132,147 @@ test("Place image uses no-referrer and a failed image shows a fallback", () => {
     assert.equal(image.hidden, true);
     assert.equal(fallback.hidden, false);
 });
+
+test("Home Place markers and popups show safe logos without losing category fallback", () => {
+    const map = read("DoggyDrop/Views/Map/Index.cshtml");
+    const buildStart = map.indexOf("        function buildManagedPlaceLayer(places) {");
+    const buildEnd = map.indexOf("        function buildPlaceLayer(places) {", buildStart);
+    const escapeStart = map.indexOf("        function escapeHtml(value) {");
+    const escapeEnd = map.indexOf("    </script>", escapeStart);
+    assert.ok(buildStart > 0 && buildEnd > buildStart && escapeStart > 0 && escapeEnd > escapeStart);
+
+    const L = {
+        layerGroup: () => ({ markers: [] }),
+        divIcon: options => options,
+        marker: (coordinates, options) => ({
+            coordinates, options, handlers: {},
+            bindPopup(html) { this.popup = html; return this; },
+            on(event, handler) { this.handlers[event] = handler; return this; },
+            addTo(layer) { layer.markers.push(this); return this; }
+        })
+    };
+    const build = new Function("L", "attachManagedPlaceImage",
+        `${map.slice(escapeStart, escapeEnd)}\n${map.slice(buildStart, buildEnd)}\nreturn buildManagedPlaceLayer;`)(L, () => {});
+    const withLogo = build([{
+        id: 1, name: "Mr.<Pet>", address: "<Unsafe> street", category: 2,
+        latitude: 46.1, longitude: 15.1, imageUrl: "https://example.com/logo.png?x=1&y=2"
+    }]).markers[0];
+    assert.match(withLogo.options.icon.html, /managed-place-pin--pet-shop/);
+    assert.match(withLogo.options.icon.html, /bi-bag-fill/);
+    assert.match(withLogo.options.icon.html, /src="https:\/\/example\.com\/logo\.png\?x=1&amp;y=2"/);
+    assert.equal((withLogo.options.icon.html.match(/referrerpolicy="no-referrer"/g) || []).length, 1);
+    assert.match(withLogo.popup, /managed-place-popup__media/);
+    assert.match(withLogo.popup, /referrerpolicy="no-referrer"/);
+    assert.doesNotMatch(withLogo.popup, /loading="lazy"/);
+    assert.match(withLogo.popup, /Mr\.&lt;Pet&gt;/);
+    assert.match(withLogo.popup, /&lt;Unsafe&gt; street/);
+    assert.doesNotMatch(withLogo.popup, /<Unsafe>/);
+    assert.equal(typeof withLogo.handlers.add, "function");
+    assert.equal(typeof withLogo.handlers.popupopen, "function");
+
+    for (const imageUrl of [null, "javascript:alert(1)"]) {
+        const fallback = build([{
+            id: 2, name: "Vet", category: 1, latitude: 46.1, longitude: 15.1, imageUrl
+        }]).markers[0];
+        assert.match(fallback.options.icon.html, /bi-heart-pulse-fill/);
+        assert.doesNotMatch(fallback.options.icon.html, /<img/);
+        assert.doesNotMatch(fallback.popup, /managed-place-popup__media/);
+    }
+});
+
+test("Home Place image load and failure retain the category icon", () => {
+    const map = read("DoggyDrop/Views/Map/Index.cshtml");
+    const start = map.indexOf("        function attachManagedPlaceImage(container) {");
+    const end = map.indexOf("        function buildManagedPlaceLayer(places) {", start);
+    assert.ok(start > 0 && end > start);
+    const attach = new Function(`${map.slice(start, end)}\nreturn attachManagedPlaceImage;`)();
+    const image = (complete, naturalWidth) => {
+        const classes = new Set();
+        const listeners = {};
+        const target = {
+            complete, naturalWidth, hidden: false, dataset: {}, listeners,
+            parentElement: { classList: { add: name => classes.add(name), remove: name => classes.delete(name) } },
+            addEventListener(name, callback) { listeners[name] = callback; }
+        };
+        attach({ querySelector: () => target });
+        return { target, classes, listeners };
+    };
+    const loaded = image(true, 80);
+    assert.equal(loaded.classes.has("has-image"), true);
+    const failed = image(false, 0);
+    failed.listeners.error();
+    assert.equal(failed.target.hidden, true);
+    assert.equal(failed.classes.has("has-image"), false);
+    const cachedFailure = image(true, 0);
+    assert.equal(cachedFailure.target.hidden, true);
+    const css = read("DoggyDrop/wwwroot/css/places.css");
+    assert.match(css, /\.managed-place-pin\.has-image \.managed-place-pin__image/);
+    assert.match(css, /\.managed-place-popup__media\.has-image/);
+});
+
+function runDetailsMap(category, latitude = "46.05", cartoKey = "") {
+    const observations = { maps: 0, layers: 0, markers: [], sizes: [], center: null, key: null, resize: null };
+    const element = { dataset: { latitude, longitude: "14.51", category, cartoBasemapKey: cartoKey } };
+    const map = {
+        setView(center) { observations.center = Array.from(center); return this; },
+        invalidateSize(options) { observations.sizes.push(options); }
+    };
+    const L = {
+        map: () => { observations.maps++; return map; },
+        divIcon: options => options,
+        marker: (position, options) => ({ addTo() { observations.markers.push({ position, options }); } })
+    };
+    const window = {
+        L,
+        DoggyDropBasemap: { addTo(target, key) { assert.equal(target, map); observations.layers++; observations.key = key; } },
+        ResizeObserver: class { constructor(callback) { observations.resize = callback; } observe(target) { assert.equal(target, element); } }
+    };
+    const document = {
+        querySelector: () => null,
+        getElementById: id => id === "placeDetailsMap" ? element : null
+    };
+    vm.runInNewContext(read("DoggyDrop/wwwroot/js/place-details.js"),
+        { document, window, L, requestAnimationFrame: callback => callback() });
+    return observations;
+}
+
+test("Place Details map initializes once with guarded basemap and category marker", () => {
+    for (const [category, iconClass] of [["1", "bi-heart-pulse-fill"], ["2", "bi-bag-fill"]]) {
+        const result = runDetailsMap(category);
+        assert.equal(result.maps, 1);
+        assert.equal(result.layers, 1);
+        assert.equal(result.key, "");
+        assert.equal(result.markers.length, 1);
+        assert.match(result.markers[0].options.icon.html, new RegExp(iconClass));
+        assert.deepEqual(result.center, [46.05, 14.51]);
+        assert.equal(result.sizes.length, 1);
+        result.resize();
+        assert.equal(result.sizes.length, 2);
+        assert.equal(result.sizes[1].pan, false);
+    }
+    assert.equal(runDetailsMap("2", "NaN").maps, 0);
+    assert.equal(runDetailsMap("2", "46.05", "public-test-key").key, "public-test-key");
+    assert.doesNotMatch(read("DoggyDrop/wwwroot/js/place-details.js"), /basemaps\.cartocdn\.com|L\.tileLayer\(/);
+});
+
+test("Admin and Details share scoped Leaflet structure; Details media is contained", () => {
+    const css = read("DoggyDrop/wwwroot/css/places.css");
+    const admin = read("DoggyDrop/Views/AdminPlaces/_Form.cshtml");
+    const details = read("DoggyDrop/Views/Places/Details.cshtml");
+    const home = read("DoggyDrop/Views/Map/Index.cshtml");
+    assert.match(admin, /class="places-picker-map places-leaflet-map"/);
+    assert.match(details, /class="places-details__map places-leaflet-map"/);
+    assert.match(css, /\.places-leaflet-map \{[^}]*overflow: hidden;/);
+    assert.match(css, /\.places-leaflet-map \.leaflet-pane,/);
+    assert.match(css, /\.places-leaflet-map \.leaflet-tile \{ width: 256px; height: 256px;/);
+    assert.match(css, /\.places-picker-map \{ height: 320px; \}/);
+    assert.match(css, /\.places-details__map \{ height: 300px; \}/);
+    assert.match(css, /\.places-details__map \{ height: 260px; \}/);
+    assert.match(details, /leaflet@1\.9\.4\/dist\/leaflet\.css/);
+    assert.match(details, /~\/js\/map-basemap\.js/);
+    assert.match(home, /~\/css\/places\.css/);
+    assert.match(css, /\.places-details__media \{[^}]*width: min\(100%, 560px\);[^}]*240px\)/);
+    assert.match(css, /\.places-details__media img \{[^}]*object-fit: contain;/);
+    assert.match(details, /referrerpolicy="no-referrer"/);
+    assert.match(details, /places-details__media-fallback/);
+});

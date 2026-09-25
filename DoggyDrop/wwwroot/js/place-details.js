@@ -11,18 +11,21 @@
     }
 
     const element = document.getElementById("placeDetailsMap");
-    if (!element || !window.L) return;
+    if (!element || !window.L || !window.DoggyDropBasemap) return;
     const lat = Number(element.dataset.latitude);
     const lng = Number(element.dataset.longitude);
     if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return;
 
     const map = L.map(element, { scrollWheelZoom: false }).setView([lat, lng], 16);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        maxZoom: 19,
-        attribution: "&copy; OpenStreetMap"
-    }).addTo(map);
-    L.circleMarker([lat, lng], {
-        radius: 10, color: "#fff", weight: 3, fillColor: "#16805d", fillOpacity: 1
-    }).addTo(map);
-    requestAnimationFrame(() => map.invalidateSize());
+    window.DoggyDropBasemap.addTo(map, element.dataset.cartoBasemapKey);
+    const veterinarian = element.dataset.category === "1";
+    const icon = L.divIcon({
+        className: "", iconSize: [38, 38], iconAnchor: [19, 19],
+        html: `<span class="managed-place-pin managed-place-pin--${veterinarian ? "veterinarian" : "pet-shop"}" role="img" aria-label="${veterinarian ? "Veterinar" : "Trgovina za male živali"}"><i class="bi ${veterinarian ? "bi-heart-pulse-fill" : "bi-bag-fill"}" aria-hidden="true"></i></span>`
+    });
+    L.marker([lat, lng], { icon }).addTo(map);
+    const refresh = () => map.invalidateSize({ pan: false });
+    requestAnimationFrame(refresh);
+    if (window.ResizeObserver) new window.ResizeObserver(refresh).observe(element);
+    else window.addEventListener("resize", () => requestAnimationFrame(refresh));
 })();

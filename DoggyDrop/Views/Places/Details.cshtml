@@ -1,5 +1,6 @@
 @model DoggyDrop.ViewModels.PlaceDetailsViewModel
 @using DoggyDrop.Models
+@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
 @{ ViewData["Title"] = Model.Name; }
 @section Styles {
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIINfQXh6ULpR5txR9wra5I3BcVsTPY1p3A=" crossorigin="" />
@@ -32,9 +33,10 @@
         @if (!string.IsNullOrWhiteSpace(Model.Description)) { <section><h2>O lokaciji</h2><p>@Model.Description</p></section> }
         @if (!string.IsNullOrWhiteSpace(Model.Phone) && Model.TelephoneHref == null) { <section><h2>Telefon</h2><p>@Model.Phone</p></section> }
     </div>
-    <div id="placeDetailsMap" class="places-details__map" data-latitude="@Model.Latitude.ToString(System.Globalization.CultureInfo.InvariantCulture)" data-longitude="@Model.Longitude.ToString(System.Globalization.CultureInfo.InvariantCulture)" aria-label="Lokacija na zemljevidu"></div>
+    <div id="placeDetailsMap" class="places-details__map places-leaflet-map" data-latitude="@Model.Latitude.ToString(System.Globalization.CultureInfo.InvariantCulture)" data-longitude="@Model.Longitude.ToString(System.Globalization.CultureInfo.InvariantCulture)" data-category="@((int)Model.Category)" data-carto-basemap-key="@Configuration["CartoBasemap:PublicApiKey"]" aria-label="Lokacija na zemljevidu"></div>
 </main>
 @section Scripts {
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="~/js/map-basemap.js" asp-append-version="true"></script>
     <script src="~/js/place-details.js" asp-append-version="true"></script>
 }

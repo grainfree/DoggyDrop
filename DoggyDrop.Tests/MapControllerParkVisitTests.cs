@@ -34,6 +34,23 @@ public sealed class MapControllerParkVisitTests : IDisposable
     private readonly string _db = Path.Combine(Path.GetTempPath(), $"doggydrop-park-{Guid.NewGuid():N}.db");
     private readonly RecordingNotifications _notifications = new();
 
+    [Fact]
+    public async Task PublicBinList_ContainsOnlyApprovedBinsForActiveWalk()
+    {
+        await using var db = Context();
+        await db.Database.EnsureCreatedAsync();
+        db.TrashBins.AddRange(
+            new TrashBin { Name = "Approved", Latitude = 46.05, Longitude = 14.51, IsApproved = true },
+            new TrashBin { Name = "Pending", Latitude = 46.06, Longitude = 14.52, IsApproved = false });
+        await db.SaveChangesAsync();
+
+        var response = Assert.IsType<JsonResult>(Controller(db).FindNearest());
+        using var json = JsonDocument.Parse(JsonSerializer.Serialize(response.Value));
+        var bin = Assert.Single(json.RootElement.EnumerateArray());
+        Assert.Equal("Approved", bin.GetProperty("Name").GetString());
+        Assert.Equal(46.05, bin.GetProperty("Latitude").GetDouble());
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(1)]

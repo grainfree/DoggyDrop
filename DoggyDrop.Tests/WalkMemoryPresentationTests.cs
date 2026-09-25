@@ -29,6 +29,12 @@ public sealed class WalkMemoryPresentationTests
     public void PhotoCount_UsesSlovenianPlural(int count, string expected) =>
         Assert.Equal(expected, SlovenianFormatting.PhotoCount(count));
 
+    [Theory]
+    [InlineData(772.8550166471652, "0,77 km")]
+    [InlineData(443.0839742489338, "0,44 km")]
+    public void WalkHistoryDistance_UsesCompactSlovenianPrecision(double meters, string expected) =>
+        Assert.Equal(expected, SlovenianFormatting.WalkDistance(meters));
+
     [Fact]
     public void CompletedWalk_UsesActualDistanceAndOnlyItsOwnedPhotos()
     {

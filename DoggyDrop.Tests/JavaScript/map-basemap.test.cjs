@@ -52,9 +52,11 @@ test("Home and Planner use the guarded basemap and Places remain initialized", (
     assert.match(read("DoggyDrop/Views/Map/Index.cshtml"), /managedPlaceLayer = buildManagedPlaceLayer\(managedPlaces\)\.addTo\(map\)/);
 });
 
-test("Admin picker keeps Leaflet tiles inside the map container", () => {
+test("Admin picker and Place Details keep Leaflet tiles inside their map containers", () => {
     const css = read("DoggyDrop/wwwroot/css/places.css");
-    assert.match(css, /\.places-picker-map \{[^}]*position: relative;[^}]*overflow: hidden;/);
-    assert.match(css, /\.places-picker-map \.leaflet-tile-container[^}]*position: absolute;/);
-    assert.match(css, /\.places-picker-map \.leaflet-tile \{ width: 256px; height: 256px; \}/);
+    assert.match(read("DoggyDrop/Views/AdminPlaces/_Form.cshtml"), /places-picker-map places-leaflet-map/);
+    assert.match(read("DoggyDrop/Views/Places/Details.cshtml"), /places-details__map places-leaflet-map/);
+    assert.match(css, /\.places-leaflet-map \{[^}]*position: relative;[^}]*overflow: hidden;/);
+    assert.match(css, /\.places-leaflet-map \.leaflet-tile-container[^}]*position: absolute;/);
+    assert.match(css, /\.places-leaflet-map \.leaflet-tile \{ width: 256px; height: 256px; max-width: none; \}/);
 });

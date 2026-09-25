@@ -210,12 +210,15 @@ namespace DoggyDrop.Controllers
             }
 
             ViewBag.ParkLocations = ParkLocationCatalog.All;
-            ViewBag.ManagedPlaces = await _context.Places.AsNoTracking()
+            var managedPlaces = await _context.Places.AsNoTracking()
                 .Where(place => place.IsActive)
                 .OrderBy(place => place.Id)
                 .Select(place => new PlaceMapItem(place.Id, place.Name, place.Category,
-                    place.Latitude, place.Longitude, place.Address))
+                    place.Latitude, place.Longitude, place.Address, place.ImageUrl))
                 .ToListAsync();
+            ViewBag.ManagedPlaces = managedPlaces
+                .Select(place => place with { ImageUrl = PlaceLinks.SafeImage(place.ImageUrl) })
+                .ToList();
 
             return View(bins);
         }
