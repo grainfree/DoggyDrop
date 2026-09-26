@@ -1154,12 +1154,31 @@ namespace DoggyDrop.Controllers
         [HttpPost]
         public async Task<IActionResult> AddPoint(int id, [FromBody] WalkPointInput input)
         {
+            var timer = Stopwatch.StartNew();
+            void LogPoint(string outcome, string reason, int? count = null)
+            {
+                if (Request.Query["debugGps"] != "1") return;
+                _logger.LogInformation("Walk AddPoint RequestId={RequestId} WalkId={WalkId} Outcome={Outcome} Reason={Reason} PointCount={PointCount} DurationMs={DurationMs}",
+                    HttpContext.TraceIdentifier, id, outcome, reason, count, timer.ElapsedMilliseconds);
+            }
+
             var userId = _userManager.GetUserId(User);
-            if (string.IsNullOrEmpty(userId)) return Challenge();
+            if (string.IsNullOrEmpty(userId))
+            {
+                LogPoint("rejected", "unauthenticated");
+                return Challenge();
+            }
             if (input == null || !double.IsFinite(input.Latitude) || !double.IsFinite(input.Longitude) ||
-                input.Latitude is < -90 or > 90 || input.Longitude is < -180 or > 180 ||
-                (input.AccuracyMeters.HasValue && (!double.IsFinite(input.AccuracyMeters.Value) || input.AccuracyMeters.Value < 0 || input.AccuracyMeters.Value > 1000)))
-                return BadRequest(new { outcome = "invalid" });
+                input.Latitude is < -90 or > 90 || input.Longitude is < -180 or > 180)
+            {
+                LogPoint("rejected", "coordinates");
+                return BadRequest(new { outcome = "invalid", reason = "coordinates" });
+            }
+            if (input.AccuracyMeters.HasValue && (!double.IsFinite(input.AccuracyMeters.Value) || input.AccuracyMeters.Value < 0 || input.AccuracyMeters.Value > 1000))
+            {
+                LogPoint("rejected", "accuracy");
+                return BadRequest(new { outcome = "invalid", reason = "accuracy" });
+            }
 
             await using var transaction = await _context.Database.BeginTransactionAsync();
             await LockWalkAsync(id, userId);
@@ -1168,20 +1187,29 @@ namespace DoggyDrop.Controllers
 
             if (walk == null)
             {
+                LogPoint("rejected", "not-found");
                 return NotFound();
             }
-            if (walk.Status != "Active") return Conflict(new { outcome = "no-longer-active", status = walk.Status });
+            if (walk.Status != "Active")
+            {
+                LogPoint("rejected", "inactive");
+                return Conflict(new { outcome = "no-longer-active", status = walk.Status });
+            }
 
             if (await RecoverStaleWalkLockedAsync(walk))
             {
                 await transaction.CommitAsync();
+                LogPoint("rejected", "stale-walk");
                 return Conflict(new { outcome = "no-longer-active", status = "Interrupted" });
             }
 
             var nowUtc = DateTime.UtcNow;
             if (input.RecordedAt is { } suppliedAt &&
                 (suppliedAt.Kind != DateTimeKind.Utc || suppliedAt < nowUtc.AddMinutes(-2) || suppliedAt > nowUtc.AddMinutes(1)))
-                return BadRequest(new { outcome = "invalid" });
+            {
+                LogPoint("rejected", "timestamp");
+                return BadRequest(new { outcome = "invalid", reason = "timestamp" });
+            }
             var recordedAt = input.RecordedAt is { } reportedAt &&
                 reportedAt.Kind == DateTimeKind.Utc
                     ? reportedAt
@@ -1195,6 +1223,7 @@ namespace DoggyDrop.Controllers
             {
                 var count = await _context.WalkPoints.CountAsync(point => point.WalkId == id);
                 await transaction.CommitAsync();
+                LogPoint("rejected", outcome, count);
                 return Json(new { outcome, walk.DistanceMeters, pointCount = count });
             }
 
@@ -1208,7 +1237,10 @@ namespace DoggyDrop.Controllers
                 // Only reject implausible teleports; ordinary noisy walking samples remain accepted.
                 var elapsedSeconds = (recordedAt - lastPoint.RecordedAt).TotalSeconds;
                 if (separation > Math.Max(150, elapsedSeconds * 30 + 2 * (input.AccuracyMeters ?? 0)))
-                    return BadRequest(new { outcome = "invalid" });
+                {
+                    LogPoint("rejected", "jump");
+                    return BadRequest(new { outcome = "invalid", reason = "jump" });
+                }
                 walk.DistanceMeters += separation;
             }
 
@@ -1224,6 +1256,7 @@ namespace DoggyDrop.Controllers
             await _context.SaveChangesAsync();
             var pointCount = await _context.WalkPoints.CountAsync(candidate => candidate.WalkId == walk.Id);
             await transaction.CommitAsync();
+            LogPoint("accepted", "none", pointCount);
 
             return Json(new
             {

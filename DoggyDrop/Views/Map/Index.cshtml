@@ -3458,7 +3458,7 @@ else if (needsDogOnboarding)
         <p id="homeWalkPhotoStatus" role="status" hidden></p>
         @if (debugGpsEnabled)
         {
-            <p id="homeWalkGpsDebug">GPS callbacks: <span id="homeGpsCallbacks">0</span> · Stale: <span id="homeGpsStale">0</span> · Deferred: <span id="homeGpsDeferred">0</span> · Requests: <span id="homeGpsRequests">0</span> · Accepted: <span id="homeGpsSuccess">0</span> · Duplicate: <span id="homeGpsDuplicate">0</span> · Out-of-order: <span id="homeGpsOutOfOrder">0</span> · Invalid: <span id="homeGpsInvalid">0</span> · No longer active: <span id="homeGpsInactive">0</span> · Failure: <span id="homeGpsFailure">0</span> · Response: <span id="homeGpsResponse">none</span> · Persisted: <span id="homeGpsPersisted">@activeWalkPointCount</span> · Distance: <span id="homeGpsDistance">@Math.Round(activeWalk!.DistanceMeters) m</span></p>
+            <p id="homeWalkGpsDebug">GPS callbacks: <span id="homeGpsCallbacks">0</span> · Stale: <span id="homeGpsStale">0</span> · Deferred: <span id="homeGpsDeferred">0</span> · Requests: <span id="homeGpsRequests">0</span> · Accepted: <span id="homeGpsSuccess">0</span> · Duplicate: <span id="homeGpsDuplicate">0</span> · Out-of-order: <span id="homeGpsOutOfOrder">0</span> · Invalid: <span id="homeGpsInvalid">0</span> · No longer active: <span id="homeGpsInactive">0</span> · Auth lost: <span id="homeGpsAuth">0</span> · Failure: <span id="homeGpsFailure">0</span> · Response: <span id="homeGpsResponse">none</span> · Last invalid reason: <span id="homeGpsLastInvalid">none</span> · Last request: <span id="homeGpsLastRequestMs">0</span> ms · Slowest request: <span id="homeGpsMaxRequestMs">0</span> ms · Persisted: <span id="homeGpsPersisted">@activeWalkPointCount</span> · Distance: <span id="homeGpsDistance">@Math.Round(activeWalk!.DistanceMeters) m</span></p>
         }
         </div>
         <p id="homeWalkGpsStatus" role="status" hidden></p>
@@ -3901,8 +3901,9 @@ else if (needsDogOnboarding)
             }
             homeWalkTracking.sending = true;
             countHomeGpsDebug("Requests");
+            const requestStartedAt = Date.now();
             try {
-                const response = await fetch(`/Walks/AddPoint/${homeActiveWalkId}`, {
+                const response = await fetch(`/Walks/AddPoint/${homeActiveWalkId}${document.getElementById("homeWalkGpsDebug") ? "?debugGps=1" : ""}`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json", "Accept": "application/json" },
                     credentials: "same-origin",
@@ -3914,7 +3915,10 @@ else if (needsDogOnboarding)
                     })
                 });
                 if (generation !== homeWalkTracking.generation || !homeWalkTracking.active) return;
-                if (await homeRecordingAuth.check(response)) return;
+                if (await homeRecordingAuth.check(response)) {
+                    countHomeGpsDebug("Auth");
+                    return;
+                }
                 if (!response.ok) {
                     countHomeGpsDebug("Failure");
                     setHomeGpsDebug("Response", `HTTP ${response.status}`);
@@ -3930,7 +3934,15 @@ else if (needsDogOnboarding)
                         stopHomeWalkWatch();
                         showHomeGpsStatus("Sprehod ni več aktiven. Osveži stran.");
                     } else {
-                        if (response.status === 400) countHomeGpsDebug("Invalid");
+                        if (response.status === 400) {
+                            countHomeGpsDebug("Invalid");
+                            if (document.getElementById("homeGpsLastInvalid")) {
+                                const diagnostic = await response.json().catch(() => ({}));
+                                const reason = ["coordinates", "accuracy", "timestamp", "jump"].includes(diagnostic.reason)
+                                    ? diagnostic.reason : "unknown";
+                                setHomeGpsDebug("LastInvalid", reason);
+                            }
+                        }
                         showHomeGpsStatus("GPS točka ni bila shranjena. Preveri povezavo.");
                     }
                     return;
@@ -3980,6 +3992,10 @@ else if (needsDogOnboarding)
                 setHomeGpsDebug("Response", "network error");
                 showHomeGpsStatus("GPS točka ni bila shranjena. Preveri povezavo.");
             } finally {
+                const requestMs = Date.now() - requestStartedAt;
+                setHomeGpsDebug("LastRequestMs", requestMs);
+                const maxRequest = document.getElementById("homeGpsMaxRequestMs");
+                if (maxRequest) maxRequest.textContent = String(Math.max(Number(maxRequest.textContent) || 0, requestMs));
                 homeWalkTracking.sending = false;
                 const pending = homeWalkTracking.pending;
                 homeWalkTracking.pending = null;

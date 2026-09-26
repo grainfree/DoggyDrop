@@ -358,6 +358,21 @@ public sealed class WalksControllerFinishTests : IDisposable
         var result = await CreateController(context).AddPoint(walkId, new WalkPointInput { Latitude = double.NaN, Longitude = 15 });
 
         Assert.IsType<BadRequestObjectResult>(result);
+        Assert.Equal("coordinates", ResultValue(result, "reason"));
+        Assert.False(await context.WalkPoints.AnyAsync());
+    }
+
+    [Fact]
+    public async Task AddPoint_ReportsTimestampRejectionWithoutPersisting()
+    {
+        var walkId = await SeedAsync(distanceMeters: 0);
+        await using var context = CreateContext();
+
+        var result = await CreateController(context).AddPoint(walkId,
+            new WalkPointInput { Latitude = 46, Longitude = 15, RecordedAt = DateTime.UtcNow.AddMinutes(-3) });
+
+        Assert.Equal("invalid", ResultValue(result, "outcome"));
+        Assert.Equal("timestamp", ResultValue(result, "reason"));
         Assert.False(await context.WalkPoints.AnyAsync());
     }
 
@@ -499,10 +514,12 @@ public sealed class WalksControllerFinishTests : IDisposable
         var controller = CreateController(context);
         var badAccuracy = await controller.AddPoint(walkId, new WalkPointInput { Latitude = 46, Longitude = 15, AccuracyMeters = 1500 });
         Assert.Equal("invalid", ResultValue(Assert.IsType<BadRequestObjectResult>(badAccuracy), "outcome"));
+        Assert.Equal("accuracy", ResultValue(badAccuracy, "reason"));
         await controller.AddPoint(walkId, new WalkPointInput { Latitude = 46, Longitude = 15, RecordedAt = time });
         var teleport = await controller.AddPoint(walkId, new WalkPointInput { Latitude = 47, Longitude = 15, RecordedAt = time.AddSeconds(1), AccuracyMeters = 15 });
 
         Assert.Equal("invalid", ResultValue(Assert.IsType<BadRequestObjectResult>(teleport), "outcome"));
+        Assert.Equal("jump", ResultValue(teleport, "reason"));
         Assert.Single(await context.WalkPoints.ToListAsync());
         Assert.Equal(0, (await context.Walks.AsNoTracking().SingleAsync()).DistanceMeters);
     }

@@ -305,8 +305,12 @@
                 Out-of-order: <span id="gpsDebugOutOfOrder">0</span> ·
                 Invalid: <span id="gpsDebugInvalid">0</span> ·
                 No longer active: <span id="gpsDebugInactive">0</span> ·
+                Auth lost: <span id="gpsDebugAuth">0</span> ·
                 Failure: <span id="gpsDebugFailure">0</span> ·
                 Last response: <span id="gpsDebugResponse">none</span> ·
+                Last invalid reason: <span id="gpsDebugLastInvalid">none</span> ·
+                Last request: <span id="gpsDebugLastRequestMs">0</span> ms ·
+                Slowest request: <span id="gpsDebugMaxRequestMs">0</span> ms ·
                 Persisted points: <span id="gpsDebugPersisted">@(Model.Points?.Count ?? 0)</span> ·
                 Distance: <span id="gpsDebugDistance">@Math.Round(Model.DistanceMeters) m</span> ·
                 Watch: <span id="gpsDebugWatch">off</span>
@@ -961,9 +965,10 @@
 
             isSending = true;
             incrementGpsDebug("Requests");
+            const requestStartedAt = Date.now();
 
             try {
-                const response = await fetch(`/Walks/AddPoint/${walkId}`, {
+                const response = await fetch(`/Walks/AddPoint/${walkId}${document.getElementById("gpsDebugPanel") ? "?debugGps=1" : ""}`, {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
@@ -979,7 +984,10 @@
                 });
 
                 if (isFinishing || generation !== watchGeneration) return;
-                if (await recordingAuth.check(response)) return;
+                if (await recordingAuth.check(response)) {
+                    incrementGpsDebug("Auth");
+                    return;
+                }
 
                 if (!response.ok) {
                     incrementGpsDebug("Failure");
@@ -992,7 +1000,15 @@
                         window.location.assign(`/Walks/${state.status === "Completed" ? "Details" : "Interrupted"}/${walkId}`);
                         return;
                     }
-                    if (response.status === 400) incrementGpsDebug("Invalid");
+                    if (response.status === 400) {
+                        incrementGpsDebug("Invalid");
+                        if (document.getElementById("gpsDebugLastInvalid")) {
+                            const diagnostic = await response.json().catch(() => ({}));
+                            const reason = ["coordinates", "accuracy", "timestamp", "jump"].includes(diagnostic.reason)
+                                ? diagnostic.reason : "unknown";
+                            setGpsDebug("LastInvalid", reason);
+                        }
+                    }
                     gpsStatusElement.textContent = "GPS točka ni bila shranjena.";
                     showWalkNotice("GPS točka ni bila shranjena. Preveri povezavo.");
                     setWalkGpsPresentation("unavailable", "GPS točka ni bila shranjena");
@@ -1034,6 +1050,10 @@
                 if (!isFinishing) showWalkNotice("GPS točka ni bila shranjena. Preveri povezavo.");
                 if (!isFinishing) setWalkGpsPresentation("unavailable", "GPS točka ni bila shranjena");
             } finally {
+                const requestMs = Date.now() - requestStartedAt;
+                setGpsDebug("LastRequestMs", requestMs);
+                const maxRequest = document.getElementById("gpsDebugMaxRequestMs");
+                if (maxRequest) maxRequest.textContent = String(Math.max(Number(maxRequest.textContent) || 0, requestMs));
                 isSending = false;
                 const next = pendingPosition;
                 pendingPosition = null;
