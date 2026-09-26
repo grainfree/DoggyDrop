@@ -21,12 +21,40 @@ public sealed class PlacesTests : IDisposable
     private readonly string _db = Path.Combine(Path.GetTempPath(), $"doggydrop-places-{Guid.NewGuid():N}.db");
 
     [Theory]
-    [InlineData(PlaceCategory.Veterinarian, "Veterinar")]
-    [InlineData(PlaceCategory.PetShop, "Trgovina za male živali")]
-    public void SupportedCategories_AreValidAndHaveSlovenianLabels(PlaceCategory category, string label)
+    [InlineData(PlaceCategory.Veterinarian, 1, "Veterinar", "Veterinarji", "veterinarian", "bi-heart-pulse-fill", true)]
+    [InlineData(PlaceCategory.PetShop, 2, "Trgovina", "Trgovine", "pet-shop", "bi-bag-fill", true)]
+    [InlineData(PlaceCategory.Groomer, 3, "Pasji salon", "Saloni", "groomer", "bi-scissors", true)]
+    [InlineData(PlaceCategory.DogSchool, 4, "Pasja šola", "Pasje šole", "dog-school", "bi-mortarboard-fill", true)]
+    [InlineData(PlaceCategory.DogFriendlyCafe, 5, "Psom prijazen lokal", "Lokali", "dog-friendly-cafe", "bi-cup-hot-fill", true)]
+    [InlineData(PlaceCategory.DogPark, 6, "Pasji park", "Pasji parki", "dog-park", "bi-tree-fill", false)]
+    [InlineData(PlaceCategory.DogBeach, 7, "Pasja plaža", "Pasje plaže", "dog-beach", "bi-water", false)]
+    public void SupportedCategories_HaveStableValuesAndCentralPresentation(PlaceCategory category, int value,
+        string label, string filter, string key, string icon, bool commercial)
     {
+        Assert.Equal(value, (int)category);
+        Assert.True(PlaceCategories.IsSupported(category));
         Assert.Empty(Input(category).Validate());
         Assert.Equal(label, PlaceCategories.Label(category));
+        var presentation = PlaceCategories.Get(category);
+        Assert.Equal(filter, presentation.FilterLabel);
+        Assert.Equal(key, presentation.Key);
+        Assert.Equal(icon, presentation.IconClass);
+        Assert.Equal(commercial, presentation.IsCommercial);
+    }
+
+    [Fact]
+    public void CategoriesAreUniqueAndDestinationLogosDoNotOverrideCategoryIdentity()
+    {
+        Assert.Equal(7, PlaceCategories.All.Count);
+        Assert.Equal(7, PlaceCategories.Supported.Count);
+        Assert.False(PlaceCategories.IsSupported((PlaceCategory)0));
+        Assert.False(PlaceCategories.IsSupported((PlaceCategory)8));
+        Assert.Equal(7, PlaceCategories.All.Select(item => item.Category).Distinct().Count());
+        Assert.Equal(7, PlaceCategories.All.Select(item => item.Key).Distinct().Count());
+        Assert.Null(PlaceCategories.PublicLogo(PlaceCategory.DogPark, ManagedUrl('a'), "test"));
+        Assert.Null(PlaceCategories.PublicLogo(PlaceCategory.DogBeach, ManagedUrl('a'), "test"));
+        Assert.Equal(ManagedUrl('a').Replace("/upload/", "/upload/c_fit,w_128,h_128/f_auto,q_auto/"),
+            PlaceCategories.PublicLogo(PlaceCategory.PetShop, ManagedUrl('a'), "test"));
     }
 
     [Fact]
@@ -61,6 +89,20 @@ public sealed class PlacesTests : IDisposable
         Assert.Empty(image.Validate());
         Assert.Null(PlaceLinks.TelephoneHref("+386;alert(1)"));
         Assert.Equal("tel:+38640123456", PlaceLinks.TelephoneHref("+386 (40) 123-456"));
+    }
+
+    [Fact]
+    public async Task AdminAcceptsEveryCuratedCategoryWithoutChangingExistingValues()
+    {
+        await using var db = await ContextAsync();
+        foreach (var category in PlaceCategories.All)
+        {
+            var input = Input(category.Category);
+            input.Name = $"Lokacija {(int)category.Category}";
+            Assert.IsType<RedirectToActionResult>(await Admin(db).Create(input));
+        }
+        Assert.Equal(Enumerable.Range(1, 7).ToArray(),
+            (await db.Places.OrderBy(place => place.Category).Select(place => (int)place.Category).ToListAsync()).ToArray());
     }
 
     [Fact]
@@ -378,6 +420,88 @@ public sealed class PlacesTests : IDisposable
     }
 
     [Fact]
+    public async Task DetailsRendersEveryCategoryAndKeepsDogDestinationIdentityWithoutLogo()
+    {
+        await using var db = await ContextAsync();
+        foreach (var category in PlaceCategories.All)
+        {
+            var place = NewPlace(category.Label, category.Category);
+            place.LogoUrl = ManagedUrl('a');
+            db.Places.Add(place);
+        }
+        await db.SaveChangesAsync();
+        var controller = new PlacesController(db, new PlaceLogoCloudName("test"));
+        foreach (var place in await db.Places.AsNoTracking().ToListAsync())
+        {
+            var model = Assert.IsType<PlaceDetailsViewModel>(Assert.IsType<ViewResult>(await controller.Details(place.Id)).Model);
+            var category = PlaceCategories.Get(place.Category);
+            Assert.Equal(category.Label, model.CategoryLabel);
+            Assert.Equal(category.Key, model.CategoryKey);
+            Assert.Equal(category.IconClass, model.IconClass);
+            Assert.Equal(category.IsCommercial, model.IsCommercial);
+            Assert.Equal(category.IsCommercial, model.LogoUrl != null);
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task DiscoveryProjectsOnlyActivePlacesInStableOrderWithoutNeedingLogin(bool authenticated)
+    {
+        await using var db = await ContextAsync();
+        var shop = NewPlace("Zadnja trgovina", PlaceCategory.PetShop);
+        shop.LogoUrl = ManagedUrl('a');
+        shop.Address = "Žolgarjeva ulica 6";
+        var vet = NewPlace("Ambulanta", PlaceCategory.Veterinarian);
+        vet.LogoUrl = "https://example.com/unmanaged.png";
+        var inactive = NewPlace("Skrita lokacija", PlaceCategory.PetShop);
+        inactive.IsActive = false;
+        db.Places.AddRange(shop, vet, inactive);
+        await db.SaveChangesAsync();
+
+        var controller = new PlacesController(db, new PlaceLogoCloudName("test"));
+        controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext
+        {
+            User = authenticated
+                ? new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, "visitor")], "Test"))
+                : new ClaimsPrincipal(new ClaimsIdentity())
+        } };
+        var view = Assert.IsType<ViewResult>(await controller.Index());
+        var model = Assert.IsType<PlaceDiscoveryViewModel>(view.Model);
+        Assert.Equal(["Ambulanta", "Zadnja trgovina"], model.Places.Select(place => place.Name).ToArray());
+        Assert.Equal([PlaceCategory.Veterinarian, PlaceCategory.PetShop], model.Places.Select(place => place.Category).ToArray());
+        Assert.Null(model.Places[0].LogoUrl);
+        Assert.Contains("c_fit,w_128,h_128", model.Places[1].LogoUrl);
+        Assert.Equal("Žolgarjeva ulica 6", model.Places[1].Address);
+        Assert.Equal(11, typeof(PlaceDiscoveryItem).GetProperties().Length);
+        Assert.Null(typeof(PlaceDiscoveryItem).GetProperty("UserId"));
+        Assert.DoesNotContain(db.ChangeTracker.Entries(), entry => entry.State != EntityState.Unchanged);
+    }
+
+    [Fact]
+    public async Task DiscoveryIncludesAllSevenActiveCategoriesButSuppressesDestinationLogos()
+    {
+        await using var db = await ContextAsync();
+        foreach (var category in PlaceCategories.All)
+        {
+            var place = NewPlace(category.Label, category.Category);
+            place.LogoUrl = ManagedUrl('a');
+            db.Places.Add(place);
+        }
+        var inactive = NewPlace("Neaktivna plaža", PlaceCategory.DogBeach);
+        inactive.IsActive = false;
+        db.Places.Add(inactive);
+        await db.SaveChangesAsync();
+        var controller = new PlacesController(db, new PlaceLogoCloudName("test"));
+        var model = Assert.IsType<PlaceDiscoveryViewModel>(Assert.IsType<ViewResult>(await controller.Index()).Model);
+        Assert.Equal(7, model.Places.Count);
+        Assert.Equal(Enumerable.Range(1, 7).ToArray(), model.Places.Select(item => (int)item.Category).Order().ToArray());
+        Assert.All(model.Places.Where(item => item.IsCommercial), item => Assert.NotNull(item.LogoUrl));
+        Assert.All(model.Places.Where(item => !item.IsCommercial), item => Assert.Null(item.LogoUrl));
+        Assert.DoesNotContain(model.Places, item => item.Name == "Neaktivna plaža");
+    }
+
+    [Fact]
     public async Task HomeMapProjectsOnlyActiveCompactPlacesForAnonymousZeroDogUser()
     {
         await using var db = await ContextAsync();
@@ -386,6 +510,12 @@ public sealed class PlacesTests : IDisposable
         var shop = NewPlace("Shop", PlaceCategory.PetShop);
         shop.ImageUrl = "data:image/png,unsafe";
         db.Places.AddRange(vet, shop);
+        foreach (var category in PlaceCategories.All.Where(item => (int)item.Category >= 3))
+        {
+            var place = NewPlace(category.Label, category.Category);
+            place.LogoUrl = ManagedUrl('a');
+            db.Places.Add(place);
+        }
         var inactive = NewPlace("Inactive", PlaceCategory.Veterinarian);
         inactive.IsActive = false;
         inactive.ImageUrl = "https://example.com/inactive-logo.png";
@@ -398,17 +528,54 @@ public sealed class PlacesTests : IDisposable
         controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() };
         var view = Assert.IsType<ViewResult>(await controller.Index());
         var items = Assert.IsAssignableFrom<IReadOnlyList<PlaceMapItem>>((object)controller.ViewBag.ManagedPlaces);
-        Assert.Equal(["Shop", "Vet"], items.Select(item => item.Name).OrderBy(name => name).ToArray());
-        Assert.Equal([PlaceCategory.Veterinarian, PlaceCategory.PetShop], items.Select(item => item.Category).ToArray());
+        Assert.Equal(7, items.Count);
+        Assert.Equal(Enumerable.Range(1, 7).ToArray(), items.Select(item => (int)item.Category).ToArray());
         Assert.All(items, item => Assert.True(item.Id > 0 && !string.IsNullOrWhiteSpace(item.Name)));
         Assert.Contains("c_fit,w_128,h_128", items.Single(item => item.Name == "Vet").LogoUrl);
         Assert.Null(items.Single(item => item.Name == "Shop").LogoUrl);
+        Assert.All(items.Where(item => item.IsCommercial && item.Category != PlaceCategory.PetShop),
+            item => Assert.NotNull(item.LogoUrl));
+        Assert.All(items.Where(item => !item.IsCommercial), item => Assert.Null(item.LogoUrl));
+        Assert.Equal("dog-park", items.Single(item => item.Category == PlaceCategory.DogPark).CategoryKey);
+        Assert.Equal("Pasja plaža", items.Single(item => item.Category == PlaceCategory.DogBeach).CategoryLabel);
         var mapJson = JsonSerializer.Serialize(items, new JsonSerializerOptions(JsonSerializerDefaults.Web));
         Assert.Contains("\"logoUrl\":\"https://res.cloudinary.com/test/image/upload/", mapJson);
         Assert.DoesNotContain("inactive-logo.png", mapJson);
         Assert.DoesNotContain("data:image", mapJson);
-        Assert.Equal(7, typeof(PlaceMapItem).GetProperties().Length);
+        Assert.Equal(11, typeof(PlaceMapItem).GetProperties().Length);
         Assert.Single(Assert.IsAssignableFrom<IEnumerable<TrashBin>>(view.Model));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(8)]
+    public async Task UnsupportedPersistedCategoryRemainsAdminVisibleButNotPublic(int categoryValue)
+    {
+        await using var db = await ContextAsync();
+        var supported = NewPlace("Supported", PlaceCategory.DogPark);
+        var unsupported = NewPlace("Unsupported", (PlaceCategory)categoryValue);
+        var inactive = NewPlace("Inactive", PlaceCategory.PetShop);
+        inactive.IsActive = false;
+        db.Places.AddRange(supported, unsupported, inactive);
+        await db.SaveChangesAsync();
+
+        var publicController = new PlacesController(db, new PlaceLogoCloudName("test"));
+        var discovery = Assert.IsType<PlaceDiscoveryViewModel>(Assert.IsType<ViewResult>(await publicController.Index()).Model);
+        Assert.Equal(supported.Id, Assert.Single(discovery.Places).Id);
+        Assert.IsType<NotFoundResult>(await publicController.Details(unsupported.Id));
+        Assert.IsType<NotFoundResult>(await publicController.Details(inactive.Id));
+        Assert.IsType<PlaceDetailsViewModel>(Assert.IsType<ViewResult>(await publicController.Details(supported.Id)).Model);
+
+        var map = new MapController(db, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!,
+            placeLogoCloud: new PlaceLogoCloudName("test"));
+        map.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() };
+        await map.Index();
+        var markers = Assert.IsAssignableFrom<IReadOnlyList<PlaceMapItem>>((object)map.ViewBag.ManagedPlaces);
+        Assert.Equal(supported.Id, Assert.Single(markers).Id);
+        Assert.DoesNotContain("Unsupported", JsonSerializer.Serialize(markers));
+
+        var admin = Assert.IsAssignableFrom<IReadOnlyList<Place>>(Assert.IsType<ViewResult>(await Admin(db).Index(null, null)).Model);
+        Assert.Contains(admin, place => place.Id == unsupported.Id);
     }
 
     private static PlaceInput Input(PlaceCategory category = PlaceCategory.Veterinarian) => new()

@@ -15,11 +15,13 @@
     }
 
     function createIcon(place, { selected = false } = {}) {
-        const category = Number(place?.category);
-        const kind = category === 1 ? "veterinarian" : category === 2 ? "pet-shop" : "other";
-        const label = category === 1 ? "Veterinar" : category === 2 ? "Trgovina za male živali" : "Lokacija";
-        const symbol = category === 1 ? "bi-heart-pulse-fill" : category === 2 ? "bi-bag-fill" : "bi-geo-alt-fill";
-        const logo = safeImageUrl(place?.logoUrl);
+        const kind = typeof place?.categoryKey === "string" && /^[a-z][a-z-]{0,30}$/.test(place.categoryKey)
+            ? place.categoryKey : "other";
+        const symbol = typeof place?.iconClass === "string" && /^bi-[a-z0-9-]{1,40}$/.test(place.iconClass)
+            ? place.iconClass : "bi-geo-alt-fill";
+        const label = typeof place?.categoryLabel === "string" ? place.categoryLabel : "Lokacija";
+        const commercial = place?.isCommercial === true;
+        const logo = commercial ? safeImageUrl(place?.logoUrl) : null;
         const image = logo
             ? `<img class="managed-place-image managed-place-pin__image" src="${escapeAttribute(logo)}" alt="" decoding="async" referrerpolicy="no-referrer">`
             : "";
@@ -29,7 +31,7 @@
             iconSize: [52, 52],
             iconAnchor: [26, 26],
             popupAnchor: [0, -28],
-            html: `<span class="managed-place-pin managed-place-pin--${kind}${selected ? " managed-place-pin--selected" : ""}" role="img" aria-label="${label}"><i class="bi ${symbol}" aria-hidden="true"></i>${image}</span>`
+            html: `<span class="managed-place-pin managed-place-pin--${kind}${commercial ? "" : " managed-place-pin--destination"}${selected ? " managed-place-pin--selected" : ""}" role="img" aria-label="${escapeAttribute(label)}"><i class="bi ${symbol}" aria-hidden="true"></i>${image}</span>`
         });
     }
 

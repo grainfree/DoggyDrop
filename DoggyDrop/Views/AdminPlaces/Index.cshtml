@@ -28,8 +28,10 @@
         <label>Kategorija
             <select name="category">
                 <option value="" selected="@(category == null)">Vse</option>
-                <option value="1" selected="@(category == PlaceCategory.Veterinarian)">Veterinar</option>
-                <option value="2" selected="@(category == PlaceCategory.PetShop)">Trgovina za male živali</option>
+                @foreach (var option in PlaceCategories.All)
+                {
+                    <option value="@((int)option.Category)" selected="@(category == option.Category)">@option.Label</option>
+                }
             </select>
         </label>
         <button type="submit" class="places-button">Filtriraj</button>

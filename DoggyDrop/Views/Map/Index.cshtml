@@ -1253,6 +1253,21 @@
         line-height: 1;
     }
 
+    .map-explore-places-link {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 44px;
+        margin-bottom: 10px;
+        padding: 8px 10px;
+        border: 1px solid #bdd7c8;
+        border-radius: 6px;
+        background: #f0f8f2;
+        color: #205b43;
+        font-weight: 700;
+        text-decoration: none;
+    }
+
     .map-explore-search {
         width: 100%;
         min-height: 42px;
@@ -3570,6 +3585,7 @@ else if (needsDogOnboarding)
         <h2>Raziskuj lokacije</h2>
         <button type="button" id="exploreClose" class="map-explore-close" aria-label="Zapri seznam">&times;</button>
     </div>
+    <a class="map-explore-places-link" asp-controller="Places" asp-action="Index"><i class="bi bi-geo-alt" aria-hidden="true"></i> Uporabne lokacije za pse</a>
     <input id="exploreSearch" class="map-explore-search" type="search" placeholder="Išči park, koš, pitnik ..." autocomplete="off" />
     <div class="map-explore-tabs" aria-label="Tip lokacije">
         <button type="button" class="map-explore-tab is-active" data-explore-filter="all">Vse</button>
@@ -3666,7 +3682,8 @@ else if (needsDogOnboarding)
             const lat = Number(place.latitude);
             const lng = Number(place.longitude);
             return Number.isSafeInteger(id) && id > 0 && Number.isFinite(lat) && Number.isFinite(lng) &&
-                Math.abs(lat) <= 90 && Math.abs(lng) <= 180 && (place.category === 1 || place.category === 2);
+                Math.abs(lat) <= 90 && Math.abs(lng) <= 180 &&
+                typeof place.categoryKey === "string" && place.categoryKey !== "other";
         });
         const requestVerificationToken = @Html.Raw(JsonSerializer.Serialize(requestVerificationToken));
         let map;
@@ -4439,13 +4456,11 @@ else if (needsDogOnboarding)
                 const lng = Number(place.longitude);
                 if (!Number.isSafeInteger(id) || id <= 0 || !Number.isFinite(lat) || !Number.isFinite(lng) ||
                     Math.abs(lat) > 90 || Math.abs(lng) > 180) return;
-                const veterinarian = place.category === 1;
-                const label = veterinarian ? "Veterinar" : "Trgovina za male živali";
                 const imageUrl = DoggyDropPlaceMarker.safeImageUrl(place.logoUrl);
                 const marker = L.marker([lat, lng], { icon: DoggyDropPlaceMarker.createIcon(place), placeId: id, pane: "placeMarkers" }).bindPopup(`
                     <div class="managed-place-popup">
                         ${imageUrl ? `<span class="managed-place-popup__media"><img class="managed-place-image" src="${escapeAttribute(imageUrl)}" alt="" decoding="async" referrerpolicy="no-referrer"></span>` : ""}
-                        <span class="managed-place-popup__category">${label}</span>
+                        <span class="managed-place-popup__category">${escapeHtml(place.categoryLabel || "Lokacija")}</span>
                         <strong>${escapeHtml(place.name)}</strong>
                         ${place.address ? `<p>${escapeHtml(place.address)}</p>` : ""}
                         <div class="managed-place-popup__actions">
@@ -5343,6 +5358,10 @@ else if (needsDogOnboarding)
                 longitude,
                 logoUrl: managedPlace?.logoUrl || "",
                 category: managedPlace?.category,
+                categoryLabel: managedPlace?.categoryLabel,
+                categoryKey: managedPlace?.categoryKey,
+                iconClass: managedPlace?.iconClass,
+                isCommercial: managedPlace?.isCommercial,
                 reliabilityScore: 100
             };
 

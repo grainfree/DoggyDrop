@@ -5,7 +5,12 @@ namespace DoggyDrop.Models;
 public enum PlaceCategory
 {
     Veterinarian = 1,
-    PetShop = 2
+    PetShop = 2,
+    Groomer = 3,
+    DogSchool = 4,
+    DogFriendlyCafe = 5,
+    DogPark = 6,
+    DogBeach = 7
 }
 
 public sealed class Place

@@ -190,6 +190,7 @@ test("Home Place markers and popups show safe logos without losing category fall
         `${map.slice(escapeStart, escapeEnd)}\n${map.slice(buildStart, buildEnd)}\nreturn buildManagedPlaceLayer;`)(L, placeMarker.attachImage, placeMarker);
     const withLogo = build([{
         id: 1, name: "Mr.<Pet>", address: "<Unsafe> street", category: 2,
+        categoryLabel: "Trgovina", categoryKey: "pet-shop", iconClass: "bi-bag-fill", isCommercial: true,
         latitude: 46.1, longitude: 15.1, logoUrl: "https://example.com/logo.png?x=1&y=2"
     }]).markers[0];
     assert.match(withLogo.options.icon.html, /managed-place-pin--pet-shop/);
@@ -225,7 +226,9 @@ test("Home Place markers and popups show safe logos without losing category fall
 
     for (const logoUrl of [null, "javascript:alert(1)"]) {
         const fallback = build([{
-            id: 2, name: "Vet", category: 1, latitude: 46.1, longitude: 15.1, logoUrl
+            id: 2, name: "Vet", category: 1,
+            categoryLabel: "Veterinar", categoryKey: "veterinarian", iconClass: "bi-heart-pulse-fill", isCommercial: true,
+            latitude: 46.1, longitude: 15.1, logoUrl
         }]).markers[0];
         assert.match(fallback.options.icon.html, /bi-heart-pulse-fill/);
         assert.doesNotMatch(fallback.options.icon.html, /<img/);
@@ -237,7 +240,9 @@ test("Home Place markers and popups show safe logos without losing category fall
     }
 
     const broken = build([{
-        id: 3, name: "Broken", category: 2, latitude: 46.1, longitude: 15.1,
+        id: 3, name: "Broken", category: 2,
+        categoryLabel: "Trgovina", categoryKey: "pet-shop", iconClass: "bi-bag-fill", isCommercial: true,
+        latitude: 46.1, longitude: 15.1,
         logoUrl: "https://example.com/broken.png"
     }]).markers[0];
     broken.element.image.naturalWidth = 0;
@@ -251,7 +256,9 @@ test("Home Place markers and popups show safe logos without losing category fall
     assert.equal(broken.element.pin.classList.contains("has-image"), false);
 
     const other = build([{
-        id: 4, name: "Other", category: 1, latitude: 46.2, longitude: 15.2,
+        id: 4, name: "Other", category: 1,
+        categoryLabel: "Veterinar", categoryKey: "veterinarian", iconClass: "bi-heart-pulse-fill", isCommercial: true,
+        latitude: 46.2, longitude: 15.2,
         logoUrl: "https://example.com/other.png"
     }]).markers[0];
     const otherImage = other.element.image;
@@ -302,7 +309,17 @@ test("Home Place image load and failure retain the category icon", () => {
 
 function runDetailsMap(category, latitude = "46.05", cartoKey = "", logoUrl = "") {
     const observations = { maps: 0, layers: 0, markers: [], sizes: [], center: null, key: null, resize: null };
-    const element = { dataset: { latitude, longitude: "14.51", category, logoUrl, cartoBasemapKey: cartoKey } };
+    const presentation = {
+        1: ["veterinarian", "bi-heart-pulse-fill", true],
+        2: ["pet-shop", "bi-bag-fill", true],
+        3: ["groomer", "bi-scissors", true],
+        4: ["dog-school", "bi-mortarboard-fill", true],
+        5: ["dog-friendly-cafe", "bi-cup-hot-fill", true],
+        6: ["dog-park", "bi-tree-fill", false],
+        7: ["dog-beach", "bi-water", false]
+    }[category];
+    const element = { dataset: { latitude, longitude: "14.51", category, logoUrl, cartoBasemapKey: cartoKey,
+        categoryKey: presentation[0], iconClass: presentation[1], isCommercial: String(presentation[2]) } };
     const map = {
         setView(center) { observations.center = Array.from(center); return this; },
         invalidateSize(options) { observations.sizes.push(options); }
@@ -328,13 +345,16 @@ function runDetailsMap(category, latitude = "46.05", cartoKey = "", logoUrl = ""
 }
 
 test("Place Details map initializes once with guarded basemap and category marker", () => {
-    for (const [category, iconClass] of [["1", "bi-heart-pulse-fill"], ["2", "bi-bag-fill"]]) {
+    for (const [category, iconClass] of [["1", "bi-heart-pulse-fill"], ["2", "bi-bag-fill"],
+        ["3", "bi-scissors"], ["4", "bi-mortarboard-fill"], ["5", "bi-cup-hot-fill"],
+        ["6", "bi-tree-fill"], ["7", "bi-water"]]) {
         const result = runDetailsMap(category);
         assert.equal(result.maps, 1);
         assert.equal(result.layers, 1);
         assert.equal(result.key, "");
         assert.equal(result.markers.length, 1);
         assert.match(result.markers[0].options.icon.html, new RegExp(iconClass));
+        assert.equal(result.markers[0].options.icon.html.includes("managed-place-pin--destination"), Number(category) >= 6);
         assert.deepEqual(result.center, [46.05, 14.51]);
         assert.equal(result.sizes.length, 1);
         result.resize();

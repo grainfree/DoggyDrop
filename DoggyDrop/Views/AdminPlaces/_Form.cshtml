@@ -9,8 +9,10 @@
     <label class="places-field">Kategorija *
         <select asp-for="Category" required>
             <option value="0">Izberi kategorijo</option>
-            <option value="1">Veterinar</option>
-            <option value="2">Trgovina za male živali</option>
+            @foreach (var category in DoggyDrop.Services.PlaceCategories.All)
+            {
+                <option value="@((int)category.Category)">@category.Label</option>
+            }
         </select>
         <span asp-validation-for="Category"></span>
     </label>

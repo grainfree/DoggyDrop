@@ -36,6 +36,8 @@
 .places-details__logo { display: block; width: 72px; height: 72px; margin: 8px 0; padding: 5px; border: 1px solid #dbe7e0; border-radius: 6px; background: #fff; }
 .places-details__logo[hidden] { display: none; }
 .places-details__logo img { width: 100%; height: 100%; object-fit: contain; }
+.places-details__destination { display: grid; place-items: center; width: 52px; height: 52px; margin: 8px 0; border: 2px solid #347851; border-radius: 12px; background: #eaf5ed; color: #347851; font-size: 1.6rem; }
+.places-details__destination--dog-beach { border-color: #2b7895; background: #eaf5f8; color: #2b7895; }
 .places-validation { color: #a83232; }
 .places-location { margin-top: 24px; padding-top: 20px; border-top: 1px solid #dbe7e0; }
 .places-location__head { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; }
@@ -56,6 +58,12 @@
 .managed-place-pin { position: relative; display: grid; place-items: center; width: 48px; height: 48px; margin: 2px; border: 3px solid #286b52; border-radius: 14px; background: #f5faf6; box-shadow: 0 3px 10px rgba(13, 38, 31, .24); color: #245d48; font-size: 1.3rem; }
 .managed-place-pin--veterinarian { border-color: #286b52; color: #286b52; }
 .managed-place-pin--pet-shop { border-color: #286f70; color: #286f70; }
+.managed-place-pin--groomer { border-color: #825b75; color: #825b75; }
+.managed-place-pin--dog-school { border-color: #586b8d; color: #586b8d; }
+.managed-place-pin--dog-friendly-cafe { border-color: #8a6549; color: #8a6549; }
+.managed-place-pin--destination { width: 42px; height: 42px; margin: 5px; border-width: 2px; border-radius: 12px; background: #eaf5ed; font-size: 1.2rem; }
+.managed-place-pin--dog-park { border-color: #347851; color: #347851; }
+.managed-place-pin--dog-beach { border-color: #2b7895; background: #eaf5f8; color: #2b7895; }
 .managed-place-pin__image { position: absolute; inset: 2px; width: calc(100% - 4px); height: calc(100% - 4px); padding: 0; border-radius: 8px; background: #fff; object-fit: contain; opacity: 0; }
 .managed-place-pin.has-image .managed-place-pin__image { opacity: 1; }
 .managed-place-pin--selected { box-shadow: 0 0 0 3px #d9f2df, 0 4px 12px rgba(13, 38, 31, .3); transform: scale(1.12); }

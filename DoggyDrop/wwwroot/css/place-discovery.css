@@ -1,0 +1,29 @@
+.place-discovery { width: min(100%, 820px); margin: 0 auto; padding: 16px 16px calc(94px + env(safe-area-inset-bottom)); color: #19352e; }
+.place-discovery__header { margin-bottom: 20px; }
+.place-discovery__back { display: inline-flex; align-items: center; gap: 7px; min-height: 44px; color: #246e52; text-decoration: none; }
+.place-discovery h1 { margin: 6px 0 0; font-size: 1.75rem; line-height: 1.15; }
+.place-discovery__toolbar { display: grid; gap: 12px; margin-bottom: 18px; }
+.place-discovery__filters { display: flex; gap: 6px; min-width: 0; max-width: 100%; overflow-x: auto; padding-bottom: 2px; }
+.place-discovery__filter { flex: 0 0 auto; min-height: 44px; padding: 7px 12px; border: 1px solid #bfd2c7; border-radius: 5px; background: #fff; color: #214b3b; font: inherit; font-weight: 700; cursor: pointer; }
+.place-discovery__filter[aria-pressed="true"] { background: #216b4f; border-color: #216b4f; color: #fff; }
+.place-discovery__locate { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: fit-content; min-height: 44px; padding: 8px 12px; border: 1px solid #216b4f; border-radius: 5px; background: #fff; color: #205c45; font: inherit; font-weight: 700; cursor: pointer; }
+.place-discovery__locate:disabled { opacity: .65; cursor: wait; }
+.place-discovery__location-note, .place-discovery__status { margin: 0; color: #536b60; font-size: .88rem; }
+.place-discovery__list { display: grid; gap: 9px; }
+.place-discovery-card { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 0 12px; padding: 12px; border: 1px solid #d5e3d9; border-radius: 6px; background: #fff; }
+.place-discovery-card[hidden], .place-discovery__empty[hidden], .place-discovery-card__distance[hidden] { display: none; }
+.place-discovery-card__logo { position: relative; display: grid; place-items: center; width: 52px; height: 52px; overflow: hidden; border: 1px solid #c8d9ce; border-radius: 6px; background: #eaf3ed; color: #246b51; font-size: 1.5rem; }
+.place-discovery-card__logo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #fff; }
+.place-discovery-card__logo img[hidden] { display: none; }
+.place-discovery-card__logo--dog-park { background: #eaf5ed; color: #347851; }
+.place-discovery-card__logo--dog-beach { background: #eaf5f8; color: #2b7895; }
+.place-discovery-card__body { min-width: 0; }
+.place-discovery-card h2 { margin: 0 0 3px; font-size: 1.05rem; line-height: 1.25; overflow-wrap: anywhere; }
+.place-discovery-card__category { display: block; color: #246b51; font-size: .85rem; font-weight: 700; }
+.place-discovery-card__address { margin: 3px 0 0; color: #50665b; font-size: .88rem; overflow-wrap: anywhere; }
+.place-discovery-card__distance { display: block; margin-top: 5px; font-size: .92rem; font-weight: 800; }
+.place-discovery-card__actions { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin-top: 11px; }
+.place-discovery-card__actions a { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-width: 0; min-height: 44px; padding: 5px; border: 1px solid #b9d2c2; border-radius: 5px; color: #205c45; font-size: .88rem; font-weight: 700; text-align: center; text-decoration: none; }
+.place-discovery-card__actions a:hover, .place-discovery-card__actions a:focus-visible, .place-discovery__locate:hover, .place-discovery__locate:focus-visible { background: #edf7f0; }
+.place-discovery__empty { margin: 20px 0; color: #536b60; }
+@media (min-width: 1024px) { .place-discovery { padding-top: 28px; padding-bottom: 48px; } .place-discovery__list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

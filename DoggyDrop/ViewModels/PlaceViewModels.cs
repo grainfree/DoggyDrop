@@ -26,7 +26,7 @@ public sealed class PlaceInput
     {
         if (string.IsNullOrWhiteSpace(Name) || Name.Trim().Length > 120)
             yield return (nameof(Name), "Vnesi ime lokacije (največ 120 znakov).");
-        if (!Enum.IsDefined(Category))
+        if (!PlaceCategories.IsSupported(Category))
             yield return (nameof(Category), "Izberi podprto kategorijo.");
         if (!Latitude.HasValue || !double.IsFinite(Latitude.Value) || Latitude.Value is < -90 or > 90)
             yield return (nameof(Latitude), "Izberi veljavno zemljepisno širino.");
@@ -72,16 +72,29 @@ public sealed class PlaceInput
 }
 
 public sealed record PlaceMapItem(int Id, string Name, PlaceCategory Category,
-    double Latitude, double Longitude, string? Address, string? LogoUrl);
+    double Latitude, double Longitude, string? Address, string? LogoUrl,
+    string CategoryLabel, string CategoryKey, string IconClass, bool IsCommercial);
+
+public sealed record PlaceDiscoveryItem(int Id, string Name, PlaceCategory Category,
+    string CategoryLabel, string CategoryKey, string IconClass, bool IsCommercial,
+    string? Address, double Latitude, double Longitude, string? LogoUrl);
+
+public sealed record PlaceDiscoveryViewModel(IReadOnlyList<PlaceDiscoveryItem> Places);
 
 public sealed record PlaceDetailsViewModel(
     int Id, string Name, PlaceCategory Category, string CategoryLabel, double Latitude, double Longitude,
     string? Address, string? Phone, string? TelephoneHref, string? WebsiteUrl,
-    string? OpeningHours, string? Description, string? ImageUrl, string? LogoUrl)
+    string? OpeningHours, string? Description, string? ImageUrl, string? LogoUrl,
+    string CategoryKey, string IconClass, bool IsCommercial)
 {
-    public static PlaceDetailsViewModel FromPlace(Place place, string? cloudName) => new(
-        place.Id, place.Name, place.Category, PlaceCategories.Label(place.Category), place.Latitude, place.Longitude,
-        place.Address, place.Phone, PlaceLinks.TelephoneHref(place.Phone),
-        PlaceLinks.SafeWebsite(place.WebsiteUrl), place.OpeningHours, place.Description,
-        PlaceLinks.SafeImage(place.ImageUrl), PlaceLogoDelivery.ForMarker(place.LogoUrl, cloudName));
+    public static PlaceDetailsViewModel FromPlace(Place place, string? cloudName)
+    {
+        var category = PlaceCategories.Get(place.Category);
+        return new PlaceDetailsViewModel(
+            place.Id, place.Name, place.Category, category.Label, place.Latitude, place.Longitude,
+            place.Address, place.Phone, PlaceLinks.TelephoneHref(place.Phone),
+            PlaceLinks.SafeWebsite(place.WebsiteUrl), place.OpeningHours, place.Description,
+            PlaceLinks.SafeImage(place.ImageUrl), PlaceCategories.PublicLogo(place.Category, place.LogoUrl, cloudName),
+            category.Key, category.IconClass, category.IsCommercial);
+    }
 }

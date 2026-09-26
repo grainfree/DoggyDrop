@@ -2,14 +2,38 @@ using DoggyDrop.Models;
 
 namespace DoggyDrop.Services;
 
+public sealed record PlaceCategoryPresentation(
+    PlaceCategory Category, string Label, string FilterLabel, string Key, string IconClass, bool IsCommercial);
+
 public static class PlaceCategories
 {
-    public static string Label(PlaceCategory category) => category switch
-    {
-        PlaceCategory.Veterinarian => "Veterinar",
-        PlaceCategory.PetShop => "Trgovina za male živali",
-        _ => "Lokacija"
-    };
+    public static IReadOnlyList<PlaceCategoryPresentation> All { get; } =
+    [
+        new(PlaceCategory.Veterinarian, "Veterinar", "Veterinarji", "veterinarian", "bi-heart-pulse-fill", true),
+        new(PlaceCategory.PetShop, "Trgovina", "Trgovine", "pet-shop", "bi-bag-fill", true),
+        new(PlaceCategory.Groomer, "Pasji salon", "Saloni", "groomer", "bi-scissors", true),
+        new(PlaceCategory.DogSchool, "Pasja šola", "Pasje šole", "dog-school", "bi-mortarboard-fill", true),
+        new(PlaceCategory.DogFriendlyCafe, "Psom prijazen lokal", "Lokali", "dog-friendly-cafe", "bi-cup-hot-fill", true),
+        new(PlaceCategory.DogPark, "Pasji park", "Pasji parki", "dog-park", "bi-tree-fill", false),
+        new(PlaceCategory.DogBeach, "Pasja plaža", "Pasje plaže", "dog-beach", "bi-water", false)
+    ];
+
+    public static IReadOnlyList<PlaceCategory> Supported { get; } =
+        All.Select(item => item.Category).ToArray();
+
+    public static bool IsSupported(PlaceCategory category) => Supported.Contains(category);
+
+    private static readonly PlaceCategoryPresentation Unknown =
+        new((PlaceCategory)0, "Lokacija", "Lokacije", "other", "bi-geo-alt-fill", false);
+
+    public static PlaceCategoryPresentation Get(PlaceCategory category) =>
+        All.FirstOrDefault(item => item.Category == category) ?? Unknown;
+
+    public static string Label(PlaceCategory category) => Get(category).Label;
+    public static string DiscoveryFilterLabel(PlaceCategory category) => Get(category).FilterLabel;
+    // Public dog destinations retain their category identity even when an admin has uploaded a logo.
+    public static string? PublicLogo(PlaceCategory category, string? logoUrl, string? cloudName) =>
+        Get(category).IsCommercial ? PlaceLogoDelivery.ForMarker(logoUrl, cloudName) : null;
 }
 
 public static class PlaceLinks

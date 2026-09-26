@@ -16,6 +16,8 @@ function load(file, name) {
 
 const bins = load("DoggyDrop/wwwroot/js/bin-marker.js", "DoggyDropBinMarker");
 const places = load("DoggyDrop/wwwroot/js/place-marker.js", "DoggyDropPlaceMarker");
+const vet = { category: 1, categoryLabel: "Veterinar", categoryKey: "veterinarian", iconClass: "bi-heart-pulse-fill", isCommercial: true };
+const shop = { category: 2, categoryLabel: "Trgovina", categoryKey: "pet-shop", iconClass: "bi-bag-fill", isCommercial: true };
 
 test("shared bin is 32px visually with a 44px touch box and no default badge", () => {
     const normal = bins.createIcon({ status: "ok" });
@@ -45,43 +47,66 @@ test("shared bin is 32px visually with a 44px touch box and no default badge", (
 });
 
 test("Places use a 48px branded marker, safe contained logos, and distinct fallbacks", () => {
-    const vet = places.createIcon({ category: 1, logoUrl: null });
-    const shop = places.createIcon({ category: 2, logoUrl: "https://example.com/logo.png?x=1&y=2" });
+    const vetIcon = places.createIcon({ ...vet, logoUrl: null });
+    const shopIcon = places.createIcon({ ...shop, logoUrl: "https://example.com/logo.png?x=1&y=2" });
     const generic = places.createIcon({ category: 99 });
     const css = read("DoggyDrop/wwwroot/css/places.css");
-    assert.equal(Number(shop.iconSize[0]), 52);
-    assert.ok(Number(shop.iconSize[0]) > Number(bins.createIcon({}).iconSize[0]));
+    assert.equal(Number(shopIcon.iconSize[0]), 52);
+    assert.ok(Number(shopIcon.iconSize[0]) > Number(bins.createIcon({}).iconSize[0]));
     assert.match(css, /\.managed-place-pin \{[^}]*width: 48px;[^}]*height: 48px;/);
     assert.match(css, /\.managed-place-pin__image \{[^}]*inset: 2px;[^}]*width: calc\(100% - 4px\);[^}]*padding: 0;[^}]*object-fit: contain;/);
     assert.doesNotMatch(css, /\.managed-place-pin__image \{[^}]*object-fit: cover;/);
     assert.match(css, /\.managed-place-pin--selected \{[^}]*transform: scale\(1\.12\);/);
     assert.ok(Math.abs(48 * 1.12 - 54) < 1);
-    assert.match(shop.html, /src="https:\/\/example\.com\/logo\.png\?x=1&amp;y=2"/);
-    assert.match(shop.html, /referrerpolicy="no-referrer"/);
-    assert.match(shop.html, /bi-bag-fill/);
-    assert.match(vet.html, /bi-heart-pulse-fill/);
-    assert.doesNotMatch(vet.html, /<img/);
+    assert.match(shopIcon.html, /src="https:\/\/example\.com\/logo\.png\?x=1&amp;y=2"/);
+    assert.match(shopIcon.html, /referrerpolicy="no-referrer"/);
+    assert.match(shopIcon.html, /bi-bag-fill/);
+    assert.match(vetIcon.html, /bi-heart-pulse-fill/);
+    assert.doesNotMatch(vetIcon.html, /<img/);
     assert.match(generic.html, /bi-geo-alt-fill/);
-    const selectedShop = places.createIcon({ category: 2, logoUrl: "https://example.com/logo.png" }, { selected: true });
+    const selectedShop = places.createIcon({ ...shop, logoUrl: "https://example.com/logo.png" }, { selected: true });
     assert.match(selectedShop.html, /managed-place-pin--selected/);
     assert.match(selectedShop.html, /src="https:\/\/example\.com\/logo\.png"/);
-    const separatePhoto = places.createIcon({ category: 2, logoUrl: "https://example.com/logo.png", imageUrl: "https://example.com/photo.jpg" });
+    const separatePhoto = places.createIcon({ ...shop, logoUrl: "https://example.com/logo.png", imageUrl: "https://example.com/photo.jpg" });
     assert.match(separatePhoto.html, /logo\.png/);
     assert.doesNotMatch(separatePhoto.html, /photo\.jpg/);
-    assert.doesNotMatch(places.createIcon({ category: 2, imageUrl: "https://example.com/photo.jpg" }).html, /<img/);
-    assert.equal(vet.iconSize[0], shop.iconSize[0]);
+    assert.doesNotMatch(places.createIcon({ ...shop, imageUrl: "https://example.com/photo.jpg" }).html, /<img/);
+    assert.equal(vetIcon.iconSize[0], shopIcon.iconSize[0]);
+});
+
+test("all seven category markers retain commercial and dog-destination hierarchy", () => {
+    const css = read("DoggyDrop/wwwroot/css/places.css");
+    for (const [key, icon, commercial] of [
+        ["veterinarian", "bi-heart-pulse-fill", true], ["pet-shop", "bi-bag-fill", true],
+        ["groomer", "bi-scissors", true], ["dog-school", "bi-mortarboard-fill", true],
+        ["dog-friendly-cafe", "bi-cup-hot-fill", true], ["dog-park", "bi-tree-fill", false],
+        ["dog-beach", "bi-water", false]
+    ]) {
+        const marker = places.createIcon({ categoryKey: key, iconClass: icon,
+            categoryLabel: key, isCommercial: commercial, logoUrl: "https://example.com/logo.png" });
+        assert.match(marker.html, new RegExp(`managed-place-pin--${key}`));
+        assert.match(marker.html, new RegExp(icon));
+        assert.equal(marker.html.includes("<img"), commercial);
+        assert.equal(marker.html.includes("managed-place-pin--destination"), !commercial);
+    }
+    assert.match(css, /\.managed-place-pin--destination \{ width: 42px; height: 42px; margin: 5px;/);
+    assert.match(css, /\.managed-place-pin--selected \{[^}]*transform: scale\(1\.12\)/);
+    assert.match(places.createIcon({ categoryKey: "dog-park", iconClass: "bi-tree-fill", isCommercial: false },
+        { selected: true }).html, /managed-place-pin--selected/);
 });
 
 test("unsafe or missing logos never create an image request or inject markup", () => {
     for (const url of [null, "", "http://example.com/logo.png", "javascript:alert(1)",
         "https://user:password@example.com/logo.png", "https://example.com/a b.png", "https://example.com/\\evil.png"]) {
         assert.equal(places.safeImageUrl(url), null);
-        assert.doesNotMatch(places.createIcon({ category: 1, logoUrl: url }).html, /<img/);
+        assert.doesNotMatch(places.createIcon({ ...vet, logoUrl: url }).html, /<img/);
     }
-    const injected = places.createIcon({ category: 2, logoUrl: 'https://example.com/logo.png?q="evil"' }).html;
+    const injected = places.createIcon({ ...shop, logoUrl: 'https://example.com/logo.png?q="evil"' }).html;
     assert.doesNotMatch(injected, /onerror="alert/);
     assert.match(injected, /&quot;/);
     assert.doesNotMatch(injected, /<script/);
+    assert.match(places.createIcon({ categoryKey: 'bad" onclick="x', iconClass: 'bi-a" onload="x',
+        categoryLabel: 'Dog <Park>', isCommercial: false }).html, /managed-place-pin--other/);
     assert.doesNotMatch(read("DoggyDrop/wwwroot/js/place-marker.js"), /fetch\(|XMLHttpRequest/);
 });
 
@@ -111,6 +136,6 @@ test("Place Details uses the same marker and already-projected safe image URL", 
     assert.match(details, /data-logo-url="@Model\.LogoUrl"/);
     assert.match(script, /DoggyDropPlaceMarker\.createIcon/);
     assert.match(script, /DoggyDropPlaceMarker\.attachImage/);
-    assert.match(read("DoggyDrop/Controllers/MapController.cs"), /place with \{ LogoUrl = PlaceLogoDelivery\.ForMarker\(place\.LogoUrl, _placeLogoCloud\.Value\) \}/);
+    assert.match(read("DoggyDrop/Controllers/MapController.cs"), /PlaceCategories\.PublicLogo\(place\.Category, place\.LogoUrl, _placeLogoCloud\.Value\)/);
     assert.doesNotMatch(script, /fetch\(|XMLHttpRequest/);
 });

@@ -22,6 +22,9 @@
     window.DoggyDropBasemap.addTo(map, element.dataset.cartoBasemapKey);
     const icon = window.DoggyDropPlaceMarker.createIcon({
         category: element.dataset.category,
+        categoryKey: element.dataset.categoryKey,
+        iconClass: element.dataset.iconClass,
+        isCommercial: element.dataset.isCommercial === "true",
         logoUrl: element.dataset.logoUrl
     });
     const marker = L.marker([lat, lng], { icon });
