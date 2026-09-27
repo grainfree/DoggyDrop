@@ -152,6 +152,8 @@ builder.Services.AddHttpClient();
 builder.Services.AddSingleton<IImageOptimizationService, ImageOptimizationService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<BinImportSessions>();
+builder.Services.AddScoped<BinImportService>();
 builder.Services.AddSingleton<IGamificationCalendar, GamificationCalendar>();
 builder.Services.AddScoped<IWeeklyGoalsService, WeeklyGoalsService>();
 builder.Services.AddScoped<IGamificationService, GamificationService>();

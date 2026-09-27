@@ -1,0 +1,12 @@
+.bin-import { overflow-wrap: anywhere; }
+.bin-import .places-field { margin-bottom: 16px; }
+.bin-import :is(input, select) { max-width: 100%; min-width: 0; }
+.bin-import form { margin-block: 20px; }
+.import-rows { display: grid; gap: 14px; }
+.import-rows article { min-width: 0; border: 1px solid #cadbd1; border-radius: 8px; padding: 16px; }
+.import-rows h2 { font-size: 1.1rem; }
+.import-check { display: flex; gap: 12px; align-items: center; min-height: 44px; cursor: pointer; }
+.import-check input { width: 20px; height: 20px; flex-shrink: 0; }
+.import-actions { display: flex; flex-wrap: wrap; gap: 16px; margin-block: 20px; align-items: center; }
+.bin-import :is(a, button, input, select):focus-visible { outline: 2px solid #246e52; outline-offset: 3px; }
+.bin-import button { white-space: normal; max-width: 100%; }

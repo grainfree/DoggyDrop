@@ -1,0 +1,27 @@
+@model DoggyDrop.Services.ImportPage
+@{ ViewData["Title"] = "Izberi stolpce"; }
+@section Styles {
+    <link rel="stylesheet" href="~/css/places.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/bin-import.css" asp-append-version="true" />
+}
+<main class="places-page bin-import">
+    <h1>Izberi stolpce</h1>
+    <partial name="_Context" model="Model" />
+    <p>Predloge preveri in potrdi. X/Y ne pomenita nujno WGS84 koordinat. Pretvorba koordinatnih sistemov in geokodiranje nista vključena.</p>
+    <div asp-validation-summary="All" role="alert"></div>
+    <form asp-action="Map" asp-route-id="@Model.Id" method="post" class="places-form">
+        <input type="hidden" name="version" value="@Model.Version" />
+        @foreach (var field in new[] { (Key: "latitude", Label: "Širina / Latitude *", Index: (int?)Model.Mapping!.Latitude), (Key: "longitude", Label: "Dolžina / Longitude *", Index: (int?)Model.Mapping!.Longitude), (Key: "name", Label: "Ime / opis (neobvezno)", Index: Model.Mapping!.Name), (Key: "address", Label: "Naslov (neobvezno)", Index: Model.Mapping!.Address) })
+        {
+            <label class="places-field">@field.Label
+                <select name="@field.Key" required="@(field.Key is "latitude" or "longitude")">
+                    <option value="">Brez izbire</option>
+                    @for (var i = 0; i < Model.Headers!.Length; i++) { <option value="@i" selected="@(field.Index == i)">@Model.Headers[i]</option> }
+                </select>
+            </label>
+        }
+        <p>Koš ima eno prikazno ime: ime/opis (največ 200 znakov) in naslov (največ 180) se združita kot »Ime · Naslov«. Brez imena se uporabi »Koš«. Predogled pokaže točno besedilo, ki bo shranjeno.</p>
+        <button class="places-button places-button--primary" type="submit">Potrdi stolpce in prikaži predogled</button>
+    </form>
+    <form asp-action="Cancel" asp-route-id="@Model.Id" method="post"><button class="places-button" type="submit">Prekliči uvoz</button></form>
+</main>
