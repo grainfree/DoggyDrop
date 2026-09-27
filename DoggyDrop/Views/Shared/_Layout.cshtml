@@ -282,10 +282,16 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            if (!localStorage.getItem('pwaPromptShown')) {
+            // Leave first-run explanation and active-walk controls unobstructed.
+            // An unseen install prompt remains eligible on a later visit.
+            if (document.body.classList.contains('home-intro-visible') ||
+                document.body.classList.contains('map-walk-active')) return;
+            let promptShown = false;
+            try { promptShown = localStorage.getItem('pwaPromptShown') === 'true'; } catch { }
+            if (!promptShown) {
                 const toast = new bootstrap.Toast(document.getElementById('pwaPrompt'));
                 toast.show();
-                localStorage.setItem('pwaPromptShown', 'true');
+                try { localStorage.setItem('pwaPromptShown', 'true'); } catch { }
             }
         });
     </script>

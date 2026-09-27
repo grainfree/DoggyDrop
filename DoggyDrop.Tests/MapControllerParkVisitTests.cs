@@ -35,6 +35,57 @@ public sealed class MapControllerParkVisitTests : IDisposable
     private readonly RecordingNotifications _notifications = new();
 
     [Fact]
+    public async Task AddBinGet_IsPublicAndReturnsFormForAnonymousVisitor()
+    {
+        await using var db = Context();
+        var controller = Controller(db);
+        controller.ControllerContext.HttpContext.User = new ClaimsPrincipal(new ClaimsIdentity());
+        controller.Request.Method = HttpMethods.Get;
+        controller.Request.Path = "/Map/Add";
+
+        var action = typeof(MapController).GetMethod(nameof(MapController.Add), [typeof(int?)]);
+        Assert.NotNull(action);
+        Assert.Empty(typeof(MapController).GetCustomAttributes(inherit: true)
+            .OfType<Microsoft.AspNetCore.Authorization.IAuthorizeData>());
+        Assert.Empty(action.GetCustomAttributes(inherit: true)
+            .OfType<Microsoft.AspNetCore.Authorization.IAuthorizeData>());
+        Assert.False(controller.User.Identity!.IsAuthenticated);
+        Assert.IsType<ViewResult>(await controller.Add());
+        Assert.Null((int?)controller.ViewBag.WalkId);
+    }
+
+    [Fact]
+    public async Task AddBinPost_AnonymousInvalidInputReturnsValidationWithoutWriting()
+    {
+        await using var db = Context();
+        await db.Database.EnsureCreatedAsync();
+        var controller = Controller(db);
+        controller.ControllerContext.HttpContext.User = new ClaimsPrincipal(new ClaimsIdentity());
+        controller.Request.Method = HttpMethods.Post;
+        controller.Request.Path = "/Map/Add";
+        var input = new TrashBinViewModel();
+        // Direct controller tests supply the ModelState that MVC validation produces.
+        controller.ModelState.AddModelError(nameof(TrashBinViewModel.Name), "Ime je obvezno.");
+
+        var action = typeof(MapController).GetMethod(nameof(MapController.Add),
+            [typeof(TrashBinViewModel), typeof(int?)]);
+        Assert.NotNull(action);
+        Assert.Empty(typeof(MapController).GetCustomAttributes(inherit: true)
+            .OfType<Microsoft.AspNetCore.Authorization.IAuthorizeData>());
+        Assert.Empty(action.GetCustomAttributes(inherit: true)
+            .OfType<Microsoft.AspNetCore.Authorization.IAuthorizeData>());
+        Assert.Single(action.GetCustomAttributes(typeof(HttpPostAttribute), inherit: true));
+        Assert.Single(action.GetCustomAttributes(typeof(ValidateAntiForgeryTokenAttribute), inherit: true));
+        Assert.False(controller.User.Identity!.IsAuthenticated);
+
+        var result = Assert.IsType<ViewResult>(await controller.Add(input));
+        Assert.Same(input, result.Model);
+        Assert.False(controller.ModelState.IsValid);
+        Assert.Single(controller.ModelState[nameof(TrashBinViewModel.Name)]!.Errors);
+        Assert.False(await db.TrashBins.AnyAsync());
+    }
+
+    [Fact]
     public async Task PublicBinList_ContainsOnlyApprovedBinsForActiveWalk()
     {
         await using var db = Context();

@@ -37,7 +37,7 @@ test("Home has one desktop left stack, compact action rail and unchanged Places"
     const panelStart = map.indexOf('<div class="map-home-panel">');
     const panelEnd = map.indexOf('</div>\n\n<aside id="filterPanel"', panelStart);
     assert.ok(panelStart >= 0 && panelEnd > panelStart);
-    for (const item of ['class="map-quick-intro"', 'id="firstDogPrompt"', 'id="mapFounderPrompt"']) {
+    for (const item of ['id="homeIntro"', 'id="homeContext"', 'id="firstDogPrompt"', 'id="mapFounderPrompt"']) {
         const itemIndex = map.indexOf(item, panelStart);
         assert.ok(itemIndex >= panelStart && itemIndex < panelEnd);
     }

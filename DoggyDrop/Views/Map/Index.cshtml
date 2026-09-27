@@ -47,6 +47,7 @@
                 type = park.Type,
                 label = park.Label
             })));
+    var isSignedIn = User.Identity?.IsAuthenticated == true;
     var needsDogOnboarding = ViewBag.NeedsDogOnboarding as bool? == true;
     var showFirstWalkPrompt = TempData["ShowFirstWalkPrompt"] as bool? == true;
     var firstDogName = TempData["FirstDogName"] as string;
@@ -758,7 +759,6 @@
         max-width: min(520px, calc(100vw - 24px));
     }
 
-    body.map-bin-navigation-active .map-quick-intro,
     body.map-bin-navigation-active .map-active-walk-sheet,
     body.map-bin-navigation-active .map-active-walk-card,
     body.map-bin-navigation-active .map-action-stack,
@@ -2385,50 +2385,6 @@
         box-shadow: 0 0 0 8px rgba(108, 92, 231, 0.14), 0 0 24px rgba(108, 92, 231, 0.38);
     }
 
-    .map-quick-intro {
-        position: fixed;
-        top: 78px;
-        left: 18px;
-        z-index: 980;
-        width: min(320px, calc(100vw - 36px));
-        padding: 14px 16px;
-        border: 1px solid rgba(31, 45, 41, 0.1);
-        border-radius: 22px;
-        background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 251, 247, 0.94));
-        box-shadow: 0 16px 34px rgba(31, 45, 41, 0.14);
-        backdrop-filter: blur(14px);
-    }
-
-    .map-quick-intro__eyebrow {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        margin-bottom: 6px;
-        color: #2f6d5f;
-        font-size: 0.76rem;
-        font-weight: 900;
-    }
-
-    .map-quick-intro__eyebrow i {
-        color: #ef8f42;
-    }
-
-    .map-quick-intro h1 {
-        margin: 0;
-        color: #17322c;
-        font-size: 1.28rem;
-        font-weight: 950;
-        line-height: 1.08;
-    }
-
-    .map-quick-intro p {
-        margin: 8px 0 0;
-        color: #60706c;
-        font-size: 0.84rem;
-        font-weight: 700;
-        line-height: 1.45;
-    }
-
     @@media (max-width: 575.98px) {
         body.map-walk-active #map {
             height: calc(100dvh - 58px - var(--app-bottom-nav-clearance, 88px) - 12px);
@@ -2708,29 +2664,6 @@
             background: rgba(255, 255, 255, 0.92);
         }
 
-        .map-quick-intro {
-            top: 66px;
-            left: 10px;
-            right: 10px;
-            width: auto;
-            padding: 12px 13px;
-            border-radius: 18px;
-        }
-
-        .map-quick-intro__eyebrow {
-            margin-bottom: 4px;
-            font-size: 0.7rem;
-        }
-
-        .map-quick-intro h1 {
-            font-size: 1.05rem;
-        }
-
-        .map-quick-intro p {
-            font-size: 0.74rem;
-            line-height: 1.35;
-        }
-
         .map-explore-panel--nearby .map-explore-panel__header {
             margin-bottom: 6px;
         }
@@ -2945,32 +2878,6 @@
         }
     }
 
-    .map-quick-intro {
-        top: 84px;
-        width: min(380px, calc(100vw - 36px));
-        padding: 18px;
-        border-radius: 16px;
-        background: rgba(255, 255, 255, 0.95);
-        box-shadow: 0 18px 40px rgba(20, 40, 35, 0.15);
-    }
-
-    .map-quick-intro h1 {
-        max-width: 14ch;
-        font-size: clamp(1.55rem, 4vw, 2.2rem);
-        line-height: 1.02;
-    }
-
-    .map-quick-intro p {
-        max-width: 32ch;
-        font-size: 0.92rem;
-    }
-
-    .map-quick-intro__eyebrow {
-        padding: 6px 10px;
-        border-radius: 999px;
-        background: #e7f2ec;
-    }
-
     .map-status-pill {
         top: auto;
         left: 18px;
@@ -3034,25 +2941,6 @@
     }
 
     @@media (max-width: 575.98px) {
-        .map-quick-intro {
-            top: 68px;
-            right: 10px;
-            left: 10px;
-            width: auto;
-            padding: 13px;
-            border-radius: 14px;
-        }
-
-        .map-quick-intro h1 {
-            max-width: none;
-            font-size: 1.14rem;
-        }
-
-        .map-quick-intro p {
-            max-width: none;
-            margin-top: 6px;
-            font-size: 0.76rem;
-        }
 
         .map-explore-panel--nearby,
         .map-founder-prompt,
@@ -3106,7 +2994,6 @@
             overscroll-behavior: contain;
         }
         body.map-bin-navigation-active .map-home-panel { display: none; }
-        .map-home-panel .map-quick-intro,
         .map-home-panel .map-first-walk-card,
         .map-home-panel .map-first-dog-card,
         .map-home-panel .map-founder-prompt {
@@ -3117,8 +3004,6 @@
             margin: 0;
             transform: none;
         }
-        .map-home-panel .map-quick-intro { padding: 16px; }
-        .map-home-panel .map-quick-intro h1 { font-size: 1.45rem; line-height: 1.12; }
         .map-home-panel .map-founder-prompt { padding: 12px 14px; }
         .map-home-panel .map-founder-prompt a { min-height: 44px; }
 
@@ -3233,6 +3118,7 @@
         .map-action-stack { max-height: calc(100dvh - 220px); overflow-y: auto; }
     }
 </style>
+<link rel="stylesheet" href="~/css/home-intro.css" asp-append-version="true" />
 
 @if (TempData["SuccessMessage"] != null)
 {
@@ -3248,32 +3134,24 @@
 }
 
 <div class="map-home-panel">
-@if (!hasActiveWalk && !needsDogOnboarding)
+@if (!hasActiveWalk)
 {
-<section class="map-quick-intro" aria-label="DoggyDrop zemljevid">
-    <div class="map-quick-intro__eyebrow">
-        <i class="bi bi-heart-pulse-fill" aria-hidden="true"></i>
-        <span>Sprehod</span>
-    </div>
-    <h1>Naj bo vsak sprehod malo lažji.</h1>
-    @if (weeklyGoals == null)
-    {
-        <p>Začni pot, najdi bližnji koš, preveri parke in hitro shrani nove uporabne točke.</p>
-    }
-    @if (weeklyGoals != null)
-    {
-        <section class="map-weekly-preview" aria-label="Ta teden">
-            <div class="map-weekly-preview__head"><strong>Ta teden · @weeklyGoals.CompletedSummary</strong><a asp-controller="WeeklyGoals" asp-action="Index">Vsi cilji</a></div>
-            <div class="map-weekly-preview__items">
-                @foreach (var goal in weeklyGoals.Goals)
-                {
-                    <span>@if (goal.IsComplete) { <i class="bi bi-check-circle-fill" aria-label="Cilj dosežen"></i> } @goal.Title @goal.ProgressLabel</span>
-                }
-            </div>
-            <p class="map-weekly-preview__next">@(weeklyGoals.AllComplete ? "Odličen teden!" : weeklyGoals.NextGoal?.RemainingLabel)</p>
-        </section>
-    }
-</section>
+    <section id="homeIntro" class="home-intro" aria-labelledby="homeIntroTitle" hidden>
+        <span class="home-intro__brand">DOGGYDROP</span>
+        <h1 id="homeIntroTitle">Vse za lažji sprehod s psom.</h1>
+        <ul>
+            <li><i class="bi bi-trash" aria-hidden="true"></i> Najdi najbližji koš.</li>
+            <li><i class="bi bi-geo-alt" aria-hidden="true"></i> Odkrij uporabne pasje lokacije.</li>
+            <li><i class="bi bi-activity" aria-hidden="true"></i> Beleži sprehode.</li>
+        </ul>
+        <div class="home-intro__actions">
+            <button id="dismissHomeIntro" type="button">Razišči zemljevid</button>
+            @if (!isSignedIn)
+            {
+                <a id="homeIntroLogin" asp-area="Identity" asp-page="/Account/Login" asp-route-returnUrl="/Map">Prijava</a>
+            }
+        </div>
+    </section>
 }
 
 @if (hasActiveWalk)
@@ -3281,6 +3159,11 @@
     <script>document.body.classList.add("map-walk-active");</script>
 }
 
+@if (!hasActiveWalk && (showFirstWalkPrompt || needsDogOnboarding || weeklyGoals != null))
+{
+<details id="homeContext" class="home-context">
+    <summary>@(showFirstWalkPrompt ? "Prvi sprehod" : needsDogOnboarding ? "Dodaj psa za sprehode" : $"Ta teden · {weeklyGoals!.CompletedSummary}")</summary>
+    <div class="home-context__body">
 @if (showFirstWalkPrompt)
 {
     <section class="map-first-walk-card" aria-label="Prvi sprehod">
@@ -3322,15 +3205,32 @@ else if (needsDogOnboarding)
     </section>
     <script>
         document.getElementById("dismissFirstDogPrompt").addEventListener("click", () => {
-            document.getElementById("firstDogPrompt").hidden = true;
+            document.getElementById("homeContext").open = false;
             document.getElementById("map")?.focus({ preventScroll: true });
         });
     </script>
 }
 
+@if (weeklyGoals != null)
+{
+        <section class="map-weekly-preview" aria-label="Ta teden">
+            <div class="map-weekly-preview__head"><strong>Ta teden · @weeklyGoals.CompletedSummary</strong><a asp-controller="WeeklyGoals" asp-action="Index">Vsi cilji</a></div>
+            <div class="map-weekly-preview__items">
+                @foreach (var goal in weeklyGoals.Goals)
+                {
+                    <span>@if (goal.IsComplete) { <i class="bi bi-check-circle-fill" aria-label="Cilj dosežen"></i> } @goal.Title @goal.ProgressLabel</span>
+                }
+            </div>
+            <p class="map-weekly-preview__next">@(weeklyGoals.AllComplete ? "Odličen teden!" : weeklyGoals.NextGoal?.RemainingLabel)</p>
+        </section>
+}
+    </div>
+</details>
+}
+
 <aside id="mapFounderPrompt" class="map-founder-prompt" hidden>
-    <span>Founder opportunity</span>
-    <strong>Be the first DoggyDrop Explorer here.</strong>
+    <span>Skupaj gradimo zemljevid</span>
+    <strong>Dodaj prvi koš v okolici.</strong>
     <p id="mapFounderPromptText">V tej okolici še ni potrjenega pasjega koša. Dodaj prvega in odpri območje za skupnost.</p>
     <a asp-controller="Map" asp-action="Add">Dodaj prvi koš</a>
 </aside>
@@ -3535,6 +3435,10 @@ else if (needsDogOnboarding)
     {
         <a class="map-action-button map-action-button--primary" asp-controller="Dogs" asp-action="Create" asp-route-firstDog="true" asp-route-returnUrl="/Map"><span class="map-action-button__icon" aria-hidden="true"><i class="bi bi-plus-lg"></i></span><span>Dodaj psa</span></a>
     }
+    else if (!isSignedIn)
+    {
+        <a class="map-action-button" asp-area="Identity" asp-page="/Account/Login" asp-route-returnUrl="/Walks#walkEntry" aria-label="Začni sprehod – potrebna je prijava"><span class="map-action-button__icon" aria-hidden="true"><i class="bi bi-lock"></i></span><span>Začni sprehod</span></a>
+    }
     else
     {
         <a class="map-action-button map-action-button--primary" asp-controller="Walks" asp-action="Index" asp-fragment="walkEntry"><span class="map-action-button__icon" aria-hidden="true"><i class="bi bi-play-fill"></i></span><span>Začni sprehod</span></a>
@@ -3543,7 +3447,7 @@ else if (needsDogOnboarding)
         <span class="map-action-button__icon" aria-hidden="true"><i class="bi bi-plus-lg"></i></span>
         <span>Dodaj koš</span>
     </a>
-    <button type="button" onclick="findNearestTrashBin()" class="map-action-button">
+    <button type="button" onclick="findNearestTrashBin()" class="map-action-button @(!isSignedIn ? "map-action-button--primary" : "")">
         <span class="map-action-button__icon" aria-hidden="true"><i class="bi bi-geo-alt-fill"></i></span>
         <span>Najbližji koš</span>
     </button>
@@ -3560,7 +3464,7 @@ else if (needsDogOnboarding)
 </div>
 
 <aside id="communityHeatPanel" class="map-community-heat is-collapsed" aria-expanded="false">
-    <button type="button" id="communityHeatToggle" class="map-community-heat__toggle" aria-label="Prikaži utrip skupnosti">
+    <button type="button" id="communityHeatToggle" class="map-community-heat__toggle" aria-expanded="false" aria-controls="communityHeatBody" aria-label="Prikaži utrip skupnosti" title="Utrip skupnosti">
         <span class="map-community-heat__icon" aria-hidden="true"><i class="bi bi-fire"></i></span>
         <span class="map-community-heat__label">
             <strong>Utrip skupnosti</strong>
@@ -3568,7 +3472,7 @@ else if (needsDogOnboarding)
         </span>
         <span id="communityHeatBadge" class="map-community-heat__badge">0</span>
     </button>
-    <div class="map-community-heat__body">
+    <div id="communityHeatBody" class="map-community-heat__body">
         <div class="map-community-heat__stats">
             <span><b id="communityActiveWalkers">0</b> <span id="communityActiveWalkersLabel">aktivnih</span></span>
             <span><b id="communityPopularParks">0</b> parkov</span>
@@ -3631,7 +3535,7 @@ else if (needsDogOnboarding)
     </section>
 </div>
 
-<div id="map"></div>
+<div id="map" tabindex="-1" aria-label="Zemljevid pasjih lokacij"></div>
 <aside id="binDetailPanel" class="map-bin-detail" hidden aria-live="polite">
     <section class="map-bin-detail__panel" aria-label="Podrobnosti koša">
         <div class="map-bin-detail__header">
@@ -3666,6 +3570,7 @@ else if (needsDogOnboarding)
 <div id="directionsPanel" class="@(hasActiveWalk ? "directions-panel--active-walk" : "")"></div>
 
 @section Scripts {
+    <script src="~/js/home-intro.js" asp-append-version="true"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
             integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
             crossorigin=""></script>
@@ -4069,30 +3974,11 @@ else if (needsDogOnboarding)
         document.addEventListener("DOMContentLoaded", function () {
             initActiveWalkCard();
             initMap();
-            const intro = document.querySelector(".map-quick-intro");
-            if (intro) {
-                positionHomeCommunityHeat();
-                if (window.ResizeObserver) new ResizeObserver(positionHomeCommunityHeat).observe(intro);
-                window.addEventListener("resize", positionHomeCommunityHeat);
-            }
             const mapQuery = new URLSearchParams(window.location.search);
             const requestedBinId = Number(mapQuery.get("navigateBin"));
             if (Number.isInteger(requestedBinId) && requestedBinId > 0) navigateToBinInApp(requestedBinId);
             else if (homeActiveWalkId > 0 && mapQuery.get("nearestBin") === "1") findNearestTrashBin();
         });
-
-        function positionHomeCommunityHeat() {
-            const intro = document.querySelector(".map-quick-intro");
-            if (!intro || !communityHeatPanel) return;
-            if (!window.matchMedia("(max-width: 575.98px)").matches) {
-                communityHeatPanel.style.removeProperty("top");
-                communityHeatPanel.style.removeProperty("max-height");
-                return;
-            }
-            const top = Math.ceil(intro.getBoundingClientRect().bottom + 18);
-            communityHeatPanel.style.top = `${top}px`;
-            communityHeatPanel.style.maxHeight = `${Math.max(100, window.innerHeight - top - 96)}px`;
-        }
 
         function initActiveWalkCard() {
             const photoForm = document.getElementById("homeWalkQuickPhotoForm");
@@ -4338,7 +4224,8 @@ else if (needsDogOnboarding)
             communityHeatToggle?.addEventListener("click", () => {
                 const isCollapsed = communityHeatPanel.classList.toggle("is-collapsed");
                 communityHeatPanel.setAttribute("aria-expanded", (!isCollapsed).toString());
-                communityHeatToggle.setAttribute("aria-label", isCollapsed ? "Prikaži community heat" : "Skrij community heat");
+                communityHeatToggle.setAttribute("aria-expanded", (!isCollapsed).toString());
+                communityHeatToggle.setAttribute("aria-label", isCollapsed ? "Prikaži utrip skupnosti" : "Skrij utrip skupnosti");
             });
             document.getElementById("parkCountLabel").textContent = `(${placeGroups.parks.length})`;
             applySavedMapSettings();
@@ -4877,12 +4764,18 @@ else if (needsDogOnboarding)
         }
 
         function getMapSetting(key, fallback) {
-            const stored = localStorage.getItem(mapSettingsPrefix + key);
-            return stored === null ? fallback : stored === "true";
+            try {
+                const stored = localStorage.getItem(mapSettingsPrefix + key);
+                return stored === null ? fallback : stored === "true";
+            } catch {
+                return fallback;
+            }
         }
 
         function saveMapSetting(key, value) {
-            localStorage.setItem(mapSettingsPrefix + key, value ? "true" : "false");
+            try {
+                localStorage.setItem(mapSettingsPrefix + key, value ? "true" : "false");
+            } catch { /* Map filters still work for this visit. */ }
         }
 
         function buildPopupContent(bin) {
