@@ -22,7 +22,7 @@
             <option value="0">Izberi kategorijo</option>
             @foreach (var category in DoggyDrop.Services.PlaceCategories.All)
             {
-                <option value="@((int)category.Category)">@category.Label</option>
+                <option value="@((int)category.Category)" data-featured-eligible="@category.IsCommercial.ToString().ToLowerInvariant()">@category.Label</option>
             }
         </select>
         <span asp-validation-for="Category"></span>
@@ -52,6 +52,27 @@
         <span asp-validation-for="Description"></span>
     </label>
 </div>
+<section class="place-featured-editor" aria-labelledby="placeFeaturedTitle">
+    <h2 id="placeFeaturedTitle">Izpostavitev</h2>
+    <p id="placeFeaturedHelp">Izpostavitev vpliva samo na prikaz lokacije in ne pomeni priporočila DoggyDrop.</p>
+    <p>Na voljo za veterinarje, trgovine, salone, pasje šole in psom prijazne lokale. Za parke in plaže se nastavitev odstrani.</p>
+    <fieldset id="placeFeaturedFields" disabled="@(!DoggyDrop.Services.FeaturedPlaces.IsEligible(Model.Category))" aria-describedby="placeFeaturedHelp placeFeaturedTimeHelp">
+        <legend class="visually-hidden">Nastavitve izpostavitve</legend>
+        <label class="place-amenities-editor__option"><input asp-for="IsFeatured" /> <span>Izpostavljena lokacija</span></label>
+        <div class="places-form-grid">
+            <label class="places-field">Od (neobvezno)
+                <input asp-for="FeaturedFromLocal" type="datetime-local" step="1" />
+                <span asp-validation-for="FeaturedFromLocal"></span>
+            </label>
+            <label class="places-field">Do (neobvezno)
+                <input asp-for="FeaturedUntilLocal" type="datetime-local" step="1" />
+                <span asp-validation-for="FeaturedUntilLocal"></span>
+            </label>
+        </div>
+    </fieldset>
+    <span asp-validation-for="IsFeatured" class="places-validation"></span>
+    <p id="placeFeaturedTimeHelp">Čas v Sloveniji (Europe/Ljubljana). Brez datumov velja neomejeno. Začetek je vključen, ob času konca izpostavitev preneha. Neaktivna lokacija ni javno izpostavljena.</p>
+</section>
 <section class="place-amenities-editor" aria-labelledby="placeAmenitiesTitle">
     <h2 id="placeAmenitiesTitle">Ugodnosti za pse</h2>
     <p>Označi samo potrjene podatke. Neoznačeno pomeni, da podatek ni potrjen, ne da velja prepoved.</p>

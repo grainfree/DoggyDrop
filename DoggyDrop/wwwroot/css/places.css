@@ -116,3 +116,9 @@
     .places-page { padding-bottom: 40px; }
     .places-admin { max-width: 1080px; }
 }
+
+.place-featured-badge { display: inline-block; max-width: 100%; margin: 4px 0; padding: 3px 7px; border: 1px solid #d5be83; border-radius: 5px; background: #fff8e5; color: #705318; font-size: .75rem; font-weight: 700; overflow-wrap: anywhere; }
+.place-featured-editor { margin-top: 24px; padding-top: 20px; border-top: 1px solid #dbe7e0; }
+.place-featured-editor p { color: #536b60; font-size: .9rem; }
+.place-featured-editor fieldset { min-width: 0; }
+.managed-place-pin--featured:not(.managed-place-pin--selected) { box-shadow: 0 0 0 2px #d5be83, 0 3px 10px rgba(13, 38, 31, .24); }

@@ -220,6 +220,7 @@ public sealed class DataProvenanceTests : IDisposable
         Assert.IsType<RedirectToActionResult>(await Admin(db).Edit(place.Id,input));
         Assert.Equal(2,place.DataSourceId); Assert.Equal(verified,place.AmenitiesVerifiedAt);
         Assert.Equal(PlaceAmenityType.Fenced,Assert.Single(place.Amenities).AmenityType);
+        input = PlaceInput.FromPlace(place,"test");
         input.DataSourceId = 999; input.Name = "Must not save";
         Assert.IsType<ViewResult>(await Admin(db).Edit(place.Id,input));
         var saved = await db.Places.AsNoTracking().SingleAsync(p=>p.Id==place.Id);

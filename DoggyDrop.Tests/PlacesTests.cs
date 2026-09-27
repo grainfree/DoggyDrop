@@ -160,6 +160,7 @@ public sealed class PlacesTests : IDisposable
         var placeId = place.Id;
 
         var edited = Input(PlaceCategory.PetShop);
+        edited.OriginalUpdatedAt = PlaceInput.FromPlace(place, "test").OriginalUpdatedAt;
         edited.Name = "Pet shop";
         edited.Latitude = 46.2;
         Assert.IsType<RedirectToActionResult>(await admin.Edit(placeId, edited));
@@ -214,6 +215,7 @@ public sealed class PlacesTests : IDisposable
         Assert.Equal("https://example.com/photo.jpg", place.ImageUrl);
 
         var replacement = Input();
+        replacement.OriginalUpdatedAt = PlaceInput.FromPlace(place, "test").OriginalUpdatedAt;
         replacement.ImageUrl = place.ImageUrl;
         replacement.LogoFile = LogoFile();
         Assert.IsType<RedirectToActionResult>(await admin.Edit(place.Id, replacement));
@@ -221,6 +223,7 @@ public sealed class PlacesTests : IDisposable
         Assert.Equal([original], logos.Deleted);
 
         var removal = Input();
+        removal.OriginalUpdatedAt = PlaceInput.FromPlace(place, "test").OriginalUpdatedAt;
         removal.ImageUrl = place.ImageUrl;
         removal.RemoveLogo = true;
         Assert.IsType<RedirectToActionResult>(await admin.Edit(place.Id, removal));
@@ -256,6 +259,7 @@ public sealed class PlacesTests : IDisposable
         var logos = new FakeLogos();
         Assert.IsType<RedirectToActionResult>(await Admin(db, logos).Edit(place.Id, new PlaceInput
         {
+            OriginalUpdatedAt = PlaceInput.FromPlace(place, "test").OriginalUpdatedAt,
             Name = place.Name, Category = place.Category, Latitude = place.Latitude,
             Longitude = place.Longitude, RemoveLogo = true
         }));
@@ -274,6 +278,7 @@ public sealed class PlacesTests : IDisposable
         await db.SaveChangesAsync();
         var logos = new FakeLogos();
         var input = Input();
+        input.OriginalUpdatedAt = PlaceInput.FromPlace(first, "test").OriginalUpdatedAt;
         input.RemoveLogo = true;
         Assert.IsType<RedirectToActionResult>(await Admin(db, logos).Edit(first.Id, input));
         Assert.Empty(logos.Deleted);
@@ -289,6 +294,7 @@ public sealed class PlacesTests : IDisposable
         db.Places.Add(place);
         await db.SaveChangesAsync();
         var changed = Input();
+        changed.OriginalUpdatedAt = PlaceInput.FromPlace(place, "test").OriginalUpdatedAt;
         changed.Name = "Changed";
         changed.LogoFile = LogoFile();
         var logos = new FakeLogos { FailUpload = true };
@@ -351,6 +357,7 @@ public sealed class PlacesTests : IDisposable
         var logos = new FakeLogos();
         var input = Input();
         input.LogoFile = LogoFile();
+        input.OriginalUpdatedAt = PlaceInput.FromPlace(place, "test").OriginalUpdatedAt;
         Assert.IsType<ViewResult>(await Admin(db, logos).Edit(place.Id, input));
         var persisted = await setup.Places.AsNoTracking().SingleAsync();
         Assert.Equal(commitBeforeThrow ? ManagedUrl('a') : ManagedUrl('b'), persisted.LogoUrl);
@@ -370,6 +377,7 @@ public sealed class PlacesTests : IDisposable
         var logos = new FakeLogos();
         var input = Input();
         input.LogoFile = LogoFile();
+        input.OriginalUpdatedAt = PlaceInput.FromPlace(place, "test").OriginalUpdatedAt;
         Assert.IsType<ViewResult>(await Admin(db, logos, new FailingLogoReferenceReader()).Edit(place.Id, input));
         Assert.Empty(logos.Deleted);
         Assert.Equal(ManagedUrl('b'), (await setup.Places.AsNoTracking().SingleAsync()).LogoUrl);
@@ -384,6 +392,7 @@ public sealed class PlacesTests : IDisposable
         var id = (await db.Places.SingleAsync()).Id;
         var admin = Admin(db);
         var invalid = Input((PlaceCategory)20);
+        invalid.OriginalUpdatedAt = PlaceInput.FromPlace(await db.Places.SingleAsync(), "test").OriginalUpdatedAt;
         invalid.Name = "Changed";
         invalid.Latitude = double.NaN;
         invalid.WebsiteUrl = "javascript:alert(1)";
@@ -473,7 +482,8 @@ public sealed class PlacesTests : IDisposable
         Assert.Null(model.Places[0].LogoUrl);
         Assert.Contains("c_fit,w_128,h_128", model.Places[1].LogoUrl);
         Assert.Equal("Žolgarjeva ulica 6", model.Places[1].Address);
-        Assert.Equal(11, typeof(PlaceDiscoveryItem).GetProperties().Length);
+        Assert.Equal(12, typeof(PlaceDiscoveryItem).GetProperties().Length);
+        Assert.NotNull(typeof(PlaceDiscoveryItem).GetProperty("IsCurrentlyFeatured"));
         Assert.Null(typeof(PlaceDiscoveryItem).GetProperty("UserId"));
         Assert.DoesNotContain(db.ChangeTracker.Entries(), entry => entry.State != EntityState.Unchanged);
     }
@@ -542,7 +552,8 @@ public sealed class PlacesTests : IDisposable
         Assert.Contains("\"logoUrl\":\"https://res.cloudinary.com/test/image/upload/", mapJson);
         Assert.DoesNotContain("inactive-logo.png", mapJson);
         Assert.DoesNotContain("data:image", mapJson);
-        Assert.Equal(11, typeof(PlaceMapItem).GetProperties().Length);
+        Assert.Equal(12, typeof(PlaceMapItem).GetProperties().Length);
+        Assert.NotNull(typeof(PlaceMapItem).GetProperty("IsCurrentlyFeatured"));
         Assert.Single(Assert.IsAssignableFrom<IEnumerable<TrashBin>>(view.Model));
     }
 

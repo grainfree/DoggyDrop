@@ -1,7 +1,7 @@
 @model DoggyDrop.ViewModels.PlaceCardViewModel
 @using System.Globalization
 @{ var place = Model.Place; }
-<article class="place-discovery-card" data-category="@((int)place.Category)"
+<article class="place-discovery-card@(place.IsCurrentlyFeatured ? " place-discovery-card--featured" : "")" data-category="@((int)place.Category)"
          data-latitude="@place.Latitude.ToString(CultureInfo.InvariantCulture)"
          data-longitude="@place.Longitude.ToString(CultureInfo.InvariantCulture)">
     <span class="place-discovery-card__logo place-discovery-card__logo--@place.CategoryKey" aria-hidden="true">
@@ -13,6 +13,7 @@
     </span>
     <div class="place-discovery-card__body">
         <h2>@place.Name</h2>
+        @if (place.IsCurrentlyFeatured) { <span class="place-featured-badge" title="Promocijska izpostavitev; ne pomeni priporočila DoggyDrop.">Izpostavljeno</span> }
         <span class="place-discovery-card__category">@place.CategoryLabel</span>
         @if (!string.IsNullOrWhiteSpace(place.Address)) { <p class="place-discovery-card__address">@place.Address</p> }
         <span class="place-discovery-card__distance" hidden></span>

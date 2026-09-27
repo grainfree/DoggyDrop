@@ -1,4 +1,5 @@
 using DoggyDrop.Models;
+using System.Globalization;
 using DoggyDrop.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
@@ -7,6 +8,15 @@ namespace DoggyDrop.ViewModels;
 
 public sealed class PlaceInput
 {
+    public string? OriginalUpdatedAt { get; set; }
+
+    public bool TryOriginalUpdatedAt(out DateTime version) =>
+        DateTime.TryParseExact(OriginalUpdatedAt, "O", CultureInfo.InvariantCulture,
+            DateTimeStyles.RoundtripKind, out version) && version.Kind == DateTimeKind.Utc;
+
+    public bool IsFeatured { get; set; }
+    public string? FeaturedFromLocal { get; set; }
+    public string? FeaturedUntilLocal { get; set; }
     public string Name { get; set; } = string.Empty;
     public PlaceCategory Category { get; set; }
     public double? Latitude { get; set; }
@@ -30,6 +40,14 @@ public sealed class PlaceInput
 
     public IEnumerable<(string Field, string Message)> Validate()
     {
+        if (IsFeatured && !FeaturedPlaces.IsEligible(Category))
+            yield return (nameof(IsFeatured), "Izpostavitev je na voljo samo za poslovne in storitvene lokacije.");
+        var fromValid = FeaturedLocalTime.TryUtc(FeaturedFromLocal, out var from, out var fromError);
+        var untilValid = FeaturedLocalTime.TryUtc(FeaturedUntilLocal, out var until, out var untilError);
+        if (!fromValid) yield return (nameof(FeaturedFromLocal), fromError!);
+        if (!untilValid) yield return (nameof(FeaturedUntilLocal), untilError!);
+        if (fromValid && untilValid && from.HasValue && until.HasValue && from >= until)
+            yield return (nameof(FeaturedUntilLocal), "Konec izpostavitve mora biti po začetku.");
         if (string.IsNullOrWhiteSpace(Name) || Name.Trim().Length > 120)
             yield return (nameof(Name), "Vnesi ime lokacije (največ 120 znakov).");
         if (!PlaceCategories.IsSupported(Category))
@@ -57,6 +75,13 @@ public sealed class PlaceInput
 
     public void ApplyTo(Place place)
     {
+        if (!FeaturedLocalTime.TryUtc(FeaturedFromLocal, out var from, out _) ||
+            !FeaturedLocalTime.TryUtc(FeaturedUntilLocal, out var until, out _) ||
+            (from.HasValue && until.HasValue && from >= until) || (IsFeatured && !FeaturedPlaces.IsEligible(Category)))
+            throw new InvalidOperationException("Invalid Featured configuration.");
+        place.IsFeatured = FeaturedPlaces.IsEligible(Category) && IsFeatured;
+        place.FeaturedFrom = FeaturedPlaces.IsEligible(Category) ? from : null;
+        place.FeaturedUntil = FeaturedPlaces.IsEligible(Category) ? until : null;
         place.Name = Name.Trim();
         place.Category = Category;
         place.Latitude = Latitude!.Value;
@@ -87,6 +112,9 @@ public sealed class PlaceInput
 
     public static PlaceInput FromPlace(Place place, string? cloudName) => new()
     {
+        OriginalUpdatedAt = DateTime.SpecifyKind(place.UpdatedAt, DateTimeKind.Utc).ToString("O", CultureInfo.InvariantCulture),
+        IsFeatured = place.IsFeatured, FeaturedFromLocal = FeaturedLocalTime.ForInput(place.FeaturedFrom),
+        FeaturedUntilLocal = FeaturedLocalTime.ForInput(place.FeaturedUntil),
         Name = place.Name, Category = place.Category,
         Latitude = place.Latitude, Longitude = place.Longitude,
         Address = place.Address, Phone = place.Phone, WebsiteUrl = place.WebsiteUrl,
@@ -103,11 +131,11 @@ public sealed class PlaceInput
 
 public sealed record PlaceMapItem(int Id, string Name, PlaceCategory Category,
     double Latitude, double Longitude, string? Address, string? LogoUrl,
-    string CategoryLabel, string CategoryKey, string IconClass, bool IsCommercial);
+    string CategoryLabel, string CategoryKey, string IconClass, bool IsCommercial, bool IsCurrentlyFeatured = false);
 
 public sealed record PlaceDiscoveryItem(int Id, string Name, PlaceCategory Category,
     string CategoryLabel, string CategoryKey, string IconClass, bool IsCommercial,
-    string? Address, double Latitude, double Longitude, string? LogoUrl);
+    string? Address, double Latitude, double Longitude, string? LogoUrl, bool IsCurrentlyFeatured = false);
 
 public sealed record PlaceDiscoveryViewModel(IReadOnlyList<PlaceDiscoveryItem> Places)
 {
@@ -121,7 +149,7 @@ public sealed record PlaceCardViewModel(PlaceDiscoveryItem Place, bool IsSaved, 
 public sealed record PlaceDetailsData(
     int Id, string Name, PlaceCategory Category, double Latitude, double Longitude,
     string? Address, string? Phone, string? WebsiteUrl, string? OpeningHours,
-    string? Description, string? ImageUrl, string? LogoUrl, List<PlaceAmenityType> AmenityTypes);
+    string? Description, string? ImageUrl, string? LogoUrl, List<PlaceAmenityType> AmenityTypes, bool IsCurrentlyFeatured = false);
 
 public sealed record PlaceDetailsViewModel(
     int Id, string Name, PlaceCategory Category, string CategoryLabel, double Latitude, double Longitude,
@@ -129,6 +157,7 @@ public sealed record PlaceDetailsViewModel(
     string? OpeningHours, string? Description, string? ImageUrl, string? LogoUrl,
     string CategoryKey, string IconClass, bool IsCommercial)
 {
+    public bool IsCurrentlyFeatured { get; init; }
     public bool IsSaved { get; init; }
     public IReadOnlyList<PlaceAmenityPresentation> Amenities { get; init; } = [];
 
@@ -142,6 +171,7 @@ public sealed record PlaceDetailsViewModel(
             PlaceLinks.SafeImage(place.ImageUrl), PlaceCategories.PublicLogo(place.Category, place.LogoUrl, cloudName),
             category.Key, category.IconClass, category.IsCommercial)
         {
+            IsCurrentlyFeatured = place.IsCurrentlyFeatured,
             Amenities = PlaceAmenities.Confirmed(place.AmenityTypes)
         };
     }

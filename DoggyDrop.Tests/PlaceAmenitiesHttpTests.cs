@@ -166,14 +166,18 @@ public sealed class PlaceAmenitiesHttpTests : IAsyncLifetime
         Assert.InRange(place.AmenitiesVerifiedAt!.Value, before, DateTime.UtcNow);
         Assert.Equal(8, await db.PlaceAmenities.CountAsync(a => a.PlaceId == 1));
 
-        var editForm = Form(Token(await Page(admin, $"/AdminPlaces/Edit/{place.Id}")), ["2", "3"]);
+        var editPage = await Page(admin, $"/AdminPlaces/Edit/{place.Id}");
+        var editForm = Form(Token(editPage), ["2", "3"]);
+        editForm.Add(new("OriginalUpdatedAt", Version(editPage)));
         editForm.RemoveAll(pair => pair.Key == "Category"); editForm.Add(new("Category", "5"));
         Assert.Equal(HttpStatusCode.Redirect, (await admin.PostAsync($"/AdminPlaces/Edit/{place.Id}", new FormUrlEncodedContent(editForm))).StatusCode);
         var updated = await db.Places.AsNoTracking().Include(p => p.Amenities).SingleAsync(p => p.Id == place.Id);
         Assert.Equal(PlaceCategory.DogFriendlyCafe, updated.Category);
         Assert.Equal([PlaceAmenityType.DogsTerrace, PlaceAmenityType.WaterForDogs], updated.Amenities.OrderBy(a => a.AmenityType).Select(a => a.AmenityType));
         Assert.Null(updated.AmenitiesVerifiedAt);
-        var clear = Form(Token(await Page(admin, $"/AdminPlaces/Edit/{place.Id}")), []);
+        var clearPage = await Page(admin, $"/AdminPlaces/Edit/{place.Id}");
+        var clear = Form(Token(clearPage), []);
+        clear.Add(new("OriginalUpdatedAt", Version(clearPage)));
         Assert.Equal(HttpStatusCode.Redirect, (await admin.PostAsync($"/AdminPlaces/Edit/{place.Id}", new FormUrlEncodedContent(clear))).StatusCode);
         Assert.Empty(await db.PlaceAmenities.Where(a => a.PlaceId == place.Id).ToListAsync());
     }
@@ -210,6 +214,8 @@ public sealed class PlaceAmenitiesHttpTests : IAsyncLifetime
         Assert.Equal(9, await db.Places.CountAsync());
         Assert.Equal(9, await db.PlaceAmenities.CountAsync());
     }
+
+    private static string Version(string html) => WebUtility.HtmlDecode(Regex.Match(html, "name=\"OriginalUpdatedAt\"[^>]*value=\"([^\"]+)\"").Groups[1].Value);
 
     private static List<KeyValuePair<string, string>> Form(string token, IEnumerable<string> amenities)
     {

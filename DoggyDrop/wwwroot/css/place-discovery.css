@@ -27,3 +27,6 @@
 .place-discovery-card__actions a:hover, .place-discovery-card__actions a:focus-visible, .place-discovery__locate:hover, .place-discovery__locate:focus-visible { background: #edf7f0; }
 .place-discovery__empty { margin: 20px 0; color: #536b60; }
 @media (min-width: 1024px) { .place-discovery { padding-top: 28px; padding-bottom: 48px; } .place-discovery__list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+.place-featured-badge { display: inline-block; max-width: 100%; margin: 4px 0; padding: 3px 7px; border: 1px solid #d5be83; border-radius: 5px; background: #fff8e5; color: #705318; font-size: .75rem; font-weight: 700; overflow-wrap: anywhere; }
+.place-discovery-card--featured { border-color: #d5be83; background: #fffdf7; }

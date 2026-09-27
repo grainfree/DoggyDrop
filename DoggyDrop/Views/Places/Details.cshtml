@@ -34,6 +34,7 @@
             <span class="places-details__logo"><img src="@Model.LogoUrl" alt="Logotip @Model.Name" loading="lazy" referrerpolicy="no-referrer" /></span>
         }
         <h1>@Model.Name</h1>
+        @if (Model.IsCurrentlyFeatured) { <span class="place-featured-badge" title="Promocijska izpostavitev; ne pomeni priporočila DoggyDrop.">Izpostavljeno</span> }
         @if (!string.IsNullOrWhiteSpace(Model.Address)) { <p>@Model.Address</p> }
     </header>
     <div class="places-details__actions">

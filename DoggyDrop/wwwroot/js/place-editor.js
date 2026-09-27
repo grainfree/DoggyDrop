@@ -1,4 +1,18 @@
 (() => {
+    const category = document.getElementById("Category");
+    const featuredFields = document.getElementById("placeFeaturedFields");
+    const updateFeatured = () => {
+        if (!category || !featuredFields) return;
+        const eligible = category.selectedOptions[0]?.dataset.featuredEligible === "true";
+        featuredFields.disabled = !eligible;
+        if (!eligible) {
+            document.getElementById("IsFeatured").checked = false;
+            document.getElementById("FeaturedFromLocal").value = "";
+            document.getElementById("FeaturedUntilLocal").value = "";
+        }
+    };
+    category?.addEventListener("change", updateFeatured);
+    updateFeatured();
     const logoFile = document.getElementById("LogoFile");
     const logoRemove = document.getElementById("RemoveLogo");
     const logoPreview = document.getElementById("placeLogoPreview");

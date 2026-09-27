@@ -121,13 +121,16 @@ public sealed class PlaceAmenitiesTests : IDisposable
         await Admin(db).Edit(place.Id, edit);
         Assert.Equal(8, await db.PlaceAmenities.CountAsync());
         Assert.Equal(verified, place.AmenitiesVerifiedAt);
+        edit = PlaceInput.FromPlace(place, "test");
         edit.AmenityTypes = [PlaceAmenityType.WaterForDogs, PlaceAmenityType.WasteBins];
         await Admin(db).Edit(place.Id, edit);
         Assert.Equal(2, await db.PlaceAmenities.CountAsync());
         Assert.Null(place.AmenitiesVerifiedAt);
+        edit = PlaceInput.FromPlace(place, "test");
         edit.VerifyAmenitiesToday = true;
         await Admin(db).Edit(place.Id, edit);
         Assert.NotNull(place.AmenitiesVerifiedAt);
+        edit = PlaceInput.FromPlace(place, "test");
         edit.VerifyAmenitiesToday = false;
         edit.AmenitiesSourceUrl = "http://another.example/info";
         await Admin(db).Edit(place.Id, edit);
@@ -149,6 +152,7 @@ public sealed class PlaceAmenitiesTests : IDisposable
         Assert.Empty(await db.Places.ToListAsync());
         await Admin(db).Create(Input());
         var place = await db.Places.SingleAsync();
+        bad.OriginalUpdatedAt = PlaceInput.FromPlace(place, "test").OriginalUpdatedAt;
         bad.Name = "Must not be saved";
         var edit = Admin(db);
         Assert.IsType<ViewResult>(await edit.Edit(place.Id, bad));
@@ -331,7 +335,7 @@ public sealed class PlaceAmenitiesTests : IDisposable
             .AddInterceptors(pause).Options);
         await using var firstDb = new ApplicationDbContext(Options());
         var delayed = Admin(delayedDb);
-        var input = Input(); input.AmenityTypes = [PlaceAmenityType.Fenced]; input.VerifyAmenitiesToday = true;
+        var input = PlaceInput.FromPlace(await seed.Places.SingleAsync(), "test"); input.AmenityTypes = [PlaceAmenityType.Fenced]; input.VerifyAmenitiesToday = true;
         var pending = delayActivation ? delayed.SetActive(1, false) : delayed.Edit(1, input);
         try
         {
@@ -364,7 +368,7 @@ public sealed class PlaceAmenitiesTests : IDisposable
         var future = new DateTime(2099, 1, 1, 0, 0, 0, DateTimeKind.Utc).AddTicks(9);
         place.UpdatedAt = future;
         await db.SaveChangesAsync();
-        Assert.IsType<RedirectToActionResult>(await Admin(db).Edit(place.Id, Input()));
+        Assert.IsType<RedirectToActionResult>(await Admin(db).Edit(place.Id, PlaceInput.FromPlace(place, "test")));
         Assert.True(place.UpdatedAt > future);
         Assert.Equal(0, place.UpdatedAt.Ticks % 10);
         var editVersion = place.UpdatedAt;
@@ -380,6 +384,9 @@ public sealed class PlaceAmenitiesTests : IDisposable
         await using var delayedDb = new ApplicationDbContext(new DbContextOptionsBuilder<ApplicationDbContext>(Options())
             .AddInterceptors(pause).Options);
         await using var firstDb = new ApplicationDbContext(Options());
+        var form = PlaceInput.FromPlace(await firstDb.Places.AsNoTracking().SingleAsync(), "test");
+        firstInput.OriginalUpdatedAt ??= form.OriginalUpdatedAt;
+        delayedInput.OriginalUpdatedAt ??= form.OriginalUpdatedAt;
         var delayedController = Admin(delayedDb);
         var pending = delayedController.Edit(1, delayedInput);
         Place winner;
@@ -435,6 +442,7 @@ public sealed class PlaceAmenitiesTests : IDisposable
         var input = Input(); input.Name = "Must roll back"; input.AmenityTypes = [PlaceAmenityType.WaterForDogs];
         input.VerifyAmenitiesToday = true; input.AmenitiesSourceUrl = "https://example.com/new";
         var controller = Admin(db);
+        if (edit) input.OriginalUpdatedAt = PlaceInput.FromPlace(await db.Places.SingleAsync(), "test").OriginalUpdatedAt;
         var result = edit ? await controller.Edit(1, input) : await controller.Create(input);
         Assert.IsType<ViewResult>(result);
         Assert.False(controller.ModelState.IsValid);

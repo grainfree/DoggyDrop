@@ -92,6 +92,12 @@ public sealed class AdminPlacesController(
         var place = await context.Places.Include(item => item.Amenities).SingleOrDefaultAsync(item => item.Id == id);
         if (place == null) return NotFound();
 
+        // Reject stale/missing versions before validation or external logo work. The
+        // SQL predicate below also protects against a writer racing this check.
+        if (!input.TryOriginalUpdatedAt(out var originalUpdatedAt) || originalUpdatedAt.Ticks != place.UpdatedAt.Ticks)
+            return EditConflict(id, input);
+        context.Entry(place).Property(item => item.UpdatedAt).OriginalValue = originalUpdatedAt;
+
         input.LogoUrl = PlaceLogoDelivery.ForMarker(place.LogoUrl, logoCloud.Value);
         input.AmenitiesVerifiedAt = place.AmenitiesVerifiedAt;
         await ValidateInputAsync(input);
@@ -112,17 +118,14 @@ public sealed class AdminPlacesController(
         }
         input.ApplyTo(place);
         if (newLogo != null || input.RemoveLogo) place.LogoUrl = newLogo;
-        // Always update the parent, including amenity-only edits. EF checks the loaded
-        // UpdatedAt in the UPDATE predicate and rolls back the entire save on conflict.
+        // Always update the parent, including amenity-only edits. EF checks the form's
+        // original UpdatedAt and rolls back the entire save on conflict.
         place.UpdatedAt = PlaceUpdates.NextUpdatedAt(place.UpdatedAt);
         try { await context.SaveChangesAsync(); }
         catch (DbUpdateConcurrencyException)
         {
             await CleanupAfterFailedSaveAsync(newLogo);
-            ModelState.AddModelError(string.Empty, EditConflictMessage);
-            ViewBag.PlaceId = id;
-            ViewBag.IsActive = place.IsActive;
-            return View(input);
+            return EditConflict(id, input);
         }
         catch (Exception exception)
         {
@@ -136,6 +139,14 @@ public sealed class AdminPlacesController(
         if (oldLogo != place.LogoUrl) await DeleteLogoBestEffortAsync(oldLogo, checkReferences: true);
         TempData["PlaceSuccess"] = "Spremembe lokacije so shranjene.";
         return RedirectToAction(nameof(Index));
+    }
+
+    private ViewResult EditConflict(int id, PlaceInput input)
+    {
+        ModelState.AddModelError(string.Empty, EditConflictMessage);
+        ViewBag.PlaceId = id;
+        ViewBag.EditConflict = true;
+        return View("Edit", input);
     }
 
     [HttpPost]

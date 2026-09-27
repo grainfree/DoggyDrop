@@ -27,6 +27,7 @@ namespace DoggyDrop.Controllers
         private readonly IUserAchievementService _userAchievementService;
         private readonly NearbyDiscoveryService _nearbyDiscoveryService;
         private readonly PlaceLogoCloudName _placeLogoCloud;
+        private readonly TimeProvider _clock;
         private static readonly IReadOnlyList<FounderArea> FounderAreas =
         [
             new("maribor", "Maribor", 46.5547, 15.6459, 6500),
@@ -54,7 +55,7 @@ namespace DoggyDrop.Controllers
                              IGamificationCalendar gamificationCalendar,
                              IUserAchievementService userAchievementService,
                              NearbyDiscoveryService? nearbyDiscoveryService = null,
-                             PlaceLogoCloudName? placeLogoCloud = null)
+                             PlaceLogoCloudName? placeLogoCloud = null, TimeProvider? clock = null)
         {
             _context = context;
             _environment = environment;
@@ -70,6 +71,7 @@ namespace DoggyDrop.Controllers
             _userAchievementService = userAchievementService;
             _nearbyDiscoveryService = nearbyDiscoveryService ?? new NearbyDiscoveryService(context);
             _placeLogoCloud = placeLogoCloud ?? new PlaceLogoCloudName(null);
+            _clock = clock ?? TimeProvider.System;
         }
 
         // 📍 Prikaz obrazca za dodajanje koša
@@ -160,6 +162,7 @@ namespace DoggyDrop.Controllers
         }
 
         // 🗺️ Glavna stran z zemljevidom
+        [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
         public async Task<IActionResult> Index()
         {
             var bins = await _context.TrashBins
@@ -217,9 +220,10 @@ namespace DoggyDrop.Controllers
             ViewBag.ParkLocations = ParkLocationCatalog.All;
             var managedPlaces = await _context.Places.AsNoTracking()
                 .Where(place => place.IsActive && PlaceCategories.Supported.Contains(place.Category))
-                .OrderBy(place => place.Id)
-                .Select(place => new { place.Id, place.Name, place.Category,
-                    place.Latitude, place.Longitude, place.Address, place.LogoUrl })
+                .WithFeatured(_clock.GetUtcNow().UtcDateTime)
+                .OrderBy(row => row.Place.Id)
+                .Select(row => new { row.Place.Id, row.Place.Name, row.Place.Category,
+                    row.Place.Latitude, row.Place.Longitude, row.Place.Address, row.Place.LogoUrl, row.IsCurrentlyFeatured })
                 .ToListAsync();
             ViewBag.ManagedPlaces = managedPlaces
                 .Select(place =>
@@ -228,7 +232,7 @@ namespace DoggyDrop.Controllers
                     return new PlaceMapItem(place.Id, place.Name, place.Category,
                         place.Latitude, place.Longitude, place.Address,
                         PlaceCategories.PublicLogo(place.Category, place.LogoUrl, _placeLogoCloud.Value),
-                        category.Label, category.Key, category.IconClass, category.IsCommercial);
+                        category.Label, category.Key, category.IconClass, category.IsCommercial, place.IsCurrentlyFeatured);
                 })
                 .ToList();
 

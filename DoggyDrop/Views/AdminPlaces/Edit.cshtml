@@ -5,12 +5,21 @@
     <link rel="stylesheet" href="~/css/places.css" asp-append-version="true" />
 }
 <main class="places-page places-admin">
-    <header class="places-page__header"><div><span class="places-eyebrow">Upravljanje</span><h1>Uredi lokacijo</h1><p>@(ViewBag.IsActive == true ? "Aktivna" : "Neaktivna")</p></div><a asp-action="Index">Nazaj na seznam</a></header>
+    <header class="places-page__header"><div><span class="places-eyebrow">Upravljanje</span><h1>Uredi lokacijo</h1>@if (ViewBag.EditConflict != true) { <p>@(ViewBag.IsActive == true ? "Aktivna" : "Neaktivna")</p> }</div><a asp-action="Index">Nazaj na seznam</a></header>
+    @if (ViewBag.EditConflict == true)
+    {
+        <div asp-validation-summary="All" role="alert"></div>
+        <a asp-action="Edit" asp-route-id="@ViewBag.PlaceId" class="places-button places-button--primary">Osveži podatke</a>
+    }
+    else
+    {
     <form asp-action="Edit" asp-route-id="@ViewBag.PlaceId" method="post" enctype="multipart/form-data" class="places-form">
         @Html.AntiForgeryToken()
+        <input asp-for="OriginalUpdatedAt" type="hidden" />
         <partial name="_Form" model="Model" />
         <div class="places-form__actions"><button type="submit" class="places-button places-button--primary">Shrani spremembe</button></div>
     </form>
+    }
 </main>
 @section Scripts {
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>

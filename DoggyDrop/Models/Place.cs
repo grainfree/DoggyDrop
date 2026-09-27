@@ -55,6 +55,10 @@ public sealed class Place
     [System.Text.Json.Serialization.JsonIgnore]
     public DataSource? DataSource { get; set; }
 
+    public bool IsFeatured { get; set; }
+    public DateTime? FeaturedFrom { get; set; }
+    public DateTime? FeaturedUntil { get; set; }
+
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;

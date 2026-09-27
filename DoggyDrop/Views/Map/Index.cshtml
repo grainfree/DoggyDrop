@@ -4365,6 +4365,7 @@ else if (needsDogOnboarding)
                         ${imageUrl ? `<span class="managed-place-popup__media"><img class="managed-place-image" src="${escapeAttribute(imageUrl)}" alt="" decoding="async" referrerpolicy="no-referrer"></span>` : ""}
                         <span class="managed-place-popup__category">${escapeHtml(place.categoryLabel || "Lokacija")}</span>
                         <strong>${escapeHtml(place.name)}</strong>
+                        ${place.isCurrentlyFeatured === true && place.isCommercial === true ? '<span class="place-featured-badge" title="Promocijska izpostavitev; ne pomeni priporočila DoggyDrop.">Izpostavljeno</span>' : ""}
                         ${place.address ? `<p>${escapeHtml(place.address)}</p>` : ""}
                         <div class="managed-place-popup__actions">
                             <a href="/Places/Details/${id}">Podrobnosti</a>

@@ -21,6 +21,7 @@
             ? place.iconClass : "bi-geo-alt-fill";
         const label = typeof place?.categoryLabel === "string" ? place.categoryLabel : "Lokacija";
         const commercial = place?.isCommercial === true;
+        const featured = commercial && place?.isCurrentlyFeatured === true;
         const logo = commercial ? safeImageUrl(place?.logoUrl) : null;
         const image = logo
             ? `<img class="managed-place-image managed-place-pin__image" src="${escapeAttribute(logo)}" alt="" decoding="async" referrerpolicy="no-referrer">`
@@ -31,7 +32,7 @@
             iconSize: [52, 52],
             iconAnchor: [26, 26],
             popupAnchor: [0, -28],
-            html: `<span class="managed-place-pin managed-place-pin--${kind}${commercial ? "" : " managed-place-pin--destination"}${selected ? " managed-place-pin--selected" : ""}" role="img" aria-label="${escapeAttribute(label)}"><i class="bi ${symbol}" aria-hidden="true"></i>${image}</span>`
+            html: `<span class="managed-place-pin managed-place-pin--${kind}${commercial ? "" : " managed-place-pin--destination"}${featured ? " managed-place-pin--featured" : ""}${selected ? " managed-place-pin--selected" : ""}" role="img" aria-label="${escapeAttribute(label)}"><i class="bi ${symbol}" aria-hidden="true"></i>${image}</span>`
         });
     }
 

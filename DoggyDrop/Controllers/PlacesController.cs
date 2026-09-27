@@ -9,7 +9,7 @@ using System.Security.Claims;
 namespace DoggyDrop.Controllers;
 
 [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
-public sealed class PlacesController(ApplicationDbContext context, PlaceLogoCloudName logoCloud) : Controller
+public sealed class PlacesController(ApplicationDbContext context, PlaceLogoCloudName logoCloud, TimeProvider? clock = null) : Controller
 {
     [HttpGet]
     [AllowAnonymous]
@@ -17,9 +17,10 @@ public sealed class PlacesController(ApplicationDbContext context, PlaceLogoClou
     {
         var places = await context.Places.AsNoTracking()
             .Where(place => place.IsActive && PlaceCategories.Supported.Contains(place.Category))
-            .OrderBy(place => place.Name).ThenBy(place => place.Id)
-            .Select(place => new { place.Id, place.Name, place.Category, place.Address,
-                place.Latitude, place.Longitude, place.LogoUrl })
+            .WithFeatured((clock ?? TimeProvider.System).GetUtcNow().UtcDateTime)
+            .OrderByDescending(row => row.IsCurrentlyFeatured).ThenBy(row => row.Place.Name).ThenBy(row => row.Place.Id)
+            .Select(row => new { row.Place.Id, row.Place.Name, row.Place.Category, row.Place.Address,
+                row.Place.Latitude, row.Place.Longitude, row.Place.LogoUrl, row.IsCurrentlyFeatured })
             .ToListAsync();
         var userId = User?.Identity?.IsAuthenticated == true ? User.FindFirstValue(ClaimTypes.NameIdentifier) : null;
         var savedIds = string.IsNullOrEmpty(userId) ? new HashSet<int>() :
@@ -31,7 +32,7 @@ public sealed class PlacesController(ApplicationDbContext context, PlaceLogoClou
             return new PlaceDiscoveryItem(place.Id, place.Name, place.Category,
                 category.Label, category.Key, category.IconClass, category.IsCommercial,
                 place.Address, place.Latitude, place.Longitude,
-                PlaceCategories.PublicLogo(place.Category, place.LogoUrl, logoCloud.Value));
+                PlaceCategories.PublicLogo(place.Category, place.LogoUrl, logoCloud.Value), place.IsCurrentlyFeatured);
         }).ToList()) { SavedPlaceIds = savedIds });
     }
 
@@ -41,9 +42,10 @@ public sealed class PlacesController(ApplicationDbContext context, PlaceLogoClou
     {
         var place = await context.Places.AsNoTracking()
             .Where(item => item.Id == id && item.IsActive && PlaceCategories.Supported.Contains(item.Category))
-            .Select(item => new PlaceDetailsData(item.Id, item.Name, item.Category, item.Latitude, item.Longitude,
-                item.Address, item.Phone, item.WebsiteUrl, item.OpeningHours, item.Description, item.ImageUrl, item.LogoUrl,
-                item.Amenities.Select(amenity => amenity.AmenityType).ToList()))
+            .WithFeatured((clock ?? TimeProvider.System).GetUtcNow().UtcDateTime)
+            .Select(row => new PlaceDetailsData(row.Place.Id, row.Place.Name, row.Place.Category, row.Place.Latitude, row.Place.Longitude,
+                row.Place.Address, row.Place.Phone, row.Place.WebsiteUrl, row.Place.OpeningHours, row.Place.Description, row.Place.ImageUrl, row.Place.LogoUrl,
+                row.Place.Amenities.Select(amenity => amenity.AmenityType).ToList(), row.IsCurrentlyFeatured))
             .SingleOrDefaultAsync();
         if (place == null) return NotFound();
         var userId = User?.Identity?.IsAuthenticated == true ? User.FindFirstValue(ClaimTypes.NameIdentifier) : null;
