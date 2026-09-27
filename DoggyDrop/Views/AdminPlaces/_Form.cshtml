@@ -41,6 +41,33 @@
         <span asp-validation-for="Description"></span>
     </label>
 </div>
+<section class="place-amenities-editor" aria-labelledby="placeAmenitiesTitle">
+    <h2 id="placeAmenitiesTitle">Ugodnosti za pse</h2>
+    <p>Označi samo potrjene podatke. Neoznačeno pomeni, da podatek ni potrjen, ne da velja prepoved.</p>
+    <div class="place-amenities-editor__groups">
+        @foreach (var group in DoggyDrop.Services.PlaceAmenities.All.GroupBy(amenity => amenity.Group))
+        {
+            <fieldset>
+                <legend>@group.Key</legend>
+                @foreach (var amenity in group)
+                {
+                    <label class="place-amenities-editor__option" for="amenity-@((int)amenity.Type)">
+                        <input type="checkbox" id="amenity-@((int)amenity.Type)" name="AmenityTypes" value="@((int)amenity.Type)" checked="@(Model.AmenityTypes.Contains(amenity.Type))" />
+                        <span>@amenity.Label</span>
+                    </label>
+                }
+            </fieldset>
+        }
+    </div>
+    <span asp-validation-for="AmenityTypes" class="places-validation"></span>
+    <label class="places-field">Vir podatkov (samo za skrbnike)
+        <input asp-for="AmenitiesSourceUrl" type="url" maxlength="500" placeholder="https://" />
+        <span asp-validation-for="AmenitiesSourceUrl"></span>
+    </label>
+    <p class="place-amenities-editor__verified">@(Model.AmenitiesVerifiedAt.HasValue ? $"Preverjeno: {Model.AmenitiesVerifiedAt.Value.ToString("d. M. yyyy", System.Globalization.CultureInfo.InvariantCulture)} (UTC)" : "Ni podatka o preverjanju")</p>
+    <label class="place-amenities-editor__option"><input asp-for="VerifyAmenitiesToday" /> <span>Podatki preverjeni danes</span></label>
+    <p class="place-amenities-editor__note">Ob spremembi ugodnosti ali vira ponovno potrdi preverjanje. Datum se shrani ob shranjevanju lokacije.</p>
+</section>
 <section class="places-logo" aria-labelledby="placeLogoTitle">
     <h2 id="placeLogoTitle">Logotip</h2>
     <p>PNG, JPG ali WebP, največ 5 MB. Logotip se prikaže na zemljevidu.</p>

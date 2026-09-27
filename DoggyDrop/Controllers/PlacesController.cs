@@ -40,11 +40,15 @@ public sealed class PlacesController(ApplicationDbContext context, PlaceLogoClou
     public async Task<IActionResult> Details(int id)
     {
         var place = await context.Places.AsNoTracking()
-            .SingleOrDefaultAsync(item => item.Id == id && item.IsActive && PlaceCategories.Supported.Contains(item.Category));
+            .Where(item => item.Id == id && item.IsActive && PlaceCategories.Supported.Contains(item.Category))
+            .Select(item => new PlaceDetailsData(item.Id, item.Name, item.Category, item.Latitude, item.Longitude,
+                item.Address, item.Phone, item.WebsiteUrl, item.OpeningHours, item.Description, item.ImageUrl, item.LogoUrl,
+                item.Amenities.Select(amenity => amenity.AmenityType).ToList()))
+            .SingleOrDefaultAsync();
         if (place == null) return NotFound();
         var userId = User?.Identity?.IsAuthenticated == true ? User.FindFirstValue(ClaimTypes.NameIdentifier) : null;
         var isSaved = !string.IsNullOrEmpty(userId) && await context.SavedPlaces.AsNoTracking()
             .AnyAsync(saved => saved.UserId == userId && saved.PlaceId == id);
-        return View(PlaceDetailsViewModel.FromPlace(place, logoCloud.Value) with { IsSaved = isSaved });
+        return View(PlaceDetailsViewModel.FromPublicData(place, logoCloud.Value) with { IsSaved = isSaved });
     }
 }

@@ -43,6 +43,18 @@
         <partial name="_PlaceSave" model="@(new DoggyDrop.ViewModels.PlaceSaveViewModel(Model.Id, Model.Name, Model.IsSaved, Url.Action("Details", "Places", new { id = Model.Id })!))" />
     </div>
     <div class="places-details__information">
+        @if (Model.Amenities.Count > 0)
+        {
+            <section class="place-amenities" aria-labelledby="placeAmenitiesTitle">
+                <h2 id="placeAmenitiesTitle">Za pse</h2>
+                <ul>
+                    @foreach (var amenity in Model.Amenities)
+                    {
+                        <li><i class="bi @amenity.IconClass" aria-hidden="true"></i><span>@amenity.Label</span></li>
+                    }
+                </ul>
+            </section>
+        }
         @if (!string.IsNullOrWhiteSpace(Model.OpeningHours)) { <section><h2>Delovni čas</h2><p>@Model.OpeningHours</p></section> }
         @if (!string.IsNullOrWhiteSpace(Model.Description)) { <section><h2>O lokaciji</h2><p>@Model.Description</p></section> }
         @if (!string.IsNullOrWhiteSpace(Model.Phone) && Model.TelephoneHref == null) { <section><h2>Telefon</h2><p>@Model.Phone</p></section> }

@@ -20,6 +20,8 @@ namespace DoggyDrop.Data
 
         public DbSet<SavedPlace> SavedPlaces { get; set; }
 
+        public DbSet<PlaceAmenity> PlaceAmenities { get; set; }
+
         public DbSet<Dog> Dogs { get; set; }
 
         public DbSet<Walk> Walks { get; set; }
@@ -94,6 +96,16 @@ namespace DoggyDrop.Data
 
             builder.Entity<Place>()
                 .HasIndex(place => new { place.IsActive, place.Category });
+
+            builder.Entity<Place>()
+                .Property(place => place.UpdatedAt).IsConcurrencyToken();
+
+            builder.Entity<PlaceAmenity>()
+                .HasKey(amenity => new { amenity.PlaceId, amenity.AmenityType });
+
+            builder.Entity<PlaceAmenity>()
+                .HasOne(amenity => amenity.Place).WithMany(place => place.Amenities)
+                .HasForeignKey(amenity => amenity.PlaceId).OnDelete(DeleteBehavior.Cascade);
 
             builder.Entity<SavedPlace>()
                 .HasKey(saved => new { saved.UserId, saved.PlaceId });

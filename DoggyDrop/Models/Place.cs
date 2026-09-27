@@ -45,6 +45,12 @@ public sealed class Place
     [MaxLength(500)]
     public string? LogoUrl { get; set; }
 
+    public ICollection<PlaceAmenity> Amenities { get; set; } = new List<PlaceAmenity>();
+
+    [MaxLength(500)]
+    public string? AmenitiesSourceUrl { get; set; }
+    public DateTime? AmenitiesVerifiedAt { get; set; }
+
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;

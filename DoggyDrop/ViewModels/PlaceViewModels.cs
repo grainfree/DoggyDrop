@@ -21,6 +21,11 @@ public sealed class PlaceInput
     public string? LogoUrl { get; set; }
     public IFormFile? LogoFile { get; set; }
     public bool RemoveLogo { get; set; }
+    public List<PlaceAmenityType> AmenityTypes { get; set; } = [];
+    public string? AmenitiesSourceUrl { get; set; }
+    public bool VerifyAmenitiesToday { get; set; }
+    [BindNever]
+    public DateTime? AmenitiesVerifiedAt { get; set; }
 
     public IEnumerable<(string Field, string Message)> Validate()
     {
@@ -42,6 +47,11 @@ public sealed class PlaceInput
         if (TooLong(ImageUrl, 500) ||
             (!string.IsNullOrWhiteSpace(ImageUrl) && PlaceLinks.SafeImage(ImageUrl) == null))
             yield return (nameof(ImageUrl), "Vnesi veljavno povezavo HTTPS do slike.");
+        if ((AmenityTypes ?? []).Any(type => !PlaceAmenities.IsSupported(type)))
+            yield return (nameof(AmenityTypes), "Izberi samo podprte ugodnosti za pse.");
+        if (TooLong(AmenitiesSourceUrl, 500) ||
+            (!string.IsNullOrWhiteSpace(AmenitiesSourceUrl) && PlaceLinks.SafeWebsite(AmenitiesSourceUrl) == null))
+            yield return (nameof(AmenitiesSourceUrl), "Vnesi veljavno povezavo HTTP ali HTTPS do vira (največ 500 znakov).");
     }
 
     public void ApplyTo(Place place)
@@ -56,6 +66,21 @@ public sealed class PlaceInput
         place.OpeningHours = Clean(OpeningHours);
         place.Description = Clean(Description);
         place.ImageUrl = Clean(ImageUrl);
+
+        // The tracked relationship diff is committed with the Place in one SaveChanges transaction.
+        var selected = (AmenityTypes ?? []).ToHashSet();
+        var source = Clean(AmenitiesSourceUrl);
+        var changed = !selected.SetEquals(place.Amenities.Select(amenity => amenity.AmenityType)) ||
+            source != place.AmenitiesSourceUrl;
+        foreach (var removed in place.Amenities.Where(amenity => !selected.Contains(amenity.AmenityType)).ToList())
+            place.Amenities.Remove(removed);
+        var existing = place.Amenities.Select(amenity => amenity.AmenityType).ToHashSet();
+        foreach (var type in selected.Where(type => !existing.Contains(type)))
+            place.Amenities.Add(new PlaceAmenity { AmenityType = type });
+        place.AmenitiesSourceUrl = source;
+        // A previous verification does not certify newly edited facts or a different source.
+        if (VerifyAmenitiesToday) place.AmenitiesVerifiedAt = DateTime.UtcNow;
+        else if (changed) place.AmenitiesVerifiedAt = null;
     }
 
     public static PlaceInput FromPlace(Place place, string? cloudName) => new()
@@ -64,7 +89,9 @@ public sealed class PlaceInput
         Latitude = place.Latitude, Longitude = place.Longitude,
         Address = place.Address, Phone = place.Phone, WebsiteUrl = place.WebsiteUrl,
         OpeningHours = place.OpeningHours, Description = place.Description, ImageUrl = place.ImageUrl,
-        LogoUrl = PlaceLogoDelivery.ForMarker(place.LogoUrl, cloudName)
+        LogoUrl = PlaceLogoDelivery.ForMarker(place.LogoUrl, cloudName),
+        AmenityTypes = place.Amenities.Select(amenity => amenity.AmenityType).ToList(),
+        AmenitiesSourceUrl = place.AmenitiesSourceUrl, AmenitiesVerifiedAt = place.AmenitiesVerifiedAt
     };
 
     private static bool TooLong(string? value, int max) => value?.Trim().Length > max;
@@ -87,6 +114,12 @@ public sealed record PlaceDiscoveryViewModel(IReadOnlyList<PlaceDiscoveryItem> P
 public sealed record PlaceSaveViewModel(int PlaceId, string Name, bool IsSaved, string ReturnUrl);
 public sealed record PlaceCardViewModel(PlaceDiscoveryItem Place, bool IsSaved, string ReturnUrl);
 
+// Only fields needed by public Details; Admin verification metadata never enters this projection.
+public sealed record PlaceDetailsData(
+    int Id, string Name, PlaceCategory Category, double Latitude, double Longitude,
+    string? Address, string? Phone, string? WebsiteUrl, string? OpeningHours,
+    string? Description, string? ImageUrl, string? LogoUrl, List<PlaceAmenityType> AmenityTypes);
+
 public sealed record PlaceDetailsViewModel(
     int Id, string Name, PlaceCategory Category, string CategoryLabel, double Latitude, double Longitude,
     string? Address, string? Phone, string? TelephoneHref, string? WebsiteUrl,
@@ -94,8 +127,9 @@ public sealed record PlaceDetailsViewModel(
     string CategoryKey, string IconClass, bool IsCommercial)
 {
     public bool IsSaved { get; init; }
+    public IReadOnlyList<PlaceAmenityPresentation> Amenities { get; init; } = [];
 
-    public static PlaceDetailsViewModel FromPlace(Place place, string? cloudName)
+    public static PlaceDetailsViewModel FromPublicData(PlaceDetailsData place, string? cloudName)
     {
         var category = PlaceCategories.Get(place.Category);
         return new PlaceDetailsViewModel(
@@ -103,6 +137,9 @@ public sealed record PlaceDetailsViewModel(
             place.Address, place.Phone, PlaceLinks.TelephoneHref(place.Phone),
             PlaceLinks.SafeWebsite(place.WebsiteUrl), place.OpeningHours, place.Description,
             PlaceLinks.SafeImage(place.ImageUrl), PlaceCategories.PublicLogo(place.Category, place.LogoUrl, cloudName),
-            category.Key, category.IconClass, category.IsCommercial);
+            category.Key, category.IconClass, category.IsCommercial)
+        {
+            Amenities = PlaceAmenities.Confirmed(place.AmenityTypes)
+        };
     }
 }

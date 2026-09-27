@@ -1,4 +1,16 @@
 .places-page { max-width: 980px; margin: 0 auto; padding: 20px 18px calc(100px + env(safe-area-inset-bottom)); color: #19352e; }
+.place-amenities ul { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 0; padding: 0; list-style: none; }
+.place-amenities li { display: inline-flex; align-items: baseline; gap: 7px; max-width: 100%; padding: 7px 10px; border: 1px solid #d5e3d9; border-radius: 6px; color: #315b48; font-size: 1rem; overflow-wrap: anywhere; }
+.place-amenities li i { flex-shrink: 0; }
+.place-amenities-editor { margin-top: 24px; padding-top: 20px; border-top: 1px solid #dbe7e0; }
+.place-amenities-editor p { color: #536b60; font-size: .9rem; }
+.place-amenities-editor__groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 12px; margin: 16px 0; }
+.place-amenities-editor fieldset { min-width: 0; padding: 10px; border: 1px solid #d5e3d9; border-radius: 6px; }
+.place-amenities-editor legend { float: none; width: auto; padding: 0 5px; margin: 0; font-size: .95rem; font-weight: 750; }
+.place-amenities-editor__option { display: flex; align-items: center; gap: 9px; min-height: 44px; padding: 7px 0; cursor: pointer; overflow-wrap: anywhere; }
+.place-amenities-editor__option input { flex: 0 0 auto; width: 20px; height: 20px; accent-color: #246e52; }
+.place-amenities-editor input:focus-visible { outline: 2px solid #246e52; outline-offset: 3px; }
+.place-amenities-editor__verified { margin-top: 12px; }
 .places-page__header { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
 .places-page h1 { margin: 4px 0 0; font-size: 1.8rem; line-height: 1.15; }
 .places-page h2 { font-size: 1.08rem; margin: 0 0 6px; }

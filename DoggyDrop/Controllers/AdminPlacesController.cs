@@ -14,6 +14,8 @@ public sealed class AdminPlacesController(
     IPlaceLogoReferenceReader logoReferences, PlaceLogoCloudName logoCloud,
     ILogger<AdminPlacesController> logger) : Controller
 {
+    private const string EditConflictMessage = "Lokacija je bila med urejanjem spremenjena. Osveži podatke in poskusi znova.";
+
     [HttpGet]
     public async Task<IActionResult> Index(string? state, PlaceCategory? category)
     {
@@ -41,7 +43,7 @@ public sealed class AdminPlacesController(
 
         var newLogo = await UploadLogoAsync(input);
         if (!ModelState.IsValid) return View(input);
-        var now = DateTime.UtcNow;
+        var now = NextUpdatedAt(DateTime.MinValue);
         var place = new Place { IsActive = true, CreatedAt = now, UpdatedAt = now };
         input.ApplyTo(place);
         place.LogoUrl = newLogo;
@@ -61,7 +63,7 @@ public sealed class AdminPlacesController(
     [HttpGet]
     public async Task<IActionResult> Edit(int id)
     {
-        var place = await context.Places.AsNoTracking().SingleOrDefaultAsync(item => item.Id == id);
+        var place = await context.Places.AsNoTracking().Include(item => item.Amenities).SingleOrDefaultAsync(item => item.Id == id);
         if (place == null) return NotFound();
         ViewBag.PlaceId = id;
         ViewBag.IsActive = place.IsActive;
@@ -73,10 +75,11 @@ public sealed class AdminPlacesController(
     [RequestSizeLimit(6 * 1024 * 1024)]
     public async Task<IActionResult> Edit(int id, PlaceInput input)
     {
-        var place = await context.Places.SingleOrDefaultAsync(item => item.Id == id);
+        var place = await context.Places.Include(item => item.Amenities).SingleOrDefaultAsync(item => item.Id == id);
         if (place == null) return NotFound();
 
         input.LogoUrl = PlaceLogoDelivery.ForMarker(place.LogoUrl, logoCloud.Value);
+        input.AmenitiesVerifiedAt = place.AmenitiesVerifiedAt;
         await ValidateInputAsync(input);
         if (!ModelState.IsValid)
         {
@@ -95,8 +98,18 @@ public sealed class AdminPlacesController(
         }
         input.ApplyTo(place);
         if (newLogo != null || input.RemoveLogo) place.LogoUrl = newLogo;
-        place.UpdatedAt = DateTime.UtcNow;
+        // Always update the parent, including amenity-only edits. EF checks the loaded
+        // UpdatedAt in the UPDATE predicate and rolls back the entire save on conflict.
+        place.UpdatedAt = NextUpdatedAt(place.UpdatedAt);
         try { await context.SaveChangesAsync(); }
+        catch (DbUpdateConcurrencyException)
+        {
+            await CleanupAfterFailedSaveAsync(newLogo);
+            ModelState.AddModelError(string.Empty, EditConflictMessage);
+            ViewBag.PlaceId = id;
+            ViewBag.IsActive = place.IsActive;
+            return View(input);
+        }
         catch (Exception exception)
         {
             logger.LogError(exception, "Could not update place after logo upload.");
@@ -120,12 +133,27 @@ public sealed class AdminPlacesController(
         if (place.IsActive != isActive)
         {
             place.IsActive = isActive;
-            place.UpdatedAt = DateTime.UtcNow;
-            await context.SaveChangesAsync();
+            place.UpdatedAt = NextUpdatedAt(place.UpdatedAt);
+            try { await context.SaveChangesAsync(); }
+            catch (DbUpdateConcurrencyException)
+            {
+                TempData["PlaceSuccess"] = EditConflictMessage;
+                return RedirectToAction(nameof(Index));
+            }
         }
 
         TempData["PlaceSuccess"] = isActive ? "Lokacija je ponovno aktivna." : "Lokacija je deaktivirana.";
         return RedirectToAction(nameof(Index));
+    }
+
+    private static DateTime NextUpdatedAt(DateTime previous)
+    {
+        // PostgreSQL timestamps have microsecond precision. Advance even within one
+        // clock tick or after clock rollback, so a successful edit cannot reuse a token.
+        const long ticksPerMicrosecond = 10;
+        var now = DateTime.UtcNow.Ticks / ticksPerMicrosecond;
+        var next = Math.Max(now, previous.Ticks / ticksPerMicrosecond + 1);
+        return new DateTime(next * ticksPerMicrosecond, DateTimeKind.Utc);
     }
 
     private async Task ValidateInputAsync(PlaceInput input)
