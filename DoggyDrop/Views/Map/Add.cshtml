@@ -59,7 +59,8 @@
 
                 <div class="add-bin-photo-field">
                     <label asp-for="ImageFile" class="form-label">Fotografija kosa</label>
-                    <input asp-for="ImageFile" id="ImageFile" type="file" accept="image/*" capture="environment" class="form-control" />
+                    <input asp-for="ImageFile" id="ImageFile" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" class="form-control" />
+                    <span class="form-text">JPG, PNG ali WebP do 12 MiB.</span>
                     <span asp-validation-for="ImageFile" class="text-danger small"></span>
                     <img id="preview" src="#" class="add-bin-preview" alt="Predogled fotografije" hidden />
                 </div>

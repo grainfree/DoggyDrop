@@ -82,6 +82,7 @@ namespace DoggyDrop.Controllers
         // 📍 Shrani novi koš
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [RequestSizeLimit(BinPhotoUploadPolicy.MaxBytes + 65536)]
         public async Task<IActionResult> Add(TrashBinViewModel model, int? walkId = null)
         {
             var returnWalkId = await GetOwnedActiveWalkIdAsync(walkId);
@@ -93,7 +94,8 @@ namespace DoggyDrop.Controllers
 
             if (model.ImageFile != null && model.ImageFile.Length > 0)
             {
-                imageUrl = await _cloudinaryService.UploadTrashBinImageAsync(model.ImageFile);
+                imageUrl = await UploadBinPhotoAsync(model.ImageFile);
+                if (!ModelState.IsValid) return View(model);
             }
 
             var createdAt = DateTime.UtcNow;
@@ -678,6 +680,7 @@ namespace DoggyDrop.Controllers
             if (bin == null)
                 return NotFound();
 
+            ViewData["BinPhotoUrl"] = bin.ImageUrl;
             var model = new TrashBinEditViewModel
             {
                 Id = bin.Id,
@@ -694,31 +697,47 @@ namespace DoggyDrop.Controllers
         [Authorize(Roles = "Admin")]
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [RequestSizeLimit(BinPhotoUploadPolicy.MaxBytes + 65536)]
         public async Task<IActionResult> Edit(TrashBinEditViewModel model)
         {
-            if (!ModelState.IsValid)
-                return View(model);
-
             var bin = await _context.TrashBins.FindAsync(model.Id);
             if (bin == null)
                 return NotFound();
 
+            ViewData["BinPhotoUrl"] = bin.ImageUrl;
+            model.CurrentImageUrl = bin.FullImageUrl;
+            if (!ModelState.IsValid) return View(model);
+            if (model.ImageFile != null && model.ImageFile.Length > 0)
+            {
+                var imageUrl = await UploadBinPhotoAsync(model.ImageFile);
+                if (!ModelState.IsValid) return View(model);
+                bin.ImageUrl = imageUrl;
+            }
+
             bin.Name = model.Name;
             bin.Latitude = model.Latitude;
             bin.Longitude = model.Longitude;
-
-            if (model.ImageFile != null && model.ImageFile.Length > 0)
-            {
-                var imageUrl = await _cloudinaryService.UploadTrashBinImageAsync(model.ImageFile);
-                if (!string.IsNullOrEmpty(imageUrl))
-                {
-                    bin.ImageUrl = imageUrl;
-                }
-            }
-
             await _context.SaveChangesAsync();
             TempData["SuccessMessage"] = "Hvala za vaš prispevek! Vaš koš je bil uspešno dodan. Administrator ga bo kmalu pregledal. 🐾";
             return RedirectToAction("Manage");
+        }
+
+        private async Task<string?> UploadBinPhotoAsync(IFormFile file)
+        {
+            if (file.Length <= BinPhotoUploadPolicy.MaxBytes)
+            {
+                try
+                {
+                    var url = await _cloudinaryService.UploadTrashBinImageAsync(file);
+                    if (!string.IsNullOrWhiteSpace(url)) return url;
+                }
+                catch (Exception)
+                {
+                    HttpContext.RequestServices.GetService<ILogger<MapController>>()?.LogWarning("Bin photo upload failed.");
+                }
+            }
+            ModelState.AddModelError("ImageFile", BinPhotoUploadPolicy.Error + " Če nalaganje ne uspe, poskusi znova.");
+            return null;
         }
 
         private static string? TrimToLength(string? value, int maxLength)

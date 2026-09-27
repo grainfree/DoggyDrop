@@ -1,4 +1,5 @@
 ﻿@model DoggyDrop.ViewModels.TrashBinEditViewModel
+@inject DoggyDrop.Services.IBinPhotoStorage BinPhotos
 @{
     ViewData["Title"] = "Uredi koš";
 }
@@ -43,10 +44,12 @@
         max-height: 200px;
         margin-bottom: 10px;
     }
+    #bin-photo-rotation button { min-height: 44px; }
 </style>
 
 <div class="edit-form-container">
     <h2 class="text-center mb-4">✏️ Uredi koš</h2>
+    @if (TempData["BinPhotoMessage"] is string photoMessage) { <p role="status">@photoMessage</p> }
 
     <form asp-action="Edit" enctype="multipart/form-data" method="post">
         <input type="hidden" asp-for="Id" />
@@ -73,7 +76,7 @@
         {
             <div class="mb-3 text-center">
                 <label class="form-label d-block fw-semibold">📷 Trenutna slika</label>
-                <img src="@Model.CurrentImageUrl" alt="Trenutna slika" class="img-fluid current-image" />
+                <img id="current-bin-photo" src="@Model.CurrentImageUrl" alt="Trenutna slika" class="img-fluid current-image" />
             </div>
         }
 
@@ -84,21 +87,52 @@
                 📸 Klikni za izbiro nove slike
             </label>
 
-            <input asp-for="ImageFile" id="photoInput" type="file" accept="image/*" class="d-none" />
+            <input asp-for="ImageFile" id="photoInput" type="file" accept="image/jpeg,image/png,image/webp" class="d-none" />
             <img id="preview" src="#" class="img-fluid mt-2 d-none" alt="Predogled" />
 
-            <div class="form-text mt-2">Če ne naložiš slike, bo obstoječa ostala.</div>
+            <div class="form-text mt-2">JPG, PNG ali WebP do 12 MiB. Če ne naložiš slike, bo obstoječa ostala.</div>
             <span asp-validation-for="ImageFile" class="text-danger"></span>
         </div>
 
         <button type="submit" class="btn btn-submit">💾 Shrani spremembe</button>
     </form>
+    @if (User.IsInRole("Admin"))
+    {
+        <section class="mt-3" aria-labelledby="bin-rotation-title">
+            <h3 id="bin-rotation-title" class="h6">Obrni shranjeno fotografijo</h3>
+            @if (BinPhotos.CanRotate(ViewData["BinPhotoUrl"] as string))
+            {
+                <p class="small">Zasuk takoj shrani trenutno fotografijo. Spremembe zgornjega obrazca shrani posebej.</p>
+                <form id="bin-photo-rotation" asp-controller="AdminBinPhotos" asp-action="Rotate" method="post" class="d-flex flex-wrap gap-2">
+                    <input type="hidden" name="id" value="@Model.Id" />
+                    <button class="btn btn-outline-secondary py-2" name="operation" value="left" title="Zavrti levo za 90°">Zavrti levo</button>
+                    <button class="btn btn-outline-secondary py-2" name="operation" value="right" title="Zavrti desno za 90°">Zavrti desno</button>
+                    <button class="btn btn-outline-secondary py-2" name="operation" value="half">Obrni za 180°</button>
+                </form>
+                <p id="bin-photo-unavailable" class="small" role="status" hidden>Fotografije ni mogoče prikazati. Naloži nadomestno fotografijo.</p>
+            }
+            else
+            {
+                <p class="small">Fotografija manjka ali ni podprta upravljana slika. Za zasuk naloži nadomestno fotografijo.</p>
+            }
+        </section>
+    }
 </div>
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
 
     <script>
+        const storedPhoto = document.getElementById("current-bin-photo");
+        function disableUnavailablePhoto() {
+            document.querySelectorAll("#bin-photo-rotation button").forEach(button => button.disabled = true);
+            const message = document.getElementById("bin-photo-unavailable");
+            if (message) message.hidden = false;
+        }
+        if (storedPhoto) {
+            storedPhoto.addEventListener("error", disableUnavailablePhoto);
+            if (storedPhoto.complete && storedPhoto.naturalWidth === 0) disableUnavailablePhoto();
+        }
         document.getElementById("photoInput").addEventListener("change", function (event) {
             const [file] = event.target.files;
             if (file) {

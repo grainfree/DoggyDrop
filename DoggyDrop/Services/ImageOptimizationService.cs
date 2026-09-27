@@ -26,13 +26,23 @@ namespace DoggyDrop.Services
         public bool WasOptimized { get; init; }
     }
 
-    public class ImageOptimizationService : IImageOptimizationService
+    public class ImageOptimizationService : IImageOptimizationService, IBinPhotoProcessor
     {
-        public async Task<OptimizedImage> OptimizeAsync(Stream input, string? contentType, string? fileName, ImageOptimizationPreset preset)
+        public Task<OptimizedImage> OptimizeAsync(Stream input, string? contentType, string? fileName, ImageOptimizationPreset preset) =>
+            ProcessAsync(input, contentType, fileName, preset, 0);
+
+        public Task<OptimizedImage> RotateAsync(Stream input, string contentType, string fileName, int clockwiseDegrees)
+        {
+            if (clockwiseDegrees is not (90 or 180 or 270)) throw new ArgumentOutOfRangeException(nameof(clockwiseDegrees));
+            return ProcessAsync(input, contentType, fileName, ImageOptimizationPreset.TrashBin, clockwiseDegrees);
+        }
+
+        private async Task<OptimizedImage> ProcessAsync(Stream input, string? contentType, string? fileName, ImageOptimizationPreset preset, int rotation)
         {
             using var original = new MemoryStream();
-            var strict = preset is ImageOptimizationPreset.Walk or ImageOptimizationPreset.PlaceLogo;
-            var maxBytes = preset == ImageOptimizationPreset.PlaceLogo ? PlaceLogoUploadPolicy.MaxBytes : WalkPhotoUploadPolicy.MaxBytes;
+            var bin = preset == ImageOptimizationPreset.TrashBin;
+            var strict = preset is ImageOptimizationPreset.Walk or ImageOptimizationPreset.PlaceLogo or ImageOptimizationPreset.TrashBin;
+            var maxBytes = bin ? BinPhotoUploadPolicy.MaxBytes : preset == ImageOptimizationPreset.PlaceLogo ? PlaceLogoUploadPolicy.MaxBytes : WalkPhotoUploadPolicy.MaxBytes;
             if (strict && input.CanSeek && input.Length - input.Position > maxBytes)
                 return RejectedWalkImage();
 
@@ -45,21 +55,24 @@ namespace DoggyDrop.Services
                 await original.WriteAsync(buffer.AsMemory(0, read));
             }
             original.Position = 0;
+            if (bin && !BinPhotoUploadPolicy.Matches(original.GetBuffer().AsSpan(0, (int)original.Length), contentType, fileName))
+                return RejectedWalkImage();
 
             try
             {
-                using var logoCodecStream = preset == ImageOptimizationPreset.PlaceLogo
+                using var logoCodecStream = preset == ImageOptimizationPreset.PlaceLogo || bin
                     ? new MemoryStream(original.ToArray()) : null;
                 using var codec = SKCodec.Create(logoCodecStream ?? original);
                 if (strict && (codec == null ||
                     !(preset == ImageOptimizationPreset.PlaceLogo
                         ? PlaceLogoUploadPolicy.HasSafeDimensions(codec.Info.Width, codec.Info.Height)
+                        : bin ? BinPhotoUploadPolicy.HasSafeDimensions(codec.Info.Width, codec.Info.Height)
                         : WalkPhotoUploadPolicy.HasSafeDimensions(codec.Info.Width, codec.Info.Height))))
                     return RejectedWalkImage();
                 var origin = codec?.EncodedOrigin ?? SKEncodedOrigin.TopLeft;
-                if (preset != ImageOptimizationPreset.PlaceLogo) original.Position = 0;
+                if (preset != ImageOptimizationPreset.PlaceLogo && !bin) original.Position = 0;
 
-                using var bitmap = preset == ImageOptimizationPreset.PlaceLogo
+                using var bitmap = bin ? DecodeBin(codec!) : preset == ImageOptimizationPreset.PlaceLogo
                     ? SKBitmap.Decode(original.ToArray())
                     : SKBitmap.Decode(original);
                 if (bitmap == null)
@@ -71,6 +84,13 @@ namespace DoggyDrop.Services
 
                 using var orientedBitmap = ApplyEncodedOrigin(bitmap, origin);
                 var oriented = orientedBitmap ?? bitmap;
+                using var rotatedBitmap = rotation == 0 ? null : ApplyEncodedOrigin(oriented, rotation switch
+                {
+                    90 => SKEncodedOrigin.RightTop,
+                    180 => SKEncodedOrigin.BottomRight,
+                    _ => SKEncodedOrigin.LeftBottom
+                });
+                oriented = rotatedBitmap ?? oriented;
                 using var trimmedBitmap = preset == ImageOptimizationPreset.PlaceLogo ? TrimTransparentEdges(oriented) : null;
                 var sourceBitmap = trimmedBitmap ?? oriented;
                 var settings = ResolveSettings(preset);
@@ -118,6 +138,15 @@ namespace DoggyDrop.Services
         }
 
         private static OptimizedImage RejectedWalkImage() => new() { Content = Stream.Null };
+
+        private static SKBitmap? DecodeBin(SKCodec codec)
+        {
+            if (codec.EncodedFormat is not (SKEncodedImageFormat.Jpeg or SKEncodedImageFormat.Png or SKEncodedImageFormat.Webp)) return null;
+            var bitmap = new SKBitmap(codec.Info);
+            if (codec.GetPixels(bitmap.Info, bitmap.GetPixels()) == SKCodecResult.Success) return bitmap;
+            bitmap.Dispose();
+            return null;
+        }
 
         private static SKBitmap? TrimTransparentEdges(SKBitmap source)
         {
@@ -196,7 +225,7 @@ namespace DoggyDrop.Services
                 case SKEncodedOrigin.RightBottom:
                     canvas.Translate(source.Height, source.Width);
                     canvas.RotateDegrees(90);
-                    canvas.Scale(1, -1);
+                    canvas.Scale(-1, 1);
                     break;
                 case SKEncodedOrigin.LeftBottom:
                     canvas.Translate(0, source.Width);

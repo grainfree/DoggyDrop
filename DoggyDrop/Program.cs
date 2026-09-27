@@ -150,6 +150,11 @@ builder.Services.PostConfigure<EmailSettings>(settings =>
 builder.Services.AddTransient<IEmailSender, EmailSender>();
 builder.Services.AddHttpClient();
 builder.Services.AddSingleton<IImageOptimizationService, ImageOptimizationService>();
+builder.Services.AddSingleton<IBinPhotoProcessor>(services => (ImageOptimizationService)services.GetRequiredService<IImageOptimizationService>());
+builder.Services.AddHttpClient("bin-photo-download").ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
+builder.Services.AddScoped<IBinPhotoStorage, BinPhotoStorage>();
+builder.Services.AddScoped<IBinPhotoReferences, BinPhotoReferences>();
+builder.Services.AddScoped<BinPhotoRotationService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<BinImportSessions>();

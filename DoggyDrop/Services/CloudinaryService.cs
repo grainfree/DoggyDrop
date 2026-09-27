@@ -1,4 +1,4 @@
-﻿using CloudinaryDotNet;
+using CloudinaryDotNet;
 using CloudinaryDotNet.Actions;
 using Microsoft.AspNetCore.Http;
 using System.Threading.Tasks;
@@ -61,40 +61,34 @@ namespace DoggyDrop.Services
             return await SaveLocalImageAsync(file, "profile-images");
         }
 
-        // ✅ Nalaganje slike koša
+        // Bin uploads always store normalized pixels; never fall back to original bytes.
         public async Task<string?> UploadTrashBinImageAsync(IFormFile file)
         {
-            if (file == null || file.Length == 0)
+            if (file == null || file.Length is <= 0 or > BinPhotoUploadPolicy.MaxBytes) return null;
+            await using var input = file.OpenReadStream();
+            var optimized = await _imageOptimizationService.OptimizeAsync(input, file.ContentType, file.FileName, ImageOptimizationPreset.TrashBin);
+            await using var content = optimized.Content;
+            if (!optimized.WasOptimized) return null;
+            var name = $"{Guid.NewGuid():N}.webp";
+            var publicId = $"doggydrop-trashbins/{Path.GetFileNameWithoutExtension(name)}";
+            // The SDK owns/disposes its stream. Keep sanitized bytes for local fallback.
+            using var uploadContent = new MemoryStream();
+            await content.CopyToAsync(uploadContent);
+            uploadContent.Position = 0;
+            var result = await _cloudinary.UploadAsync(new ImageUploadParams
             {
-                Console.WriteLine("⚠️ Slika koša: prazna datoteka.");
-                return null;
-            }
-
-            await using var stream = file.OpenReadStream();
-
-            var uploadParams = new ImageUploadParams
-            {
-                File = new FileDescription(file.FileName, stream),
-                Folder = "doggydrop-trashbins",
-                UseFilename = true,
-                UniqueFilename = true,
-                Overwrite = false
-            };
-
-            var uploadResult = await _cloudinary.UploadAsync(uploadParams);
-
-            Console.WriteLine("🌩️ Rezultat nalaganja (slika koša):");
-            Console.WriteLine($"StatusCode: {uploadResult.StatusCode}");
-            Console.WriteLine($"SecureUrl: {uploadResult.SecureUrl}");
-            Console.WriteLine($"Error: {uploadResult.Error?.Message}");
-
-            if (uploadResult.SecureUrl != null)
-            {
-                return uploadResult.SecureUrl.ToString();
-            }
-
-            _logger.LogWarning("Cloudinary trash bin upload failed. Falling back to local storage. Error: {Error}", uploadResult.Error?.Message);
-            return await SaveLocalImageAsync(file, "trashbins");
+                File = new FileDescription(name, uploadContent),
+                PublicId = publicId,
+                Overwrite = false,
+                UniqueFilename = false
+            });
+            if (result.Error == null && result.PublicId == publicId &&
+                BinPhotoAssets.Resolve(result.SecureUrl?.ToString(), _cloudinary.Api.Account.Cloud, null)?.Key == publicId)
+                return result.SecureUrl!.ToString();
+            _logger.LogWarning("Normalized bin photo upload failed; using local storage.");
+            content.Position = 0;
+            var sanitized = new FormFile(content, 0, content.Length, "ImageFile", name) { Headers = new HeaderDictionary(), ContentType = "image/webp" };
+            return await SaveLocalImageAsync(sanitized, "trashbins");
         }
 
         public async Task<string?> UploadWalkImageAsync(IFormFile file)
