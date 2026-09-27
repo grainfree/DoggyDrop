@@ -413,6 +413,7 @@ namespace DoggyDrop.Controllers
         public IActionResult Manage()
         {
             var pendingBins = _context.TrashBins
+                .Include(b => b.DataSource)
                 .Include(b => b.User) // ✅ vključimo uporabnika
                 .Where(b => !b.IsApproved)
                 .OrderByDescending(b => b.DateAdded)

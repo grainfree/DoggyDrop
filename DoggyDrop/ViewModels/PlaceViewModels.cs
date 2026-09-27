@@ -21,6 +21,7 @@ public sealed class PlaceInput
     public string? LogoUrl { get; set; }
     public IFormFile? LogoFile { get; set; }
     public bool RemoveLogo { get; set; }
+    public int? DataSourceId { get; set; }
     public List<PlaceAmenityType> AmenityTypes { get; set; } = [];
     public string? AmenitiesSourceUrl { get; set; }
     public bool VerifyAmenitiesToday { get; set; }
@@ -66,6 +67,7 @@ public sealed class PlaceInput
         place.OpeningHours = Clean(OpeningHours);
         place.Description = Clean(Description);
         place.ImageUrl = Clean(ImageUrl);
+        place.DataSourceId = DataSourceId;
 
         // The tracked relationship diff is committed with the Place in one SaveChanges transaction.
         var selected = (AmenityTypes ?? []).ToHashSet();
@@ -90,6 +92,7 @@ public sealed class PlaceInput
         Address = place.Address, Phone = place.Phone, WebsiteUrl = place.WebsiteUrl,
         OpeningHours = place.OpeningHours, Description = place.Description, ImageUrl = place.ImageUrl,
         LogoUrl = PlaceLogoDelivery.ForMarker(place.LogoUrl, cloudName),
+        DataSourceId = place.DataSourceId,
         AmenityTypes = place.Amenities.Select(amenity => amenity.AmenityType).ToList(),
         AmenitiesSourceUrl = place.AmenitiesSourceUrl, AmenitiesVerifiedAt = place.AmenitiesVerifiedAt
     };

@@ -6,9 +6,14 @@
     var state = ViewBag.State as string;
     var category = ViewBag.Category as PlaceCategory?;
 }
-@section Styles { <link rel="stylesheet" href="~/css/places.css" asp-append-version="true" /> }
+@section Styles {
+    <link rel="stylesheet" href="~/css/places.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/data-admin.css" asp-append-version="true" />
+}
 
 <main class="places-page places-admin">
+    <partial name="_DataAdminLinks" />
+    @if (TempData["DataMessage"] is string dataMessage) { <p role="status">@dataMessage</p> }
     <header class="places-page__header">
         <div><span class="places-eyebrow">Upravljanje</span><h1>Lokacije</h1></div>
         <a class="places-button places-button--primary" asp-action="Create"><i class="bi bi-plus-lg" aria-hidden="true"></i> Dodaj lokacijo</a>
@@ -34,8 +39,10 @@
                 }
             </select>
         </label>
+        <partial name="_DataSourceFilter" />
         <button type="submit" class="places-button">Filtriraj</button>
     </form>
+    <partial name="_DataBulkForm" model="DoggyDrop.ViewModels.BulkTarget.Places" />
     @if (Model.Count == 0)
     {
         <p class="places-empty">Ni lokacij za izbrani filter.</p>
@@ -47,7 +54,9 @@
             {
                 <article class="places-admin-row">
                     <div class="places-admin-row__info">
+                        <label class="data-check"><input type="checkbox" name="Ids" value="@place.Id" form="dataBulkForm" /> Izberi lokacijo #@place.Id: @place.Name</label>
                         <strong>@place.Name</strong>
+                        <small>Vir: @(place.DataSource?.Name ?? "Vir ni določen")</small>
                         <span>@PlaceCategories.Label(place.Category) · @(place.IsActive ? "Aktivno" : "Neaktivno")</span>
                         <small>@(string.IsNullOrWhiteSpace(place.Address) ? "Brez naslova · lokacija je določena na zemljevidu" : place.Address)</small>
                     </div>
@@ -63,4 +72,9 @@
             }
         </div>
     }
+    <nav class="data-pages" aria-label="Strani lokacij">
+        @if (ViewBag.Page > 1) { <a asp-route-page="@(ViewBag.Page - 1)" asp-route-state="@state" asp-route-category="@category" asp-route-sourceId="@ViewBag.SourceId" asp-route-noSource="@ViewBag.NoSource">Prejšnja</a> }
+        <span>Stran @ViewBag.Page</span>
+        @if (ViewBag.HasNext == true) { <a asp-route-page="@(ViewBag.Page + 1)" asp-route-state="@state" asp-route-category="@category" asp-route-sourceId="@ViewBag.SourceId" asp-route-noSource="@ViewBag.NoSource">Naslednja</a> }
+    </nav>
 </main>

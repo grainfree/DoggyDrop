@@ -1,0 +1,28 @@
+@model IReadOnlyList<DoggyDrop.ViewModels.DataSourceRow>
+@using DoggyDrop.ViewModels
+@{ ViewData["Title"] = "Viri podatkov"; }
+@section Styles {
+    <link rel="stylesheet" href="~/css/places.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/data-admin.css" asp-append-version="true" />
+}
+<main class="places-page data-admin">
+    <h1>Viri podatkov</h1>
+    <partial name="_DataAdminLinks" />
+    <p>Vir opisuje izvor zapisa. Ne pomeni lastništva, sponzorstva ali licence. Podatki na tej strani so samo za skrbnike.</p>
+    @if (TempData["DataMessage"] is string message) { <p role="status">@message</p> }
+    <a class="places-button" asp-action="Create">Dodaj vir</a>
+    <div class="data-records">
+        @foreach (var source in Model)
+        {
+            <article>
+                <h2>@source.Name</h2>
+                <p>@DataAdminLabels.SourceType(source.Type) · Datum podatkov: @(source.DataDate?.ToString("dd. MM. yyyy") ?? "Ni določen")</p>
+                <p>Koši: @source.Bins · Lokacije: @source.Places</p>
+                <p>Posodobljeno: @source.UpdatedAt.ToString("dd. MM. yyyy HH:mm") UTC</p>
+                <a class="places-button" asp-action="Edit" asp-route-id="@source.Id">Uredi</a>
+                <a class="places-button" asp-action="Delete" asp-route-id="@source.Id">Odstrani vir</a>
+            </article>
+        }
+    </div>
+    @if (Model.Count == 0) { <p>Viri še niso dodani.</p> }
+</main>

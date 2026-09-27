@@ -6,6 +6,7 @@
 }
 
 <section class="app-page admin-bins-page">
+    <partial name="_DataAdminLinks" />
     <header class="admin-bins-hero">
         <div>
             <span>Admin čakalnica</span>
@@ -66,6 +67,7 @@
                             <div>
                                 <h2>@bin.Name</h2>
                                 <p>Predlagal: @proposer</p>
+                                <p>Vir: @(bin.DataSource?.Name ?? "Vir ni določen")</p>
                             </div>
                             <time datetime="@bin.DateAdded.ToString("O")">@bin.DateAdded.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</time>
                         </div>

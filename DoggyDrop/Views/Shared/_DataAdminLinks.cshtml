@@ -1,0 +1,7 @@
+<nav class="d-flex flex-wrap gap-3 my-3" aria-label="Upravljanje podatkov">
+    <a asp-controller="AdminDataSources" asp-action="Index">Viri podatkov</a>
+    <a asp-controller="AdminBins" asp-action="Index">Vsi koši</a>
+    <a asp-controller="AdminPlaces" asp-action="Index">Lokacije</a>
+    <a asp-controller="AdminDuplicates" asp-action="Index" asp-route-target="Bins">Možni dvojniki košev</a>
+    <a asp-controller="AdminDuplicates" asp-action="Index" asp-route-target="Places">Možne podvojene lokacije</a>
+</nav>

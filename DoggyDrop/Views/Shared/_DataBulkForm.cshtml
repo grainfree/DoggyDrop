@@ -1,0 +1,26 @@
+@model DoggyDrop.ViewModels.BulkTarget
+@using DoggyDrop.ViewModels
+<form id="dataBulkForm" asp-controller="AdminBulk" asp-action="Preview" method="post" class="data-bulk places-filters">
+    <input type="hidden" name="Target" value="@Model" />
+    <label>Skupinsko dejanje
+        <select name="Action" required>
+            <option value="">Izberi dejanje</option>
+            @foreach (var action in Enum.GetValues<BulkAction>())
+            {
+                if (Model == BulkTarget.Bins && action is BulkAction.Activate or BulkAction.Deactivate) { continue; }
+                <option value="@action">@DataAdminLabels.Action(action)</option>
+            }
+        </select>
+    </label>
+    <label>Vir (samo za dodelitev)
+        <select name="DataSourceId">
+            <option value="">Brez izbire</option>
+            @foreach (var source in (IReadOnlyList<SourceOption>)ViewBag.DataSources)
+            {
+                <option value="@source.Id">@source.Name</option>
+            }
+        </select>
+    </label>
+    <button class="places-button" type="submit">Preglej izbor</button>
+    <p>Označi največ 100 prikazanih zapisov. Spremembe potrdiš v naslednjem koraku. Izbor ne vključuje drugih strani.</p>
+</form>

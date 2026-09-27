@@ -22,6 +22,8 @@ namespace DoggyDrop.Data
 
         public DbSet<PlaceAmenity> PlaceAmenities { get; set; }
 
+        public DbSet<DataSource> DataSources { get; set; }
+
         public DbSet<Dog> Dogs { get; set; }
 
         public DbSet<Walk> Walks { get; set; }
@@ -99,6 +101,14 @@ namespace DoggyDrop.Data
 
             builder.Entity<Place>()
                 .Property(place => place.UpdatedAt).IsConcurrencyToken();
+
+            builder.Entity<Place>()
+                .HasOne(place => place.DataSource).WithMany()
+                .HasForeignKey(place => place.DataSourceId).OnDelete(DeleteBehavior.SetNull);
+
+            builder.Entity<TrashBin>()
+                .HasOne(bin => bin.DataSource).WithMany()
+                .HasForeignKey(bin => bin.DataSourceId).OnDelete(DeleteBehavior.SetNull);
 
             builder.Entity<PlaceAmenity>()
                 .HasKey(amenity => new { amenity.PlaceId, amenity.AmenityType });

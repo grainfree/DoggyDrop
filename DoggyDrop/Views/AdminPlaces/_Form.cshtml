@@ -2,6 +2,17 @@
 
 <div asp-validation-summary="ModelOnly" class="places-validation" role="alert"></div>
 <div class="places-form-grid">
+    <label class="places-field">Vir zapisa
+        <select asp-for="DataSourceId">
+            <option value="">Vir ni določen</option>
+            @foreach (var source in (IReadOnlyList<DoggyDrop.ViewModels.SourceOption>)(ViewBag.DataSources ?? new List<DoggyDrop.ViewModels.SourceOption>()))
+            {
+                <option value="@source.Id">@source.Name</option>
+            }
+        </select>
+        <span asp-validation-for="DataSourceId"></span>
+        <small>Izvor zapisa; vir dokazov za ugodnosti za pse je ločen podatek.</small>
+    </label>
     <label class="places-field">Ime *
         <input asp-for="Name" maxlength="120" required />
         <span asp-validation-for="Name"></span>

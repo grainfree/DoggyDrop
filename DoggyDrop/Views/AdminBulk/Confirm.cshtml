@@ -1,0 +1,19 @@
+@model DoggyDrop.ViewModels.BulkPreview
+@using DoggyDrop.ViewModels
+@{ ViewData["Title"] = "Potrdi skupinsko dejanje"; }
+@section Styles {
+    <link rel="stylesheet" href="~/css/places.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/data-admin.css" asp-append-version="true" />
+}
+<main class="places-page data-admin">
+    <h1>Potrdi skupinsko dejanje</h1>
+    <p><strong>@DataAdminLabels.Action(Model.Input.Action)</strong> · @(Model.Input.Target == BulkTarget.Bins ? "Koši" : "Lokacije") · Izbranih: <strong>@Model.Records.Count</strong></p>
+    @if (Model.SourceName != null) { <p>Vir: <strong>@Model.SourceName</strong></p> }
+    <ul>@foreach (var row in Model.Records) { <li>#@row.Id · @row.Name</li> }</ul>
+    <p>Dejanje se uporabi na trenutnih podatkih. Ob konfliktu se celoten izbor zavrne. Potrditev velja 10 minut.</p>
+    <form asp-action="Apply" method="post">
+        <input type="hidden" name="token" value="@Model.Token" />
+        <button type="submit" class="places-button places-button--primary">Potrdi spremembe</button>
+        <a asp-controller="@(Model.Input.Target == BulkTarget.Bins ? "AdminBins" : "AdminPlaces")" asp-action="Index" class="places-button">Prekliči</a>
+    </form>
+</main>

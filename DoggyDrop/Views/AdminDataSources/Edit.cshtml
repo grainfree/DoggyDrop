@@ -1,0 +1,31 @@
+@model DoggyDrop.ViewModels.DataSourceInput
+@using DoggyDrop.Models
+@using DoggyDrop.ViewModels
+@{ ViewData["Title"] = ViewBag.SourceId == null ? "Dodaj vir podatkov" : "Uredi vir podatkov"; }
+@section Styles {
+    <link rel="stylesheet" href="~/css/places.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/data-admin.css" asp-append-version="true" />
+}
+<main class="places-page data-admin">
+    <h1>@ViewData["Title"]</h1>
+    <partial name="_DataAdminLinks" />
+    <form asp-action="@(ViewBag.SourceId == null ? "Create" : "Edit")" asp-route-id="@ViewBag.SourceId" method="post" class="places-form">
+        <div asp-validation-summary="All" role="alert"></div>
+        <div class="places-form-grid">
+            <label class="places-field">Ime vira *<input asp-for="Name" maxlength="160" required /></label>
+            <label class="places-field">Tip *
+                <select asp-for="Type" required>
+                    <option value="">Izberi tip</option>
+                    @foreach (var type in Enum.GetValues<DataSourceType>()) { <option value="@((int)type)">@DataAdminLabels.SourceType(type)</option> }
+                </select>
+            </label>
+            <label class="places-field">Spletna stran<input asp-for="WebsiteUrl" type="url" maxlength="500" /></label>
+            <label class="places-field">Kontaktna oseba<input asp-for="ContactName" maxlength="120" /></label>
+            <label class="places-field">Kontaktni e-mail<input asp-for="ContactEmail" type="email" maxlength="254" /></label>
+            <label class="places-field">Datum podatkov<input asp-for="DataDate" type="date" /><small>Datum ali različica prejetega nabora, ne datum urejanja.</small></label>
+            <label class="places-field places-field--wide">Opombe<textarea asp-for="Notes" maxlength="2000" rows="4"></textarea></label>
+        </div>
+        <p>Kontaktni podatki in opombe so samo za skrbnike. Vnos vira ne sproži uvoza ali samodejnega osveževanja.</p>
+        <button type="submit" class="places-button places-button--primary">Shrani vir</button>
+    </form>
+</main>

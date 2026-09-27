@@ -232,11 +232,13 @@ public sealed class PlaceAmenitiesTests : IDisposable
         Assert.Contains("PlaceAmenities", counter.Sql[0]);
         Assert.DoesNotContain("AmenitiesSourceUrl", counter.Sql[0]);
         Assert.DoesNotContain("AmenitiesVerifiedAt", counter.Sql[0]);
+        Assert.DoesNotContain("DataSources", counter.Sql[0]);
         Assert.Empty(db.ChangeTracker.Entries());
         counter.Sql.Clear();
         await Admin(db).Edit(id);
-        Assert.Single(counter.Sql);
-        Assert.Contains("PlaceAmenities", counter.Sql[0]);
+        Assert.Equal(2, counter.Sql.Count); // One amenity load plus the source dropdown, never one query per checkbox.
+        Assert.Single(counter.Sql, sql => sql.Contains("PlaceAmenities"));
+        Assert.Single(counter.Sql, sql => sql.Contains("DataSources"));
         counter.Sql.Clear();
         await Public(db).Index();
         Assert.Single(counter.Sql);

@@ -51,6 +51,10 @@ public sealed class Place
     public string? AmenitiesSourceUrl { get; set; }
     public DateTime? AmenitiesVerifiedAt { get; set; }
 
+    public int? DataSourceId { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore]
+    public DataSource? DataSource { get; set; }
+
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;

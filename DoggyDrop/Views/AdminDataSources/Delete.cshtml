@@ -1,0 +1,11 @@
+@model DoggyDrop.ViewModels.DataSourceRow
+@{ ViewData["Title"] = "Odstrani vir"; }
+@section Styles { <link rel="stylesheet" href="~/css/places.css" asp-append-version="true" /> }
+<main class="places-page">
+    <h1>Odstrani vir: @Model.Name</h1>
+    <p>Koši (@Model.Bins) in lokacije (@Model.Places) ostanejo ohranjeni. Odstranjena bo samo povezava z virom.</p>
+    <form asp-action="Delete" asp-route-id="@Model.Id" method="post">
+        <button type="submit" class="places-button">Potrdi odstranitev vira</button>
+        <a asp-action="Index" class="places-button">Prekliči</a>
+    </form>
+</main>

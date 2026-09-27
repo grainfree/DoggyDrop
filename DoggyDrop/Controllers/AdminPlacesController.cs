@@ -17,21 +17,34 @@ public sealed class AdminPlacesController(
     private const string EditConflictMessage = "Lokacija je bila med urejanjem spremenjena. Osveži podatke in poskusi znova.";
 
     [HttpGet]
-    public async Task<IActionResult> Index(string? state, PlaceCategory? category)
+    public async Task<IActionResult> Index(string? state, PlaceCategory? category, int? sourceId = null, bool noSource = false, int page = 1)
     {
+        if (page is < 1 or > 100000 || sourceId is <= 0) return BadRequest();
         var query = context.Places.AsNoTracking();
         if (state == "active") query = query.Where(place => place.IsActive);
         if (state == "inactive") query = query.Where(place => !place.IsActive);
         if (category is { } selected && Enum.IsDefined(selected))
             query = query.Where(place => place.Category == selected);
 
+        if (noSource) query = query.Where(place => place.DataSourceId == null);
+        else if (sourceId.HasValue) query = query.Where(place => place.DataSourceId == sourceId);
+
         ViewBag.State = state;
         ViewBag.Category = category;
-        return View(await query.OrderBy(place => place.Name).ThenBy(place => place.Id).ToListAsync());
+        ViewBag.SourceId = sourceId; ViewBag.NoSource = noSource; ViewBag.Page = page;
+        await LoadSourcesAsync();
+        var rows = await query.Include(p => p.DataSource).OrderBy(place => place.Name).ThenBy(place => place.Id)
+            .Skip((page - 1) * 100).Take(101).ToListAsync();
+        ViewBag.HasNext = rows.Count > 100;
+        return View(rows.Take(100).ToList());
     }
 
     [HttpGet]
-    public IActionResult Create() => View(new PlaceInput());
+    public async Task<IActionResult> Create()
+    {
+        await LoadSourcesAsync();
+        return View(new PlaceInput());
+    }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
@@ -43,7 +56,7 @@ public sealed class AdminPlacesController(
 
         var newLogo = await UploadLogoAsync(input);
         if (!ModelState.IsValid) return View(input);
-        var now = NextUpdatedAt(DateTime.MinValue);
+        var now = PlaceUpdates.NextUpdatedAt(DateTime.MinValue);
         var place = new Place { IsActive = true, CreatedAt = now, UpdatedAt = now };
         input.ApplyTo(place);
         place.LogoUrl = newLogo;
@@ -67,6 +80,7 @@ public sealed class AdminPlacesController(
         if (place == null) return NotFound();
         ViewBag.PlaceId = id;
         ViewBag.IsActive = place.IsActive;
+        await LoadSourcesAsync();
         return View(PlaceInput.FromPlace(place, logoCloud.Value));
     }
 
@@ -100,7 +114,7 @@ public sealed class AdminPlacesController(
         if (newLogo != null || input.RemoveLogo) place.LogoUrl = newLogo;
         // Always update the parent, including amenity-only edits. EF checks the loaded
         // UpdatedAt in the UPDATE predicate and rolls back the entire save on conflict.
-        place.UpdatedAt = NextUpdatedAt(place.UpdatedAt);
+        place.UpdatedAt = PlaceUpdates.NextUpdatedAt(place.UpdatedAt);
         try { await context.SaveChangesAsync(); }
         catch (DbUpdateConcurrencyException)
         {
@@ -133,7 +147,7 @@ public sealed class AdminPlacesController(
         if (place.IsActive != isActive)
         {
             place.IsActive = isActive;
-            place.UpdatedAt = NextUpdatedAt(place.UpdatedAt);
+            place.UpdatedAt = PlaceUpdates.NextUpdatedAt(place.UpdatedAt);
             try { await context.SaveChangesAsync(); }
             catch (DbUpdateConcurrencyException)
             {
@@ -146,18 +160,11 @@ public sealed class AdminPlacesController(
         return RedirectToAction(nameof(Index));
     }
 
-    private static DateTime NextUpdatedAt(DateTime previous)
-    {
-        // PostgreSQL timestamps have microsecond precision. Advance even within one
-        // clock tick or after clock rollback, so a successful edit cannot reuse a token.
-        const long ticksPerMicrosecond = 10;
-        var now = DateTime.UtcNow.Ticks / ticksPerMicrosecond;
-        var next = Math.Max(now, previous.Ticks / ticksPerMicrosecond + 1);
-        return new DateTime(next * ticksPerMicrosecond, DateTimeKind.Utc);
-    }
-
     private async Task ValidateInputAsync(PlaceInput input)
     {
+        await LoadSourcesAsync();
+        if (input.DataSourceId.HasValue && !await context.DataSources.AnyAsync(s => s.Id == input.DataSourceId))
+            ModelState.AddModelError(nameof(input.DataSourceId), "Izberi veljaven vir podatkov.");
         foreach (var (field, message) in input.Validate())
             ModelState.AddModelError(field, message);
         if (input.LogoFile != null && !await PlaceLogoUploadPolicy.IsSupportedAsync(input.LogoFile))
@@ -165,6 +172,9 @@ public sealed class AdminPlacesController(
         if (input.LogoFile != null && input.RemoveLogo)
             ModelState.AddModelError(nameof(input.LogoFile), "Izberi nalaganje ali odstranitev logotipa, ne obojega.");
     }
+
+    private async Task LoadSourcesAsync() => ViewBag.DataSources = await context.DataSources.AsNoTracking()
+        .OrderBy(s => s.Name).Select(s => new SourceOption(s.Id, s.Name)).ToListAsync();
 
     private async Task<string?> UploadLogoAsync(PlaceInput input)
     {

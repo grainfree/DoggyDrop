@@ -22,6 +22,10 @@ namespace DoggyDrop.Models
 
         public DateTime? ApprovedAt { get; set; }
 
+        public int? DataSourceId { get; set; }
+        [System.Text.Json.Serialization.JsonIgnore]
+        public DataSource? DataSource { get; set; }
+
         public int UsedCount { get; set; }
 
         public int FullReports { get; set; }

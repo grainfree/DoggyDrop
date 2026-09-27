@@ -1,0 +1,11 @@
+@using DoggyDrop.ViewModels
+<label>Vir
+    <select name="sourceId">
+        <option value="">Vsi viri</option>
+        @foreach (var source in (IReadOnlyList<SourceOption>)ViewBag.DataSources)
+        {
+            <option value="@source.Id" selected="@(ViewBag.SourceId == source.Id)">@source.Name</option>
+        }
+    </select>
+</label>
+<label class="data-check"><input type="checkbox" name="noSource" value="true" checked="@(ViewBag.NoSource == true)" /> Samo brez vira (prednost pred izbranim virom)</label>

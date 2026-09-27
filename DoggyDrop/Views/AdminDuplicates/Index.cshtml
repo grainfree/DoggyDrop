@@ -1,0 +1,42 @@
+@model DoggyDrop.Services.DuplicatePage
+@using DoggyDrop.ViewModels
+@using System.Globalization
+@{ ViewData["Title"] = Model.Target == BulkTarget.Bins ? "Možni dvojniki košev" : "Možne podvojene lokacije"; }
+@section Styles {
+    <link rel="stylesheet" href="~/css/places.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/data-admin.css" asp-append-version="true" />
+}
+<main class="places-page data-admin">
+    <h1>@ViewData["Title"]</h1>
+    <partial name="_DataAdminLinks" />
+    <p>@(Model.Target == BulkTarget.Bins ? "Koši do 20 metrov narazen." : "Lokacije do 75 metrov narazen z enakim imenom po poenotenju velikosti črk in presledkov.") To so kandidati za ročni pregled, ne potrjeni dvojniki. Podatki se ne spreminjajo.</p>
+    <form method="get" class="places-form-grid">
+        <input type="hidden" name="target" value="@Model.Target" />
+        <label class="places-field">Središče: širina<input type="number" name="latitude" value="@Model.Latitude?.ToString(CultureInfo.InvariantCulture)" min="-90" max="90" step="any" required /></label>
+        <label class="places-field">Središče: dolžina<input type="number" name="longitude" value="@Model.Longitude?.ToString(CultureInfo.InvariantCulture)" min="-180" max="180" step="any" required /></label>
+        <label class="places-field">Polmer območja (m)<input type="number" name="radius" value="@Model.Radius" min="100" max="5000" required /></label>
+        <button type="submit" class="places-button">Poišči kandidate</button>
+    </form>
+    @if (Model.Result is { } result)
+    {
+        @if (result.Limited) { <p role="status">Pregled je omejen. Zoži območje: največ 2000 zapisov, 200 parov in 50.000 primerjav na pregled.</p> }
+        @if (result.Pairs.Count == 0 && !result.Limited) { <p>V izbranem območju ni kandidatov po teh merilih.</p> }
+        <div class="data-records">
+            @foreach (var pair in result.Pairs)
+            {
+                <article>
+                    <h2>Približno @pair.Metres.ToString("0.0", CultureInfo.GetCultureInfo("sl-SI")) m narazen</h2>
+                    @foreach (var record in new[] { pair.First, pair.Second })
+                    {
+                        <div class="data-candidate">
+                            <strong>#@record.Id · @record.Name</strong>
+                            <p>Vir: @(record.Source ?? "Vir ni določen") · @(Model.Target == BulkTarget.Bins ? (record.Active ? "Odobreno" : "Čaka na odobritev") : (record.Active ? "Aktivno" : "Neaktivno"))</p>
+                            <p>@record.Latitude.ToString("0.000000", CultureInfo.InvariantCulture), @record.Longitude.ToString("0.000000", CultureInfo.InvariantCulture)</p>
+                            <a class="places-button" asp-controller="@(Model.Target == BulkTarget.Bins ? "Map" : "AdminPlaces")" asp-action="Edit" asp-route-id="@record.Id">Odpri zapis</a>
+                        </div>
+                    }
+                </article>
+            }
+        </div>
+    }
+</main>
