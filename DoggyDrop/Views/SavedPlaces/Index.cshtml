@@ -1,0 +1,36 @@
+@model DoggyDrop.ViewModels.PlaceDiscoveryViewModel
+@{ ViewData["Title"] = "Shranjene lokacije"; }
+@section Styles {
+    <link rel="stylesheet" href="~/css/place-discovery.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/place-save.css" asp-append-version="true" />
+}
+<main class="place-discovery">
+    <header class="place-discovery__header">
+        <a class="place-discovery__back" asp-controller="Home" asp-action="UserProfile"><i class="bi bi-arrow-left" aria-hidden="true"></i> Profil</a>
+        <h1>Shranjene lokacije</h1>
+    </header>
+    @if (TempData["SavedPlaceMessage"] is string message)
+    {
+        <p class="place-save-feedback" role="status">@message</p>
+    }
+    @if (Model.Places.Count == 0)
+    {
+        <section class="place-discovery__empty">
+            <h2>Še nimaš shranjenih lokacij.</h2>
+            <p>Shrani veterinarja, trgovino, pasji park ali drugo lokacijo, da jo hitro najdeš.</p>
+            <a class="place-discovery__back" asp-controller="Places" asp-action="Index">Razišči lokacije</a>
+        </section>
+    }
+    else
+    {
+        <div class="place-discovery__list">
+            @foreach (var place in Model.Places)
+            {
+                <partial name="_PlaceCard" model="@(new DoggyDrop.ViewModels.PlaceCardViewModel(place, true, Url.Action("Index", "SavedPlaces")!))" />
+            }
+        </div>
+    }
+</main>
+@section Scripts {
+    <script src="~/js/place-card.js" asp-append-version="true"></script>
+}

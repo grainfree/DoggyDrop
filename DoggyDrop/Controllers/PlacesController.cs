@@ -4,9 +4,11 @@ using DoggyDrop.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace DoggyDrop.Controllers;
 
+[ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
 public sealed class PlacesController(ApplicationDbContext context, PlaceLogoCloudName logoCloud) : Controller
 {
     [HttpGet]
@@ -19,6 +21,10 @@ public sealed class PlacesController(ApplicationDbContext context, PlaceLogoClou
             .Select(place => new { place.Id, place.Name, place.Category, place.Address,
                 place.Latitude, place.Longitude, place.LogoUrl })
             .ToListAsync();
+        var userId = User?.Identity?.IsAuthenticated == true ? User.FindFirstValue(ClaimTypes.NameIdentifier) : null;
+        var savedIds = string.IsNullOrEmpty(userId) ? new HashSet<int>() :
+            (await context.SavedPlaces.AsNoTracking().Where(saved => saved.UserId == userId)
+                .Select(saved => saved.PlaceId).ToListAsync()).ToHashSet();
         return View(new PlaceDiscoveryViewModel(places.Select(place =>
         {
             var category = PlaceCategories.Get(place.Category);
@@ -26,7 +32,7 @@ public sealed class PlacesController(ApplicationDbContext context, PlaceLogoClou
                 category.Label, category.Key, category.IconClass, category.IsCommercial,
                 place.Address, place.Latitude, place.Longitude,
                 PlaceCategories.PublicLogo(place.Category, place.LogoUrl, logoCloud.Value));
-        }).ToList()));
+        }).ToList()) { SavedPlaceIds = savedIds });
     }
 
     [HttpGet]
@@ -35,6 +41,10 @@ public sealed class PlacesController(ApplicationDbContext context, PlaceLogoClou
     {
         var place = await context.Places.AsNoTracking()
             .SingleOrDefaultAsync(item => item.Id == id && item.IsActive && PlaceCategories.Supported.Contains(item.Category));
-        return place == null ? NotFound() : View(PlaceDetailsViewModel.FromPlace(place, logoCloud.Value));
+        if (place == null) return NotFound();
+        var userId = User?.Identity?.IsAuthenticated == true ? User.FindFirstValue(ClaimTypes.NameIdentifier) : null;
+        var isSaved = !string.IsNullOrEmpty(userId) && await context.SavedPlaces.AsNoTracking()
+            .AnyAsync(saved => saved.UserId == userId && saved.PlaceId == id);
+        return View(PlaceDetailsViewModel.FromPlace(place, logoCloud.Value) with { IsSaved = isSaved });
     }
 }

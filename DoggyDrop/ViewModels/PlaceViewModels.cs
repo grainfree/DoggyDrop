@@ -79,7 +79,13 @@ public sealed record PlaceDiscoveryItem(int Id, string Name, PlaceCategory Categ
     string CategoryLabel, string CategoryKey, string IconClass, bool IsCommercial,
     string? Address, double Latitude, double Longitude, string? LogoUrl);
 
-public sealed record PlaceDiscoveryViewModel(IReadOnlyList<PlaceDiscoveryItem> Places);
+public sealed record PlaceDiscoveryViewModel(IReadOnlyList<PlaceDiscoveryItem> Places)
+{
+    public IReadOnlySet<int> SavedPlaceIds { get; init; } = new HashSet<int>();
+}
+
+public sealed record PlaceSaveViewModel(int PlaceId, string Name, bool IsSaved, string ReturnUrl);
+public sealed record PlaceCardViewModel(PlaceDiscoveryItem Place, bool IsSaved, string ReturnUrl);
 
 public sealed record PlaceDetailsViewModel(
     int Id, string Name, PlaceCategory Category, string CategoryLabel, double Latitude, double Longitude,
@@ -87,6 +93,8 @@ public sealed record PlaceDetailsViewModel(
     string? OpeningHours, string? Description, string? ImageUrl, string? LogoUrl,
     string CategoryKey, string IconClass, bool IsCommercial)
 {
+    public bool IsSaved { get; init; }
+
     public static PlaceDetailsViewModel FromPlace(Place place, string? cloudName)
     {
         var category = PlaceCategories.Get(place.Category);

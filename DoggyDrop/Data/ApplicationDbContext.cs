@@ -18,6 +18,8 @@ namespace DoggyDrop.Data
 
         public DbSet<Place> Places { get; set; }
 
+        public DbSet<SavedPlace> SavedPlaces { get; set; }
+
         public DbSet<Dog> Dogs { get; set; }
 
         public DbSet<Walk> Walks { get; set; }
@@ -92,6 +94,18 @@ namespace DoggyDrop.Data
 
             builder.Entity<Place>()
                 .HasIndex(place => new { place.IsActive, place.Category });
+
+            builder.Entity<SavedPlace>()
+                .HasKey(saved => new { saved.UserId, saved.PlaceId });
+
+            // Deleting either owner or Place removes the relation; deactivation retains it.
+            builder.Entity<SavedPlace>()
+                .HasOne(saved => saved.User).WithMany()
+                .HasForeignKey(saved => saved.UserId).OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<SavedPlace>()
+                .HasOne(saved => saved.Place).WithMany()
+                .HasForeignKey(saved => saved.PlaceId).OnDelete(DeleteBehavior.Cascade);
 
             builder.Entity<UserNotification>()
                 .HasOne(n => n.User)

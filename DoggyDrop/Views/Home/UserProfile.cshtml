@@ -38,6 +38,7 @@
             <div class="profile-achievement__bar" role="progressbar" aria-label="Napredek do naslednje stopnje" aria-valuemin="0" aria-valuemax="100" aria-valuenow="@Model.Gamification.ProgressPercent"><span style="width: @Model.Gamification.ProgressPercent%"></span></div>
             <div class="profile-hero__actions" aria-label="Profil akcije">
                 <a class="profile-settings" asp-controller="Home" asp-action="Settings"><i class="bi bi-gear" aria-hidden="true"></i> Nastavitve</a>
+                <a class="profile-settings" asp-controller="SavedPlaces" asp-action="Index"><i class="bi bi-bookmark" aria-hidden="true"></i> Shranjene lokacije</a>
                 @if (User.IsInRole("Admin"))
                 {
                     <a asp-controller="Map" asp-action="Manage">Admin koši</a>

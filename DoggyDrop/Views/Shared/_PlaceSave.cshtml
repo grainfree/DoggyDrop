@@ -1,0 +1,23 @@
+@model DoggyDrop.ViewModels.PlaceSaveViewModel
+@if (User.Identity?.IsAuthenticated == true)
+{
+    <form class="place-save" asp-controller="SavedPlaces" asp-action="@(Model.IsSaved ? "Remove" : "Save")" method="post">
+        <input type="hidden" name="placeId" value="@Model.PlaceId" />
+        <input type="hidden" name="returnUrl" value="@Model.ReturnUrl" />
+        <button type="submit" class="place-save__button" aria-label="@(Model.IsSaved ? $"Shranjeno: {Model.Name} – odstrani iz shranjenih" : $"Shrani: {Model.Name}")">
+            <i class="bi @(Model.IsSaved ? "bi-bookmark-fill" : "bi-bookmark")" aria-hidden="true"></i>
+            @(Model.IsSaved ? "Shranjeno" : "Shrani")
+            @if (Model.IsSaved) { <span class="place-save__remove">· Odstrani</span> }
+        </button>
+    </form>
+}
+else
+{
+    <details class="place-save place-save--anonymous">
+        <summary class="place-save__button" aria-label="Shrani: @Model.Name"><i class="bi bi-bookmark" aria-hidden="true"></i> Shrani</summary>
+        <div class="place-save__login">
+            <p>Za shranjevanje lokacij se prijavi.</p>
+            <a asp-area="Identity" asp-page="/Account/Login" asp-route-returnUrl="@Model.ReturnUrl">Prijava</a>
+        </div>
+    </details>
+}

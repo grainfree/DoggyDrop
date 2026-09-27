@@ -1,0 +1,27 @@
+@model DoggyDrop.ViewModels.PlaceCardViewModel
+@using System.Globalization
+@{ var place = Model.Place; }
+<article class="place-discovery-card" data-category="@((int)place.Category)"
+         data-latitude="@place.Latitude.ToString(CultureInfo.InvariantCulture)"
+         data-longitude="@place.Longitude.ToString(CultureInfo.InvariantCulture)">
+    <span class="place-discovery-card__logo place-discovery-card__logo--@place.CategoryKey" aria-hidden="true">
+        <i class="bi @place.IconClass"></i>
+        @if (place.LogoUrl != null)
+        {
+            <img src="@place.LogoUrl" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" />
+        }
+    </span>
+    <div class="place-discovery-card__body">
+        <h2>@place.Name</h2>
+        <span class="place-discovery-card__category">@place.CategoryLabel</span>
+        @if (!string.IsNullOrWhiteSpace(place.Address)) { <p class="place-discovery-card__address">@place.Address</p> }
+        <span class="place-discovery-card__distance" hidden></span>
+    </div>
+    <div class="place-discovery-card__actions">
+        <a asp-controller="Map" asp-action="Index" asp-route-placeId="@place.Id"><i class="bi bi-geo-alt" aria-hidden="true"></i> Na zemljevidu</a>
+        <a asp-controller="Places" asp-action="Details" asp-route-id="@place.Id">Podrobnosti</a>
+    </div>
+    <div class="place-discovery-card__save">
+        <partial name="_PlaceSave" model="@(new DoggyDrop.ViewModels.PlaceSaveViewModel(place.Id, place.Name, Model.IsSaved, Model.ReturnUrl))" />
+    </div>
+</article>

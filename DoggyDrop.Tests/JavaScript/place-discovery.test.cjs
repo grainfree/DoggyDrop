@@ -66,18 +66,20 @@ test("all seven category filters select only their places without a location", (
 
 test("discovery page keeps explicit location permission, handoffs, fallback and empty states", () => {
     const view = read("DoggyDrop/Views/Places/Index.cshtml");
+    const card = read("DoggyDrop/Views/Shared/_PlaceCard.cshtml");
     const css = read("DoggyDrop/wwwroot/css/place-discovery.css");
     const home = read("DoggyDrop/Views/Map/Index.cshtml");
     assert.match(view, /id="discoveryLocate"/);
     assert.match(source, /locate\.addEventListener\("click",/);
     assert.match(source, /navigator\.geolocation\.getCurrentPosition/);
     assert.doesNotMatch(source, /localStorage|sessionStorage|fetch\(|XMLHttpRequest|watchPosition|console\./);
-    assert.match(view, /asp-controller="Map" asp-action="Index" asp-route-placeId="@place\.Id"/);
-    assert.match(view, /asp-controller="Places" asp-action="Details" asp-route-id="@place\.Id"/);
+    assert.match(view, /<partial name="_PlaceCard"/);
+    assert.match(card, /asp-controller="Map" asp-action="Index" asp-route-placeId="@place\.Id"/);
+    assert.match(card, /asp-controller="Places" asp-action="Details" asp-route-id="@place\.Id"/);
     assert.match(view, /Trenutno še ni dodanih lokacij/);
     assert.match(view, /V tej kategoriji trenutno ni lokacij/);
     assert.match(view, /aria-pressed="true"/);
-    assert.match(view, /place\.IconClass/);
+    assert.match(card, /place\.IconClass/);
     assert.match(view, /PlaceCategories\.All/);
     const presentation = read("DoggyDrop/Services/PlacePresentation.cs");
     for (const label of ["Veterinarji", "Trgovine", "Saloni", "Pasje šole", "Lokali", "Pasji parki", "Pasje plaže"])

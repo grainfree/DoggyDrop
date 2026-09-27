@@ -1,0 +1,16 @@
+.place-save { margin: 0; min-width: 0; }
+.place-save__button {
+    display: inline-flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 6px;
+    min-height: 44px; max-width: 100%; padding: 8px 10px; border: 1px solid #c5d7cc;
+    border-radius: 5px; background: #fff; color: #315b48; font: inherit; font-size: .88rem;
+    font-weight: 650; cursor: pointer; list-style: none;
+}
+.place-save__button::-webkit-details-marker { display: none; }
+.place-save__button:hover { background: #edf7f0; }
+.place-save__button:focus-visible, .place-save a:focus-visible { outline: 2px solid #246e52; outline-offset: 3px; }
+.place-save__remove { font-weight: 400; }
+.place-save__login { margin-top: 8px; padding: 10px; border: 1px solid #d5e3d9; border-radius: 5px; overflow-wrap: anywhere; }
+.place-save__login p { margin: 0; color: #536b60; }
+.place-save__login a { display: inline-flex; align-items: center; min-width: 44px; min-height: 44px; color: #246e52; font-weight: 700; }
+.place-discovery-card__save { grid-column: 1 / -1; margin-top: 7px; }
+.place-save-feedback { padding: 10px 12px; border-left: 3px solid #23805a; background: #eef8f1; }
