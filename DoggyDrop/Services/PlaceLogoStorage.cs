@@ -31,6 +31,10 @@ public static class PlaceLogoUploadPolicy
     }
 }
 
+// Internal cleanup identity, never persisted or projected to public Place models.
+// Resource/delivery type is always image/upload; the parser rejects all others.
+public sealed record PlaceLogoAsset(string CloudName, string PublicId);
+
 public static class PlaceLogoDelivery
 {
     private const string UploadPath = "/image/upload/";
@@ -39,7 +43,7 @@ public static class PlaceLogoDelivery
 
     public static string? ForMarker(string? url, string? expectedCloudName)
     {
-        if (string.IsNullOrWhiteSpace(expectedCloudName) ||
+        if (string.IsNullOrWhiteSpace(expectedCloudName) || !TryManagedAsset(url, expectedCloudName, out _) ||
             !Uri.TryCreate(url, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps ||
             !uri.Host.Equals("res.cloudinary.com", StringComparison.OrdinalIgnoreCase) ||
             !string.IsNullOrEmpty(uri.UserInfo) || !string.IsNullOrEmpty(uri.Fragment)) return null;
@@ -63,21 +67,61 @@ public static class PlaceLogoDelivery
 
     public static bool TryManagedId(string? rawUrl, out string publicId)
     {
-        publicId = string.Empty;
-        if (!Uri.TryCreate(rawUrl, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps ||
-            !uri.Host.Equals("res.cloudinary.com", StringComparison.OrdinalIgnoreCase) ||
-            !string.IsNullOrEmpty(uri.Query) || !string.IsNullOrEmpty(uri.Fragment) ||
-            !string.IsNullOrEmpty(uri.UserInfo)) return false;
-        var segments = uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
-        if (segments.Length != 8 || segments[1] != "image" || segments[2] != "upload" ||
-            segments[3].Length < 2 || segments[3][0] != 'v' ||
-            !segments[3].AsSpan(1).ToString().All(char.IsAsciiDigit) ||
-            segments[4] != "doggydrop" || segments[5] != "places" || segments[6] != "logos") return false;
-        var file = segments[7];
+        var asset = ResolveAsset(rawUrl, null, out _, allowDeliveryAliases: false);
+        publicId = asset?.PublicId ?? string.Empty;
+        return asset != null;
+    }
+
+    public static bool TryManagedAsset(string? url, string? expectedCloudName, out PlaceLogoAsset asset)
+    {
+        asset = ResolveAsset(url, expectedCloudName, out _)!;
+        return asset != null;
+    }
+
+    // The sole managed-path parser. Strict upload/public wrappers keep their existing
+    // policy; cleanup also recognizes the exact delivery transforms emitted by this app.
+    // Unresolved Cloudinary references must retain candidates, never prove absence.
+    internal static PlaceLogoAsset? ResolveAsset(string? rawUrl, string? expectedCloudName,
+        out bool uncertain, bool allowDeliveryAliases = true)
+    {
+        uncertain = false;
+        if (string.IsNullOrEmpty(rawUrl)) return null;
+        if (!Uri.TryCreate(rawUrl, UriKind.Absolute, out var uri))
+        {
+            uncertain = rawUrl.Contains("cloudinary.com", StringComparison.OrdinalIgnoreCase);
+            return null;
+        }
+        if (!uri.Host.Equals("res.cloudinary.com", StringComparison.OrdinalIgnoreCase)) return null;
+        uncertain = true;
+        if (uri.Scheme != Uri.UriSchemeHttps || !uri.IsDefaultPort || !string.IsNullOrEmpty(uri.UserInfo) ||
+            rawUrl.Any(char.IsWhiteSpace) || rawUrl.Any(char.IsControl) || rawUrl.Contains('\\')) return null;
+        if (!allowDeliveryAliases && (!string.IsNullOrEmpty(uri.Query) || !string.IsNullOrEmpty(uri.Fragment))) return null;
+
+        // Uri normalizes dot segments. Inspect the original path as well so encoded
+        // separators, traversal, duplicate slashes or normalized paths cannot pass.
+        var authorityEnd = rawUrl.IndexOfAny(['/', '?', '#'], rawUrl.IndexOf("://", StringComparison.Ordinal) + 3);
+        if (authorityEnd < 0 || rawUrl[authorityEnd] != '/') return null;
+        var pathEnd = rawUrl.IndexOfAny(['?', '#'], authorityEnd);
+        var path = pathEnd < 0 ? rawUrl[authorityEnd..] : rawUrl[authorityEnd..pathEnd];
+        if (path.Contains('%') || path != uri.AbsolutePath) return null;
+        var segments = path[1..].Split('/');
+        if (segments.Length < 8 || segments[0].Length is < 1 or > 128 ||
+            !segments[0].All(c => char.IsAsciiLetterOrDigit(c) || c is '_' or '-') ||
+            (expectedCloudName != null && segments[0] != expectedCloudName) ||
+            segments[1] != "image" || segments[2] != "upload") return null;
+        var versionIndex = 3;
+        if (allowDeliveryAliases && segments[3] == MarkerTransform.TrimEnd('/') &&
+            segments[4] == SafeTransform.TrimEnd('/')) versionIndex = 5;
+        else if (allowDeliveryAliases && segments[3] == SafeTransform.TrimEnd('/')) versionIndex = 4;
+        if (segments.Length != versionIndex + 5 || segments[versionIndex].Length < 2 ||
+            segments[versionIndex][0] != 'v' || !segments[versionIndex][1..].All(char.IsAsciiDigit) ||
+            segments[versionIndex + 1] != "doggydrop" || segments[versionIndex + 2] != "places" ||
+            segments[versionIndex + 3] != "logos") return null;
+        var file = segments[versionIndex + 4];
         if (!file.EndsWith(".webp", StringComparison.Ordinal) ||
-            !Guid.TryParseExact(file[..^5], "N", out _)) return false;
-        publicId = $"doggydrop/places/logos/{file[..^5]}";
-        return true;
+            file.Length != 37 || !Guid.TryParseExact(file[..^5], "N", out _)) return null;
+        uncertain = false;
+        return new PlaceLogoAsset(segments[0], $"doggydrop/places/logos/{file[..^5]}");
     }
 }
 
@@ -140,9 +184,9 @@ public sealed class CloudinaryPlaceLogoStorage(
         if (!optimized.WasOptimized) return null;
         var id = $"doggydrop/places/logos/{Guid.NewGuid():N}";
         var result = await cloudinary.UploadAsync(content, id);
-        if (result.Created && result.PublicId == id &&
-            PlaceLogoDelivery.TryManagedId(result.SecureUrl, out var uploadedId) && uploadedId == id &&
-            IsOwnCloud(result.SecureUrl))
+        var uploaded = string.IsNullOrEmpty(cloudinary.CloudName) ? null :
+            PlaceLogoDelivery.ResolveAsset(result.SecureUrl, cloudinary.CloudName, out _, allowDeliveryAliases: false);
+        if (result.Created && result.PublicId == id && uploaded?.PublicId == id)
             return result.SecureUrl;
 
         if (result.Created && result.PublicId == id)
@@ -156,11 +200,8 @@ public sealed class CloudinaryPlaceLogoStorage(
 
     public async Task DeleteManagedAsync(string? url)
     {
-        if (!PlaceLogoDelivery.TryManagedId(url, out var publicId)) return;
-        if (!IsOwnCloud(url)) return;
-        await cloudinary.DeleteAsync(publicId);
+        if (string.IsNullOrEmpty(cloudinary.CloudName) ||
+            !PlaceLogoDelivery.TryManagedAsset(url, cloudinary.CloudName, out var asset)) return;
+        await cloudinary.DeleteAsync(asset.PublicId);
     }
-
-    private bool IsOwnCloud(string? url) => Uri.TryCreate(url, UriKind.Absolute, out var uri) &&
-        uri.AbsolutePath.StartsWith($"/{cloudinary.CloudName}/image/upload/", StringComparison.Ordinal);
 }

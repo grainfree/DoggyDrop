@@ -1,0 +1,26 @@
+@model DoggyDrop.Services.BulkLogoPage
+@using DoggyDrop.Services
+@{ ViewData["Title"] = "Skupinski logotip lokacij"; }
+@section Styles {
+    <link rel="stylesheet" href="~/css/places.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/data-admin.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/bulk-place-logo.css" asp-append-version="true" />
+}
+<main class="places-page data-admin bulk-place-logo">
+    <h1>Nastavi logotip za @Model.Places.Count lokacij</h1>
+    <p>Isti logotip bo uporabljen za vse izbrane lokacije. Obstoječi logotipi bodo zamenjani. Izbor ne vključuje drugih strani.</p>
+    <details><summary>Preglej izbrane lokacije (@Model.Places.Count)</summary>
+        <ul tabindex="0" aria-label="Izbrane lokacije">@foreach (var place in Model.Places) { <li>@place.Name · @PlaceCategories.Label(place.Category) · #@place.Id</li> }</ul>
+    </details>
+    <p>Potrditev velja 10 minut. Če se katera od lokacij medtem spremeni, moraš ponoviti izbor.</p>
+    <form asp-action="Apply" method="post" enctype="multipart/form-data" class="places-form">
+        <input type="hidden" name="token" value="@Model.Token" />
+        <label class="places-field" for="bulkLogoFile">En logotip za vse izbrane lokacije</label>
+        <input id="bulkLogoFile" name="file" type="file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" required aria-describedby="bulkLogoHelp" />
+        <p id="bulkLogoHelp">PNG, JPG ali WebP do 5 MB; največ 4096 × 4096 in 16 milijonov pik. Slika bo ob potrditvi preverjena in optimizirana.</p>
+        <figure id="bulkLogoPreview" hidden><img alt="Predogled izbranega logotipa" /><figcaption>Predogled v brskalniku. Slika še ni naložena.</figcaption></figure>
+        <div class="bulk-logo-actions"><button type="submit" class="places-button places-button--primary">Potrdi in nastavi logotip za @Model.Places.Count lokacij</button>
+            <a asp-controller="AdminPlaces" asp-action="Index" class="places-button">Prekliči</a></div>
+    </form>
+</main>
+@section Scripts { <script src="~/js/bulk-place-logo.js" asp-append-version="true"></script> }

@@ -22,5 +22,9 @@
         </select>
     </label>
     <button class="places-button" type="submit">Preglej izbor</button>
+    @if (Model == BulkTarget.Places)
+    {
+        <button class="places-button" type="submit" asp-controller="AdminPlaceLogos" asp-action="Preview" formnovalidate>Nastavi logotip</button>
+    }
     <p>Označi največ 100 prikazanih zapisov. Spremembe potrdiš v naslednjem koraku. Izbor ne vključuje drugih strani.</p>
 </form>

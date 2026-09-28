@@ -75,6 +75,7 @@ else
     builder.Services.AddScoped<IPlaceLogoStorage, MissingPlaceLogoStorage>();
 }
 builder.Services.AddScoped<IPlaceLogoReferenceReader, PlaceLogoReferenceReader>();
+builder.Services.AddScoped<BulkPlaceLogos>();
 
 if (r2Settings.IsConfigured)
 {

@@ -23,6 +23,7 @@
         <p class="places-feedback" role="status">@success</p>
     }
     <form method="get" class="places-filters">
+        <label>Ime lokacije<input type="search" name="q" value="@ViewBag.Query" maxlength="120" placeholder="Poišči po imenu" /></label>
         <label>Stanje
             <select name="state">
                 <option value="" selected="@(string.IsNullOrEmpty(state))">Vse</option>
@@ -73,8 +74,8 @@
         </div>
     }
     <nav class="data-pages" aria-label="Strani lokacij">
-        @if (ViewBag.Page > 1) { <a asp-route-page="@(ViewBag.Page - 1)" asp-route-state="@state" asp-route-category="@category" asp-route-sourceId="@ViewBag.SourceId" asp-route-noSource="@ViewBag.NoSource">Prejšnja</a> }
+        @if (ViewBag.Page > 1) { <a asp-route-page="@(ViewBag.Page - 1)" asp-route-state="@state" asp-route-category="@category" asp-route-sourceId="@ViewBag.SourceId" asp-route-noSource="@ViewBag.NoSource" asp-route-q="@ViewBag.Query">Prejšnja</a> }
         <span>Stran @ViewBag.Page</span>
-        @if (ViewBag.HasNext == true) { <a asp-route-page="@(ViewBag.Page + 1)" asp-route-state="@state" asp-route-category="@category" asp-route-sourceId="@ViewBag.SourceId" asp-route-noSource="@ViewBag.NoSource">Naslednja</a> }
+        @if (ViewBag.HasNext == true) { <a asp-route-page="@(ViewBag.Page + 1)" asp-route-state="@state" asp-route-category="@category" asp-route-sourceId="@ViewBag.SourceId" asp-route-noSource="@ViewBag.NoSource" asp-route-q="@ViewBag.Query">Naslednja</a> }
     </nav>
 </main>

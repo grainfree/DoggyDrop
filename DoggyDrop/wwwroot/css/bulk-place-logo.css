@@ -1,0 +1,11 @@
+.bulk-place-logo { overflow-wrap: anywhere; }
+.bulk-place-logo .places-form { max-width: 720px; margin-top: 24px; }
+.bulk-place-logo input[type=file] { width: 100%; min-width: 0; }
+.bulk-place-logo details { margin-block: 20px; }
+.bulk-place-logo summary { cursor: pointer; padding-block: 12px; }
+.bulk-place-logo :is(summary, ul):focus-visible { outline: 2px solid #246e52; outline-offset: 3px; }
+.bulk-place-logo ul { max-height: 280px; overflow: auto; padding-left: 24px; }
+.bulk-place-logo figure { margin: 20px 0; }
+.bulk-place-logo figure img { max-width: 100%; width: 160px; height: 160px; object-fit: contain; }
+.bulk-logo-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
+.bulk-logo-actions button { max-width: 100%; white-space: normal; }

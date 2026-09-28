@@ -17,10 +17,16 @@ public sealed class AdminPlacesController(
     private const string EditConflictMessage = "Lokacija je bila med urejanjem spremenjena. Osveži podatke in poskusi znova.";
 
     [HttpGet]
-    public async Task<IActionResult> Index(string? state, PlaceCategory? category, int? sourceId = null, bool noSource = false, int page = 1)
+    public async Task<IActionResult> Index(string? state, PlaceCategory? category, int? sourceId = null, bool noSource = false, int page = 1, string? q = null)
     {
-        if (page is < 1 or > 100000 || sourceId is <= 0) return BadRequest();
+        q = q?.Trim();
+        if (page is < 1 or > 100000 || sourceId is <= 0 || q?.Length > 120) return BadRequest();
         var query = context.Places.AsNoTracking();
+        if (!string.IsNullOrEmpty(q))
+        {
+            var search = q.ToLowerInvariant();
+            query = query.Where(place => place.Name.ToLower().Contains(search));
+        }
         if (state == "active") query = query.Where(place => place.IsActive);
         if (state == "inactive") query = query.Where(place => !place.IsActive);
         if (category is { } selected && Enum.IsDefined(selected))
@@ -30,6 +36,7 @@ public sealed class AdminPlacesController(
         else if (sourceId.HasValue) query = query.Where(place => place.DataSourceId == sourceId);
 
         ViewBag.State = state;
+        ViewBag.Query = q;
         ViewBag.Category = category;
         ViewBag.SourceId = sourceId; ViewBag.NoSource = noSource; ViewBag.Page = page;
         await LoadSourcesAsync();
@@ -206,10 +213,10 @@ public sealed class AdminPlacesController(
 
     private async Task DeleteLogoBestEffortAsync(string? url, bool checkReferences = false)
     {
-        if (!PlaceLogoDelivery.TryManagedId(url, out _)) return;
+        if (string.IsNullOrEmpty(logoCloud.Value) || !PlaceLogoDelivery.TryManagedAsset(url, logoCloud.Value, out _)) return;
         try
         {
-            if (checkReferences && await context.Places.AsNoTracking().AnyAsync(place => place.LogoUrl == url)) return;
+            if (checkReferences && await logoReferences.IsReferencedAsync(url!)) return;
             await logos.DeleteManagedAsync(url);
         }
         catch (Exception exception) { logger.LogWarning(exception, "Place logo cleanup failed."); }
@@ -217,7 +224,7 @@ public sealed class AdminPlacesController(
 
     private async Task CleanupAfterFailedSaveAsync(string? newLogo)
     {
-        if (!PlaceLogoDelivery.TryManagedId(newLogo, out _)) return;
+        if (string.IsNullOrEmpty(logoCloud.Value) || !PlaceLogoDelivery.TryManagedAsset(newLogo, logoCloud.Value, out _)) return;
         try
         {
             if (!await logoReferences.IsReferencedAsync(newLogo!))
