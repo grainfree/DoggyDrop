@@ -846,7 +846,7 @@
                 {
                     <div class="walk-comment">
                         <div>
-                            <strong>@(comment.User?.DisplayName ?? comment.User?.Email ?? "DoggyDrop uporabnik")</strong>
+                            <strong>@DoggyDrop.Services.PublicUserPresentation.Name(comment.User)</strong>
                             <span>@comment.CreatedAt.ToLocalTime().ToString("dd.MM. HH:mm")</span>
                         </div>
                         <p>@comment.Body</p>

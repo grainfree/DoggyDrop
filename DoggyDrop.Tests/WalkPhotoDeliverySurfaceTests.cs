@@ -24,7 +24,7 @@ public sealed class WalkPhotoDeliverySurfaceTests : IDisposable
     private readonly string _db = Path.Combine(Path.GetTempPath(), $"doggydrop-photo-delivery-{Guid.NewGuid():N}.db");
 
     [Fact]
-    public async Task WalkPhotoApiResponses_UseTransformedUrlForOwnerAndOtherViewer()
+    public async Task WalkPhotoApiResponses_UseTransformedUrlOnlyForOwner()
     {
         await using var db = Context();
         await db.Database.EnsureCreatedAsync();
@@ -41,8 +41,10 @@ public sealed class WalkPhotoDeliverySurfaceTests : IDisposable
         var owner = Controller(db, "owner");
         var viewer = Controller(db, "viewer");
         AssertSafe(Assert.IsType<OkObjectResult>(await owner.Recent()));
-        AssertSafe(Assert.IsType<OkObjectResult>(await viewer.Photos(walk.Id)));
-        AssertSafe(Assert.IsType<OkObjectResult>(await viewer.Social(walk.Id)));
+        AssertSafe(Assert.IsType<OkObjectResult>(await owner.Photos(walk.Id)));
+        AssertSafe(Assert.IsType<OkObjectResult>(await owner.Social(walk.Id)));
+        Assert.IsType<NotFoundResult>(await viewer.Photos(walk.Id));
+        Assert.IsType<NotFoundResult>(await viewer.Social(walk.Id));
 
         var community = new HomeController(NullLogger<HomeController>.Instance, UserManager(db), null!, null!, db,
             null!, null!, new EmptyLeaderboards(), null!, null!);
@@ -55,8 +57,11 @@ public sealed class WalkPhotoDeliverySurfaceTests : IDisposable
         };
         var view = Assert.IsType<ViewResult>(await community.Community());
         var model = Assert.IsType<CommunityViewModel>(view.Model);
-        Assert.Equal(new WalkPhoto { ImageUrl = Original }.DeliveryUrl, Assert.Single(model.PhotoFeed).ImageUrl);
-        Assert.Equal(new WalkPhoto { ImageUrl = Original }.DeliveryUrl, Assert.Single(model.RecentWalks).CoverPhotoUrl);
+        Assert.Empty(model.PhotoFeed);
+        Assert.Empty(model.RecentWalks);
+        Assert.Empty(model.FriendsWalks);
+        Assert.Empty(model.WeeklyLeaders);
+        Assert.Equal(1, model.WalksThisWeek);
     }
 
     private static void AssertSafe(OkObjectResult result)

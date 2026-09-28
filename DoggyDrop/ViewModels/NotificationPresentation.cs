@@ -1,5 +1,6 @@
 using System.Globalization;
 using DoggyDrop.Models;
+using DoggyDrop.Services;
 
 namespace DoggyDrop.ViewModels;
 
@@ -9,6 +10,7 @@ public static class NotificationPresentation
 
     public static string Title(UserNotification notification)
     {
+        if (NotificationPrivacy.NeutralTitle(notification.Type) is { } safeTitle) return safeTitle;
         if (notification.Type == "BinApproved") return "Tvoj predlog koša je odobren";
         if (notification.Title == "First walk") return "Prvi sprehod";
         return TryCanonicalLevel(notification, out var level, out var rank)
@@ -18,6 +20,7 @@ public static class NotificationPresentation
 
     public static string Body(UserNotification notification)
     {
+        if (NotificationPrivacy.NeutralBody(notification.Type) is { } safeBody) return safeBody;
         if (TryCanonicalLevel(notification, out var level, out var rank) &&
             notification.Body == $"Dosegel si level {level} in naslov {rank}.")
         {
@@ -26,6 +29,8 @@ public static class NotificationPresentation
 
         return notification.Body;
     }
+
+    public static string? Link(UserNotification notification) => NotificationPrivacy.Link(notification.Type, notification.LinkUrl);
 
     public static string Time(DateTime createdAtUtc, DateTime nowUtc)
     {

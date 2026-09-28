@@ -1,0 +1,27 @@
+@page
+@model DoggyDrop.Areas.Identity.Pages.Account.Manage.DeletePersonalDataModel
+@{
+    ViewData["Title"] = "Izbris računa";
+    ViewData["ActivePage"] = ManageNavPages.PersonalData;
+}
+<h3>@ViewData["Title"]</h3>
+<div class="alert alert-warning" role="alert">
+    <p>Izbris računa je trajen. Odstranjeni bodo profil, psi, sprehodi in GPS točke, shranjeni kraji, prijateljstva ter drugi podatki računa v aplikaciji.</p>
+    <p>Potrjeni javni koši ostanejo brez povezave z računom. Nepotrjeni predlogi se odstranijo. Shranjene fotografije poskusimo odstraniti, če jih drugi zapisi ne uporabljajo; ob napaki ponudnika lahko ostanejo v shrambi. Izbris ne pomeni takojšnjega izbrisa varnostnih kopij ponudnikov.</p>
+</div>
+<p>Pred izbrisom lahko <a asp-page="./PersonalData">preneseš svoje podatke</a>.</p>
+<form method="post">
+    <div asp-validation-summary="All" class="text-danger" role="alert"></div>
+    @if (Model.RequirePassword)
+    {
+        <div class="mb-3">
+            <label asp-for="Input.Password">Geslo</label>
+            <input asp-for="Input.Password" class="form-control" autocomplete="current-password" />
+        </div>
+    }
+    <div class="form-check mb-3">
+        <input asp-for="Input.ConfirmDeletion" class="form-check-input" />
+        <label asp-for="Input.ConfirmDeletion" class="form-check-label">Potrjujem trajni izbris svojega računa in podatkov.</label>
+    </div>
+    <button type="submit" class="btn btn-danger">Trajno izbriši račun</button>
+</form>

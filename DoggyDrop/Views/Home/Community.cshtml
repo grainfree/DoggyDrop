@@ -45,9 +45,7 @@
             @foreach (var board in new[] {
                 (Title: "Kilometri", Entries: Model.LocalLeaderboards.MostDistance, Unit: "km"),
                 (Title: "Odkritja", Entries: Model.LocalLeaderboards.MostDiscoveries, Unit: "odkritij"),
-                (Title: "Prispevki", Entries: Model.LocalLeaderboards.MostHelpful, Unit: "koristnosti"),
-                (Title: "Fotografije", Entries: Model.LocalLeaderboards.BestPhotos, Unit: "odzivov"),
-                (Title: "Psi tedna", Entries: Model.LocalLeaderboards.TopDogsThisWeek, Unit: "km") })
+                (Title: "Prispevki", Entries: Model.LocalLeaderboards.MostHelpful, Unit: "koristnosti") })
             {
                 <article>
                     <h3>@board.Title</h3>
@@ -67,72 +65,10 @@
     </section>
 
     <section class="community-section">
-        <div class="community-section__header">
-            <h2>Lestvica zadnjih 7 dni</h2>
-            <span>Top psi</span>
-        </div>
-
-        @if (Model.WeeklyLeaders.Count == 0)
-        {
-            <article class="community-empty community-empty--founder">
-                <h3>Začni lokalno lestvico</h3>
-                <p>Zaključi prvi sprehod v svojem kraju in odpri lestvico zadnjih 7 dni, preden jo napolni skupnost.</p>
-                <a class="btn btn-success rounded-pill fw-semibold" asp-controller="Walks" asp-action="Planner">Začni prvi sprehod</a>
-            </article>
-        }
-        else
-        {
-            <div class="community-leaderboard">
-                @for (var i = 0; i < Model.WeeklyLeaders.Count; i++)
-                {
-                    var leader = Model.WeeklyLeaders[i];
-                    @if (leader.OwnerId == viewerId && viewerId != null)
-                    {
-                    <a class="community-leader" asp-controller="Dogs" asp-action="Details" asp-route-id="@leader.DogId">
-                        <strong aria-label="Mesto @(i + 1)">@(i + 1).</strong>
-                        <div class="community-avatar">
-                            @if (!string.IsNullOrWhiteSpace(leader.DogPhotoUrl))
-                            {
-                                <img src="@leader.DogPhotoUrl" alt="@leader.DogName" />
-                            }
-                            else
-                            {
-                                <span>@leader.DogName.Substring(0, 1).ToUpperInvariant()</span>
-                            }
-                        </div>
-                        <div>
-                            <span>@leader.DogName</span>
-                            <small>@leader.OwnerName · @leader.WalkCount sprehodov</small>
-                        </div>
-                        <em>@leader.WeeklyDistanceKm.ToString("0.0", sl) km</em>
-                    </a>
-                    }
-                    else
-                    {
-                    <div class="community-leader">
-                        <strong aria-label="Mesto @(i + 1)">@(i + 1).</strong>
-                        <div class="community-avatar">
-                            @if (!string.IsNullOrWhiteSpace(leader.DogPhotoUrl))
-                            {
-                                <img src="@leader.DogPhotoUrl" alt="@leader.DogName" />
-                            }
-                            else
-                            {
-                                <span>@leader.DogName.Substring(0, 1).ToUpperInvariant()</span>
-                            }
-                        </div>
-                        <div>
-                            <span>@leader.DogName</span>
-                            <small>@leader.OwnerName · @leader.WalkCount sprehodov</small>
-                        </div>
-                        <em>@leader.WeeklyDistanceKm.ToString("0.0", sl) km</em>
-                    </div>
-                    }
-                }
-            </div>
-        }
+        <div class="community-section__header"><h2>Tvoji zasebni sprehodi</h2></div>
+        <p>Podrobnosti, poti in fotografije sprehodov so dostopne samo lastniku. Prijateljstvo jih ne deli s skupnostjo.</p>
+        <a class="btn btn-outline-success rounded-pill" asp-controller="Walks" asp-action="Index">Moji sprehodi</a>
     </section>
-
     <section class="community-section">
         <div class="community-section__header">
             <h2>Pasja druženja</h2>
@@ -144,85 +80,6 @@
             <a class="btn btn-success rounded-pill fw-semibold" asp-controller="Playdates" asp-action="Index">Odpri druženja</a>
         </article>
     </section>
-
-    <section class="community-section">
-        <div class="community-section__header">
-            <h2>Sprehodi prijateljev</h2>
-            <span>Prijatelji</span>
-        </div>
-
-        @if (Model.FriendsWalks.Count == 0)
-        {
-            <article class="community-empty community-empty--social">
-                <h3><i class="bi bi-person-plus" aria-hidden="true"></i> Povabi prijatelja</h3>
-                <p>Njegovi sprehodi se bodo prikazali tukaj.</p>
-                <a class="btn btn-success rounded-pill fw-semibold" asp-controller="Friends" asp-action="Index">Odpri prijatelje</a>
-            </article>
-        }
-        else
-        {
-            <div class="community-feed">
-                @foreach (var walk in Model.FriendsWalks)
-                {
-                    <partial name="_CommunityWalkCard" model="walk" />
-                }
-            </div>
-        }
-    </section>
-
-    <section class="community-section">
-        <div class="community-section__header">
-            <h2>Fotografije skupnosti</h2>
-            <span>Sprehodi v slikah</span>
-        </div>
-
-        @if (Model.PhotoFeed.Count == 0)
-        {
-            <article class="community-empty community-empty--founder">
-                <h3>Prva fotka čaka nate</h3>
-                <p>Dodaj fotografijo sprehoda in jo deli s skupnostjo.</p>
-                <a class="btn btn-success rounded-pill fw-semibold" asp-controller="Walks" asp-action="Index">Odpri sprehode</a>
-            </article>
-        }
-        else
-        {
-            <div class="community-photo-feed">
-                @foreach (var photo in Model.PhotoFeed)
-                {
-                    <article class="community-photo-card">
-                        <img src="@DoggyDrop.Services.CloudinaryImageDelivery.ForDisplay(photo.ImageUrl)" alt="Fotografija sprehoda @photo.DogName" />
-                        <div class="community-photo-card__overlay">
-                            <strong>@photo.DogName</strong>
-                            <span>@photo.OwnerName</span>
-                            @if (!string.IsNullOrWhiteSpace(photo.StopName))
-                            {
-                                <small>@photo.StopName</small>
-                            }
-                            <small>@(string.IsNullOrWhiteSpace(photo.Caption) ? photo.CreatedAt.ToLocalTime().ToString("dd.MM. HH:mm") : photo.Caption)</small>
-                            <div class="community-reaction-strip">
-                                @foreach (var reaction in new[] {
-                                    new { Type = "paw", Label = "🐾" },
-                                    new { Type = "heart", Label = "♥" },
-                                    new { Type = "fire", Label = "🔥" },
-                                    new { Type = "cute-dog", Label = "Prisrčno" }
-                                })
-                                {
-                                    var count = photo.ReactionCounts.TryGetValue(reaction.Type, out var reactionCount) ? reactionCount : 0;
-                                    <form class="community-photo-card__reaction" asp-controller="Walks" asp-action="TogglePhotoReaction" asp-route-id="@photo.WalkId" asp-route-photoId="@photo.PhotoId" method="post">
-                                        @Html.AntiForgeryToken()
-                                        <input type="hidden" name="reactionType" value="@reaction.Type" />
-                                        <input type="hidden" name="returnUrl" value="@Context.Request.Path@Context.Request.QueryString" />
-                                        <button type="submit" class="@(photo.CurrentUserReactionType == reaction.Type ? "is-liked" : string.Empty)">@reaction.Label @count</button>
-                                    </form>
-                                }
-                            </div>
-                        </div>
-                    </article>
-                }
-            </div>
-        }
-    </section>
-
     <section class="community-section">
         <div class="community-section__header">
             <h2>Galerija košev</h2>
@@ -249,31 +106,6 @@
                             <span>@(string.IsNullOrWhiteSpace(bin.ContributorName) ? "DoggyDrop skupnost" : bin.ContributorName)</span>
                         </div>
                     </a>
-                }
-            </div>
-        }
-    </section>
-
-    <section class="community-section">
-        <div class="community-section__header">
-            <h2>Feed sprehodov</h2>
-            <span>Najnovejše</span>
-        </div>
-
-        @if (Model.RecentWalks.Count == 0)
-        {
-            <article class="community-empty community-empty--founder">
-                <h3>Začni zgodbo skupnosti</h3>
-                <p>Zaključi sprehod in DoggyDrop ga bo prikazal kot prvo aktivnost tvoje skupnosti.</p>
-                <a class="btn btn-success rounded-pill fw-semibold" asp-controller="Walks" asp-action="Index">Začni sprehod</a>
-            </article>
-        }
-        else
-        {
-            <div class="community-feed">
-                @foreach (var walk in Model.RecentWalks)
-                {
-                    <partial name="_CommunityWalkCard" model="walk" />
                 }
             </div>
         }

@@ -29,11 +29,8 @@ namespace DoggyDrop.Services
         public async Task<LocalLeaderboardBoard> BuildAsync(string? cityKey = null)
         {
             var city = CityAnchors.FirstOrDefault(item => item.Key == NormalizeCity(cityKey)) ?? CityAnchors[0];
-            var weekStart = DateTime.UtcNow.Date.AddDays(-6);
 
             var walks = await _context.Walks
-                .Include(walk => walk.Dog)
-                .Include(walk => walk.Owner)
                 .Include(walk => walk.Points)
                 .Where(walk => walk.Status == "Completed")
                 .ToListAsync();
@@ -54,26 +51,16 @@ namespace DoggyDrop.Services
                 .Where(visit => IsNearCity(city, visit.Latitude, visit.Longitude))
                 .ToList();
 
-            var photos = await _context.WalkPhotos
-                .Include(photo => photo.Walk)
-                    .ThenInclude(walk => walk!.Dog)
-                .Include(photo => photo.User)
-                .Include(photo => photo.Reactions)
-                .ToListAsync();
-            var cityPhotos = photos
-                .Where(photo => photo.Walk != null && IsNearCity(city, GetWalkLatitude(photo.Walk), GetWalkLongitude(photo.Walk)))
-                .ToList();
-
             return new LocalLeaderboardBoard
             {
                 CityKey = city.Key,
                 CityName = city.Name,
                 MostDistance = Rank(cityWalks
-                    .GroupBy(walk => new { walk.OwnerId, OwnerName = GetDisplayName(walk.Owner) })
+                    .GroupBy(walk => walk.OwnerId)
                     .Select(group => new LocalLeaderboardEntry
                     {
-                        UserId = group.Key.OwnerId,
-                        Label = group.Key.OwnerName,
+                        // A distance rank has no linkable user/dog/activity identity.
+                        Label = "Uporabnik",
                         SubLabel = $"{group.Count()} sprehodov",
                         Score = group.Sum(walk => walk.DistanceMeters) / 1000,
                         ScoreText = $"{group.Sum(walk => walk.DistanceMeters) / 1000:0.0} km"
@@ -90,37 +77,9 @@ namespace DoggyDrop.Services
                         Score = group.Sum(bin => bin.UsefulVotes + bin.UsedCount),
                         ScoreText = $"{group.Sum(bin => bin.UsefulVotes + bin.UsedCount):0} helpful"
                     })),
-                BestPhotos = Rank(cityPhotos
-                    .GroupBy(photo => new { photo.UserId, OwnerName = GetDisplayName(photo.User) })
-                    .Select(group => new LocalLeaderboardEntry
-                    {
-                        UserId = group.Key.UserId,
-                        Label = group.Key.OwnerName,
-                        SubLabel = $"{group.Count()} fotografij",
-                        ImageUrl = group.OrderByDescending(photo => photo.Reactions?.Count ?? 0).FirstOrDefault()?.DeliveryUrl,
-                        Score = group.Sum(photo => photo.Reactions?.Count ?? 0),
-                        ScoreText = $"{group.Sum(photo => photo.Reactions?.Count ?? 0):0} tack"
-                    })),
-                TopDogsThisWeek = Rank(cityWalks
-                    .Where(walk => walk.StartedAt >= weekStart)
-                    .GroupBy(walk => new
-                    {
-                        walk.DogId,
-                        walk.OwnerId,
-                        DogName = walk.Dog?.Name ?? "Pes",
-                        DogPhotoUrl = walk.Dog?.PhotoUrl,
-                        OwnerName = GetDisplayName(walk.Owner)
-                    })
-                    .Select(group => new LocalLeaderboardEntry
-                    {
-                        DogId = group.Key.DogId,
-                        UserId = group.Key.OwnerId,
-                        Label = group.Key.DogName,
-                        SubLabel = $"{group.Key.OwnerName} · {group.Count()} sprehodov",
-                        ImageUrl = group.Key.DogPhotoUrl,
-                        Score = group.Sum(walk => walk.DistanceMeters) / 1000,
-                        ScoreText = $"{group.Sum(walk => walk.DistanceMeters) / 1000:0.0} km"
-                    }))
+                // No explicit sharing model: never publish walk photos or dog-specific activity.
+                BestPhotos = [],
+                TopDogsThisWeek = []
             };
         }
 
@@ -209,12 +168,7 @@ namespace DoggyDrop.Services
 
         private static string GetDisplayName(ApplicationUser? user)
         {
-            if (!string.IsNullOrWhiteSpace(user?.DisplayName))
-            {
-                return user.DisplayName;
-            }
-
-            return user?.Email ?? user?.UserName ?? "DoggyDrop uporabnik";
+            return PublicUserPresentation.Name(user);
         }
 
         private static double GetDistanceKm(double lat1, double lng1, double lat2, double lng2)

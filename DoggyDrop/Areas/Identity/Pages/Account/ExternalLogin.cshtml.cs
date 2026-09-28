@@ -172,7 +172,7 @@ public class ExternalLoginModel : PageModel
     {
         var displayName = info.Principal.FindFirstValue("name")
             ?? info.Principal.FindFirstValue(ClaimTypes.Name)
-            ?? email.Split('@')[0];
+            ?? "Uporabnik";
 
         var user = new ApplicationUser
         {

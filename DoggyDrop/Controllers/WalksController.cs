@@ -149,7 +149,7 @@ namespace DoggyDrop.Controllers
             var weeklyCompletedWalks = await _context.Walks
                 .Include(walk => walk.Dog)
                 .Include(walk => walk.Owner)
-                .Where(walk => walk.Status == "Completed" && walk.StartedAt >= weekStart)
+                .Where(walk => walk.OwnerId == userId && walk.Status == "Completed" && walk.StartedAt >= weekStart)
                 .ToListAsync();
             var contributorWindowStart = DateTime.UtcNow.Date.AddDays(-27);
             var recentContributorBins = await _context.TrashBins
@@ -394,7 +394,6 @@ namespace DoggyDrop.Controllers
             _context.Walks.Add(walk);
             await _context.SaveChangesAsync();
             await transaction.CommitAsync();
-            await NotifyFriendsAboutWalkStartAsync(walk.Id, userId, dogId, plannedWalk?.Title);
 
             return RedirectToAction(nameof(Active), new { id = walk.Id });
         }
@@ -523,7 +522,6 @@ namespace DoggyDrop.Controllers
                 nameof(PlannedWalk),
                 plan.Id.ToString(),
                 "Nova pot");
-            await NotifyFriendsAboutWalkStartAsync(walk.Id, userId, dogId, plan.Title);
 
             TempData["SuccessMessage"] = "Sprehod je zagnan s planirano potjo.";
             return RedirectToAction(nameof(Active), new { id = walk.Id });
@@ -768,7 +766,7 @@ namespace DoggyDrop.Controllers
                 .Include(w => w.Photos!)
                     .ThenInclude(photo => photo.PlannedWalkStop)
                 .AsSplitQuery()
-                .FirstOrDefaultAsync(w => w.Id == id && (w.OwnerId == userId || w.Status == "Completed"));
+                .FirstOrDefaultAsync(w => w.Id == id && w.OwnerId == userId);
 
             if (walk == null)
             {
@@ -788,14 +786,6 @@ namespace DoggyDrop.Controllers
             if (walk.Status != "Completed")
             {
                 return NotFound();
-            }
-
-            if (walk.OwnerId != userId)
-            {
-                walk.Points = [];
-                walk.PlannedWalk = null;
-                walk.StopCompletions = [];
-                foreach (var photo in walk.Photos ?? []) photo.PlannedWalkStop = null;
             }
 
             if (walk.OwnerId == userId && TempData.TryGetValue(GetWalkRewardTempDataKey(walk.Id), out var rewardResultJson))
@@ -938,20 +928,15 @@ namespace DoggyDrop.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> DeletePhoto(int id, int photoId)
+        public async Task<IActionResult> DeletePhoto(int id, int photoId, [FromServices] WalkDataDeletion deletion)
         {
             var userId = _userManager.GetUserId(User);
-            var photo = await _context.WalkPhotos
-                .Include(item => item.Walk)
-                .FirstOrDefaultAsync(item => item.Id == photoId && item.WalkId == id && item.UserId == userId);
-
-            if (photo == null)
+            if (string.IsNullOrEmpty(userId)) return Challenge();
+            if (!await deletion.DeletePhotoAsync(userId, id, photoId))
             {
                 return NotFound();
             }
 
-            _context.WalkPhotos.Remove(photo);
-            await _context.SaveChangesAsync();
             TempData["SuccessMessage"] = "Fotografija je odstranjena.";
             return RedirectToAction(nameof(Details), new { id });
         }
@@ -968,7 +953,7 @@ namespace DoggyDrop.Controllers
 
             var photo = await _context.WalkPhotos
                 .Include(item => item.Walk)
-                .FirstOrDefaultAsync(item => item.Id == photoId && item.WalkId == id);
+                .FirstOrDefaultAsync(item => item.Id == photoId && item.WalkId == id && item.Walk!.OwnerId == userId);
 
             if (photo?.Walk == null || photo.Walk.Status != "Completed")
             {
@@ -1027,8 +1012,11 @@ namespace DoggyDrop.Controllers
         }
 
         [HttpGet]
-        public IActionResult Share(int id)
+        public async Task<IActionResult> Share(int id)
         {
+            var userId = _userManager.GetUserId(User);
+            if (!await _context.Walks.AnyAsync(walk => walk.Id == id && walk.OwnerId == userId))
+                return NotFound();
             return RedirectToAction(nameof(Details), new { id, share = true });
         }
 
@@ -1044,7 +1032,7 @@ namespace DoggyDrop.Controllers
 
             var walk = await _context.Walks
                 .Include(w => w.Dog)
-                .FirstOrDefaultAsync(w => w.Id == id && w.Status == "Completed");
+                .FirstOrDefaultAsync(w => w.Id == id && w.OwnerId == userId && w.Status == "Completed");
 
             if (walk == null)
             {
@@ -1106,7 +1094,7 @@ namespace DoggyDrop.Controllers
 
             var walk = await _context.Walks
                 .Include(w => w.Dog)
-                .FirstOrDefaultAsync(w => w.Id == id && w.Status == "Completed");
+                .FirstOrDefaultAsync(w => w.Id == id && w.OwnerId == userId && w.Status == "Completed");
 
             if (walk == null)
             {
@@ -1581,38 +1569,6 @@ namespace DoggyDrop.Controllers
 
         private static string GetFirstWalkTempDataKey(string valueName, int walkId) => $"FirstWalk:{valueName}:{walkId}";
 
-        private async Task NotifyFriendsAboutWalkStartAsync(int walkId, string userId, int dogId, string? plannedWalkTitle)
-        {
-            var dog = await _context.Dogs
-                .Where(item => item.Id == dogId && item.OwnerId == userId)
-                .Select(item => new { item.Name })
-                .FirstOrDefaultAsync();
-
-            var currentUser = await _userManager.GetUserAsync(User);
-            var displayName = GetDisplayName(currentUser);
-            var friendIds = await _context.Friendships
-                .Where(friendship => friendship.Status == "Accepted" &&
-                    (friendship.RequesterId == userId || friendship.AddresseeId == userId))
-                .Select(friendship => friendship.RequesterId == userId ? friendship.AddresseeId : friendship.RequesterId)
-                .Distinct()
-                .ToListAsync();
-
-            var routeHint = string.IsNullOrWhiteSpace(plannedWalkTitle)
-                ? "Sprehod se je pravkar zacel."
-                : $"Plan: {plannedWalkTitle}.";
-
-            foreach (var friendId in friendIds)
-            {
-                await _notificationService.CreateUniqueRecentAsync(
-                    friendId,
-                    "FriendStartedWalk",
-                    "Prijatelj je zacel sprehod",
-                    $"{displayName} je zacel sprehod s psom {dog?.Name ?? "Pes"}. {routeHint}",
-                    Url.Action("Community", "Home"),
-                    withinHours: 2);
-            }
-        }
-
         private static DogProgressionStatBoost BuildDogWalkStats(Walk walk)
         {
             var distanceKm = walk.DistanceMeters / 1000d;
@@ -1712,12 +1668,7 @@ namespace DoggyDrop.Controllers
 
         private static string GetDisplayName(ApplicationUser? user)
         {
-            if (!string.IsNullOrWhiteSpace(user?.DisplayName))
-            {
-                return user.DisplayName;
-            }
-
-            return user?.Email ?? "DoggyDrop uporabnik";
+            return PublicUserPresentation.Name(user);
         }
 
         private static string? TrimToLength(string? value, int maxLength)
@@ -2570,12 +2521,7 @@ namespace DoggyDrop.Controllers
 
         private static string GetLeaderboardDisplayName(ApplicationUser? user)
         {
-            if (!string.IsNullOrWhiteSpace(user?.DisplayName))
-            {
-                return user.DisplayName;
-            }
-
-            return user?.Email ?? "DoggyDrop uporabnik";
+            return PublicUserPresentation.Name(user);
         }
 
         private static string GetWeekKey(DateTime date)

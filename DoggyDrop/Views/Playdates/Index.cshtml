@@ -145,7 +145,7 @@
                                 </div>
                                 <div class="playdate-card__chips">
                                     <span>@request.SizePreference</span>
-                                    <span>@(request.Owner?.DisplayName ?? request.Owner?.Email ?? "DoggyDrop uporabnik")</span>
+                                    <span>@DoggyDrop.Services.PublicUserPresentation.Name(request.Owner)</span>
                                     <span>@(request.Interests?.Count(interest => interest.Status == "Interested") ?? 0) interesentov</span>
                                 </div>
                                 @if (!string.IsNullOrWhiteSpace(request.Note))
@@ -161,7 +161,7 @@
                                             {
                                                 <div>
                                                     <strong>@interest.Dog?.Name</strong>
-                                                    <span>@(interest.Owner?.DisplayName ?? interest.Owner?.Email ?? "DoggyDrop uporabnik")</span>
+                                                    <span>@DoggyDrop.Services.PublicUserPresentation.Name(interest.Owner)</span>
                                                     @if (!string.IsNullOrWhiteSpace(interest.Message))
                                                     {
                                                         <p>@interest.Message</p>

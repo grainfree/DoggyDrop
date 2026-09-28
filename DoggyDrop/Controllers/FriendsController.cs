@@ -172,7 +172,6 @@ namespace DoggyDrop.Controllers
         private async Task<FriendsViewModel> BuildModelAsync()
         {
             var currentUserId = _userManager.GetUserId(User) ?? string.Empty;
-            var weekStart = DateTime.UtcNow.Date.AddDays(-6);
 
             var friendships = await _context.Friendships
                 .Include(f => f.Requester)
@@ -202,12 +201,6 @@ namespace DoggyDrop.Controllers
                 .Select(g => new { OwnerId = g.Key, Count = g.Count() })
                 .ToDictionaryAsync(x => x.OwnerId, x => x.Count);
 
-            var weeklyDistances = await _context.Walks
-                .Where(w => acceptedIds.Contains(w.OwnerId) && w.Status == "Completed" && w.StartedAt >= weekStart)
-                .GroupBy(w => w.OwnerId)
-                .Select(g => new { OwnerId = g.Key, DistanceKm = g.Sum(w => w.DistanceMeters) / 1000 })
-                .ToDictionaryAsync(x => x.OwnerId, x => x.DistanceKm);
-
             var incoming = friendships
                 .Where(f => f.Status == "Pending" && f.AddresseeId == currentUserId && f.Requester != null)
                 .OrderByDescending(f => f.CreatedAt)
@@ -234,7 +227,7 @@ namespace DoggyDrop.Controllers
                 })
                 .ToList();
 
-            var suggestions = await BuildSuggestionsAsync(currentUserId, connectedUserIds, weekStart);
+            var suggestions = await BuildSuggestionsAsync(currentUserId, connectedUserIds);
 
             return new FriendsViewModel
             {
@@ -247,7 +240,6 @@ namespace DoggyDrop.Controllers
                         Name = GetDisplayName(item.User),
                         PhotoUrl = item.User.ProfileImageUrl,
                         DogCount = dogCounts.GetValueOrDefault(item.User.Id),
-                        WeeklyDistanceKm = weeklyDistances.GetValueOrDefault(item.User.Id),
                         FriendsSince = item.Friendship.RespondedAt ?? item.Friendship.CreatedAt
                     })
                     .ToList(),
@@ -259,11 +251,11 @@ namespace DoggyDrop.Controllers
             };
         }
 
-        private async Task<IReadOnlyList<FriendSuggestionItem>> BuildSuggestionsAsync(string currentUserId, HashSet<string> connectedUserIds, DateTime weekStart)
+        private async Task<IReadOnlyList<FriendSuggestionItem>> BuildSuggestionsAsync(string currentUserId, HashSet<string> connectedUserIds)
         {
             var candidates = await _context.Users
                 .Where(u => u.Id != currentUserId && !connectedUserIds.Contains(u.Id))
-                .OrderBy(u => u.DisplayName ?? u.Email)
+                .OrderBy(u => u.DisplayName ?? "Uporabnik")
                 .Take(30)
                 .ToListAsync();
 
@@ -274,36 +266,23 @@ namespace DoggyDrop.Controllers
                 .Select(g => new { OwnerId = g.Key, Count = g.Count() })
                 .ToDictionaryAsync(x => x.OwnerId, x => x.Count);
 
-            var weeklyDistances = await _context.Walks
-                .Where(w => candidateIds.Contains(w.OwnerId) && w.Status == "Completed" && w.StartedAt >= weekStart)
-                .GroupBy(w => w.OwnerId)
-                .Select(g => new { OwnerId = g.Key, DistanceKm = g.Sum(w => w.DistanceMeters) / 1000 })
-                .ToDictionaryAsync(x => x.OwnerId, x => x.DistanceKm);
-
             return candidates
-                .Where(user => dogCounts.ContainsKey(user.Id) || weeklyDistances.ContainsKey(user.Id))
-                .OrderByDescending(user => weeklyDistances.GetValueOrDefault(user.Id))
-                .ThenByDescending(user => dogCounts.GetValueOrDefault(user.Id))
+                .Where(user => dogCounts.ContainsKey(user.Id))
+                .OrderByDescending(user => dogCounts.GetValueOrDefault(user.Id))
                 .Take(8)
                 .Select(user => new FriendSuggestionItem
                 {
                     UserId = user.Id,
                     Name = GetDisplayName(user),
                     PhotoUrl = user.ProfileImageUrl,
-                    DogCount = dogCounts.GetValueOrDefault(user.Id),
-                    WeeklyDistanceKm = weeklyDistances.GetValueOrDefault(user.Id)
+                    DogCount = dogCounts.GetValueOrDefault(user.Id)
                 })
                 .ToList();
         }
 
         private static string GetDisplayName(ApplicationUser? user)
         {
-            if (!string.IsNullOrWhiteSpace(user?.DisplayName))
-            {
-                return user.DisplayName;
-            }
-
-            return user?.Email ?? "DoggyDrop uporabnik";
+            return PublicUserPresentation.Name(user);
         }
     }
 }

@@ -1,5 +1,6 @@
 using DoggyDrop.Data;
 using DoggyDrop.Models;
+using DoggyDrop.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -43,9 +44,7 @@ namespace DoggyDrop.Controllers.Api
                 {
                     friendshipId = f.Id,
                     userId = friend?.Id,
-                    name = !string.IsNullOrWhiteSpace(friend?.DisplayName)
-                        ? friend.DisplayName
-                        : friend?.Email ?? "DoggyDrop uporabnik",
+                    name = PublicUserPresentation.Name(friend),
                     photoUrl = friend?.ProfileImageUrl,
                     friendsSince = f.RespondedAt ?? f.CreatedAt
                 };
@@ -71,7 +70,7 @@ namespace DoggyDrop.Controllers.Api
                     userId = f.RequesterId,
                     name = f.Requester != null && !string.IsNullOrWhiteSpace(f.Requester.DisplayName)
                         ? f.Requester.DisplayName
-                        : f.Requester != null ? f.Requester.Email : "DoggyDrop uporabnik",
+                        : "Uporabnik",
                     photoUrl = f.Requester != null ? f.Requester.ProfileImageUrl : null,
                     f.CreatedAt
                 })

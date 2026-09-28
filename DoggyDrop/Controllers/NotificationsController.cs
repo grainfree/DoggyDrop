@@ -68,9 +68,10 @@ namespace DoggyDrop.Controllers
             notification.ReadAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
 
-            if (!returnToInbox && !string.IsNullOrWhiteSpace(notification.LinkUrl) && Url.IsLocalUrl(notification.LinkUrl))
+            var link = NotificationPresentation.Link(notification);
+            if (!returnToInbox && !string.IsNullOrWhiteSpace(link) && Url.IsLocalUrl(link))
             {
-                return Redirect(notification.LinkUrl);
+                return Redirect(link);
             }
 
             return RedirectToAction(nameof(Index));

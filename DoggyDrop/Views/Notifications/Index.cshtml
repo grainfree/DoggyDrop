@@ -32,7 +32,8 @@
             @foreach (var notification in Model.Notifications)
             {
                 var title = DoggyDrop.ViewModels.NotificationPresentation.Title(notification);
-                var hasLink = !string.IsNullOrWhiteSpace(notification.LinkUrl) && Url.IsLocalUrl(notification.LinkUrl);
+                var link = DoggyDrop.ViewModels.NotificationPresentation.Link(notification);
+                var hasLink = !string.IsNullOrWhiteSpace(link) && Url.IsLocalUrl(link);
                 <article class="notification-card @(notification.IsRead ? "is-read" : "is-unread")" aria-label="@(notification.IsRead ? title : $"Neprebrano: {title}")">
                     <div class="notification-card__icon notification-card__icon--@notification.Type"><i class="bi @GetTypeIcon(notification.Type)" aria-hidden="true"></i></div>
                     <div class="notification-card__content">
@@ -52,7 +53,7 @@
                         <i class="bi bi-chevron-right notification-card__chevron" aria-hidden="true"></i>
                         @if (notification.IsRead)
                         {
-                            <a class="notification-card__hit" href="@notification.LinkUrl" aria-label="Odpri: @title"></a>
+                            <a class="notification-card__hit" href="@link" aria-label="Odpri: @title"></a>
                         }
                         else
                         {

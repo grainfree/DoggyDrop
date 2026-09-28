@@ -15,7 +15,7 @@ namespace DoggyDrop.Services
 
         public async Task CreateAsync(string userId, string type, string title, string body, string? linkUrl = null)
         {
-            if (string.IsNullOrWhiteSpace(userId))
+            if (string.IsNullOrWhiteSpace(userId) || type == NotificationPrivacy.ObsoleteWalkStart)
             {
                 return;
             }
@@ -24,9 +24,9 @@ namespace DoggyDrop.Services
             {
                 UserId = userId,
                 Type = type,
-                Title = title,
-                Body = body,
-                LinkUrl = linkUrl,
+                Title = NotificationPrivacy.Title(type, title),
+                Body = NotificationPrivacy.Body(type, body),
+                LinkUrl = NotificationPrivacy.Link(type, linkUrl),
                 IsRead = false,
                 CreatedAt = DateTime.UtcNow
             });
@@ -36,7 +36,7 @@ namespace DoggyDrop.Services
 
         public async Task CreateUniqueRecentAsync(string userId, string type, string title, string body, string? linkUrl = null, int withinHours = 24)
         {
-            if (string.IsNullOrWhiteSpace(userId))
+            if (string.IsNullOrWhiteSpace(userId) || type == NotificationPrivacy.ObsoleteWalkStart)
             {
                 return;
             }

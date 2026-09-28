@@ -1,5 +1,6 @@
 using DoggyDrop.Data;
 using DoggyDrop.Models;
+using DoggyDrop.Services;
 using DoggyDrop.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -39,9 +40,9 @@ namespace DoggyDrop.Controllers.Api
                 {
                     n.Id,
                     n.Type,
-                    n.Title,
-                    n.Body,
-                    n.LinkUrl,
+                    Title = NotificationPrivacy.Title(n.Type, n.Title),
+                    Body = NotificationPrivacy.Body(n.Type, n.Body),
+                    LinkUrl = NotificationPrivacy.Link(n.Type, n.LinkUrl),
                     n.IsRead,
                     n.CreatedAt
                 })
@@ -76,9 +77,9 @@ namespace DoggyDrop.Controllers.Api
             {
                 n.Id,
                 n.Type,
-                n.Title,
-                n.Body,
-                n.LinkUrl,
+                Title = NotificationPrivacy.Title(n.Type, n.Title),
+                Body = NotificationPrivacy.Body(n.Type, n.Body),
+                LinkUrl = NotificationPrivacy.Link(n.Type, n.LinkUrl),
                 n.IsRead,
                 n.CreatedAt,
                 DisplayTitle = NotificationPresentation.Title(n),
@@ -123,7 +124,7 @@ namespace DoggyDrop.Controllers.Api
             return Ok(new
             {
                 notification.Id,
-                notification.LinkUrl,
+                LinkUrl = NotificationPrivacy.Link(notification.Type, notification.LinkUrl),
                 notification.IsRead
             });
         }

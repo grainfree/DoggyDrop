@@ -164,12 +164,12 @@
 
     <section class="walk-leaderboards-card">
         <div class="walk-section-header">
-            <h2>Leaderboards</h2>
+            <h2>Tvoja dejavnost in prispevki skupnosti</h2>
             <span>Sprehajalni niz: @SlovenianFormatting.Days(Model.WalkStreak.CurrentDays)</span>
         </div>
         <div class="walk-leaderboard-grid">
             <article>
-                <h3>Weekly km</h3>
+                <h3>Tvoji kilometri ta teden</h3>
                 <div class="walk-leaderboard-list">
                     @foreach (var item in Model.Gamification.WeeklyDistanceLeaders)
                     {
@@ -184,7 +184,7 @@
                 </div>
             </article>
             <article>
-                <h3>Most active dogs</h3>
+                <h3>Tvoji aktivni psi</h3>
                 <div class="walk-leaderboard-list">
                     @foreach (var item in Model.Gamification.MostActiveDogs)
                     {

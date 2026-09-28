@@ -206,7 +206,7 @@ namespace DoggyDrop.Controllers.Api
                 .Include(walk => walk.Comments!.Where(comment => !comment.IsDeleted))
                     .ThenInclude(comment => comment.User)
                 .Include(walk => walk.Photos)
-                .FirstOrDefaultAsync(walk => walk.Id == id && walk.Status == "Completed");
+                .FirstOrDefaultAsync(walk => walk.Id == id && walk.OwnerId == userId && walk.Status == "Completed");
 
             if (walk == null)
             {
@@ -250,7 +250,7 @@ namespace DoggyDrop.Controllers.Api
                     .ThenInclude(photo => photo.Reactions)
                 .Include(item => item.Photos!)
                     .ThenInclude(photo => photo.PlannedWalkStop)
-                .FirstOrDefaultAsync(item => item.Id == id && (item.OwnerId == userId || item.Status == "Completed"));
+                .FirstOrDefaultAsync(item => item.Id == id && item.OwnerId == userId);
 
             if (walk == null)
             {
@@ -286,7 +286,7 @@ namespace DoggyDrop.Controllers.Api
 
             var photo = await _context.WalkPhotos
                 .Include(item => item.Walk)
-                .FirstOrDefaultAsync(item => item.Id == photoId && item.Walk != null && item.Walk.Status == "Completed");
+                .FirstOrDefaultAsync(item => item.Id == photoId && item.Walk != null && item.Walk.OwnerId == userId && item.Walk.Status == "Completed");
 
             if (photo == null)
             {
@@ -336,7 +336,7 @@ namespace DoggyDrop.Controllers.Api
 
             var walk = await _context.Walks
                 .Include(walk => walk.Dog)
-                .FirstOrDefaultAsync(walk => walk.Id == id && walk.Status == "Completed");
+                .FirstOrDefaultAsync(walk => walk.Id == id && walk.OwnerId == userId && walk.Status == "Completed");
 
             if (walk == null)
             {
@@ -398,7 +398,7 @@ namespace DoggyDrop.Controllers.Api
 
             var walk = await _context.Walks
                 .Include(walk => walk.Dog)
-                .FirstOrDefaultAsync(walk => walk.Id == id && walk.Status == "Completed");
+                .FirstOrDefaultAsync(walk => walk.Id == id && walk.OwnerId == userId && walk.Status == "Completed");
 
             if (walk == null)
             {
@@ -448,12 +448,7 @@ namespace DoggyDrop.Controllers.Api
 
         private static string GetDisplayName(ApplicationUser? user)
         {
-            if (!string.IsNullOrWhiteSpace(user?.DisplayName))
-            {
-                return user.DisplayName;
-            }
-
-            return user?.Email ?? "DoggyDrop uporabnik";
+            return PublicUserPresentation.Name(user);
         }
 
         private async Task<IReadOnlyDictionary<string, int>> BuildWalkReactionCountsAsync(int walkId)

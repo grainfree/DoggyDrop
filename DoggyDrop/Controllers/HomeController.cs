@@ -188,75 +188,13 @@ namespace DoggyDrop.Controllers
         [Authorize]
         public async Task<IActionResult> Community()
         {
-            var userId = _userManager.GetUserId(User);
             var weekStart = DateTime.UtcNow.Date.AddDays(-6);
-            var acceptedFriendIds = string.IsNullOrWhiteSpace(userId)
-                ? new List<string>()
-                : await _context.Friendships
-                    .Where(friendship =>
-                        friendship.Status == "Accepted" &&
-                        (friendship.RequesterId == userId || friendship.AddresseeId == userId))
-                    .Select(friendship => friendship.RequesterId == userId ? friendship.AddresseeId : friendship.RequesterId)
-                    .Distinct()
-                    .ToListAsync();
-            var recentWalks = await _context.Walks
-                .Include(w => w.Dog)
-                .Include(w => w.Owner)
-                .Include(w => w.Reactions)
-                .Include(w => w.Comments)
-                .Include(w => w.Photos)
-                    .ThenInclude(photo => photo.Reactions)
-                .Include(w => w.Photos)
-                    .ThenInclude(photo => photo.PlannedWalkStop)
-                .Where(w => w.Status == "Completed")
-                .OrderByDescending(w => w.StartedAt)
-                .Take(20)
+            // Only aggregate activity leaves this query. Individual walks/photos stay in
+            // the owner's history; a friendship does not constitute deliberate sharing.
+            var weeklyActivity = await _context.Walks.AsNoTracking()
+                .Where(walk => walk.Status == "Completed" && walk.StartedAt >= weekStart)
+                .Select(walk => new { walk.DistanceMeters, walk.DogId })
                 .ToListAsync();
-
-            var friendWalks = acceptedFriendIds.Count == 0
-                ? new List<Walk>()
-                : await _context.Walks
-                    .Include(w => w.Dog)
-                    .Include(w => w.Owner)
-                    .Include(w => w.Reactions)
-                    .Include(w => w.Comments)
-                    .Include(w => w.Photos)
-                    .Where(w => w.Status == "Completed" && acceptedFriendIds.Contains(w.OwnerId))
-                    .OrderByDescending(w => w.StartedAt)
-                    .Take(10)
-                    .ToListAsync();
-
-            var photoFeed = recentWalks
-                .SelectMany(walk => (walk.Photos ?? [])
-                    .OrderByDescending(photo => photo.CreatedAt)
-                    .Take(3)
-                    .Select(photo => new CommunityPhotoFeedItem
-                    {
-                        WalkId = walk.Id,
-                        PhotoId = photo.Id,
-                        ImageUrl = photo.DeliveryUrl,
-                        Caption = photo.Caption,
-                        DogName = walk.Dog?.Name ?? "Pes",
-                        DogPhotoUrl = walk.Dog?.PhotoUrl,
-                        OwnerName = GetDisplayName(walk.Owner),
-                        CreatedAt = photo.CreatedAt
-                        ,
-                        ReactionCount = photo.Reactions?.Count ?? 0,
-                        IsReactedByCurrentUser = !string.IsNullOrWhiteSpace(userId)
-                            && (photo.Reactions?.Any(reaction => reaction.UserId == userId) ?? false),
-                        CurrentUserReactionType = string.IsNullOrWhiteSpace(userId)
-                            ? null
-                            : photo.Reactions?.FirstOrDefault(reaction => reaction.UserId == userId)?.ReactionType,
-                        ReactionCounts = photo.Reactions?
-                            .GroupBy(reaction => reaction.ReactionType)
-                            .ToDictionary(group => group.Key, group => group.Count())
-                            ?? new Dictionary<string, int>(),
-                        StopName = photo.PlannedWalkStop != null ? photo.PlannedWalkStop.Name : null
-                    }))
-                .OrderByDescending(item => item.CreatedAt)
-                .Take(12)
-                .ToList();
-
             var binPhotoGallery = (await _context.TrashBins
                 .Include(bin => bin.User)
                 .Where(bin => bin.IsApproved && !string.IsNullOrWhiteSpace(bin.ImageUrl))
@@ -275,90 +213,14 @@ namespace DoggyDrop.Controllers
                 .DistinctBy(bin => bin.BinId)
                 .ToList();
 
-            var weeklyWalks = await _context.Walks
-                .Include(w => w.Dog)
-                .Include(w => w.Owner)
-                .Where(w => w.Status == "Completed" && w.StartedAt >= weekStart)
-                .ToListAsync();
-
-            var visibleWeeklyWalks = weeklyWalks.Count > 0
-                ? weeklyWalks
-                : recentWalks
-                .Where(w => w.StartedAt >= weekStart)
-                .ToList();
-            var localLeaderboards = await _localLeaderboardService.BuildAsync("maribor");
-
-            var model = new CommunityViewModel
+            return View(new CommunityViewModel
             {
-                RecentWalks = recentWalks.Take(10).Select(w => new CommunityWalkItem
-                {
-                    WalkId = w.Id,
-                    DogName = w.Dog?.Name ?? "Pes",
-                    DogPhotoUrl = w.Dog?.PhotoUrl,
-                    OwnerName = GetDisplayName(w.Owner),
-                    StartedAt = w.StartedAt,
-                    DistanceKm = w.DistanceMeters / 1000,
-                    UsedBinsCount = w.UsedBinsCount,
-                    LikeCount = w.Reactions?.Count ?? 0,
-                    CommentCount = w.Comments?.Count(comment => !comment.IsDeleted) ?? 0,
-                    CoverPhotoUrl = w.Photos?
-                        .OrderByDescending(photo => photo.CreatedAt)
-                        .Select(photo => photo.DeliveryUrl)
-                        .FirstOrDefault(),
-                    PhotoCount = w.Photos?.Count ?? 0,
-                    IsLikedByCurrentUser = !string.IsNullOrWhiteSpace(userId)
-                        && (w.Reactions?.Any(reaction => reaction.UserId == userId) ?? false)
-                }).ToList(),
-                FriendsWalks = friendWalks.Select(w => new CommunityWalkItem
-                {
-                    WalkId = w.Id,
-                    DogName = w.Dog?.Name ?? "Pes",
-                    DogPhotoUrl = w.Dog?.PhotoUrl,
-                    OwnerName = GetDisplayName(w.Owner),
-                    StartedAt = w.StartedAt,
-                    DistanceKm = w.DistanceMeters / 1000,
-                    UsedBinsCount = w.UsedBinsCount,
-                    LikeCount = w.Reactions?.Count ?? 0,
-                    CommentCount = w.Comments?.Count(comment => !comment.IsDeleted) ?? 0,
-                    CoverPhotoUrl = w.Photos?
-                        .OrderByDescending(photo => photo.CreatedAt)
-                        .Select(photo => photo.DeliveryUrl)
-                        .FirstOrDefault(),
-                    PhotoCount = w.Photos?.Count ?? 0,
-                    IsLikedByCurrentUser = !string.IsNullOrWhiteSpace(userId)
-                        && (w.Reactions?.Any(reaction => reaction.UserId == userId) ?? false)
-                }).ToList(),
-                WeeklyLeaders = visibleWeeklyWalks
-                    .GroupBy(w => new
-                    {
-                        w.DogId,
-                        OwnerId = w.Dog?.OwnerId ?? string.Empty,
-                        DogName = w.Dog?.Name ?? "Pes",
-                        DogPhotoUrl = w.Dog?.PhotoUrl,
-                        OwnerName = GetDisplayName(w.Owner)
-                    })
-                    .Select(group => new CommunityLeaderboardItem
-                    {
-                        DogId = group.Key.DogId,
-                        OwnerId = group.Key.OwnerId,
-                        DogName = group.Key.DogName,
-                        DogPhotoUrl = group.Key.DogPhotoUrl,
-                        OwnerName = group.Key.OwnerName,
-                        WeeklyDistanceKm = group.Sum(w => w.DistanceMeters) / 1000,
-                        WalkCount = group.Count()
-                    })
-                    .OrderByDescending(item => item.WeeklyDistanceKm)
-                    .Take(5)
-                    .ToList(),
-                LocalLeaderboards = MapLocalLeaderboards(localLeaderboards),
-                PhotoFeed = photoFeed,
+                LocalLeaderboards = MapLocalLeaderboards(await _localLeaderboardService.BuildAsync("maribor")),
                 BinPhotoGallery = binPhotoGallery,
-                WalksThisWeek = visibleWeeklyWalks.Count,
-                KilometersThisWeek = visibleWeeklyWalks.Sum(w => w.DistanceMeters) / 1000,
-                ActiveDogsThisWeek = visibleWeeklyWalks.Select(w => w.DogId).Distinct().Count()
-            };
-
-            return View(model);
+                WalksThisWeek = weeklyActivity.Count,
+                KilometersThisWeek = weeklyActivity.Sum(walk => walk.DistanceMeters) / 1000,
+                ActiveDogsThisWeek = weeklyActivity.Select(walk => walk.DogId).Distinct().Count()
+            });
         }
 
         public IActionResult Terms()
@@ -597,12 +459,7 @@ namespace DoggyDrop.Controllers
 
         private static string GetDisplayName(ApplicationUser? user)
         {
-            if (!string.IsNullOrWhiteSpace(user?.DisplayName))
-            {
-                return user.DisplayName;
-            }
-
-            return user?.Email ?? "DoggyDrop uporabnik";
+            return PublicUserPresentation.Name(user);
         }
 
         [Authorize(Roles = "Admin")]

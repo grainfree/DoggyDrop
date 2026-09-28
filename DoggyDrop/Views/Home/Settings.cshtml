@@ -26,10 +26,10 @@
             <p class="settings-privacy-message settings-privacy-message--error" role="alert">@privacyError</p>
         }
         <p class="settings-state @(Model.IsEnabled ? "is-enabled" : "is-disabled")"><strong>@(Model.IsEnabled ? "Zaščita je vključena" : "Zaščita je izklopljena")</strong>@if (Model.IsEnabled) { <span>Zasebna lokacija · @Model.RadiusMeters m</span> }</p>
-        <p class="settings-muted">Zaščiti območje okoli doma ali druge zasebne lokacije. Tvoje poti ostanejo zate nespremenjene, drugim pa natančne lokacije niso prikazane.</p>
+        <p class="settings-muted">Izključi svoje sprehode iz prikazov hoje na zemljevidu skupnosti. Tvoje shranjene poti ostanejo zate nespremenjene.</p>
         <details class="settings-more">
             <summary>Več o zasebnosti poti</summary>
-            <p>Nastavitev velja tudi za pretekle sprehode. Drugim trenutno ne prikazujemo nobene natančne GPS poti. Ko je zaščita vključena, tvoji sprehodi ne prispevajo lokacij na zemljevid skupnosti. Ob izklopu se shranjena zasebna lokacija izbriše.</p>
+            <p>Podrobnosti tvojih sprehodov, GPS poti in fotografije so dostopne samo tebi, ne glede na to nastavitev. Ko je zaščita vključena, tudi pretekli sprehodi ne prispevajo lokacij v skupne prikaze hoje na zemljevidu skupnosti. Nastavitev ne izklopi skupnih statističnih seštevkov ali ločenega prikaza psov in obiskov parkov. Ob izklopu se shranjena zasebna lokacija izbriše.</p>
         </details>
         <form asp-controller="Home" asp-action="SavePrivacyZone" method="post" id="privacyZoneForm">
             @Html.AntiForgeryToken()

@@ -9,7 +9,7 @@
         <div>
             <span>Social</span>
             <h1>Prijatelji</h1>
-            <p>Povezi se z drugimi lastniki psov, spremljaj aktivnost prijateljev in pripravi teren za friends-only funkcije.</p>
+            <p>Poveži se z drugimi lastniki psov in se dogovori za druženje. Podrobnosti sprehodov ostajajo zasebne.</p>
         </div>
         <a asp-controller="Playdates" asp-action="Index">Playdates</a>
     </header>
@@ -34,8 +34,8 @@
             <span>Prosnje</span>
         </article>
         <article>
-            <strong>@Model.Friends.Sum(friend => friend.WeeklyDistanceKm).ToString("0.0") km</strong>
-            <span>Prijatelji zadnjih 7 dni</span>
+            <strong>@Model.Friends.Sum(friend => friend.DogCount)</strong>
+            <span>Psi prijateljev</span>
         </article>
     </div>
 
@@ -107,7 +107,7 @@
                         </div>
                         <div>
                             <strong>@friend.Name</strong>
-                            <small>@friend.DogCount psov · @friend.WeeklyDistanceKm.ToString("0.0") km v zadnjih 7 dneh</small>
+                            <small>@friend.DogCount psov</small>
                         </div>
                         <form asp-controller="Friends" asp-action="Remove" method="post" asp-route-id="@friend.FriendshipId">
                             <button type="submit">Odstrani</button>
@@ -142,7 +142,7 @@
 
         @if (Model.Suggestions.Count == 0)
         {
-            <p class="friends-muted">Ko bo vec uporabnikov z dodanimi psi ali sprehodi, se bodo tukaj pojavili predlogi.</p>
+            <p class="friends-muted">Ko bo vec uporabnikov z dodanimi psi, se bodo tukaj pojavili predlogi.</p>
         }
         else
         {
@@ -162,7 +162,7 @@
                         </div>
                         <div>
                             <strong>@suggestion.Name</strong>
-                            <small>@suggestion.DogCount psov · @suggestion.WeeklyDistanceKm.ToString("0.0") km v zadnjih 7 dneh</small>
+                            <small>@suggestion.DogCount psov</small>
                         </div>
                         <form asp-controller="Friends" asp-action="SendRequest" method="post">
                             <input type="hidden" name="userId" value="@suggestion.UserId" />

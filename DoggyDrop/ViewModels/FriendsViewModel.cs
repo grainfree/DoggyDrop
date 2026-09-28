@@ -27,8 +27,6 @@ namespace DoggyDrop.ViewModels
 
         public int DogCount { get; set; }
 
-        public double WeeklyDistanceKm { get; set; }
-
         public DateTime FriendsSince { get; set; }
     }
 
@@ -55,6 +53,5 @@ namespace DoggyDrop.ViewModels
 
         public int DogCount { get; set; }
 
-        public double WeeklyDistanceKm { get; set; }
     }
 }

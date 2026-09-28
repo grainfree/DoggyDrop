@@ -1,0 +1,14 @@
+@page
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@{
+    ViewData["Title"] = "Osebni podatki";
+    ViewData["ActivePage"] = ManageNavPages.PersonalData;
+    HttpContext.Response.Headers.CacheControl = "no-store, private";
+}
+<h3>@ViewData["Title"]</h3>
+<p>Prenesi podatke svojega računa: profil, pse, sprehode z GPS točkami, fotografije kot povezave, shranjene kraje, nastavitve zasebnosti, prispevke in podatke o dejavnosti.</p>
+<p>Datoteka JSON vsebuje tudi zasebne lokacije. Shrani jo na varno mesto. Ne vsebuje gesel, varnostnih ključev ali zunanjih prijavnih žetonov.</p>
+<form asp-page="./DownloadPersonalData" method="post">
+    <button type="submit" class="btn btn-primary">Prenesi osebne podatke</button>
+</form>
+<p class="mt-3"><a asp-page="./DeletePersonalData">Izbriši račun in osebne podatke</a></p>

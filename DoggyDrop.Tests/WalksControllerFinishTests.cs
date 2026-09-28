@@ -225,7 +225,7 @@ public sealed class WalksControllerFinishTests : IDisposable
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task Details_RetainsExistingPublicCompletedWalkPrivacyWithoutPrivateRewards(bool hasZone)
+    public async Task Details_OwnerAuthorizationDoesNotDependOnPrivacyZone(bool hasZone)
     {
         var walkId = await SeedAsync(900, "Completed");
         await using var context = CreateContext();
@@ -252,22 +252,25 @@ public sealed class WalksControllerFinishTests : IDisposable
         await context.SaveChangesAsync();
 
         var publicController = CreateController(context, userId: "another-user");
-        var result = Assert.IsType<ViewResult>(await publicController.Details(walkId));
-        var memory = Assert.IsType<WalkMemoryViewModel>((object)publicController.ViewBag.WalkMemory);
+        Assert.IsType<NotFoundResult>(await publicController.Details(walkId));
+        Assert.Null(publicController.ViewBag.WalkMemory);
+        Assert.Null(publicController.ViewBag.WalkRewardResult);
 
-        var publicWalk = Assert.IsType<Walk>(result.Model);
-        Assert.Empty(publicWalk.Points!);
-        Assert.Null(publicWalk.PlannedWalk);
-        Assert.Empty(publicWalk.StopCompletions!);
-        Assert.All(publicWalk.Photos!, photo => Assert.Null(photo.PlannedWalkStop));
-        Assert.False(memory.HasMap);
-        Assert.Empty(memory.Highlights);
-        Assert.Null(memory.OwnerPlanTitle);
-        Assert.Null(memory.ShareAsset);
+        var ownerController = CreateController(context);
+        var result = Assert.IsType<ViewResult>(await ownerController.Details(walkId));
+        var ownWalk = Assert.IsType<Walk>(result.Model);
+        var memory = Assert.IsType<WalkMemoryViewModel>((object)ownerController.ViewBag.WalkMemory);
+        Assert.Equal(2, ownWalk.Points!.Count);
+        Assert.NotNull(ownWalk.PlannedWalk);
+        Assert.Single(ownWalk.StopCompletions!);
+        Assert.All(ownWalk.Photos!, photo => Assert.NotNull(photo.PlannedWalkStop));
+        Assert.True(memory.HasMap);
+        Assert.NotEmpty(memory.Highlights);
+        Assert.Equal("Moj zasebni načrt", memory.OwnerPlanTitle);
+        Assert.NotNull(memory.ShareAsset);
         Assert.Equal(CloudinaryImageDelivery.ForDisplay(originalPhotoUrl), memory.HeroPhotoUrl);
         Assert.DoesNotContain(originalPhotoUrl, System.Text.Json.JsonSerializer.Serialize(memory), StringComparison.Ordinal);
-        Assert.Null(publicController.ViewBag.WalkRewardResult);
-        Assert.Equal(900, publicWalk.DistanceMeters);
+        Assert.Equal(900, ownWalk.DistanceMeters);
     }
 
     [Fact]
