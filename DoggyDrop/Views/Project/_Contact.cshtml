@@ -1,0 +1,20 @@
+@model DoggyDrop.Services.PublicContact
+<section class="project-contact project-container" id="kontakt" aria-labelledby="contactTitle">
+    <div>
+        <p class="project-eyebrow">Kontakt</p>
+        <h2 id="contactTitle">Stopite v stik</h2>
+        <p>Imate podatke o koših, predlog pasje lokacije ali vprašanje o sodelovanju? Pišite nam.</p>
+    </div>
+    <div class="project-contact__action">
+        @if (Model != null)
+        {
+            <a class="project-button" href="@Model.Mailto">Pišite nam <span aria-hidden="true">↗</span></a>
+            <span class="project-contact__email">@Model.Email</span>
+        }
+        else
+        {
+            <p>Kontaktni e-poštni naslov trenutno ni na voljo.</p>
+            <a asp-controller="Map" asp-action="Index">Odpri zemljevid</a>
+        }
+    </div>
+</section>

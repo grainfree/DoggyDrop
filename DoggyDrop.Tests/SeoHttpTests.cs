@@ -23,7 +23,7 @@ using Xunit;
 namespace DoggyDrop.Tests;
 
 // Isolated MVC host: never invokes application startup, migrations or external services.
-public sealed class SeoHttpTests : IAsyncLifetime
+public sealed partial class SeoHttpTests : IAsyncLifetime
 {
     private readonly string database = Path.Combine(Path.GetTempPath(), $"seo-{Guid.NewGuid():N}.db");
     private WebApplication app = null!;
@@ -39,7 +39,7 @@ public sealed class SeoHttpTests : IAsyncLifetime
         builder.Logging.ClearProviders(); builder.WebHost.UseUrls("http://127.0.0.1:0");
         builder.Configuration["Seo:PublicOrigin"]="https://doggydrop.app";
         builder.Configuration["Seo:AllowIndexing"]="true"; builder.Configuration["IS_PULL_REQUEST"]="false";
-        builder.Services.AddDbContext<ApplicationDbContext>(o=>o.UseSqlite($"Data Source={database};Pooling=False"));
+        builder.Services.AddDbContext<ApplicationDbContext>(o=>o.UseSqlite($"Data Source={database};Pooling=False").AddInterceptors(projectConnectionGuard));
         builder.Services.AddSingleton(new PlaceLogoCloudName("test"));
         builder.Services.AddSingleton<IGamificationCalendar, GamificationCalendar>();
         builder.Services.AddScoped<IWeeklyGoalsService, WeeklyGoalsService>();
@@ -233,7 +233,7 @@ public sealed class SeoHttpTests : IAsyncLifetime
     {
         using var client=Client();var response=await client.GetAsync("/sitemap.xml");Assert.Equal("application/xml",response.Content.Headers.ContentType!.MediaType);
         var xml=XDocument.Parse(await response.Content.ReadAsStringAsync());XNamespace ns="http://www.sitemaps.org/schemas/sitemap/0.9";
-        Assert.Equal(new[]{"https://doggydrop.app/","https://doggydrop.app/Places","https://doggydrop.app/lokacije/1/cuvaj-pasji-park"},xml.Descendants(ns+"loc").Select(x=>x.Value));
+        Assert.Equal(new[]{"https://doggydrop.app/","https://doggydrop.app/Places","https://doggydrop.app/projekt","https://doggydrop.app/obcine","https://doggydrop.app/lokacije/1/cuvaj-pasji-park"},xml.Descendants(ns+"loc").Select(x=>x.Value));
         var robots=await client.GetStringAsync("/robots.txt");Assert.Contains("Allow: /",robots);Assert.DoesNotContain("Disallow",robots);
         Assert.Contains("Sitemap: https://doggydrop.app/sitemap.xml",robots);
         var image=await client.GetAsync("/images/icon-512.png");Assert.Equal(HttpStatusCode.OK,image.StatusCode);Assert.False(image.Headers.Contains("X-Robots-Tag"));

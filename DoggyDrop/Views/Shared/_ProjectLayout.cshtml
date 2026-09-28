@@ -1,0 +1,46 @@
+@{ var municipal = ViewContext.RouteData.Values["action"]?.ToString() == "Municipalities"; }
+<!DOCTYPE html>
+<html lang="sl">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <partial name="_SeoHead" />
+    <link rel="icon" type="image/png" href="~/images/icon-192.png" />
+    <link rel="manifest" href="~/manifest.json" />
+    <meta name="theme-color" content="#24695a" />
+    <link rel="apple-touch-icon" href="~/images/icon-180.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&amp;subset=latin-ext&amp;display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="~/css/project.css" asp-append-version="true" />
+</head>
+<body class="project-site">
+    <a class="project-skip" href="#vsebina">Preskoči na vsebino</a>
+    <header class="project-header">
+        <div class="project-container project-header__inner">
+            <a class="project-brand" asp-controller="Project" asp-action="Index" aria-label="DoggyDrop – o projektu">
+                <img src="~/images/logo_transparent.png" width="112" height="64" alt="DoggyDrop" />
+            </a>
+            <nav aria-label="Glavna navigacija">
+                <a asp-controller="Project" asp-action="Index" aria-current="@(!municipal ? "page" : null)">Projekt</a>
+                <a asp-controller="Project" asp-action="Municipalities" aria-current="@(municipal ? "page" : null)">Za občine</a>
+                <a class="project-button project-button--small" asp-controller="Map" asp-action="Index">Odpri zemljevid <span aria-hidden="true">↗</span></a>
+            </nav>
+        </div>
+    </header>
+    <main id="vsebina" tabindex="-1">@RenderBody()</main>
+    <footer class="project-footer">
+        <div class="project-container project-footer__inner">
+            <p><strong>DoggyDrop</strong><br />Za boljše sprehode. Za čistejše okolje.</p>
+            <nav aria-label="Povezave v nogi">
+                <a asp-controller="Project" asp-action="Index">Projekt</a>
+                <a asp-controller="Project" asp-action="Municipalities">Za občine</a>
+                <a asp-controller="Home" asp-action="Privacy">Zasebnost</a>
+                <a asp-controller="Home" asp-action="Terms">Pogoji uporabe</a>
+                <a href="#kontakt">Kontakt</a>
+                <a asp-controller="Map" asp-action="Index">Odpri DoggyDrop</a>
+            </nav>
+        </div>
+    </footer>
+</body>
+</html>

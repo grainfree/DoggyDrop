@@ -1,0 +1,33 @@
+@model DoggyDrop.Services.PublicContact
+<section class="project-hero project-container">
+    <div>
+        <p class="project-eyebrow">Za občine, komunalna podjetja in upravljavce javnih površin</p>
+        <h1>Vaši podatki.<br /><span>Uporabni na sprehodu.</span></h1>
+        <p class="project-lead">DoggyDrop je neodvisna, brezplačna spletna aplikacija z zemljevidom košev za pasje iztrebke in drugih uporabnih pasjih lokacij.</p>
+        <p>Z obstoječimi podatki o lokacijah košev lahko pomagate, da lastniki psov lažje najdejo informacije o infrastrukturi v svojem okolju.</p>
+        <div class="project-actions"><a class="project-button" href="#kontakt">Stopite v stik <span aria-hidden="true">↓</span></a><a class="project-text-link" asp-controller="Map" asp-action="Index">Oglejte si zemljevid <span aria-hidden="true">↗</span></a></div>
+    </div>
+    <aside class="project-data-card" aria-labelledby="dataCardTitle">
+        <p class="project-eyebrow">Za začetek je dovolj to, kar že imate</p>
+        <h2 id="dataCardTitle">Seznam lokacij košev</h2>
+        <ul class="project-checklist"><li>Koordinate ali opis lokacije</li><li>Obstoječa datoteka ali javni vir</li><li>Informacija o razpoložljivih podatkih</li></ul>
+        <div class="project-free"><strong>Vključitev občinskih podatkov v DoggyDrop je brezplačna.</strong><span>Nove zbirke podatkov ni treba pripravljati.</span></div>
+    </aside>
+</section>
+<section class="project-band" aria-labelledby="purposeTitle"><div class="project-container project-split">
+    <div><p class="project-eyebrow">Zakaj sodelovati</p><h2 id="purposeTitle">Informacije bližje lastnikom psov.</h2></div>
+    <div><p>Lokacije košev so uporabne prav takrat, ko smo zunaj. DoggyDrop jih lahko predstavi na zemljevidu, prilagojenem tudi mobilnim napravam.</p><p>Cilj je boljša dostopnost informacij in spodbujanje odgovorne uporabe javnega prostora.</p></div>
+</div></section>
+<section class="project-section project-container project-split" aria-labelledby="dataTitle">
+    <div><p class="project-eyebrow">Kaj nam lahko posredujete</p><h2 id="dataTitle">Uporabimo obstoječe podatke.</h2><p>V pomoč so seznam lokacij košev, GPS-koordinate, naslovi ali kratki opisi mest, kjer stojijo koši.</p><p>Če imate podatke v Excelu, CSV-ju, GIS izvozu ali drugi obliki, nam sporočite, kaj je na voljo. Dobrodošla je tudi povezava do javnega GIS-a ali odprtih podatkov.</p></div>
+    <div class="project-panel"><h3>Brez zahteve po posebni obliki</h3><p>Obstoječe podatke je pogosto mogoče uporabiti neposredno ali jih po dogovoru pretvoriti. Ni treba ustvariti nove zbirke posebej za DoggyDrop.</p><p>Najprej skupaj pogledamo razpoložljive podatke in pogoje njihove uporabe. Nato skrbnik pripravi in pregleda podatke za vključitev.</p></div>
+</section>
+<section class="project-section project-section--border project-container" aria-labelledby="stepsTitle">
+    <p class="project-eyebrow">Preprost začetek</p><h2 id="stepsTitle">Kako poteka sodelovanje?</h2>
+    <ol class="project-steps"><li><h3>Sporočite, kaj imate</h3><p>Pošljite datoteko, povezavo do javnega vira ali kratek opis podatkov, ki so na voljo.</p></li><li><h3>Uskladimo uporabo</h3><p>Dogovorimo se o možnostih uporabe in potrebni pripravi podatkov.</p></li><li><h3>Dopolnimo zemljevid</h3><p>Skrbnik pregleda podatke in jih pripravi za prikaz javnih lokacij košev.</p></li></ol>
+</section>
+<section class="project-section project-container project-split" aria-labelledby="handlingTitle">
+    <div><p class="project-eyebrow">Sledljivost in ravnanje s podatki</p><h2 id="handlingTitle">Podatki o infrastrukturi, ne o ljudeh.</h2></div>
+    <div><p>Pri uvozu DoggyDrop interno zabeleži vir podatkov, da je njihov izvor sledljiv. Kontaktni podatki in interne opombe vira niso del javnega prikaza lokacij.</p><p>Občinski podatki opisujejo javno infrastrukturo. GPS-podatki in sprehodi uporabnikov so ločeni; seznam lokacij košev se ne uporablja za sledenje uporabnikom.</p><a class="project-text-link" asp-controller="Home" asp-action="Privacy">Zasebnost <span aria-hidden="true">↗</span></a></div>
+</section>
+<partial name="_Contact" model="Model" />

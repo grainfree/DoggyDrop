@@ -13,6 +13,13 @@ public sealed record SeoMetadata(string Title, string Description, string Canoni
     public const string IndexableKey = "SeoIndexable";
     public const string RawHostKey = "SeoRawHost";
     public const string DefaultImagePath = "/images/icon-512.png";
+    public const string ProjectPath = "/projekt";
+    public const string MunicipalitiesPath = "/obcine";
+
+    public static SeoMetadata Project { get; } = new("O projektu DoggyDrop",
+        "Spoznaj DoggyDrop, brezplačno spletno aplikacijo za iskanje košev za pasje iztrebke in uporabnih pasjih lokacij.", ProjectPath);
+    public static SeoMetadata Municipalities { get; } = new("DoggyDrop za občine",
+        "Občine in komunalna podjetja lahko z obstoječimi podatki o lokacijah košev pomagajo dopolniti zemljevid DoggyDrop. Vključitev je brezplačna.", MunicipalitiesPath);
 
     public static SeoMetadata Home { get; } = new("DoggyDrop – zemljevid za sprehode s psom",
         "Najdi koše za pasje iztrebke in uporabne pasje lokacije ter beleži sprehode s psom.", "/");

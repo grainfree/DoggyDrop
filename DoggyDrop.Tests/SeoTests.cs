@@ -143,7 +143,7 @@ public sealed class SeoTests
         var content = Assert.IsType<ContentResult>(await controller.Sitemap(default));
         Assert.StartsWith("application/xml", content.ContentType);
         var xml = XDocument.Parse(content.Content!); XNamespace ns = "http://www.sitemaps.org/schemas/sitemap/0.9";
-        Assert.Equal(new[]{"https://doggydrop.app/","https://doggydrop.app/Places","https://doggydrop.app/lokacije/1/cuvaj-park"}, xml.Descendants(ns+"loc").Select(e=>e.Value));
+        Assert.Equal(new[]{"https://doggydrop.app/","https://doggydrop.app/Places","https://doggydrop.app/projekt","https://doggydrop.app/obcine","https://doggydrop.app/lokacije/1/cuvaj-park"}, xml.Descendants(ns+"loc").Select(e=>e.Value));
         Assert.Single(xml.Descendants(ns+"lastmod")); Assert.Empty(db.ChangeTracker.Entries());
         var query = Assert.Single(sql.Commands);
         var projection = query[..query.IndexOf("FROM", StringComparison.Ordinal)];

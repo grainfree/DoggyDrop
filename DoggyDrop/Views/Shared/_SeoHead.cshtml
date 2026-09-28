@@ -1,0 +1,29 @@
+@inject Microsoft.Extensions.Configuration.IConfiguration SeoConfiguration
+@inject Microsoft.AspNetCore.Hosting.IWebHostEnvironment SeoEnvironment
+@{
+    var controller = ViewContext.RouteData.Values["controller"]?.ToString();
+    var action = ViewContext.RouteData.Values["action"]?.ToString();
+    var seo = ViewData[DoggyDrop.Services.SeoMetadata.ViewDataKey] as DoggyDrop.Services.SeoMetadata;
+    if (controller == "Map" && action == "Index") seo = DoggyDrop.Services.SeoMetadata.Home;
+    if (controller == "Places" && action == "Index") seo = DoggyDrop.Services.SeoMetadata.Discovery;
+    var site = new DoggyDrop.Services.SeoSite(SeoConfiguration, SeoEnvironment);
+    var indexable = seo != null && site.AllowsIndexing(Context) && User.Identity?.IsAuthenticated != true && Context.Response.StatusCode == 200;
+    Context.Items[DoggyDrop.Services.SeoMetadata.IndexableKey] = indexable;
+}
+<title>@(seo?.Title ?? $"{ViewData["Title"]} | DoggyDrop")</title>
+<meta name="robots" content="@(indexable ? "index, follow" : "noindex, nofollow")" />
+@if (seo != null)
+{
+    <meta name="description" content="@seo.Description" />
+    <link rel="canonical" href="@site.Absolute(seo.CanonicalPath)" />
+    <meta property="og:title" content="@seo.Title" />
+    <meta property="og:description" content="@seo.Description" />
+    <meta property="og:url" content="@site.Absolute(seo.CanonicalPath)" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="@seo.SocialImage(site)" />
+    <meta name="twitter:card" content="summary" />
+    @if (seo.Place != null)
+    {
+        <script type="application/ld+json">@Html.Raw(seo.JsonLd(site))</script>
+    }
+}

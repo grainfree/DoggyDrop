@@ -4,17 +4,9 @@
 @inject SignInManager<ApplicationUser> SignInManager
 @inject UserManager<ApplicationUser> UserManager
 @inject ApplicationDbContext DbContext
-@inject Microsoft.Extensions.Configuration.IConfiguration SeoConfiguration
-@inject Microsoft.AspNetCore.Hosting.IWebHostEnvironment SeoEnvironment
 @{
     var controller = ViewContext.RouteData.Values["controller"]?.ToString();
     var action = ViewContext.RouteData.Values["action"]?.ToString();
-    var seo = ViewData[DoggyDrop.Services.SeoMetadata.ViewDataKey] as DoggyDrop.Services.SeoMetadata;
-    if (controller == "Map" && action == "Index") seo = DoggyDrop.Services.SeoMetadata.Home;
-    if (controller == "Places" && action == "Index") seo = DoggyDrop.Services.SeoMetadata.Discovery;
-    var seoSite = new DoggyDrop.Services.SeoSite(SeoConfiguration, SeoEnvironment);
-    var indexable = seo != null && seoSite.AllowsIndexing(Context) && User.Identity?.IsAuthenticated != true && Context.Response.StatusCode == 200;
-    Context.Items[DoggyDrop.Services.SeoMetadata.IndexableKey] = indexable;
     var isFullBleed = ViewData["FullBleed"] as bool? == true;
     var isSignedIn = SignInManager.IsSignedIn(User);
     var currentUserId = UserManager.GetUserId(User);
@@ -39,23 +31,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@(seo?.Title ?? $"{ViewData["Title"]} | DoggyDrop")</title>
-    <meta name="robots" content="@(indexable ? "index, follow" : "noindex, nofollow")" />
-    @if (seo != null)
-    {
-        <meta name="description" content="@seo.Description" />
-        <link rel="canonical" href="@seoSite.Absolute(seo.CanonicalPath)" />
-        <meta property="og:title" content="@seo.Title" />
-        <meta property="og:description" content="@seo.Description" />
-        <meta property="og:url" content="@seoSite.Absolute(seo.CanonicalPath)" />
-        <meta property="og:type" content="website" />
-        <meta property="og:image" content="@seo.SocialImage(seoSite)" />
-        <meta name="twitter:card" content="summary" />
-        @if (seo.Place != null)
-        {
-            <script type="application/ld+json">@Html.Raw(seo.JsonLd(seoSite))</script>
-        }
-    }
+    <partial name="_SeoHead" />
     <link rel="icon" type="image/png" href="/images/icon-192.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

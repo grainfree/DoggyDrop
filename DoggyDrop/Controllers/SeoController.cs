@@ -37,7 +37,8 @@ public sealed class SeoController(ApplicationDbContext db, IConfiguration config
         // Preview/staging hosts do not publish a competing catalogue.
         if (site.AllowsIndexing(HttpContext))
         {
-            foreach (var path in new[] { "/", "/Places" })
+            foreach (var path in new[] { SeoMetadata.Home.CanonicalPath, SeoMetadata.Discovery.CanonicalPath,
+                SeoMetadata.ProjectPath, SeoMetadata.MunicipalitiesPath })
                 root.Add(new XElement(ns + "url", new XElement(ns + "loc", site.Absolute(path))));
             var places = await db.Places.AsNoTracking().ForPublicDetails().OrderBy(p => p.Id)
                 .Select(p => new { p.Id, p.Name, p.UpdatedAt }).ToListAsync(cancellationToken);

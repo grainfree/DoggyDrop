@@ -1,0 +1,63 @@
+@model DoggyDrop.Services.PublicContact
+<section class="project-hero project-container">
+    <div>
+        <p class="project-eyebrow">DoggyDrop · za lastnike psov</p>
+        <h1>Za boljše sprehode.<br /><span>Za čistejše okolje.</span></h1>
+        <p class="project-lead">Brezplačna spletna aplikacija, ki lastnikom psov pomaga najti koše za pasje iztrebke in druge uporabne lokacije med sprehodom.</p>
+        <div class="project-actions">
+            <a class="project-button" asp-controller="Map" asp-action="Index">Odpri zemljevid <span aria-hidden="true">↗</span></a>
+            <a class="project-text-link" href="#sodelovanje">Kako lahko pomagam? <span aria-hidden="true">↓</span></a>
+        </div>
+        <p class="project-note">Zemljevid lahko raziskuješ brez prijave.</p>
+    </div>
+    <figure class="project-map-figure">
+        <div class="project-map" aria-hidden="true">
+            <div class="project-map__park"></div>
+            <div class="project-map__road project-map__road--one"></div>
+            <div class="project-map__road project-map__road--two"></div>
+            <svg class="project-map__trail" viewBox="0 0 400 380" fill="none"><path d="M75 305 C60 205 245 295 212 181 S335 130 314 55" stroke="#24695a" stroke-width="4" stroke-dasharray="7 9" stroke-linecap="round" /></svg>
+            <span class="project-map__label project-map__label--park"><span>♧</span> Pasji park</span>
+            <span class="project-map__label project-map__label--bin"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7M14 10v7" /></svg> Koš za pasje iztrebke</span>
+            <span class="project-map__start"></span>
+            <div class="project-map__card"><strong>Korak za korakom.</strong><span>Uporabne lokacije na enem zemljevidu.</span></div>
+        </div>
+        <figcaption>Ponazoritev lokacij na sprehodu.</figcaption>
+    </figure>
+</section>
+<section class="project-section project-container" aria-labelledby="benefitsTitle">
+    <p class="project-eyebrow">Uporabno na poti</p>
+    <h2 id="benefitsTitle">Manj iskanja. Več sprehoda.</h2>
+    <div class="project-benefits">
+        <article><span class="project-number" aria-hidden="true">01</span><h3>Najdi koš</h3><p>Poišči lokacije košev za pasje iztrebke, ko jih potrebuješ med sprehodom.</p></article>
+        <article><span class="project-number" aria-hidden="true">02</span><h3>Odkrij pasje lokacije</h3><p>Razišči uporabne točke za vsakdanje opravke in naslednji izlet s psom.</p></article>
+        <article><span class="project-number" aria-hidden="true">03</span><h3>Prispevaj</h3><p>Predlagaj manjkajoč koš in pomagaj dopolniti zemljevid za druge lastnike psov.</p></article>
+        <article><span class="project-number" aria-hidden="true">04</span><h3>Beleži sprehod</h3><p>Po prijavi lahko beležiš sprehode in se vrneš k svojim preteklim potem.</p></article>
+    </div>
+</section>
+<section class="project-band" aria-labelledby="environmentTitle">
+    <div class="project-container project-split">
+        <div><p class="project-eyebrow">Majhna dejanja štejejo</p><h2 id="environmentTitle">Čistejše okolje se začne z majhnimi dejanji.</h2></div>
+        <div><p>Ko veš, kje je koš, lažje poskrbiš za pasje iztrebke tudi med sprehodom. DoggyDrop želi z dostopnejšimi informacijami prispevati k odgovornemu ravnanju in čistejšemu okolju.</p><p>Je neodvisen projekt za lastnike psov in skupnost, ki si deli javni prostor.</p></div>
+    </div>
+</section>
+<section class="project-section project-container project-split" id="sodelovanje" aria-labelledby="communityTitle">
+    <div><p class="project-eyebrow">Zemljevid dopolnjujemo skupaj</p><h2 id="communityTitle">Poznaš koš, ki ga še ni na zemljevidu?</h2><p>Predlagaj njegovo lokacijo. Za predlog koša prijava ni potrebna.</p><a class="project-button" asp-controller="Map" asp-action="Add">Predlagaj koš <span aria-hidden="true">↗</span></a></div>
+    <div class="project-panel"><h3>Od podatka do lokacije</h3><p>DoggyDrop raste s pomočjo javnih in občinskih podatkov, predlogov uporabnikov ter urejanja skrbnikov.</p><p>Podatki iz različnih virov se dopolnjujejo. Prikazana lokacija ne pomeni, da jo je skupnost preverila na terenu.</p><p>Veterinarske ambulante, trgovine, saloni, pasje šole, psom prijazni lokali in organizacije lahko <a href="#kontakt">pošljejo predlog lokacije</a>.</p></div>
+</section>
+<section class="project-section project-section--border project-container" aria-labelledby="placesTitle">
+    <p class="project-eyebrow">Tudi onkraj košev</p>
+    <h2 id="placesTitle">Uporabne pasje lokacije</h2>
+    <p>Od veterinarja do prostora za naslednji sprehod. Oglej si lokacije in navodila za pot.</p>
+    <ul class="project-categories">
+        @foreach (var category in DoggyDrop.Services.PlaceCategories.All)
+        {
+            <li>@category.FilterLabel</li>
+        }
+    </ul>
+    <a class="project-text-link" asp-controller="Places" asp-action="Index">Razišči lokacije <span aria-hidden="true">↗</span></a>
+</section>
+<section class="project-container project-municipal-teaser" aria-labelledby="municipalTitle">
+    <div><p class="project-eyebrow">Občine in komunalna podjetja</p><h2 id="municipalTitle">Obstoječi podatki lahko pomagajo na vsakdanjih poteh.</h2><p>Imate seznam lokacij košev? Z deljenjem podatkov lahko pomagate dopolniti zemljevid. Vključitev občinskih podatkov je brezplačna.</p></div>
+    <a class="project-button project-button--light" asp-controller="Project" asp-action="Municipalities">Sodelovanje z občinami <span aria-hidden="true">↗</span></a>
+</section>
+<partial name="_Contact" model="Model" />
