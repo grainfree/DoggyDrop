@@ -1,0 +1,7 @@
+.place-import-table { max-width: 100%; overflow-x: auto; border: 1px solid #cadbd1; border-radius: 8px; }
+.place-import-table table { width: 100%; min-width: 1000px; table-layout: fixed; border-collapse: collapse; }
+.place-import-table caption { caption-side: top; padding: 12px; color: #263e33; }
+.place-import-table th, .place-import-table td { padding: 12px; vertical-align: top; border-bottom: 1px solid #cadbd1; }
+.place-import-table thead { background: #eef6ef; }
+.place-import-table:focus-visible { outline: 2px solid #246e52; outline-offset: 3px; }
+.place-import .places-form { max-width: 720px; }

@@ -164,6 +164,9 @@ builder.Services.AddScoped<PersonalDataExport>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<BinImportSessions>();
 builder.Services.AddScoped<BinImportService>();
+
+builder.Services.AddSingleton<PlaceImportSessions>();
+builder.Services.AddScoped<PlaceImportService>();
 builder.Services.AddSingleton<IGamificationCalendar, GamificationCalendar>();
 builder.Services.AddScoped<IWeeklyGoalsService, WeeklyGoalsService>();
 builder.Services.AddScoped<IGamificationService, GamificationService>();

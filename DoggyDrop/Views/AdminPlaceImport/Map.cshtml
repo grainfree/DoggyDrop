@@ -1,0 +1,38 @@
+@model DoggyDrop.Services.PlaceImportPage
+@{ ViewData["Title"] = "Izberi stolpce lokacij"; }
+@section Styles {
+    <link rel="stylesheet" href="~/css/places.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/bin-import.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/place-import.css" asp-append-version="true" />
+}
+<main class="places-page bin-import place-import">
+    <h1>Izberi stolpce lokacij</h1>
+    <partial name="_Context" model="Model" />
+    <p>Preveri predloge. Zahtevani so ime ter WGS84 širina in dolžina. Koordinat ne zamenjujemo ali pretvarjamo; naslovov ne geokodiramo.</p>
+    <div asp-validation-summary="All" role="alert"></div>
+    <form asp-action="Map" asp-route-id="@Model.Id" method="post" class="places-form">
+        <input type="hidden" name="version" value="@Model.Version" />
+        @foreach (var field in new[] {
+            (Key: "name", Label: "Ime *", Index: (int?)Model.Mapping!.Name, Required: true),
+            (Key: "latitude", Label: "Širina / Latitude *", Index: (int?)Model.Mapping!.Latitude, Required: true),
+            (Key: "longitude", Label: "Dolžina / Longitude *", Index: (int?)Model.Mapping!.Longitude, Required: true),
+            (Key: "category", Label: "Kategorija *", Index: Model.Mapping!.Category, Required: true),
+            (Key: "address", Label: "Naslov", Index: Model.Mapping!.Address, Required: false),
+            (Key: "phone", Label: "Telefon", Index: Model.Mapping!.Phone, Required: false),
+            (Key: "website", Label: "Spletna stran", Index: Model.Mapping!.Website, Required: false),
+            (Key: "description", Label: "Opis", Index: Model.Mapping!.Description, Required: false) })
+        {
+            if (field.Key == "category" && Model.FixedCategory.HasValue) { continue; }
+            <label class="places-field">@field.Label
+                <select name="@field.Key" required="@field.Required">
+                    <option value="">Brez izbire</option>
+                    @for (var i = 0; i < Model.Headers!.Length; i++) { <option value="@i" selected="@(field.Index == i)">@Model.Headers[i]</option> }
+                </select>
+            </label>
+        }
+        <p>Kategorije CSV: Veterinarian, PetShop, Groomer, DogSchool, DogFriendlyCafe, DogPark, DogBeach (ali njihove obstoječe angleške oznake z vezaji).</p>
+        <p>Drugi stolpci se prezrejo, tudi IsActive, CoordinateStatus, Source in SourceUrl. Slike, logotipi, izpostavitev in ugodnosti se ne uvažajo.</p>
+        <button class="places-button places-button--primary" type="submit">Potrdi stolpce in prikaži predogled</button>
+    </form>
+    <form asp-action="Cancel" asp-route-id="@Model.Id" method="post"><button class="places-button" type="submit">Prekliči uvoz</button></form>
+</main>

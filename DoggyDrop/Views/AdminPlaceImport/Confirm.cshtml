@@ -1,0 +1,19 @@
+@model DoggyDrop.Services.PlaceImportPage
+@{ ViewData["Title"] = "Potrdi uvoz lokacij"; }
+@section Styles {
+    <link rel="stylesheet" href="~/css/places.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/bin-import.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/place-import.css" asp-append-version="true" />
+}
+<main class="places-page bin-import place-import">
+    <h1>Potrdi uvoz lokacij</h1>
+    <partial name="_Context" model="Model" />
+    <p>Izbranih: <strong>@Model.Selected.Count</strong> · Izključeni možni dvojniki: @Model.Duplicates · Neveljavno: @Model.Invalid · Neizbrane pripravljene vrstice: @(Model.Ready - Model.Selected.Count)</p>
+    <p>Dodane bodo nove aktivne lokacije z izbranim virom. Brez izpostavitve, ugodnosti, logotipa ali slike. Obstoječe lokacije ostanejo nespremenjene. Datuma nastanka in spremembe pomenita čas uvoza.</p>
+    <p>Pred shranjevanjem se dvojniki ponovno preverijo. Ob napaki se ne uvozi nobena vrstica.</p>
+    <form asp-action="Apply" asp-route-id="@Model.Id" method="post">
+        <input type="hidden" name="version" value="@Model.Version" />
+        <button type="submit" class="places-button places-button--primary">Uvozi @Model.Selected.Count lokacij</button>
+        <a asp-action="Preview" asp-route-id="@Model.Id" class="places-button">Nazaj na pregled</a>
+    </form>
+</main>

@@ -1,0 +1,6 @@
+@model DoggyDrop.Services.PlaceImportPage
+@using DoggyDrop.ViewModels
+<p><strong>@Model.Source.Name</strong> · @DataAdminLabels.SourceType(Model.Source.Type) · Datum podatkov: @(Model.Source.DataDate?.ToString("dd. MM. yyyy") ?? "Ni določen")</p>
+<p>Datoteka: @Model.FileName · Velja do @Model.ExpiresAt.ToString("HH:mm") UTC. Datum vira se ob uvozu ne spremeni.</p>
+
+<p>Kategorija: @(Model.FixedCategory.HasValue ? DoggyDrop.Services.PlaceCategories.Label(Model.FixedCategory.Value) : "Iz stolpca CSV")</p>

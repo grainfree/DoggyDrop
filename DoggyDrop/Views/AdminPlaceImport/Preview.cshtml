@@ -1,0 +1,58 @@
+@model DoggyDrop.Services.PlaceImportPage
+@using DoggyDrop.Services
+@using System.Globalization
+@{ ViewData["Title"] = "Predogled lokacij"; }
+@section Styles {
+    <link rel="stylesheet" href="~/css/places.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/bin-import.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/place-import.css" asp-append-version="true" />
+}
+<main class="places-page bin-import place-import">
+    <h1>Predogled lokacij</h1>
+    <partial name="_Context" model="Model" />
+    @if (TempData["ImportMessage"] is string message) { <p role="alert">@message</p> }
+    <p>Skupaj: @Model.Total · Pripravljeno: @Model.Ready · Možni dvojniki: @Model.Duplicates · Neveljavno: @Model.Invalid</p>
+    <p><strong>Izbranih v celotni datoteki: @Model.Selected.Count.</strong> Privzeto so izbrane vse pripravljene vrstice na vseh straneh. Dvojniki in neveljavne vrstice so izključeni.</p>
+    <p>Možni dvojnik pomeni enako normalizirano ime in razdaljo do 75 m. Obstoječih lokacij ne združujemo ali spreminjamo. Prikazani so do trije primeri na vrstico.</p>
+    <p>Pred menjavo strani shrani izbor. Izbor drugih strani ostane shranjen.</p>
+    <form asp-action="Select" asp-route-id="@Model.Id" method="post">
+        <input type="hidden" name="version" value="@Model.Version" /><input type="hidden" name="page" value="@Model.Page" />
+        <div class="place-import-table" role="region" aria-label="Vrstice CSV; vodoravni pomik" tabindex="0">
+            <table>
+                <caption>Predogled uvoza · stran @Model.Page</caption>
+                <thead><tr><th scope="col">Izbor / vrstica</th><th scope="col">Ime / kategorija</th><th scope="col">Naslov / opis</th><th scope="col">Koordinate</th><th scope="col">Telefon / spletna stran</th><th scope="col">Status / razlog</th></tr></thead>
+                <tbody>
+                @foreach (var row in Model.Rows)
+                {
+                    <tr>
+                        <th scope="row">@row.Number
+                        @if (row.Status == ImportRowStatus.Ready) { <label class="import-check"><input type="checkbox" name="rows" value="@row.Number" checked="@Model.Selected.Contains(row.Number)" /> Uvozi vrstico @row.Number</label> }
+                        </th>
+                        <td>@row.Name<br />@PlaceCategories.Label(row.Category)</td>
+                        <td>@(row.Address ?? "—")<br />@(row.Description ?? "")</td>
+                        <td>Latitude: @(row.Latitude?.ToString("G", CultureInfo.InvariantCulture) ?? "—")<br />Longitude: @(row.Longitude?.ToString("G", CultureInfo.InvariantCulture) ?? "—")</td>
+                        <td>@(row.Phone ?? "—")<br />@(row.Website ?? "—")</td>
+                        <td>
+                            <strong>@(row.Status == ImportRowStatus.Ready ? "READY — Pripravljeno" : row.Status == ImportRowStatus.PossibleDuplicate ? "POSSIBLE_DUPLICATE — Možni dvojnik" : "INVALID — Neveljavno")</strong>
+                            @if (row.Error != null) { <p>@row.Error</p> }
+                            @foreach (var candidate in row.Candidates)
+                            {
+                                <p>@(candidate.PlaceId.HasValue ? $"Lokacija #{candidate.PlaceId}" : $"Prejšnja vrstica CSV {candidate.RowNumber}"): @candidate.Name · @candidate.Metres.ToString("0.0") m
+                                @if (candidate.PlaceId.HasValue) { <a asp-controller="AdminPlaces" asp-action="Edit" asp-route-id="@candidate.PlaceId" target="_blank" rel="noopener">Odpri zapis (nov zavihek)</a> }</p>
+                            }
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+        <div class="import-actions"><button type="submit" class="places-button">Shrani izbor strani</button><button type="submit" name="proceed" value="true" class="places-button places-button--primary">Shrani izbor in nadaljuj na potrditev</button></div>
+    </form>
+    <nav class="import-actions" aria-label="Strani predogleda">
+        @if (Model.Page > 1) { <a asp-route-id="@Model.Id" asp-route-page="@(Model.Page - 1)">Prejšnja</a> }
+        <span>Stran @Model.Page / @((Model.Total + 99) / 100)</span>
+        @if (Model.Page * 100 < Model.Total) { <a asp-route-id="@Model.Id" asp-route-page="@(Model.Page + 1)">Naslednja</a> }
+    </nav>
+    <form asp-action="Refresh" asp-route-id="@Model.Id" method="post"><input type="hidden" name="version" value="@Model.Version" /><button type="submit" class="places-button">Ponovno preveri dvojnike</button></form>
+    <form asp-action="Cancel" asp-route-id="@Model.Id" method="post"><button type="submit" class="places-button">Prekliči uvoz</button></form>
+</main>
