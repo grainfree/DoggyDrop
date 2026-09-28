@@ -175,7 +175,7 @@ test("Home Place markers and popups show safe logos without losing category fall
             };
             return {
                 coordinates, options, element, handlers: {},
-                bindPopup(html) { this.popup = html; return this; },
+                bindPopup(content) { this.popup = content.outerHTML; return this; },
                 on(event, handler) { this.handlers[event] = handler; return this; },
                 setIcon() { throw new Error("Popup selection must not rebuild the icon"); },
                 setZIndexOffset(value) { this.zIndexOffset = value; return this; },
@@ -186,8 +186,9 @@ test("Home Place markers and popups show safe logos without losing category fall
         }
     };
     const placeMarker = loadPlaceMarker(L);
-    const build = new Function("L", "attachManagedPlaceImage", "DoggyDropPlaceMarker",
-        `${map.slice(escapeStart, escapeEnd)}\n${map.slice(buildStart, buildEnd)}\nreturn buildManagedPlaceLayer;`)(L, placeMarker.attachImage, placeMarker);
+    const popupFixture = require('./helpers/place-popup-dom.cjs').loadPopup(L);
+    const build = new Function("L", "attachManagedPlaceImage", "DoggyDropPlaceMarker", "DoggyDropPlacePopup", "document", "navigateToManagedPlaceInApp",
+        `${map.slice(escapeStart, escapeEnd)}\n${map.slice(buildStart, buildEnd)}\nreturn buildManagedPlaceLayer;`)(L, placeMarker.attachImage, placeMarker, popupFixture.popup, popupFixture.document, () => {});
     const withLogo = build([{
         id: 1, name: "Mr.<Pet>", address: "<Unsafe> street", category: 2,
         categoryLabel: "Trgovina", categoryKey: "pet-shop", iconClass: "bi-bag-fill", isCommercial: true,
@@ -232,7 +233,9 @@ test("Home Place markers and popups show safe logos without losing category fall
         }]).markers[0];
         assert.match(fallback.options.icon.html, /bi-heart-pulse-fill/);
         assert.doesNotMatch(fallback.options.icon.html, /<img/);
-        assert.doesNotMatch(fallback.popup, /managed-place-popup__media/);
+        assert.match(fallback.popup, /managed-place-popup__media/);
+        assert.match(fallback.popup, /bi-heart-pulse-fill/);
+        assert.doesNotMatch(fallback.popup, /<img/);
         fallback.handlers.popupopen();
         assert.equal(fallback.element.pin.classList.contains("managed-place-pin--selected"), true);
         fallback.handlers.popupclose();

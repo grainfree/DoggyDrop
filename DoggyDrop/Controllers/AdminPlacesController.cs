@@ -81,12 +81,14 @@ public sealed class AdminPlacesController(
     }
 
     [HttpGet]
-    public async Task<IActionResult> Edit(int id)
+    public async Task<IActionResult> Edit(int id, string? returnTo = null)
     {
         var place = await context.Places.AsNoTracking().Include(item => item.Amenities).SingleOrDefaultAsync(item => item.Id == id);
         if (place == null) return NotFound();
         ViewBag.PlaceId = id;
         ViewBag.IsActive = place.IsActive;
+        ViewBag.EditIsActive = place.IsActive;
+        ViewBag.MapReturn = returnTo == "map";
         await LoadSourcesAsync();
         return View(PlaceInput.FromPlace(place, logoCloud.Value));
     }
@@ -94,10 +96,14 @@ public sealed class AdminPlacesController(
     [HttpPost]
     [ValidateAntiForgeryToken]
     [RequestSizeLimit(6 * 1024 * 1024)]
-    public async Task<IActionResult> Edit(int id, PlaceInput input)
+    public async Task<IActionResult> Edit(int id, PlaceInput input, string? returnTo = null, bool? isActive = null)
     {
         var place = await context.Places.Include(item => item.Amenities).SingleOrDefaultAsync(item => item.Id == id);
         if (place == null) return NotFound();
+
+        // A fixed context, never a client-supplied redirect URL. Retained on validation/conflict.
+        ViewBag.MapReturn = returnTo == "map";
+        ViewBag.EditIsActive = isActive ?? place.IsActive;
 
         // Reject stale/missing versions before validation or external logo work. The
         // SQL predicate below also protects against a writer racing this check.
@@ -124,6 +130,7 @@ public sealed class AdminPlacesController(
             return View(input);
         }
         input.ApplyTo(place);
+        if (isActive.HasValue) place.IsActive = isActive.Value;
         if (newLogo != null || input.RemoveLogo) place.LogoUrl = newLogo;
         // Always update the parent, including amenity-only edits. EF checks the form's
         // original UpdatedAt and rolls back the entire save on conflict.
@@ -145,6 +152,8 @@ public sealed class AdminPlacesController(
         }
         if (oldLogo != place.LogoUrl) await DeleteLogoBestEffortAsync(oldLogo, checkReferences: true);
         TempData["PlaceSuccess"] = "Spremembe lokacije so shranjene.";
+        if (returnTo == "map")
+            return Redirect(place.IsActive && PlaceCategories.IsSupported(place.Category) ? $"/?placeId={place.Id}" : "/");
         return RedirectToAction(nameof(Index));
     }
 

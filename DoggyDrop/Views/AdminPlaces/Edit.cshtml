@@ -1,22 +1,32 @@
 @model DoggyDrop.ViewModels.PlaceInput
 @{ ViewData["Title"] = "Uredi lokacijo"; }
 @section Styles {
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIINfQXh6ULpR5txR9wra5I3BcVsTPY1p3A=" crossorigin="" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
     <link rel="stylesheet" href="~/css/places.css" asp-append-version="true" />
 }
 <main class="places-page places-admin">
-    <header class="places-page__header"><div><span class="places-eyebrow">Upravljanje</span><h1>Uredi lokacijo</h1>@if (ViewBag.EditConflict != true) { <p>@(ViewBag.IsActive == true ? "Aktivna" : "Neaktivna")</p> }</div><a asp-action="Index">Nazaj na seznam</a></header>
+    <header class="places-page__header"><div><span class="places-eyebrow">Upravljanje</span><h1>Uredi lokacijo</h1>@if (ViewBag.EditConflict != true) { <p>@(ViewBag.IsActive == true ? "Aktivna" : "Neaktivna")</p> }</div>
+        @if (ViewBag.MapReturn == true) { <a href="/">Nazaj na zemljevid</a> }
+        else { <a asp-action="Index">Nazaj na seznam</a> }
+    </header>
     @if (ViewBag.EditConflict == true)
     {
         <div asp-validation-summary="All" role="alert"></div>
-        <a asp-action="Edit" asp-route-id="@ViewBag.PlaceId" class="places-button places-button--primary">Osveži podatke</a>
+        <a asp-action="Edit" asp-route-id="@ViewBag.PlaceId" asp-route-returnTo="@(ViewBag.MapReturn == true ? "map" : null)" class="places-button places-button--primary">Osveži podatke</a>
     }
     else
     {
     <form asp-action="Edit" asp-route-id="@ViewBag.PlaceId" method="post" enctype="multipart/form-data" class="places-form">
         @Html.AntiForgeryToken()
         <input asp-for="OriginalUpdatedAt" type="hidden" />
+        @if (ViewBag.MapReturn == true) { <input type="hidden" name="returnTo" value="map" /> }
         <partial name="_Form" model="Model" />
+        <label class="places-field">Vidnost lokacije
+            <select name="isActive">
+                <option value="true" selected="@(ViewBag.EditIsActive == true)">Aktivna</option>
+                <option value="false" selected="@(ViewBag.EditIsActive != true)">Neaktivna – skrita z zemljevida</option>
+            </select>
+        </label>
         <div class="places-form__actions"><button type="submit" class="places-button places-button--primary">Shrani spremembe</button></div>
     </form>
     }

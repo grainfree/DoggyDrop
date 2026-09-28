@@ -19,7 +19,7 @@ test("selected state wins over Featured halo and Home focus priority is retained
  assert.match(window.DoggyDropPlaceMarker.createIcon(item,{selected:true}).html,/managed-place-pin--selected/);
  assert.match(read("DoggyDrop/wwwroot/css/places.css"),/managed-place-pin--featured:not\(\.managed-place-pin--selected\)/);
  const home=read("DoggyDrop/Views/Map/Index.cshtml");assert.match(home,/marker.setZIndexOffset\(500\)/);
- assert.match(home,/place.isCurrentlyFeatured === true && place.isCommercial === true/);
+ assert.match(read("DoggyDrop/wwwroot/js/place-popup.js"),/place.isCommercial === true && place.isCurrentlyFeatured === true/);
 });
 test("distance sorting outranks server Featured-first order even across 100 kilometres", () => {
  const items=[{order:0,category:"1",latitude:47,longitude:15,isCurrentlyFeatured:true},{order:1,category:"1",latitude:46.001,longitude:15},{order:2,category:"2",latitude:46.002,longitude:15}];

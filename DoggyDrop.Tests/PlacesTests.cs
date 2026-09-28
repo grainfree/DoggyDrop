@@ -552,7 +552,8 @@ public sealed class PlacesTests : IDisposable
         Assert.Contains("\"logoUrl\":\"https://res.cloudinary.com/test/image/upload/", mapJson);
         Assert.DoesNotContain("inactive-logo.png", mapJson);
         Assert.DoesNotContain("data:image", mapJson);
-        Assert.Equal(12, typeof(PlaceMapItem).GetProperties().Length);
+        Assert.Equal(13, typeof(PlaceMapItem).GetProperties().Length);
+        Assert.All(items, item => Assert.Equal(SeoMetadata.PlacePath(item.Id, item.Name), item.DetailsUrl));
         Assert.NotNull(typeof(PlaceMapItem).GetProperty("IsCurrentlyFeatured"));
         Assert.Single(Assert.IsAssignableFrom<IEnumerable<TrashBin>>(view.Model));
     }

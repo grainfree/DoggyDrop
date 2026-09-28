@@ -131,7 +131,10 @@ public sealed class PlaceInput
 
 public sealed record PlaceMapItem(int Id, string Name, PlaceCategory Category,
     double Latitude, double Longitude, string? Address, string? LogoUrl,
-    string CategoryLabel, string CategoryKey, string IconClass, bool IsCommercial, bool IsCurrentlyFeatured = false);
+    string CategoryLabel, string CategoryKey, string IconClass, bool IsCommercial, bool IsCurrentlyFeatured = false)
+{
+    public string DetailsUrl => SeoMetadata.PlacePath(Id, Name);
+}
 
 public sealed record PlaceDiscoveryItem(int Id, string Name, PlaceCategory Category,
     string CategoryLabel, string CategoryKey, string IconClass, bool IsCommercial,

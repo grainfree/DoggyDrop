@@ -79,15 +79,26 @@
 .managed-place-pin__image { position: absolute; inset: 2px; width: calc(100% - 4px); height: calc(100% - 4px); padding: 0; border-radius: 8px; background: #fff; object-fit: contain; opacity: 0; }
 .managed-place-pin.has-image .managed-place-pin__image { opacity: 1; }
 .managed-place-pin--selected { box-shadow: 0 0 0 3px #d9f2df, 0 4px 12px rgba(13, 38, 31, .3); transform: scale(1.12); }
-.managed-place-popup { min-width: 180px; max-width: 240px; }
-.managed-place-popup__media { display: none; width: 48px; height: 48px; margin-bottom: 8px; border: 1px solid #d7e3db; border-radius: 8px; background: #fff; overflow: hidden; }
-.managed-place-popup__media.has-image { display: block; }
-.managed-place-popup__media img { display: block; width: 100%; height: 100%; object-fit: contain; }
-.managed-place-popup__category { display: block; color: #367059; font-size: .73rem; font-weight: 800; text-transform: uppercase; }
-.managed-place-popup strong { display: block; margin: 3px 0 6px; font-size: 1rem; line-height: 1.25; overflow-wrap: anywhere; }
-.managed-place-popup p { margin: 0 0 10px; color: #586e64; overflow-wrap: anywhere; }
-.managed-place-popup__actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.managed-place-popup__actions a, .managed-place-popup__actions button { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 6px 10px; border: 1px solid #c4d5c9; border-radius: 5px; background: #fff; color: #1e6249; font-weight: 750; text-decoration: none; cursor: pointer; }
+.place-map-popup .leaflet-popup-content-wrapper { border-radius: 16px; background: #fff; box-shadow: 0 6px 24px #173d302b; }
+.place-map-popup .leaflet-popup-content { width: min(260px, calc(100vw - 64px)) !important; margin: 16px; max-height: min(440px, 60vh); overflow-y: auto; }
+.place-map-popup .leaflet-popup-tip { background: #fff; }
+.leaflet-container .place-map-popup a.leaflet-popup-close-button { top: 4px; right: 4px; width: 44px; height: 44px; border-radius: 10px; color: #31584b; font: 24px/44px Arial, sans-serif; }
+.place-map-popup :is(a, button):focus-visible { outline: 3px solid #176a4d; outline-offset: -3px; }
+.managed-place-popup { color: #19352e; text-align: left; overflow-wrap: anywhere; }
+.managed-place-popup__header { display: flex; align-items: center; gap: 10px; padding-right: 32px; }
+.managed-place-popup__media { display: grid; place-items: center; flex: 0 0 44px; width: 44px; height: 44px; border: 1px solid #d7e3db; border-radius: 10px; background: #f0f7f2; color: #246e52; overflow: hidden; font-size: 22px; }
+.managed-place-popup__media img { display: none; width: 100%; height: 100%; object-fit: contain; background: #fff; }
+.managed-place-popup__media.has-image img { display: block; }
+.managed-place-popup__media.has-image i { display: none; }
+.managed-place-popup__category { color: #367059; font-size: .75rem; font-weight: 800; }
+.managed-place-popup .managed-place-popup__name { margin: 10px 0 6px; font-size: 1rem; font-weight: 800; line-height: 1.25; }
+.managed-place-popup .managed-place-popup__address { margin: 0 0 12px; color: #53685e; font-size: .88rem; line-height: 1.4; }
+.managed-place-popup .place-featured-badge { margin-bottom: 8px; }
+.managed-place-popup__actions { display: flex; gap: 8px; margin-top: 12px; }
+.managed-place-popup__actions a, .managed-place-popup__actions button, .managed-place-popup__edit { box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 0; padding: 8px 10px; border: 1px solid #c4d5c9; border-radius: 8px; background: #fff; color: #1e6249; font: inherit; font-size: .87rem; font-weight: 750; text-decoration: none; cursor: pointer; }
+.managed-place-popup__actions > * { flex: 1; }
+.managed-place-popup__actions .managed-place-popup__directions { background: #176a4d; border-color: #176a4d; color: #fff; }
+.managed-place-popup__edit { width: 100%; margin-top: 8px; border-color: #dce7df; }
 .places-location__status { min-height: 20px; margin: 8px 0 14px; font-size: .87rem; color: #31584b; }
 .places-form__actions { display: flex; justify-content: flex-end; margin-top: 22px; }
 .places-back { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; color: #246e52; text-decoration: none; }

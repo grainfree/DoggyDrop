@@ -68,7 +68,7 @@
 
 @section Styles {
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-          integrity="sha256-p4NxAoJBhIINfQXh6ULpR5txR9wra5I3BcVsTPY1p3A="
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
             crossorigin="" />
     <link rel="stylesheet" href="~/css/bin-marker.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/places.css" asp-append-version="true" />
@@ -3536,6 +3536,10 @@ else if (needsDogOnboarding)
 </div>
 
 <div id="map" tabindex="-1" aria-label="Zemljevid pasjih lokacij"></div>
+@if (isSignedIn && User.IsInRole("Admin"))
+{
+    <template id="placeMapAdminAction" data-edit-base="@Url.Action("Edit", "AdminPlaces")"></template>
+}
 <aside id="binDetailPanel" class="map-bin-detail" hidden aria-live="polite">
     <section class="map-bin-detail__panel" aria-label="Podrobnosti koša">
         <div class="map-bin-detail__header">
@@ -3577,6 +3581,7 @@ else if (needsDogOnboarding)
     <script src="~/js/map-basemap.js" asp-append-version="true"></script>
     <script src="~/js/bin-marker.js" asp-append-version="true"></script>
     <script src="~/js/place-marker.js" asp-append-version="true"></script>
+    <script src="~/js/place-popup.js" asp-append-version="true"></script>
     <script src="~/js/walk-recording-auth.js" asp-append-version="true"></script>
 
     <script>
@@ -4359,24 +4364,19 @@ else if (needsDogOnboarding)
                 const lng = Number(place.longitude);
                 if (!Number.isSafeInteger(id) || id <= 0 || !Number.isFinite(lat) || !Number.isFinite(lng) ||
                     Math.abs(lat) > 90 || Math.abs(lng) > 180) return;
-                const imageUrl = DoggyDropPlaceMarker.safeImageUrl(place.logoUrl);
-                const marker = L.marker([lat, lng], { icon: DoggyDropPlaceMarker.createIcon(place), placeId: id, pane: "placeMarkers" }).bindPopup(`
-                    <div class="managed-place-popup">
-                        ${imageUrl ? `<span class="managed-place-popup__media"><img class="managed-place-image" src="${escapeAttribute(imageUrl)}" alt="" decoding="async" referrerpolicy="no-referrer"></span>` : ""}
-                        <span class="managed-place-popup__category">${escapeHtml(place.categoryLabel || "Lokacija")}</span>
-                        <strong>${escapeHtml(place.name)}</strong>
-                        ${place.isCurrentlyFeatured === true && place.isCommercial === true ? '<span class="place-featured-badge" title="Promocijska izpostavitev; ne pomeni priporočila DoggyDrop.">Izpostavljeno</span>' : ""}
-                        ${place.address ? `<p>${escapeHtml(place.address)}</p>` : ""}
-                        <div class="managed-place-popup__actions">
-                            <a href="/Places/Details/${id}">Podrobnosti</a>
-                            <button type="button" onclick="navigateToManagedPlaceInApp(${id})">Navodila za pot</button>
-                        </div>
-                    </div>`);
+                const popup = DoggyDropPlacePopup.create(place, {
+                    adminEditBase: document.getElementById("placeMapAdminAction")?.dataset.editBase,
+                    navigate: navigateToManagedPlaceInApp
+                });
+                const marker = L.marker([lat, lng], { icon: DoggyDropPlaceMarker.createIcon(place), placeId: id, pane: "placeMarkers" })
+                    .bindPopup(popup, { className: "place-map-popup", maxWidth: 260, minWidth: 200 });
                 marker.on("add", () => attachManagedPlaceImage(marker.getElement()));
                 marker.on("popupopen", () => {
                     marker.getElement()?.querySelector(".managed-place-pin")?.classList.add("managed-place-pin--selected");
                     marker.setZIndexOffset(500);
                     attachManagedPlaceImage(marker.getPopup()?.getElement());
+                    const close = marker.getPopup()?.getElement()?.querySelector(".leaflet-popup-close-button");
+                    if (close) { close.setAttribute("aria-label", "Zapri lokacijo"); close.title = "Zapri lokacijo"; }
                 });
                 marker.on("popupclose", () => {
                     marker.getElement()?.querySelector(".managed-place-pin")?.classList.remove("managed-place-pin--selected");

@@ -174,7 +174,8 @@ public sealed class SavedPlacesTests : IDisposable
         Assert.DoesNotContain(queries.Reads, sql => sql.Contains("SavedPlaces"));
         Assert.Null(typeof(PlaceDiscoveryItem).GetProperty("SavedPlace"));
         Assert.Null(typeof(PlaceMapItem).GetProperty("UserId"));
-        Assert.Equal(12, typeof(PlaceMapItem).GetProperties().Length);
+        Assert.Equal(13, typeof(PlaceMapItem).GetProperties().Length);
+        Assert.NotNull(typeof(PlaceMapItem).GetProperty("DetailsUrl"));
         Assert.NotNull(typeof(PlaceMapItem).GetProperty("IsCurrentlyFeatured"));
     }
 
