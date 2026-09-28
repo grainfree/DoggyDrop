@@ -178,6 +178,7 @@ builder.Services.AddSingleton<IGamificationRewardBuilder, GamificationRewardBuil
 builder.Services.AddScoped<ISeasonalEventService, SeasonalEventService>();
 builder.Services.AddScoped<ILocalLeaderboardService, LocalLeaderboardService>();
 builder.Services.AddScoped<IMapStampService, MapStampService>();
+builder.Services.AddWalkingRouting();
 builder.Services.AddHttpClient<IOsmWalkPlannerService, OsmWalkPlannerService>(client =>
 {
     client.Timeout = TimeSpan.FromSeconds(5);
@@ -218,6 +219,7 @@ app.UseRouting();
 app.UseCookiePolicy();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 

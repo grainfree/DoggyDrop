@@ -3571,6 +3571,7 @@ else if (needsDogOnboarding)
     <script src="~/js/bin-marker.js" asp-append-version="true"></script>
     <script src="~/js/place-marker.js" asp-append-version="true"></script>
     <script src="~/js/place-popup.js" asp-append-version="true"></script>
+    <script src="~/js/walking-route.js" asp-append-version="true"></script>
     <script src="~/js/walk-recording-auth.js" asp-append-version="true"></script>
 
     <script>
@@ -3588,7 +3589,7 @@ else if (needsDogOnboarding)
         let userMarker;
         const navigation = {
             active: false, destination: null, destinationType: "generic", position: null, routeLayer: null,
-            distanceMeters: null, routeStatus: "loading", followUser: false,
+            distanceMeters: null, durationSeconds: null, routeStatus: "loading", followUser: false,
             lastAttemptedPosition: null, lastSuccessfulPosition: null,
             requestSequence: 0, abortController: null, routePending: false,
             retryTimer: null, retryCount: 0,
@@ -3597,7 +3598,6 @@ else if (needsDogOnboarding)
         };
         const navigationRerouteMeters = 60;
         const navigationArrivalMeters = 30;
-        const navigationRetryDelaysMs = [8000, 16000];
         let binLayer;
         let managedPlaceLayer;
         let dogLayer;
@@ -5436,6 +5436,7 @@ else if (needsDogOnboarding)
             navigation.previousLayers = null;
             navigation.previousFilterState = null;
             navigation.distanceMeters = null;
+            navigation.durationSeconds = null;
             navigation.routeStatus = "loading";
             navigation.lastAttemptedPosition = null;
             navigation.lastSuccessfulPosition = null;
@@ -5481,18 +5482,9 @@ else if (needsDogOnboarding)
             navigation.routeLayer?.remove();
             navigation.routeStatus = route.isFallback ? "approximate" : "routed";
             navigation.distanceMeters = route.distanceMeters;
-            if (route.isFallback) {
-                if (navigation.retryCount < navigationRetryDelaysMs.length) {
-                    const delay = navigationRetryDelaysMs[navigation.retryCount++];
-                    navigation.retryTimer = setTimeout(() => {
-                        navigation.retryTimer = null;
-                        if (navigation.active) requestNavigationRoute(false);
-                    }, delay);
-                }
-            } else {
-                navigation.lastSuccessfulPosition = origin;
-                navigation.retryCount = 0;
-            }
+            navigation.durationSeconds = route.durationSeconds;
+            navigation.lastSuccessfulPosition = route.isFallback ? null : origin;
+            navigation.retryCount = 0;
             navigation.routeLayer = L.polyline(route.points, route.isFallback
                 ? { color: "#ca6b28", weight: 3, opacity: .8, dashArray: "7 9", interactive: false }
                 : { color: "#2f6d5f", weight: 7, opacity: .95, lineCap: "round", lineJoin: "round", interactive: false }).addTo(map);
@@ -5514,39 +5506,17 @@ else if (needsDogOnboarding)
         }
 
         async function fetchWalkingRoute(origin, destination, signal) {
-            const fallbackDistance = getDistanceMeters(origin.lat, origin.lng, destination.lat, destination.lng);
-            const fallback = {
-                points: [[origin.lat, origin.lng], [destination.lat, destination.lng]],
-                distanceMeters: fallbackDistance,
-                isFallback: true
-            };
-
             try {
-                // The public OSRM graph is not verified for walking; replace it with a verified foot-profile service.
-                const url = `https://router.project-osrm.org/route/v1/foot/${origin.lng},${origin.lat};${destination.lng},${destination.lat}?overview=full&geometries=geojson&steps=false`;
-                const response = await fetch(url, { signal });
-                if (!response.ok) {
-                    return fallback;
-                }
-
-                const data = await response.json();
-                const route = data.routes?.[0];
-                const coordinates = route?.geometry?.coordinates;
-                if (!Array.isArray(coordinates) || coordinates.length < 2 ||
-                    !coordinates.every(point => Array.isArray(point) && point.length >= 2 &&
-                        Number.isFinite(point[0]) && Number.isFinite(point[1]) &&
-                        Math.abs(point[0]) <= 180 && Math.abs(point[1]) <= 90)) {
-                    return fallback;
-                }
-
-                return {
-                    points: coordinates.map(point => [point[1], point[0]]),
-                    distanceMeters: Number.isFinite(route.distance) && route.distance > 0 ? route.distance : fallbackDistance,
-                    isFallback: false
+                const routed = await DoggyDropWalkingRoute.request(origin, destination, requestVerificationToken, signal);
+                if (signal.aborted) return null;
+                return routed || {
+                    points: [[origin.lat, origin.lng], [destination.lat, destination.lng]],
+                    distanceMeters: getDistanceMeters(origin.lat, origin.lng, destination.lat, destination.lng),
+                    durationSeconds: null, isFallback: true
                 };
             } catch (error) {
                 if (signal.aborted || error?.name === "AbortError") return null;
-                return fallback;
+                throw error;
             }
         }
 
@@ -5556,11 +5526,11 @@ else if (needsDogOnboarding)
             const bin = navigation.destination;
             const approximate = navigation.routeStatus === "approximate";
             const distance = navigation.distanceMeters;
-            const eta = !approximate && Number.isFinite(distance) ? `~${Math.max(1, Math.round(distance / 82))} min hoje` : "Čas hoje ni na voljo";
+            const eta = !approximate && Number.isFinite(navigation.durationSeconds) ? `~${Math.max(1, Math.ceil(navigation.durationSeconds / 60))} min hoje` : "Čas hoje ni na voljo";
             const distanceLabel = Number.isFinite(distance) ? formatDistance(distance) : "Računam razdaljo";
             const routeNote = navigation.arrived ? (navigation.destinationType === "bin" ? "Prispel si do koša" : "Prispel si na cilj") : navigation.gpsStatus ??
-                (approximate ? "Le približna smer in zračna razdalja; preveri prehodnost poti."
-                    : navigation.routeStatus === "loading" ? "Računam pot ..." : "Razdalja po predlagani poti");
+                (approximate ? "Pešpot trenutno ni na voljo. Prikazani sta le približna smer in zračna razdalja; preveri prehodnost poti."
+                    : navigation.routeStatus === "loading" ? "Računam pot ..." : "Peš · razdalja po izračunani poti");
             const heading = navigationHeading(navigation.destinationType);
             const panelLabel = navigation.destinationType === "bin" ? "Navigacija do koša" : "Navigacija do lokacije";
             panel.style.display = "block";
@@ -5570,6 +5540,7 @@ else if (needsDogOnboarding)
                     <h3 class="navigation-card__title">${escapeHtml(bin.name || bin.Name || "Cilj")}</h3>
                     <div class="navigation-card__metrics"><strong>${distanceLabel}</strong><span>${approximate ? `zračna razdalja · ${eta}` : eta}</span></div>
                     <p class="navigation-card__status" role="status">${escapeHtml(routeNote)}</p>
+                    ${!approximate && navigation.routeStatus === "routed" ? '<small>Pot: <a href="https://openrouteservice.org/" target="_blank" rel="noopener noreferrer">© openrouteservice.org by HeiGIT</a> · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a></small>' : ""}
                     <div class="navigation-card__actions">
                         <button type="button" onclick="recenterNavigation()" ${navigation.followUser ? "hidden" : ""} aria-label="Nazaj na mojo lokacijo"><i class="bi bi-crosshair" aria-hidden="true"></i> Nazaj na mojo lokacijo</button>
                         <button type="button" onclick="stopInAppNavigation()" aria-label="Končaj navigacijo"><i class="bi bi-x-lg" aria-hidden="true"></i> Končaj</button>

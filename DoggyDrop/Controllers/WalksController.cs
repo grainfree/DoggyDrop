@@ -28,6 +28,7 @@ namespace DoggyDrop.Controllers
         private readonly IGamificationCalendar _gamificationCalendar;
         private readonly IUserAchievementService _userAchievementService;
         private readonly ILogger<WalksController> _logger;
+        private readonly IWalkingRoutes? _walkingRoutes;
 
         public WalksController(
             ApplicationDbContext context,
@@ -40,7 +41,8 @@ namespace DoggyDrop.Controllers
             IGamificationRewardBuilder rewardBuilder,
             IGamificationCalendar gamificationCalendar,
             IUserAchievementService userAchievementService,
-            ILogger<WalksController>? logger = null)
+            ILogger<WalksController>? logger = null,
+            IWalkingRoutes? walkingRoutes = null)
         {
             _context = context;
             _userManager = userManager;
@@ -53,6 +55,7 @@ namespace DoggyDrop.Controllers
             _gamificationCalendar = gamificationCalendar;
             _userAchievementService = userAchievementService;
             _logger = logger ?? NullLogger<WalksController>.Instance;
+            _walkingRoutes = walkingRoutes;
         }
 
         [HttpGet]
@@ -291,7 +294,7 @@ namespace DoggyDrop.Controllers
                 includePark,
                 includeWater,
                 includeDogFriendly,
-                preferExternalRouting: false);
+                preferExternalRouting: true);
 
             var model = new WalkPlannerViewModel
             {
@@ -472,7 +475,7 @@ namespace DoggyDrop.Controllers
                     Latitude = stop.Latitude,
                     Longitude = stop.Longitude
                 }).ToList(),
-                RoutePoints = route.RoutePoints.Select((point, index) => new PlannedWalkRoutePoint
+                RoutePoints = (route.IsWalkingRoute ? route.RoutePoints : Array.Empty<PlannedWalkPoint>()).Select((point, index) => new PlannedWalkRoutePoint
                 {
                     Order = index + 1,
                     Latitude = point.Latitude,
@@ -595,7 +598,7 @@ namespace DoggyDrop.Controllers
                     Latitude = stop.Latitude,
                     Longitude = stop.Longitude
                 }).ToList(),
-                RoutePoints = route.RoutePoints.Select((point, index) => new PlannedWalkRoutePoint
+                RoutePoints = (route.IsWalkingRoute ? route.RoutePoints : Array.Empty<PlannedWalkPoint>()).Select((point, index) => new PlannedWalkRoutePoint
                 {
                     Order = index + 1,
                     Latitude = point.Latitude,
@@ -1884,7 +1887,7 @@ namespace DoggyDrop.Controllers
                 }
             }
 
-            return BuildPlannedRoute(
+            var plan = BuildPlannedRoute(
                 areaKey,
                 area,
                 usesCurrentLocation,
@@ -1896,6 +1899,7 @@ namespace DoggyDrop.Controllers
                 includePark,
                 includeWater,
                 includeDogFriendly);
+            return await WalkingPlanRouting.ApplyAsync(plan, _walkingRoutes, HttpContext.RequestAborted);
         }
 
         private static PlannedWalkRoute BuildPlannedRoute(

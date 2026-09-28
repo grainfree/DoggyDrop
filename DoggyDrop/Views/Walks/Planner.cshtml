@@ -114,8 +114,8 @@
     @if (binStop != null)
     {
         <aside class="walk-planner-nearby-bin">
-            <strong>Koš je vključen v pot</strong>
-            <span>@binStop.Name je na predlagani trasi, če ga med sprehodom potrebuješ.</span>
+            <strong>Koš je vključen med postanke</strong>
+            <span>@binStop.Name je izbran postanek, če ga med sprehodom potrebuješ.</span>
         </aside>
     }
 
@@ -125,7 +125,7 @@
             <article class="walk-planner-map-card">
                 <div class="walk-planner-map-frame">
                     <div id="plannerRouteMap" class="walk-planner-route-map" role="img" aria-label="Predvidena pot sprehoda"></div>
-                    <button type="button" class="walk-planner-map-note" title="Številke označujejo vrstni red postankov." aria-label="Številke označujejo vrstni red postankov."><i class="bi bi-info-circle" aria-hidden="true"></i></button>
+                    <button type="button" class="walk-planner-map-note" title="Številke označujejo vrstni red postankov. Črtkana pot je le približen načrt." aria-label="Številke označujejo vrstni red postankov. Črtkana pot je le približen načrt."><i class="bi bi-info-circle" aria-hidden="true"></i></button>
                     @if (debugRouteEnabled)
                     {
                         <aside class="planner-route-debug" aria-label="Diagnostika predogleda poti">
@@ -162,12 +162,21 @@
                         </div>
                         <div class="walk-planner-summary__metrics">
                             <strong>@Model.Route!.EstimatedDistanceKm.ToString("0.0", CultureInfo.GetCultureInfo("sl-SI")) km</strong>
-                            <span>~@Model.Route.EstimatedMinutes min</span>
+                            <span>@(Model.Route.IsWalkingRoute && Model.Route.EstimatedMinutes > 0 ? $"~{Model.Route.EstimatedMinutes} min hoje" : "Čas hoje ni na voljo")</span>
+                            <small>@(Model.Route.IsWalkingRoute ? "Peš · razdalja po poti" : "Približna geometrijska razdalja")</small>
                         </div>
                         <p>@Model.Route?.Summary</p>
+                        @if (!Model.Route!.IsWalkingRoute)
+                        {
+                            <div class="walking-route-notice" role="status">Približen načrt, ne preverjena pešpot. Črte povezujejo postanke; preveri prehodnost poti.</div>
+                        }
+                        @if (Model.Route!.IsWalkingRoute)
+                        {
+                            <small>Pot: <a href="https://openrouteservice.org/" target="_blank" rel="noopener noreferrer">© openrouteservice.org by HeiGIT</a> · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a></small>
+                        }
                         @if (binStop != null)
                         {
-                            <p class="walk-planner-bin-pill"><i class="bi bi-trash3-fill" aria-hidden="true"></i> Koš na poti: @binStop.Name</p>
+                            <p class="walk-planner-bin-pill"><i class="bi bi-trash3-fill" aria-hidden="true"></i> Postanek pri košu: @binStop.Name</p>
                         }
                     </div>
                 </div>
@@ -240,6 +249,7 @@
     <partial name="_MapBasemapScripts" />
     <script>
 
+        const plannerIsWalkingRoute = @((Model.Route?.IsWalkingRoute == true).ToString().ToLowerInvariant());
         const plannerPoints = @routePointsJson;
         const plannerStops = @stopsJson;
         const debugRouteEnabled = @(debugRouteEnabled.ToString().ToLowerInvariant());
@@ -396,11 +406,11 @@
                 .map(stop => ({ ...stop, point: readCoordinate(stop) }))
                 .filter(stop => stop.point);
             const center = routePoints[0] ?? stopPoints[0]?.point;
-            const previewRoutePoints = routePoints.length >= 4
+            const previewRoutePoints = routePoints.length >= 2
                 ? routePoints
-                : buildPreviewLoop(center, readTargetDistanceKm(), stopPoints.map(stop => stop.point));
+                : plannerIsWalkingRoute ? [] : buildPreviewLoop(center, readTargetDistanceKm(), stopPoints.map(stop => stop.point));
             if (debugRouteEnabled) setPlannerDebug("Preview", previewRoutePoints.length);
-            if (debugRouteEnabled) setPlannerDebug("Source", routePoints.length >= 4 ? "SERVER" : "FALLBACK");
+            if (debugRouteEnabled) setPlannerDebug("Source", routePoints.length >= 2 ? "SERVER" : "FALLBACK");
             const allPoints = previewRoutePoints.concat(stopPoints.map(stop => stop.point));
             if (allPoints.length === 0) {
                 return;
@@ -443,8 +453,9 @@
                 }).addTo(map);
 
                 routeLine = L.polyline(latLngs, {
-                    color: "#24695a",
-                    weight: 6,
+                    color: plannerIsWalkingRoute ? "#24695a" : "#ca6b28",
+                    dashArray: plannerIsWalkingRoute ? null : "7 9",
+                    weight: plannerIsWalkingRoute ? 6 : 3,
                     opacity: 0.94,
                     lineCap: "round",
                     lineJoin: "round"
@@ -1732,4 +1743,6 @@
             font-size: .88rem;
         }
     }
+    .walking-route-notice { flex-basis: 100%; font-size: .8rem; line-height: 1.3; color: #654021; }
+    .walk-planner-summary__metrics { flex-wrap: wrap; white-space: normal; }
 </style>

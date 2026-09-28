@@ -1159,6 +1159,30 @@ public sealed class WalksControllerFinishTests : IDisposable
         Assert.Equal(1, streak.CurrentDays);
     }
 
+    [Theory]
+    [InlineData(true, true)] [InlineData(false, true)] [InlineData(true, false)] [InlineData(false, false)]
+    public async Task PlannedGeometryPersistsOnlyWhenWalkingProviderSucceeded(bool available, bool saveOnly)
+    {
+        await SeedAsync(0, "Completed");
+        await using var context = CreateContext();
+        var dogId = await context.Dogs.Select(d => d.Id).SingleAsync();
+        var controller = CreateController(context, walkingRoutes: new TestWalkingRoutes(available));
+        if (saveOnly) await controller.SavePlan(dogId, "maribor", 3, "balanced", "auto", null, null);
+        else await controller.StartPlanned(dogId, "maribor", 3, "balanced", "auto", null, null);
+        var plan = await context.PlannedWalks.Include(p => p.RoutePoints).Include(p => p.Stops).SingleAsync();
+        Assert.Equal(UserId, plan.OwnerId); Assert.NotNull(plan.Stops); Assert.NotEmpty(plan.Stops);
+        Assert.NotNull(plan.RoutePoints);
+        Assert.Equal(available ? 2 : 0, plan.RoutePoints.Count);
+        Assert.Equal(available ? 4 : 0, plan.EstimatedMinutes);
+        if (available) Assert.Equal(0.2455, plan.EstimatedDistanceKm);
+    }
+
+    private sealed class TestWalkingRoutes(bool available) : IWalkingRoutes
+    {
+        public Task<WalkingRouteResult> RouteAsync(IReadOnlyList<WalkingCoordinate> points, CancellationToken ct = default)
+            => Task.FromResult(available ? new WalkingRouteResult([points[0], points[1]], 245.5, 189) : WalkingRouteResult.Unavailable("unavailable"));
+    }
+
     private async Task<IActionResult> FinishWithNewContextAsync(int walkId)
     {
         await using var context = CreateContext();
@@ -1199,7 +1223,7 @@ public sealed class WalksControllerFinishTests : IDisposable
         return new ApplicationDbContext(options);
     }
 
-    private WalksController CreateController(ApplicationDbContext context, TestGamificationCalendar? calendar = null, ICloudinaryService? imageService = null, string userId = UserId)
+    private WalksController CreateController(ApplicationDbContext context, TestGamificationCalendar? calendar = null, ICloudinaryService? imageService = null, string userId = UserId, IWalkingRoutes? walkingRoutes = null)
     {
         var notifications = new NoOpNotificationService();
         calendar ??= new TestGamificationCalendar();
@@ -1213,7 +1237,7 @@ public sealed class WalksControllerFinishTests : IDisposable
             new NoOpPlannerService(),
             new GamificationRewardBuilder(),
             calendar,
-            new UserAchievementService(context, notifications));
+            new UserAchievementService(context, notifications), walkingRoutes: walkingRoutes);
 
         var httpContext = new DefaultHttpContext
         {

@@ -320,7 +320,7 @@
                         <article class="walk-plan-item">
                             <a asp-controller="Walks" asp-action="Plan" asp-route-id="@plan.Id">
                                 <strong>@plan.Title</strong>
-                                <span>@(plan.DogName ?? "Brez psa") · @plan.AreaName · @(plan.TargetDistanceKm.ToString("0.#", slCulture)) km · ~@plan.EstimatedMinutes min</span>
+                                <span>@(plan.DogName ?? "Brez psa") · @plan.AreaName · @(plan.TargetDistanceKm.ToString("0.#", slCulture)) km · @(plan.EstimatedMinutes > 0 ? $"~{plan.EstimatedMinutes} min" : "Čas hoje ni na voljo")</span>
                             </a>
                             @if (plan.UsedAt.HasValue)
                             {
