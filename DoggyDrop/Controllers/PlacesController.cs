@@ -41,16 +41,29 @@ public sealed class PlacesController(ApplicationDbContext context, PlaceLogoClou
     public async Task<IActionResult> Details(int id)
     {
         var place = await context.Places.AsNoTracking()
-            .Where(item => item.Id == id && item.IsActive && PlaceCategories.Supported.Contains(item.Category))
+            .ForPublicDetails().Where(item => item.Id == id)
             .WithFeatured((clock ?? TimeProvider.System).GetUtcNow().UtcDateTime)
             .Select(row => new PlaceDetailsData(row.Place.Id, row.Place.Name, row.Place.Category, row.Place.Latitude, row.Place.Longitude,
                 row.Place.Address, row.Place.Phone, row.Place.WebsiteUrl, row.Place.OpeningHours, row.Place.Description, row.Place.ImageUrl, row.Place.LogoUrl,
                 row.Place.Amenities.Select(amenity => amenity.AmenityType).ToList(), row.IsCurrentlyFeatured))
             .SingleOrDefaultAsync();
-        if (place == null) return NotFound();
+        if (place == null || !PublicPlaceEligibility.ValidName(place.Name)) return NotFound();
         var userId = User?.Identity?.IsAuthenticated == true ? User.FindFirstValue(ClaimTypes.NameIdentifier) : null;
         var isSaved = !string.IsNullOrEmpty(userId) && await context.SavedPlaces.AsNoTracking()
             .AnyAsync(saved => saved.UserId == userId && saved.PlaceId == id);
-        return View(PlaceDetailsViewModel.FromPublicData(place, logoCloud.Value) with { IsSaved = isSaved });
+        var model = PlaceDetailsViewModel.FromPublicData(place, logoCloud.Value) with { IsSaved = isSaved };
+        ViewData[SeoMetadata.ViewDataKey] = SeoMetadata.ForPlace(model);
+        return View("Details", model);
+    }
+
+    [HttpGet("/lokacije/{id:int}/{**slug}")]
+    [AllowAnonymous]
+    public async Task<IActionResult> Friendly(int id, string? slug)
+    {
+        var result = await Details(id);
+        if (result is not ViewResult { Model: PlaceDetailsViewModel place }) return result;
+        // Local, server-generated destination. IDs remain authoritative after rename.
+        return string.Equals(slug, SeoMetadata.Slug(place.Name), StringComparison.Ordinal)
+            ? result : LocalRedirectPermanent(SeoMetadata.PlacePath(id, place.Name));
     }
 }

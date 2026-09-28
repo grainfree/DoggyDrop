@@ -38,6 +38,7 @@
         @if (!string.IsNullOrWhiteSpace(Model.Address)) { <p>@Model.Address</p> }
     </header>
     <div class="places-details__actions">
+        <a class="places-button" asp-controller="Places" asp-action="Index">Razišči lokacije</a>
         <a class="places-button places-button--primary" asp-controller="Map" asp-action="Index" asp-route-placeId="@Model.Id" asp-route-navigate="1"><i class="bi bi-signpost-2" aria-hidden="true"></i> Navodila za pot</a>
         @if (Model.TelephoneHref != null) { <a class="places-button" href="@Model.TelephoneHref"><i class="bi bi-telephone" aria-hidden="true"></i> Pokliči</a> }
         @if (Model.WebsiteUrl != null) { <a class="places-button" href="@Model.WebsiteUrl" target="_blank" rel="noopener noreferrer"><i class="bi bi-box-arrow-up-right" aria-hidden="true"></i> Spletna stran</a> }

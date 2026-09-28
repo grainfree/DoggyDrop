@@ -192,6 +192,8 @@ if (AchievementReconciliationCommand.IsRequested(args))
     return;
 }
 
+app.UseMiddleware<SeoIndexingMiddleware>();
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");
