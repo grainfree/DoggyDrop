@@ -1,7 +1,7 @@
 @model DoggyDrop.ViewModels.PlaceInput
 @{ ViewData["Title"] = "Uredi lokacijo"; }
 @section Styles {
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <partial name="_MapBasemapStyles" />
     <link rel="stylesheet" href="~/css/places.css" asp-append-version="true" />
 }
 <main class="places-page places-admin">
@@ -33,5 +33,6 @@
 </main>
 @section Scripts {
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <partial name="_MapBasemapScripts" />
     <script src="~/js/place-editor.js" asp-append-version="true"></script>
 }

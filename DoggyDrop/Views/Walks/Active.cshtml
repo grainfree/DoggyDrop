@@ -52,9 +52,7 @@
 }
 
 @section Styles {
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-          integrity="sha256-p4NxAoJBhIINfQXh6ULpR5txR9wra5I3BcVsTPY1p3A="
-          crossorigin="" />
+    <partial name="_MapBasemapStyles" />
     <link rel="stylesheet" href="~/css/bin-marker.css" asp-append-version="true" />
 }
 
@@ -332,6 +330,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
             integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
             crossorigin=""></script>
+    <partial name="_MapBasemapScripts" />
     <script src="~/js/bin-marker.js" asp-append-version="true"></script>
     <script src="~/js/active-bin-proximity.js" asp-append-version="true"></script>
     <script src="~/js/walk-recording-auth.js" asp-append-version="true"></script>
@@ -663,10 +662,7 @@
                 zoomControl: true
             }).setView(fallback, routePoints.length > 0 ? 17 : 14);
 
-            L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-                maxZoom: 19,
-                attribution: "&copy; OpenStreetMap"
-            }).addTo(map);
+            DoggyDropBasemap.addTo(map, { maxZoom: 19 });
 
             approvedBinLayer = L.layerGroup().addTo(map);
 
@@ -2086,7 +2082,6 @@
     #walkMap .leaflet-tile {
         width: 256px;
         height: 256px;
-        filter: saturate(0.9) contrast(0.96) brightness(1.04);
         visibility: hidden;
     }
 

@@ -4,9 +4,7 @@
 }
 
 @section Styles {
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-          integrity="sha256-p4NxAoJBhIINfQXh6ULpR5txR9wra5I3BcVsTPY1p3A="
-          crossorigin="" />
+    <partial name="_MapBasemapStyles" />
 }
 
 <section class="app-page add-bin-page">
@@ -89,6 +87,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
             integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
             crossorigin=""></script>
+    <partial name="_MapBasemapScripts" />
 
     <script>
         let map;
@@ -115,10 +114,7 @@
             const fallbackLocation = [46.5547, 15.6459];
             map = L.map("map").setView(fallbackLocation, 15);
 
-            L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-                maxZoom: 19,
-                attribution: "&copy; OpenStreetMap"
-            }).addTo(map);
+            DoggyDropBasemap.addTo(map, { maxZoom: 19 });
 
             setSelectedLocation(fallbackLocation[0], fallbackLocation[1]);
             map.on("click", function (e) {

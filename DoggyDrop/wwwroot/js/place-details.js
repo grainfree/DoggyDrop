@@ -19,7 +19,7 @@
     if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return;
 
     const map = L.map(element, { scrollWheelZoom: false }).setView([lat, lng], 16);
-    window.DoggyDropBasemap.addTo(map, element.dataset.cartoBasemapKey);
+    window.DoggyDropBasemap.addTo(map);
     const icon = window.DoggyDropPlaceMarker.createIcon({
         category: element.dataset.category,
         categoryKey: element.dataset.categoryKey,

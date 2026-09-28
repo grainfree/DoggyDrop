@@ -2,7 +2,6 @@
 @using System.Text.Json
 @inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
 @inject DoggyDrop.Services.IWeeklyGoalsService WeeklyGoalsService
-@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
 
 @{
     ViewData["Title"] = "Zemljevid";
@@ -58,7 +57,7 @@
     var homeWalkTrailJson = Html.Raw(JsonSerializer.Serialize(activeWalk?.Points?.OrderBy(point => point.RecordedAt).ThenBy(point => point.Id).Select(point => new[] { point.Latitude, point.Longitude }) ?? Enumerable.Empty<double[]>()));
     var homeWalkPlanJson = Html.Raw(JsonSerializer.Serialize(activeWalk?.PlannedWalk?.RoutePoints?.OrderBy(point => point.Order).Select(point => new[] { point.Latitude, point.Longitude }) ?? Enumerable.Empty<double[]>()));
     var debugGpsEnabled = Context.Request.Query["debugGps"].ToString() == "1";
-    var cartoBasemapKeyJson = Html.Raw(JsonSerializer.Serialize(Configuration["CartoBasemap:PublicApiKey"]));
+
     var quickStartDogId = ViewBag.QuickStartDogId as int?;
     var weeklyUserId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
     var weeklyGoals = !string.IsNullOrWhiteSpace(weeklyUserId) && !hasActiveWalk && !needsDogOnboarding && !showFirstWalkPrompt
@@ -67,9 +66,7 @@
 }
 
 @section Styles {
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-            crossorigin="" />
+    <partial name="_MapBasemapStyles" />
     <link rel="stylesheet" href="~/css/bin-marker.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/places.css" asp-append-version="true" />
 }
@@ -157,14 +154,6 @@
 
     .leaflet-tile-pane {
         z-index: 200;
-    }
-
-    .leaflet-tile-pane .leaflet-layer:first-child {
-        filter: saturate(0.86) contrast(0.94) brightness(1.06);
-    }
-
-    .leaflet-tile-pane .leaflet-layer:nth-child(2) {
-        filter: saturate(0.92) contrast(0.98);
     }
 
     .leaflet-overlay-pane {
@@ -3578,14 +3567,13 @@ else if (needsDogOnboarding)
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
             integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
             crossorigin=""></script>
-    <script src="~/js/map-basemap.js" asp-append-version="true"></script>
+    <partial name="_MapBasemapScripts" />
     <script src="~/js/bin-marker.js" asp-append-version="true"></script>
     <script src="~/js/place-marker.js" asp-append-version="true"></script>
     <script src="~/js/place-popup.js" asp-append-version="true"></script>
     <script src="~/js/walk-recording-auth.js" asp-append-version="true"></script>
 
     <script>
-        const cartoBasemapKey = @cartoBasemapKeyJson;
         const bins = @binsJson;
         const managedPlaces = (@managedPlacesJson).filter(place => {
             const id = Number(place.id);
@@ -4082,7 +4070,7 @@ else if (needsDogOnboarding)
             map.createPane("navigationMarkers").style.zIndex = 620;
             map.createPane("userMarkers").style.zIndex = 630;
 
-            DoggyDropBasemap.addTo(map, cartoBasemapKey, true);
+            DoggyDropBasemap.addTo(map);
 
             if (homeActiveWalkId > 0) {
                 homeWalkPlanLayer = L.polyline(homeWalkPlanPoints, { color: "#d97706", weight: 4, opacity: 0.8, dashArray: "8 8" }).addTo(map);

@@ -115,6 +115,43 @@ public sealed class PlaceMapPopupHttpTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.Forbidden, (await user.PostAsync("/AdminPlaces/Edit/1", new FormUrlEncodedContent([]))).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await admin.PostAsync("/AdminPlaces/Edit/1", new FormUrlEncodedContent([]))).StatusCode);
     }
+    [Theory]
+    [InlineData(null, "osm")]
+    [InlineData("stadia", "stadia")]
+    [InlineData("https://untrusted.invalid/?private=value", "osm")]
+    public async Task HomeRendersOnlyAllowlistedBasemapConfiguration(string? configured, string expected)
+    {
+        app.Configuration["Basemap:Provider"] = configured;
+        using var client = Client();
+        var html = await Page(client, "/");
+        Assert.Contains($"data-provider=\"{expected}\"", html);
+        Assert.DoesNotContain("untrusted.invalid", html);
+        Assert.DoesNotContain("private=value", html);
+        Assert.Contains("/css/map-basemap.css", html);
+        Assert.Contains("sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=", html);
+        if (expected == "stadia") await Capture("home-stadia", html);
+    }
+    [Fact]
+    public async Task ConfiguredBasemapPreservesActiveHomeWalkPresentation()
+    {
+        app.Configuration["Basemap:Provider"] = "stadia";
+        await using (var scope = app.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var dog = new Dog { Name = "Test dog", OwnerId = "admin" };
+            db.Dogs.Add(dog);
+            db.Walks.Add(new Walk { Dog = dog, OwnerId = "admin", StartedAt = DateTime.UtcNow,
+                Points = [new WalkPoint { Latitude = 46.56, Longitude = 15.64, RecordedAt = DateTime.UtcNow }] });
+            await db.SaveChangesAsync();
+        }
+        using var client = Client("admin");
+        var html = await Page(client, "/");
+        Assert.Contains("data-provider=\"stadia\"", html);
+        Assert.Contains("id=\"homeActiveWalkSheet\"", html);
+        Assert.Contains("map-action-stack--with-active", html);
+        Assert.DoesNotContain("id=\"homeIntro\"", html);
+        await Capture("home-active", html);
+    }
     [Fact]
     public async Task SuccessfulQuickEditReloadsNewCoordinatesAndCategoryAtTheSamePlace()
     {

@@ -62,9 +62,7 @@
 @section Styles {
     @if (isOwner && memory.HasMap)
     {
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-          integrity="sha256-p4NxAoJBhIINfQXh6ULpR5txR9wra5I3BcVsTPY1p3A="
-          crossorigin="" />
+    <partial name="_MapBasemapStyles" />
     }
     <style>
         .first-walk-celebration {
@@ -863,6 +861,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
             integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
             crossorigin=""></script>
+    <partial name="_MapBasemapScripts" />
     }
 
     <script>
@@ -933,10 +932,7 @@
                     createdMap = L.map(mapElement);
                     map = createdMap;
                     map.setView(fallback, routePoints.length > 0 ? 15 : 13);
-                    const tiles = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-                        maxZoom: 19,
-                        attribution: "&copy; OpenStreetMap"
-                    }).addTo(map);
+                    const tiles = DoggyDropBasemap.addTo(map, { maxZoom: 19 })[0];
                     tiles.on("load", () => { tileLoaded = true; updateDebug(); });
                     tiles.on("tileerror", () => { lastError = "Tile load failed"; updateDebug(); });
                     if (planPoints.length > 1) {

@@ -1,0 +1,2 @@
+@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
+<script src="~/js/map-basemap.js" asp-append-version="true" data-provider="@(Configuration["Basemap:Provider"] == "stadia" ? "stadia" : "osm")"></script>

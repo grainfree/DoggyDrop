@@ -61,6 +61,7 @@ function runEditor(latitudeValue, longitudeValue) {
     };
     const window = {
         L: leaflet,
+        DoggyDropBasemap: { addTo(target, options) { assert.equal(target, map); assert.equal(options.maxZoom, 19); } },
         ResizeObserver: class { constructor(callback) { handlers.resize = callback; } observe() {} },
         addEventListener(name, handler) { handlers[name] = handler; }
     };
@@ -354,7 +355,7 @@ test("Place Details map initializes once with guarded basemap and category marke
         const result = runDetailsMap(category);
         assert.equal(result.maps, 1);
         assert.equal(result.layers, 1);
-        assert.equal(result.key, "");
+        assert.equal(result.key, undefined);
         assert.equal(result.markers.length, 1);
         assert.match(result.markers[0].options.icon.html, new RegExp(iconClass));
         assert.equal(result.markers[0].options.icon.html.includes("managed-place-pin--destination"), Number(category) >= 6);
@@ -365,7 +366,7 @@ test("Place Details map initializes once with guarded basemap and category marke
         assert.equal(result.sizes[1].pan, false);
     }
     assert.equal(runDetailsMap("2", "NaN").maps, 0);
-    assert.equal(runDetailsMap("2", "46.05", "public-test-key").key, "public-test-key");
+    assert.equal(runDetailsMap("2", "46.05", "public-test-key").key, undefined);
     assert.match(runDetailsMap("2", "46.05", "", "https://example.com/shop.png").markers[0].options.icon.html,
         /src="https:\/\/example\.com\/shop\.png"/);
     assert.doesNotMatch(read("DoggyDrop/wwwroot/js/place-details.js"), /basemaps\.cartocdn\.com|L\.tileLayer\(/);
@@ -384,8 +385,9 @@ test("Admin and Details share scoped Leaflet structure; Details media is contain
     assert.match(css, /\.places-picker-map \{ height: 320px; \}/);
     assert.match(css, /\.places-details__map \{ height: 300px; \}/);
     assert.match(css, /\.places-details__map \{ height: 260px; \}/);
-    assert.match(details, /leaflet@1\.9\.4\/dist\/leaflet\.css/);
-    assert.match(details, /~\/js\/map-basemap\.js/);
+    assert.match(details, /_MapBasemapStyles/);
+    assert.match(read("DoggyDrop/Views/Shared/_MapBasemapStyles.cshtml"), /leaflet@1\.9\.4\/dist\/leaflet\.css/);
+    assert.match(details, /_MapBasemapScripts/);
     assert.match(home, /~\/css\/places\.css/);
     assert.match(css, /\.places-details__media \{[^}]*width: min\(100%, 560px\);[^}]*240px\)/);
     assert.match(css, /\.places-details__media img \{[^}]*object-fit: contain;/);

@@ -75,15 +75,12 @@
     const latitude = document.getElementById("Latitude");
     const longitude = document.getElementById("Longitude");
     const status = document.getElementById("placePickerStatus");
-    if (!element || !latitude || !longitude || !window.L) return;
+    if (!element || !latitude || !longitude || !window.L || !window.DoggyDropBasemap) return;
 
     // Keep Create aligned with the Home map; Edit is centered on its saved point below.
     const defaultMapCenter = [46.5547, 15.6459];
     const map = L.map(element).setView(defaultMapCenter, 14);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        maxZoom: 19,
-        attribution: "&copy; OpenStreetMap"
-    }).addTo(map);
+    window.DoggyDropBasemap.addTo(map, { maxZoom: 19 });
     let marker = null;
 
     function showPoint(lat, lng, moveMap) {
