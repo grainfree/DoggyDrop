@@ -59,7 +59,7 @@ public sealed class WalkingRouteBudget(TimeProvider clock)
 public sealed class OrsWalkingRoutes(HttpClient client, IConfiguration configuration,
     WalkingRouteBudget budget, ILogger<OrsWalkingRoutes> logger) : IWalkingRoutes
 {
-    public const string Endpoint = "https://api.openrouteservice.org/v2/directions/foot-walking/geojson";
+    public const string Endpoint = "https://api.heigit.org/openrouteservice/v2/directions/foot-walking/geojson";
     public async Task<WalkingRouteResult> RouteAsync(IReadOnlyList<WalkingCoordinate> points, CancellationToken cancellationToken = default)
     {
         if (points.Count is < 2 or > 12 || points.Any(p => p == null || !p.IsValid)

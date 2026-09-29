@@ -28,7 +28,7 @@ public sealed class WalkingRoutingTests
     public async Task FootWalkingPostUsesOnlyCoordinatesAndServerAuthorizationAndProviderMetrics()
     {
         var handler = new Handler(async (r, ct) => {
-            Assert.Equal(HttpMethod.Post, r.Method); Assert.Equal("https://api.openrouteservice.org/v2/directions/foot-walking/geojson", r.RequestUri!.AbsoluteUri);
+            Assert.Equal(HttpMethod.Post, r.Method); Assert.Equal("https://api.heigit.org/openrouteservice/v2/directions/foot-walking/geojson", r.RequestUri!.AbsoluteUri);
             Assert.Equal("test-only-key", r.Headers.GetValues("Authorization").Single());
             var text = await r.Content!.ReadAsStringAsync(ct); using var body = JsonDocument.Parse(text);
             Assert.Equal(new[] { "coordinates", "preference", "instructions", "elevation" }, body.RootElement.EnumerateObject().Select(p => p.Name));
