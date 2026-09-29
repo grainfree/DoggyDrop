@@ -17,7 +17,7 @@
         <div class="places-details__media">
             <img src="@Model.ImageUrl" alt="@Model.Name" loading="lazy" referrerpolicy="no-referrer" />
             <div class="places-details__media-fallback" role="img" aria-label="Fotografija ni na voljo" hidden>
-                <i class="bi @Model.IconClass" aria-hidden="true"></i>
+                <i class="dd-place-icon @Model.IconClass" aria-hidden="true"></i>
                 <span>Fotografija ni na voljo</span>
             </div>
         </div>
@@ -26,11 +26,11 @@
         <span class="places-eyebrow">@Model.CategoryLabel</span>
         @if (!Model.IsCommercial)
         {
-            <span class="places-details__destination places-details__destination--@Model.CategoryKey" aria-hidden="true"><i class="bi @Model.IconClass"></i></span>
+            <span class="places-details__destination places-details__destination--@Model.CategoryKey" aria-hidden="true"><i class="dd-place-icon @Model.IconClass"></i></span>
         }
         @if (!string.IsNullOrWhiteSpace(Model.LogoUrl))
         {
-            <span class="places-details__logo"><img src="@Model.LogoUrl" alt="Logotip @Model.Name" loading="lazy" referrerpolicy="no-referrer" /></span>
+            <span class="places-details__logo" role="img" aria-label="@Model.Name – @Model.CategoryLabel"><i class="dd-place-icon @Model.IconClass" aria-hidden="true"></i><img class="managed-place-image" src="@Model.LogoUrl" alt="" loading="lazy" referrerpolicy="no-referrer" /></span>
         }
         <h1>@Model.Name</h1>
         @if (Model.IsCurrentlyFeatured) { <span class="place-featured-badge" title="Promocijska izpostavitev; ne pomeni priporočila DoggyDrop.">Izpostavljeno</span> }
@@ -60,7 +60,7 @@
         @if (!string.IsNullOrWhiteSpace(Model.Description)) { <section><h2>O lokaciji</h2><p>@Model.Description</p></section> }
         @if (!string.IsNullOrWhiteSpace(Model.Phone) && Model.TelephoneHref == null) { <section><h2>Telefon</h2><p>@Model.Phone</p></section> }
     </div>
-    <div id="placeDetailsMap" class="places-details__map places-leaflet-map" data-latitude="@Model.Latitude.ToString(System.Globalization.CultureInfo.InvariantCulture)" data-longitude="@Model.Longitude.ToString(System.Globalization.CultureInfo.InvariantCulture)" data-category="@((int)Model.Category)" data-category-key="@Model.CategoryKey" data-icon-class="@Model.IconClass" data-is-commercial="@Model.IsCommercial.ToString().ToLowerInvariant()" data-logo-url="@Model.LogoUrl" aria-label="Lokacija na zemljevidu"></div>
+    <div id="placeDetailsMap" class="places-details__map places-leaflet-map" data-latitude="@Model.Latitude.ToString(System.Globalization.CultureInfo.InvariantCulture)" data-longitude="@Model.Longitude.ToString(System.Globalization.CultureInfo.InvariantCulture)" data-category="@((int)Model.Category)" data-category-label="@Model.CategoryLabel" data-category-key="@Model.CategoryKey" data-icon-class="@Model.IconClass" data-is-commercial="@Model.IsCommercial.ToString().ToLowerInvariant()" data-logo-url="@Model.LogoUrl" aria-label="Lokacija na zemljevidu"></div>
 </main>
 @section Scripts {
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>

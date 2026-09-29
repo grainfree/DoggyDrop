@@ -14,12 +14,18 @@
             .replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll("'", "&#39;");
     }
 
+    // Only an application CSS class can select bundled artwork; never accept SVG/HTML.
+    function iconClass(place) {
+        return typeof place?.iconClass === "string" && /^dd-place-icon--[a-z-]{1,40}$/.test(place.iconClass)
+            ? place.iconClass : "dd-place-icon--other";
+    }
+
     function createIcon(place, { selected = false } = {}) {
         const kind = typeof place?.categoryKey === "string" && /^[a-z][a-z-]{0,30}$/.test(place.categoryKey)
             ? place.categoryKey : "other";
-        const symbol = typeof place?.iconClass === "string" && /^bi-[a-z0-9-]{1,40}$/.test(place.iconClass)
-            ? place.iconClass : "bi-geo-alt-fill";
-        const label = typeof place?.categoryLabel === "string" ? place.categoryLabel : "Lokacija";
+        const symbol = iconClass(place);
+        const categoryLabel = typeof place?.categoryLabel === "string" ? place.categoryLabel : "Lokacija";
+        const label = typeof place?.name === "string" && place.name ? `${place.name} – ${categoryLabel}` : categoryLabel;
         const commercial = place?.isCommercial === true;
         const featured = commercial && place?.isCurrentlyFeatured === true;
         const logo = commercial ? safeImageUrl(place?.logoUrl) : null;
@@ -32,7 +38,7 @@
             iconSize: [52, 52],
             iconAnchor: [26, 26],
             popupAnchor: [0, -28],
-            html: `<span class="managed-place-pin managed-place-pin--${kind}${commercial ? "" : " managed-place-pin--destination"}${featured ? " managed-place-pin--featured" : ""}${selected ? " managed-place-pin--selected" : ""}" role="img" aria-label="${escapeAttribute(label)}"><i class="bi ${symbol}" aria-hidden="true"></i>${image}</span>`
+            html: `<span class="managed-place-pin managed-place-pin--${kind}${commercial ? "" : " managed-place-pin--destination"}${featured ? " managed-place-pin--featured" : ""}${selected ? " managed-place-pin--selected" : ""}" role="img" aria-label="${escapeAttribute(label)}"><i class="dd-place-icon ${symbol}" aria-hidden="true"></i>${image}</span>`
         });
     }
 
@@ -53,5 +59,5 @@
         }
     }
 
-    window.DoggyDropPlaceMarker = { createIcon, attachImage, safeImageUrl };
+    window.DoggyDropPlaceMarker = { createIcon, attachImage, safeImageUrl, iconClass };
 })();

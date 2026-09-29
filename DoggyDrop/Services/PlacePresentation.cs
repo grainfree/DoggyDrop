@@ -9,13 +9,13 @@ public static class PlaceCategories
 {
     public static IReadOnlyList<PlaceCategoryPresentation> All { get; } =
     [
-        new(PlaceCategory.Veterinarian, "Veterinar", "Veterinarji", "veterinarian", "bi-heart-pulse-fill", true),
-        new(PlaceCategory.PetShop, "Trgovina", "Trgovine", "pet-shop", "bi-bag-fill", true),
-        new(PlaceCategory.Groomer, "Pasji salon", "Saloni", "groomer", "bi-scissors", true),
-        new(PlaceCategory.DogSchool, "Pasja šola", "Pasje šole", "dog-school", "bi-mortarboard-fill", true),
-        new(PlaceCategory.DogFriendlyCafe, "Psom prijazen lokal", "Lokali", "dog-friendly-cafe", "bi-cup-hot-fill", true),
-        new(PlaceCategory.DogPark, "Pasji park", "Pasji parki", "dog-park", "bi-tree-fill", false),
-        new(PlaceCategory.DogBeach, "Pasja plaža", "Pasje plaže", "dog-beach", "bi-water", false)
+        new(PlaceCategory.Veterinarian, "Veterinar", "Veterinarji", "veterinarian", "dd-place-icon--veterinarian", true),
+        new(PlaceCategory.PetShop, "Trgovina", "Trgovine", "pet-shop", "dd-place-icon--pet-shop", true),
+        new(PlaceCategory.Groomer, "Pasji salon", "Saloni", "groomer", "dd-place-icon--groomer", true),
+        new(PlaceCategory.DogSchool, "Pasja šola", "Pasje šole", "dog-school", "dd-place-icon--dog-school", true),
+        new(PlaceCategory.DogFriendlyCafe, "Psom prijazen lokal", "Lokali", "dog-friendly-cafe", "dd-place-icon--dog-friendly-cafe", true),
+        new(PlaceCategory.DogPark, "Pasji park", "Pasji parki", "dog-park", "dd-place-icon--dog-park", false),
+        new(PlaceCategory.DogBeach, "Pasja plaža", "Pasje plaže", "dog-beach", "dd-place-icon--dog-beach", false)
     ];
 
     public static IReadOnlyList<PlaceCategory> Supported { get; } =
@@ -24,7 +24,7 @@ public static class PlaceCategories
     public static bool IsSupported(PlaceCategory category) => Supported.Contains(category);
 
     private static readonly PlaceCategoryPresentation Unknown =
-        new((PlaceCategory)0, "Lokacija", "Lokacije", "other", "bi-geo-alt-fill", false);
+        new((PlaceCategory)0, "Lokacija", "Lokacije", "other", "dd-place-icon--other", false);
 
     public static PlaceCategoryPresentation Get(PlaceCategory category) =>
         All.FirstOrDefault(item => item.Category == category) ?? Unknown;

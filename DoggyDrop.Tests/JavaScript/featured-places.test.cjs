@@ -5,7 +5,7 @@ const read = file => fs.readFileSync(path.join(root, file), "utf8");
 const window = { L: { divIcon: options => options } };
 vm.runInNewContext(read("DoggyDrop/wwwroot/js/place-marker.js"), { window, URL });
 vm.runInNewContext(read("DoggyDrop/wwwroot/js/place-discovery.js"), { window, document: { getElementById: () => null } });
-const item = { isCommercial: true, categoryKey: "pet-shop", iconClass: "bi-bag-fill", isCurrentlyFeatured: true };
+const item = { isCommercial: true, categoryKey: "pet-shop", iconClass: "dd-place-icon--pet-shop", isCurrentlyFeatured: true };
 test("current commercial markers get a subtle class without changing marker size", () => {
  const featured = window.DoggyDropPlaceMarker.createIcon(item), normal = window.DoggyDropPlaceMarker.createIcon({...item,isCurrentlyFeatured:false});
  assert.match(featured.html,/managed-place-pin--featured/);assert.doesNotMatch(normal.html,/managed-place-pin--featured/);

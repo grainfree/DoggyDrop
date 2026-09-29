@@ -1,6 +1,6 @@
 const test = require('node:test'), assert = require('node:assert/strict');
 const { loadPopup } = require('./helpers/place-popup-dom.cjs');
-const place = { id: 3, name: 'Mr.Pet', categoryLabel: 'Trgovina', iconClass: 'bi-bag-fill', isCommercial: true,
+const place = { id: 3, name: 'Mr.Pet', categoryLabel: 'Trgovina', iconClass: 'dd-place-icon--pet-shop', isCommercial: true,
     address: 'Naslov 1', logoUrl: 'https://example.invalid/logo.webp', detailsUrl: '/lokacije/3/mr-pet' };
 test('compact Place card has server category, logo, canonical Details and existing navigation callback', () => {
     const { popup } = loadPopup(); let destination;
@@ -21,15 +21,15 @@ test('only the server-supplied Admin route enables the secondary action for the 
 test('missing address/logo keeps a compact category header with no blank address row', () => {
     const card = loadPopup().popup.create({ ...place, logoUrl: null, address: ' ' });
     assert.equal(card.querySelector('img'), null); assert.equal(card.querySelector('p'), null);
-    assert.equal(card.querySelector('i').className, 'bi bi-bag-fill');
+    assert.equal(card.querySelector('i').className, 'dd-place-icon dd-place-icon--pet-shop');
     assert.ok(card.querySelector('.managed-place-popup__media'));
 });
 test('dog destinations suppress logos and Featured even if a URL was supplied', () => {
     const { popup } = loadPopup();
-    for (const iconClass of ['bi-tree-fill', 'bi-water']) {
+    for (const iconClass of ['dd-place-icon--dog-park', 'dd-place-icon--dog-beach']) {
         const card = popup.create({ ...place, isCommercial: false, iconClass, isCurrentlyFeatured: true });
         assert.equal(card.querySelector('img'), null); assert.equal(card.querySelector('.place-featured-badge'), null);
-        assert.equal(card.querySelector('i').className, 'bi ' + iconClass);
+        assert.equal(card.querySelector('i').className, 'dd-place-icon ' + iconClass);
     }
 });
 test('untrusted text stays text; invalid IDs, icons and action URLs cannot escape', () => {
@@ -38,7 +38,7 @@ test('untrusted text stays text; invalid IDs, icons and action URLs cannot escap
     assert.equal(card.querySelector('h3').textContent, attack); assert.equal(card.querySelector('p').textContent, attack);
     assert.equal(card.querySelector('script'), null); assert.equal(card.querySelectorAll('img').length, 1);
     assert.equal(card.querySelector('a').href, '/Places/Details/3');
-    assert.equal(card.querySelector('i').className, 'bi bi-geo-alt-fill');
+    assert.equal(card.querySelector('i').className, 'dd-place-icon dd-place-icon--other');
     for (const id of [0, -1, '3 onclick=x', Infinity, 1.5]) assert.equal(popup.create({ ...place, id }), null);
     for (const detailsUrl of ['/lokacije/4/wrong-place', '//evil.invalid', '/lokacije/3/name?bad=1'])
         assert.equal(popup.create({ ...place, detailsUrl }).querySelector('a').href, '/Places/Details/3');

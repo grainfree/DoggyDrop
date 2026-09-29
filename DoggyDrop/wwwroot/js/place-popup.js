@@ -14,8 +14,10 @@
         const header = element("div", "managed-place-popup__header");
         const media = element("span", "managed-place-popup__media");
         media.setAttribute("aria-hidden", "true");
-        const symbol = /^bi-[a-z0-9-]{1,40}$/.test(place.iconClass || "") ? place.iconClass : "bi-geo-alt-fill";
-        media.append(element("i", "bi " + symbol));
+        const symbol = window.DoggyDropPlaceMarker.iconClass(place);
+        const icon = element("i", "dd-place-icon " + symbol);
+        icon.setAttribute("aria-hidden", "true");
+        media.append(icon);
         const logo = place.isCommercial === true ? window.DoggyDropPlaceMarker.safeImageUrl(place.logoUrl) : null;
         if (logo) {
             const image = element("img", "managed-place-image");

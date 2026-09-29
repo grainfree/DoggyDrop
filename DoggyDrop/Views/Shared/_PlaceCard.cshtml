@@ -5,7 +5,7 @@
          data-latitude="@place.Latitude.ToString(CultureInfo.InvariantCulture)"
          data-longitude="@place.Longitude.ToString(CultureInfo.InvariantCulture)">
     <span class="place-discovery-card__logo place-discovery-card__logo--@place.CategoryKey" aria-hidden="true">
-        <i class="bi @place.IconClass"></i>
+        <i class="dd-place-icon @place.IconClass"></i>
         @if (place.LogoUrl != null)
         {
             <img src="@place.LogoUrl" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" />

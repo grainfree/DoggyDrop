@@ -16,8 +16,8 @@ function load(file, name) {
 
 const bins = load("DoggyDrop/wwwroot/js/bin-marker.js", "DoggyDropBinMarker");
 const places = load("DoggyDrop/wwwroot/js/place-marker.js", "DoggyDropPlaceMarker");
-const vet = { category: 1, categoryLabel: "Veterinar", categoryKey: "veterinarian", iconClass: "bi-heart-pulse-fill", isCommercial: true };
-const shop = { category: 2, categoryLabel: "Trgovina", categoryKey: "pet-shop", iconClass: "bi-bag-fill", isCommercial: true };
+const vet = { category: 1, categoryLabel: "Veterinar", categoryKey: "veterinarian", iconClass: "dd-place-icon--veterinarian", isCommercial: true };
+const shop = { category: 2, categoryLabel: "Trgovina", categoryKey: "pet-shop", iconClass: "dd-place-icon--pet-shop", isCommercial: true };
 
 test("shared bin is 32px visually with a 44px touch box and no default badge", () => {
     const normal = bins.createIcon({ status: "ok" });
@@ -60,10 +60,10 @@ test("Places use a 48px branded marker, safe contained logos, and distinct fallb
     assert.ok(Math.abs(48 * 1.12 - 54) < 1);
     assert.match(shopIcon.html, /src="https:\/\/example\.com\/logo\.png\?x=1&amp;y=2"/);
     assert.match(shopIcon.html, /referrerpolicy="no-referrer"/);
-    assert.match(shopIcon.html, /bi-bag-fill/);
-    assert.match(vetIcon.html, /bi-heart-pulse-fill/);
+    assert.match(shopIcon.html, /dd-place-icon--pet-shop/);
+    assert.match(vetIcon.html, /dd-place-icon--veterinarian/);
     assert.doesNotMatch(vetIcon.html, /<img/);
-    assert.match(generic.html, /bi-geo-alt-fill/);
+    assert.match(generic.html, /dd-place-icon--other/);
     const selectedShop = places.createIcon({ ...shop, logoUrl: "https://example.com/logo.png" }, { selected: true });
     assert.match(selectedShop.html, /managed-place-pin--selected/);
     assert.match(selectedShop.html, /src="https:\/\/example\.com\/logo\.png"/);
@@ -77,10 +77,10 @@ test("Places use a 48px branded marker, safe contained logos, and distinct fallb
 test("all seven category markers retain commercial and dog-destination hierarchy", () => {
     const css = read("DoggyDrop/wwwroot/css/places.css");
     for (const [key, icon, commercial] of [
-        ["veterinarian", "bi-heart-pulse-fill", true], ["pet-shop", "bi-bag-fill", true],
-        ["groomer", "bi-scissors", true], ["dog-school", "bi-mortarboard-fill", true],
-        ["dog-friendly-cafe", "bi-cup-hot-fill", true], ["dog-park", "bi-tree-fill", false],
-        ["dog-beach", "bi-water", false]
+        ["veterinarian", "dd-place-icon--veterinarian", true], ["pet-shop", "dd-place-icon--pet-shop", true],
+        ["groomer", "dd-place-icon--groomer", true], ["dog-school", "dd-place-icon--dog-school", true],
+        ["dog-friendly-cafe", "dd-place-icon--dog-friendly-cafe", true], ["dog-park", "dd-place-icon--dog-park", false],
+        ["dog-beach", "dd-place-icon--dog-beach", false]
     ]) {
         const marker = places.createIcon({ categoryKey: key, iconClass: icon,
             categoryLabel: key, isCommercial: commercial, logoUrl: "https://example.com/logo.png" });
@@ -91,7 +91,7 @@ test("all seven category markers retain commercial and dog-destination hierarchy
     }
     assert.match(css, /\.managed-place-pin--destination \{ width: 42px; height: 42px; margin: 5px;/);
     assert.match(css, /\.managed-place-pin--selected \{[^}]*transform: scale\(1\.12\)/);
-    assert.match(places.createIcon({ categoryKey: "dog-park", iconClass: "bi-tree-fill", isCommercial: false },
+    assert.match(places.createIcon({ categoryKey: "dog-park", iconClass: "dd-place-icon--dog-park", isCommercial: false },
         { selected: true }).html, /managed-place-pin--selected/);
 });
 

@@ -192,11 +192,11 @@ test("Home Place markers and popups show safe logos without losing category fall
         `${map.slice(escapeStart, escapeEnd)}\n${map.slice(buildStart, buildEnd)}\nreturn buildManagedPlaceLayer;`)(L, placeMarker.attachImage, placeMarker, popupFixture.popup, popupFixture.document, () => {});
     const withLogo = build([{
         id: 1, name: "Mr.<Pet>", address: "<Unsafe> street", category: 2,
-        categoryLabel: "Trgovina", categoryKey: "pet-shop", iconClass: "bi-bag-fill", isCommercial: true,
+        categoryLabel: "Trgovina", categoryKey: "pet-shop", iconClass: "dd-place-icon--pet-shop", isCommercial: true,
         latitude: 46.1, longitude: 15.1, logoUrl: "https://example.com/logo.png?x=1&y=2"
     }]).markers[0];
     assert.match(withLogo.options.icon.html, /managed-place-pin--pet-shop/);
-    assert.match(withLogo.options.icon.html, /bi-bag-fill/);
+    assert.match(withLogo.options.icon.html, /dd-place-icon--pet-shop/);
     assert.match(withLogo.options.icon.html, /src="https:\/\/example\.com\/logo\.png\?x=1&amp;y=2"/);
     assert.equal((withLogo.options.icon.html.match(/referrerpolicy="no-referrer"/g) || []).length, 1);
     assert.match(withLogo.popup, /managed-place-popup__media/);
@@ -229,13 +229,13 @@ test("Home Place markers and popups show safe logos without losing category fall
     for (const logoUrl of [null, "javascript:alert(1)"]) {
         const fallback = build([{
             id: 2, name: "Vet", category: 1,
-            categoryLabel: "Veterinar", categoryKey: "veterinarian", iconClass: "bi-heart-pulse-fill", isCommercial: true,
+            categoryLabel: "Veterinar", categoryKey: "veterinarian", iconClass: "dd-place-icon--veterinarian", isCommercial: true,
             latitude: 46.1, longitude: 15.1, logoUrl
         }]).markers[0];
-        assert.match(fallback.options.icon.html, /bi-heart-pulse-fill/);
+        assert.match(fallback.options.icon.html, /dd-place-icon--veterinarian/);
         assert.doesNotMatch(fallback.options.icon.html, /<img/);
         assert.match(fallback.popup, /managed-place-popup__media/);
-        assert.match(fallback.popup, /bi-heart-pulse-fill/);
+        assert.match(fallback.popup, /dd-place-icon--veterinarian/);
         assert.doesNotMatch(fallback.popup, /<img/);
         fallback.handlers.popupopen();
         assert.equal(fallback.element.pin.classList.contains("managed-place-pin--selected"), true);
@@ -245,7 +245,7 @@ test("Home Place markers and popups show safe logos without losing category fall
 
     const broken = build([{
         id: 3, name: "Broken", category: 2,
-        categoryLabel: "Trgovina", categoryKey: "pet-shop", iconClass: "bi-bag-fill", isCommercial: true,
+        categoryLabel: "Trgovina", categoryKey: "pet-shop", iconClass: "dd-place-icon--pet-shop", isCommercial: true,
         latitude: 46.1, longitude: 15.1,
         logoUrl: "https://example.com/broken.png"
     }]).markers[0];
@@ -261,7 +261,7 @@ test("Home Place markers and popups show safe logos without losing category fall
 
     const other = build([{
         id: 4, name: "Other", category: 1,
-        categoryLabel: "Veterinar", categoryKey: "veterinarian", iconClass: "bi-heart-pulse-fill", isCommercial: true,
+        categoryLabel: "Veterinar", categoryKey: "veterinarian", iconClass: "dd-place-icon--veterinarian", isCommercial: true,
         latitude: 46.2, longitude: 15.2,
         logoUrl: "https://example.com/other.png"
     }]).markers[0];
@@ -314,13 +314,13 @@ test("Home Place image load and failure retain the category icon", () => {
 function runDetailsMap(category, latitude = "46.05", cartoKey = "", logoUrl = "") {
     const observations = { maps: 0, layers: 0, markers: [], sizes: [], center: null, key: null, resize: null };
     const presentation = {
-        1: ["veterinarian", "bi-heart-pulse-fill", true],
-        2: ["pet-shop", "bi-bag-fill", true],
-        3: ["groomer", "bi-scissors", true],
-        4: ["dog-school", "bi-mortarboard-fill", true],
-        5: ["dog-friendly-cafe", "bi-cup-hot-fill", true],
-        6: ["dog-park", "bi-tree-fill", false],
-        7: ["dog-beach", "bi-water", false]
+        1: ["veterinarian", "dd-place-icon--veterinarian", true],
+        2: ["pet-shop", "dd-place-icon--pet-shop", true],
+        3: ["groomer", "dd-place-icon--groomer", true],
+        4: ["dog-school", "dd-place-icon--dog-school", true],
+        5: ["dog-friendly-cafe", "dd-place-icon--dog-friendly-cafe", true],
+        6: ["dog-park", "dd-place-icon--dog-park", false],
+        7: ["dog-beach", "dd-place-icon--dog-beach", false]
     }[category];
     const element = { dataset: { latitude, longitude: "14.51", category, logoUrl, cartoBasemapKey: cartoKey,
         categoryKey: presentation[0], iconClass: presentation[1], isCommercial: String(presentation[2]) } };
@@ -349,9 +349,9 @@ function runDetailsMap(category, latitude = "46.05", cartoKey = "", logoUrl = ""
 }
 
 test("Place Details map initializes once with guarded basemap and category marker", () => {
-    for (const [category, iconClass] of [["1", "bi-heart-pulse-fill"], ["2", "bi-bag-fill"],
-        ["3", "bi-scissors"], ["4", "bi-mortarboard-fill"], ["5", "bi-cup-hot-fill"],
-        ["6", "bi-tree-fill"], ["7", "bi-water"]]) {
+    for (const [category, iconClass] of [["1", "dd-place-icon--veterinarian"], ["2", "dd-place-icon--pet-shop"],
+        ["3", "dd-place-icon--groomer"], ["4", "dd-place-icon--dog-school"], ["5", "dd-place-icon--dog-friendly-cafe"],
+        ["6", "dd-place-icon--dog-park"], ["7", "dd-place-icon--dog-beach"]]) {
         const result = runDetailsMap(category);
         assert.equal(result.maps, 1);
         assert.equal(result.layers, 1);

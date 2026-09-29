@@ -275,6 +275,51 @@ public sealed class PlaceMapPopupHttpTests : IAsyncLifetime
         using var client = Client(); using var places = Places(await Page(client, "/?placeId=" + id));
         Assert.Equal(new[] { 1, 4 }, places.RootElement.EnumerateArray().Select(p => p.GetProperty("id").GetInt32()));
     }
+    [Fact]
+    public async Task EveryCategoryRendersTheSameApplicationOwnedIconInMapDiscoveryAndDetails()
+    {
+        await using (var scope = app.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            foreach (var category in Enum.GetValues<PlaceCategory>())
+                db.Places.Add(new Place { Id = 100 + (int)category, Name = category == PlaceCategory.DogPark ? "Pasje igrišče Vir" : "Icon fixture " + category,
+                    Category = category, Latitude = 46.156105842, Longitude = 14.600444441 });
+            await db.SaveChangesAsync();
+        }
+        using var client = Client();
+        using var map = Places(await Page(client, "/"));
+        var discovery = await Page(client, "/Places");
+        await using (var scope = app.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            foreach (var category in Enum.GetValues<PlaceCategory>())
+                db.SavedPlaces.Add(new SavedPlace { UserId = "user", PlaceId = 100 + (int)category });
+            await db.SaveChangesAsync();
+        }
+        using var member = Client("user");
+        var saved = await Page(member, "/SavedPlaces");
+        Assert.Contains("/css/place-category-icons.css", discovery);
+        Assert.Contains("/css/place-category-icons.css", saved);
+        foreach (var category in Enum.GetValues<PlaceCategory>())
+        {
+            var presentation = PlaceCategories.Get(category);
+            var row = map.RootElement.EnumerateArray().Single(p => p.GetProperty("id").GetInt32() == 100 + (int)category);
+            Assert.Equal(presentation.IconClass, row.GetProperty("iconClass").GetString());
+            Assert.StartsWith("dd-place-icon--", presentation.IconClass);
+            Assert.DoesNotContain("<svg", row.GetRawText());
+            Assert.Contains($"dd-place-icon {presentation.IconClass}", discovery);
+            Assert.Contains($"dd-place-icon {presentation.IconClass}", saved);
+            var route = row.GetProperty("detailsUrl").GetString()!;
+            var details = await Page(client, route);
+            Assert.Contains($"data-icon-class=\"{presentation.IconClass}\"", details);
+            Assert.Contains($"data-category-label=\"{presentation.Label}\"", WebUtility.HtmlDecode(details));
+            await Capture("icons-details-" + presentation.Key, details);
+        }
+        await Capture("icons-discovery", discovery);
+        await Capture("icons-saved", saved);
+        var logoRoute = map.RootElement.EnumerateArray().Single(p => p.GetProperty("id").GetInt32() == 1).GetProperty("detailsUrl").GetString()!;
+        await Capture("icons-details-logo", await Page(client, logoRoute));
+    }
     private static async Task Capture(string name, string html)
     {
         var path = Environment.GetEnvironmentVariable("DOGGYDROP_POPUP_CAPTURE");

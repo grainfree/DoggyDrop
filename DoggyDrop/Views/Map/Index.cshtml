@@ -3954,10 +3954,16 @@ else if (needsDogOnboarding)
         }
 
         function createPlaceIcon(type) {
-            const label = type === "park" ? "P" : type === "water" ? "W" : "C";
+            const symbols = {
+                park: ["@DoggyDrop.Services.PlaceCategories.Get(DoggyDrop.Models.PlaceCategory.DogPark).IconClass", "Pasji park"],
+                water: ["dd-place-icon--water", "Voda"],
+                cafe: ["@DoggyDrop.Services.PlaceCategories.Get(DoggyDrop.Models.PlaceCategory.DogFriendlyCafe).IconClass", "Lokal"]
+            };
+            const kind = Object.hasOwn(symbols, type) ? type : "other";
+            const [symbol, label] = symbols[kind] || ["@DoggyDrop.Services.PlaceCategories.Get((DoggyDrop.Models.PlaceCategory)0).IconClass", "Lokacija"];
             return L.divIcon({
                 className: "",
-                html: `<span class="map-place-marker map-place-marker--${type}"><span>${label}</span></span>`,
+                html: `<span class="map-place-marker map-place-marker--${kind}" role="img" aria-label="${label}"><i class="dd-place-icon ${symbol}" aria-hidden="true"></i></span>`,
                 iconSize: [40, 40],
                 iconAnchor: [20, 20],
                 popupAnchor: [0, -22]
@@ -4378,7 +4384,7 @@ else if (needsDogOnboarding)
         function buildPlaceLayer(places) {
             const layer = L.layerGroup();
             places.forEach(place => {
-                const marker = L.marker([place.latitude, place.longitude], { icon: createPlaceIcon(place.type) })
+                const marker = L.marker([place.latitude, place.longitude], { icon: createPlaceIcon(place.type), title: place.name, alt: `${place.name} – ${place.label}` })
                     .addTo(layer)
                     .bindPopup(`
                         <div class="bin-popup">

@@ -21,13 +21,13 @@ public sealed class PlacesTests : IDisposable
     private readonly string _db = Path.Combine(Path.GetTempPath(), $"doggydrop-places-{Guid.NewGuid():N}.db");
 
     [Theory]
-    [InlineData(PlaceCategory.Veterinarian, 1, "Veterinar", "Veterinarji", "veterinarian", "bi-heart-pulse-fill", true)]
-    [InlineData(PlaceCategory.PetShop, 2, "Trgovina", "Trgovine", "pet-shop", "bi-bag-fill", true)]
-    [InlineData(PlaceCategory.Groomer, 3, "Pasji salon", "Saloni", "groomer", "bi-scissors", true)]
-    [InlineData(PlaceCategory.DogSchool, 4, "Pasja šola", "Pasje šole", "dog-school", "bi-mortarboard-fill", true)]
-    [InlineData(PlaceCategory.DogFriendlyCafe, 5, "Psom prijazen lokal", "Lokali", "dog-friendly-cafe", "bi-cup-hot-fill", true)]
-    [InlineData(PlaceCategory.DogPark, 6, "Pasji park", "Pasji parki", "dog-park", "bi-tree-fill", false)]
-    [InlineData(PlaceCategory.DogBeach, 7, "Pasja plaža", "Pasje plaže", "dog-beach", "bi-water", false)]
+    [InlineData(PlaceCategory.Veterinarian, 1, "Veterinar", "Veterinarji", "veterinarian", "dd-place-icon--veterinarian", true)]
+    [InlineData(PlaceCategory.PetShop, 2, "Trgovina", "Trgovine", "pet-shop", "dd-place-icon--pet-shop", true)]
+    [InlineData(PlaceCategory.Groomer, 3, "Pasji salon", "Saloni", "groomer", "dd-place-icon--groomer", true)]
+    [InlineData(PlaceCategory.DogSchool, 4, "Pasja šola", "Pasje šole", "dog-school", "dd-place-icon--dog-school", true)]
+    [InlineData(PlaceCategory.DogFriendlyCafe, 5, "Psom prijazen lokal", "Lokali", "dog-friendly-cafe", "dd-place-icon--dog-friendly-cafe", true)]
+    [InlineData(PlaceCategory.DogPark, 6, "Pasji park", "Pasji parki", "dog-park", "dd-place-icon--dog-park", false)]
+    [InlineData(PlaceCategory.DogBeach, 7, "Pasja plaža", "Pasje plaže", "dog-beach", "dd-place-icon--dog-beach", false)]
     public void SupportedCategories_HaveStableValuesAndCentralPresentation(PlaceCategory category, int value,
         string label, string filter, string key, string icon, bool commercial)
     {
@@ -45,6 +45,7 @@ public sealed class PlacesTests : IDisposable
     [Fact]
     public void CategoriesAreUniqueAndDestinationLogosDoNotOverrideCategoryIdentity()
     {
+        Assert.Equal(Enum.GetValues<PlaceCategory>().Order(), PlaceCategories.All.Select(item => item.Category).Order());
         Assert.Equal(7, PlaceCategories.All.Count);
         Assert.Equal(7, PlaceCategories.Supported.Count);
         Assert.False(PlaceCategories.IsSupported((PlaceCategory)0));
