@@ -4,9 +4,11 @@ const root = path.resolve(__dirname, '../..');
 const read = relative => fs.readFileSync(path.join(root, relative), 'utf8');
 function load(provider, cartoApiKey) {
     const requests = [], credits = new Set();
+    const attribution = { prefix: 'Leaflet', setPrefix(value) { this.prefix = value; },
+        addAttribution: a => credits.add(a), removeAttribution: a => credits.delete(a) };
     const container = { dataset: {}, classList: { add() {} } };
     const map = { getContainer: () => container, hasLayer: () => true,
-        attributionControl: { addAttribution: a => credits.add(a), removeAttribution: a => credits.delete(a) } };
+        attributionControl: attribution };
     const window = { L: { tileLayer(url, options) {
         const handlers = {};
         const layer = { url, options, changes: 0, addTo(m) { assert.equal(m, map); credits.add(options.attribution); return this; },
@@ -15,8 +17,28 @@ function load(provider, cartoApiKey) {
         requests.push(layer); return layer;
     } } };
     vm.runInNewContext(read('DoggyDrop/wwwroot/js/map-basemap.js'), { window, document: { currentScript: { dataset: { provider, cartoApiKey } } } });
-    return { add: options => window.DoggyDropBasemap.addTo(map, options), requests, credits, container };
+    return { add: options => window.DoggyDropBasemap.addTo(map, options), requests, credits, container, attribution };
 }
+
+test('framework prefix is removed independently of each provider credit and fallback', () => {
+    for (const provider of ['osm','carto','stadia']) {
+        const f=load(provider,'fixture-key'),[layer]=f.add();
+        assert.equal(f.attribution.prefix,false);
+        assert.match([...f.credits][0],/href="https:\/\/www.openstreetmap.org\/copyright"/);
+        if(provider==='carto')assert.match([...f.credits][0],/href="https:\/\/carto.com\/attribution\/"/);
+        if(provider==='stadia')for(const url of ['https://stadiamaps.com/attribution/','https://openmaptiles.org/'])assert.ok([...f.credits][0].includes(url));
+        for(let i=0;i<3;i++)layer.emit('tileerror');
+        assert.equal(f.attribution.prefix,false);assert.equal(f.credits.size,1);
+        assert.equal([...f.credits][0],'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors');
+    }
+});
+
+test('shared attribution styling does not hide credits or disable their links', () => {
+    const css=read('DoggyDrop/wwwroot/css/map-basemap.css').replace(/\/\*[\s\S]*?\*\//g,'');
+    assert.doesNotMatch(css,/display\s*:\s*none|visibility\s*:\s*hidden|pointer-events\s*:\s*none|opacity\s*:|clip(?:-path)?\s*:|overflow\s*:\s*hidden/);
+    assert.match(css,/font-size:\s*11px/);assert.match(css,/text-decoration:\s*underline/);
+    assert.match(css,/:focus-visible\s*\{[^}]*outline:\s*3px/);
+});
 test('missing/invalid provider uses only canonical OSM without credentials', () => {
     for (const provider of [undefined, null, '', 'STADIA', 'https://evil.invalid', 'stadia?UserId=1', 'private-secret']) {
         const f = load(provider), [layer] = f.add();

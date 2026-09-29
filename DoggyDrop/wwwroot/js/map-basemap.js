@@ -24,6 +24,8 @@
         attribution: osm.attribution + ', &copy; <a href="https://carto.com/attribution/">CARTO</a>'
     };
     function addTo(map, { maxZoom = 20 } = {}) {
+        // Leaflet permits disabling its framework prefix independently of layer credits.
+        map.attributionControl?.setPrefix(false);
         const selected = provider === "carto" ? carto : provider === "stadia" ? stadia : osm;
         const container = map.getContainer();
         container.classList.add("doggydrop-basemap");

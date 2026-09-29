@@ -218,3 +218,83 @@ SAFE TO COMMIT, subject to normal code review; no commit was made. There are no
 confirmed BLOCKER/HIGH/MEDIUM implementation findings. The one LOW validation
 limitation is the outstanding owner-run keyed visual/operational acceptance,
 which remains a prerequisite for approving production use of Positron.
+
+
+## Epic 19.4.3: attribution presentation
+
+The owner reports that CARTO has now been enabled and visually accepted in
+production. This supersedes the pending owner acceptance noted above; this task
+did not visit production or validate a real key.
+
+The shared helper calls Leaflet 1.9.4 `attributionControl.setPrefix(false)` to
+remove only framework branding. Layer credits, links, provider selection,
+credentials, URLs, retina settings and fallback logic are unchanged.
+[Leaflet documents this prefix option](https://leafletjs.com/reference.html#control-attribution-setprefix).
+CARTO still displays “© OpenStreetMap contributors, © CARTO” with its original
+links, as required by [CARTO's attribution guidance](https://carto.com/attribution/).
+OSM alone displays “© OpenStreetMap contributors”; fallback removes stale
+CARTO/Stadia credits. Dormant Stadia retains all three provider links.
+
+Previously the shared style used 11px text, 3px/6px padding and a 94% white
+background; some views overrode this with a large pill corner and 78% white.
+The new shared treatment uses 11px text, 2px/5px padding, a 90% white background,
+muted green/grey text, an understated 4px corner and underlined links. Existing
+keyboard focus remains visible. No attribution is hidden, clipped or faded out.
+
+Bottom-right remains the default attribution position. Home's existing clearance
+states are preserved. Local browser fixtures exposed two mobile overlaps:
+Active Walk's action stack and Planner's bottom navigation. At widths up to
+575.98px, shared CSS reserves 68px on the right for Active Walk. Planner's
+bottom-right corner also conflicts at intermediate tablet widths, so its credits
+use the clear lower-left strip below 992px, with a 10px inset and 96px plus
+safe-area bottom clearance (68px below 721px). Desktop remains bottom-right.
+These attribution-only offsets preserve controls and keep credits inside maps.
+
+### Permanent offline browser regression
+
+`DoggyDrop.Tests/Browser/map-attribution.cjs` requires Playwright and a locally
+installed compatible browser. `LEAFLET_TEST_ASSETS` points to an offline asset
+folder containing Leaflet 1.9.4 `leaflet.js`/`leaflet.css` and Bootstrap Icons
+1.11.3 `bootstrap-icons.css`/`bootstrap-icons.woff2`. Do not use provider keys.
+
+1. Set `DOGGYDROP_POPUP_CAPTURE` and `DOGGYDROP_WALKING_CAPTURE` to the same
+   absolute temporary folder outside the repository; run `dotnet test` to
+   capture synthetic HTTP-host Razor pages. These hosts use local test databases
+   and fake providers, not the application's production startup.
+2. Set `ATTRIBUTION_RESULTS` to another absolute temporary output folder.
+   Set `LEAFLET_TEST_ASSETS` as above. Make `playwright` resolvable through the
+   local Node installation (or `NODE_PATH`). Optionally set `BROWSER_CHANNEL`
+   to an installed channel such as `msedge`.
+3. Run `node DoggyDrop.Tests/Browser/map-attribution.cjs` from the repository.
+   No HTTP server is needed: every request is fulfilled from local assets,
+   synthetic SVG tiles or captured HTML, or aborted. Link clicks are intercepted
+   to test hit targets without navigating to providers.
+
+The 96 cases cover 16 scene variants at 320, 375, 390, 430, 1024 and 1440px:
+Home (including an open Place popup, navigation/walk/nearest states and OSM),
+Active Walk, Walk Details, Planner, Place Details, Admin Create/Edit, Add Bin
+and legacy Home. Home, Planner and Admin Edit use captured Razor markup;
+Admin Create exercises the shared editor form. The other surfaces are isolated
+current-view CSS/markup fixtures, not full application end-to-end sessions.
+Active Walk includes the real collapsed cockpit/action markup and measured
+cockpit clearance. Checks cover visible bounds, provider credits, no Leaflet
+prefix, click hit-testing, keyboard Tab focus and critical-control overlap.
+All 96 cases passed. Five representative screenshots are written to the result folder.
+
+Verification for this change: build and explicit Razor rebuild passed;
+1,159/1,159 .NET and 122/122 Node tests passed (15 basemap tests). Standalone
+JavaScript and Home/Active/Planner inline syntax checks passed. External offline
+fixtures also cover 16 tile-failure cases, four retina/performance cases and ten
+CARTO/Stadia lifecycle cases. No real tiles, credentials or production data are
+needed for these tests.
+
+Physical-device follow-up: confirm iOS/Android browser chrome and safe-area
+insets, expanded Active Walk panels, touch targets, landscape, and enlarged
+system text. Synthetic desktop-browser fixtures cannot replace those checks.
+
+An additional 600/720/768px Planner probe confirmed usable attribution after
+these offsets. At 768px the page itself still has 24px horizontal overflow in
+the isolated captured-page fixture. The same 792px document width at a 768px
+viewport occurs with the baseline stylesheet, so this is a pre-existing Planner
+layout observation, outside attribution polish; no general page layout was
+changed. The six required viewport widths have no overflow failures.

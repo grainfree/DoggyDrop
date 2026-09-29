@@ -1,12 +1,38 @@
 /* UI only: geographic colors and labels come from the raster provider. */
 .leaflet-container.doggydrop-basemap { background: #edf2e7; }
 .leaflet-container.doggydrop-basemap .leaflet-control-attribution {
-    background: rgba(255, 255, 255, .94);
-    color: #36564b;
+    /* Override legacy per-view colors/radii, but retain their overlay clearance. */
+    background: rgba(255, 255, 255, .9) !important;
+    color: #4f625b !important;
     font-size: 11px !important;
-    line-height: 1.4 !important;
-    padding: 3px 6px;
+    line-height: 1.35 !important;
+    padding: 2px 5px;
+    border-radius: 4px 0 0 0 !important;
     white-space: normal;
 }
-.leaflet-container.doggydrop-basemap .leaflet-control-attribution a { color: #245d4a; text-decoration: underline; }
+.leaflet-container.doggydrop-basemap .leaflet-control-attribution a { color: #365c4f; text-decoration: underline; }
 .leaflet-container.doggydrop-basemap .leaflet-control a:focus-visible { outline: 3px solid #176a4d; outline-offset: -3px; }
+
+@media (max-width: 991.98px) {
+    /* Planner's mobile summary/nav leave a clear strip at the lower left. */
+    .walk-planner-route-map.doggydrop-basemap .leaflet-bottom.leaflet-right {
+        right: auto;
+        left: 0;
+    }
+    .walk-planner-route-map.doggydrop-basemap .leaflet-control-attribution {
+        margin: 0 0 calc(96px + env(safe-area-inset-bottom, 0px)) 10px;
+        max-width: calc(100vw - 40px);
+    }
+}
+@media (max-width: 720px) {
+    .walk-planner-route-map.doggydrop-basemap .leaflet-control-attribution {
+        margin-bottom: calc(68px + env(safe-area-inset-bottom, 0px));
+    }
+}
+@media (max-width: 575.98px) {
+    /* The Active Walk camera/action stack occupies the lower-right 58px. */
+    .active-walk-page .leaflet-container.doggydrop-basemap .leaflet-control-attribution {
+        margin-right: 68px;
+        max-width: calc(100vw - 78px);
+    }
+}
