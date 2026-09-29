@@ -1,162 +1,220 @@
-# DoggyDrop basemap (Epic 19.4)
+# DoggyDrop shared basemap (Epics 19.4 / 19.4.2)
 
-## Pre-change audit — 2026-09-28
+## Current provider model
 
-Baseline: clean `main`, `638d68917a05ec6148c5124d4c4b63f8c251448c`.
-Every map uses Leaflet 1.9.4 and raster PNG tiles, not client-styled vector geography.
+Leaflet **1.9.4** remains the map engine. All nine map views use the same
+`_MapBasemapScripts` / `_MapBasemapStyles` partials and `map-basemap.js` helper:
+Home (including navigation), Active Walk, Walk Details, Planner, Place Details,
+Admin Place Create/Edit, public Add Bin, and legacy Home. No independent tile
+implementation or user preference is added.
 
-| Surface | Previous basemap | Maximum zoom / retina |
-| --- | --- | --- |
-| Home `Map/Index`, including Navigation Mode | Shared helper: CARTO Voyager without labels plus a second label layer at 0.72 opacity when `CartoBasemap:PublicApiKey` exists; otherwise OSM | 20; OSM native 19; CARTO `{r}` |
-| Walk Planner preview | Shared helper: keyed CARTO Voyager or OSM | 20; OSM native 19; CARTO `{r}` |
-| Place Details | Same helper as Planner | 20; OSM native 19; CARTO `{r}` |
-| Active Walk | Hard-coded OSM | 19; standard 256px |
-| Walk Details (owner route only) | Hard-coded OSM | 19; standard 256px |
-| Admin Place Create/Edit (shared editor) | Hard-coded OSM | 19; standard 256px |
-| Public Add Bin | Hard-coded OSM | 19; standard 256px |
-| Older `/Home/Index` map | Hard-coded OSM | 19; standard 256px |
+Repository default remains **OSM**, with no key or activation setting committed.
+Exact, case-sensitive `Basemap:Provider` values are `osm`, `carto`, `stadia`.
+Missing/unknown values select OSM. CARTO additionally needs a valid-looking
+`Basemap:CartoApiKey`; missing/blank/malformed configuration selects OSM before
+any CARTO request. Accepted key configuration is 1–512 ASCII letters/digits or
+`-._~`, with no surrounding whitespace. This is a configuration sanity check,
+not an entitlement check. A rejected/revoked key is handled by tile failure.
+No arbitrary URL can be supplied through configuration.
 
-Old tile templates: `https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png` and
-`https://{s}.basemaps.cartocdn.com/rastertiles/{voyager|voyager_nolabels|voyager_only_labels}/{z}/{x}/{y}{r}.png?key=...`.
-Old attribution was plain OpenStreetMap text, plus CARTO for its layers. Home and
-Active applied raster color filters. Most views carried an incorrect Leaflet CSS
-integrity hash; Home and Admin Edit had already corrected it in Epic 19.3.
-Municipal Bin Import and Places Import previews contain tables/links, no Leaflet maps.
-There is no separate navigation basemap: navigation uses the Home map.
-No map account or production entitlement is confirmed by the owner. No production
-configuration or private credentials were accessed.
+CARTO Positron uses one labelled raster layer:
 
-## Provider decision
+```text
+https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png?key=<browser-public-key>
+```
 
-Use **Stadia Maps Alidade Smooth raster**, optionally enabled after owner setup.
-It is a provider-designed light style, not an original bespoke tile style. Its muted
-land/green areas, light roads, restrained labels and reduced POIs suit the written
-DoggyDrop brief. Geography is rendered by the provider; CSS does not recolor tiles.
-The owner supplied the project illustration during the audit: pale sage land,
-muted green natural areas, white roads and dark teal route/markers. This guides
-hierarchy rather than literal geometry or pixel equivalence. Real street names,
-paths and buildings must remain legible; the preset is not an exact palette match.
+`light_all` is the documented Positron raster style (not `rastertiles/positron`).
+It includes labels for orientation; no second labels layer is composed. The
+current API-key requirement also applies to this endpoint. It is not an
+unauthenticated legacy integration. See the [CARTO style reference](https://github.com/CartoDB/basemap-styles/blob/master/README.md)
+and [current CARTO FAQ](https://docs.carto.com/faqs/carto-basemaps).
 
-Alternatives considered:
+Stadia Alidade Smooth support remains dormant and unchanged. It is never a
+fallback for CARTO. No Stadia key, account or activation is introduced.
 
-- CARTO Positron is a practical muted raster alternative to existing Voyager.
-  CARTO requires an owner-issued key and visible attribution. Current terms list
-  a 1M monthly commercial free quota; entitlement/usage would still need owner
-  confirmation. Positron is less oriented to green walking context than the selected style.
-- MapTiler supports custom raster styles and browser-public restricted keys. Its
-  free plan is for testing/personal/non-commercial uses; Flex currently starts at
-  USD 30/month. A custom style would offer finer palette/POI control but adds owner
-  style publishing and account setup.
-- Self-hosted styled raster tiles keep Leaflet but introduce tile data, rendering,
-  hosting and update operations outside this Epic.
-- Leaflet vector plugins add renderer/style/label complexity without a compelling
-  need here. No MapLibre, Mapbox GL or Google engine/plugin is introduced.
+## Owner activation AFTER review
 
-Sources checked 2026-09-28 (recheck pricing/terms before activation):
-[Stadia style](https://docs.stadiamaps.com/map-styles/alidade-smooth/),
-[authentication](https://docs.stadiamaps.com/authentication/),
-[pricing](https://stadiamaps.com/pricing/),
-[terms](https://stadiamaps.com/terms-of-service/),
-[EU endpoints](https://docs.stadiamaps.com/eu-gdpr-endpoints/),
-[CARTO terms](https://www.carto.com/legal/basemap-terms/),
-[MapTiler pricing](https://www.maptiler.com/cloud/pricing/),
-[OSM tile policy](https://operations.osmfoundation.org/policies/tiles/).
+In Render's server environment, the owner may set:
 
-## Activation and ownership
+```text
+Basemap__Provider=carto
+Basemap__CartoApiKey=<owner-issued restricted CARTO basemap key>
+```
 
-Default/missing/invalid `Basemap:Provider` uses OpenStreetMap. Set environment
-variable `Basemap__Provider=stadia` **only after** arranging an appropriate Stadia
-plan and registering the real production domain. No account, paid subscription,
-domain registration or deployment is performed by this change. Old
-`CartoBasemap:PublicApiKey` is no longer consumed by map pages; remove obsolete
-configuration separately after owner verification. Do not paste a private key into
-the new provider setting; there is no API-key configuration in this integration.
+Do not put the actual key in source, appsettings, tests, documentation or Git.
+This key is intentionally delivered to browsers through one Razor-encoded data
+attribute, only when CARTO is selected. Browser tile requests contain it in the
+required `key` parameter. It is **not a confidential server secret** and is not
+comparable to the server-only `OpenRouteService__ApiKey`. No other configuration
+is serialized. There is no fake client-side security or tile proxy.
 
-Stadia domain authentication avoids shipping a token. The currently listed Starter
-plan permits commercial use at USD 20/month with 1M credits/month; raster requests
-consume credits according to the provider's current schedule. Confirm volume,
-overages and spending controls with the owner. The free plan is non-commercial;
-do not assume it licenses DoggyDrop production. Localhost development is permitted
-without a key but rate-limited. Satellite is intentionally omitted: extra licensing,
-cost and controls are unnecessary for the primary basemap scope.
+The owner reports a Commercial Free key already restricted to production
+website/referrers. Its value and dashboard have not been inspected. Keep those
+restrictions in CARTO; list every production hostname actually used (apex and
+www separately if applicable). Do not weaken them for localhost. A separate
+localhost-only development key is optional; otherwise use OSM locally.
+Cross-origin tile requests use `strict-origin-when-cross-origin`, allowing an
+origin referrer without exposing the page path/query.
 
-## Network and visual limitations
+The current published commercial free allowance is **1 million tile requests
+per calendar month, across account keys**. This is an owner entitlement/usage
+assumption, not a promise of unlimited free service. The owner must monitor the
+CARTO dashboard and recheck terms/quota. This application has no billing API,
+plan upgrade, card collection or payment UI. No paid plan was activated.
+Sources checked 2026-09-29: [API keys / allowance](https://www.carto.com/basemaps/apikey/),
+[terms](https://carto.com/legal/basemap-terms/).
 
-Tile requests inherently reveal IP, browser metadata, origin and viewed tile area.
-They do not append DoggyDrop UserId, email, dog name, WalkId or route geometry.
-Stadia uses the documented EU tile endpoint; this is a technical routing choice,
-not a conclusion about all subprocessors, transfers or GDPR compliance. Owner/legal
-verification of the provider relationship remains required. The Privacy Policy is
-not finalized or edited. Tile referrers use only the page origin cross-origin.
+To disable CARTO, set `Basemap__Provider=osm` or remove the provider setting.
+The obsolete `CartoBasemap:PublicApiKey` setting is not read.
 
-Retain clickable attribution to Stadia Maps, OpenMapTiles and OpenStreetMap for
-Stadia; OSM attribution for fallback. One raster layer includes labels. `{r}` loads
-one 512px image at 256 CSS pixels on retina displays, rather than four tile requests.
-OSM has no native retina variant here. Preserve prior surface zoom limits; OSM
-native zoom 19 is overzoomed on surfaces allowing zoom 20. Browser HTTP caching
-is used normally; no proxy, offline tile cache, prefetch, archive or bulk download.
-OSM is best-effort with no SLA and its usage policy applies even as fallback.
+## Attribution, resolution and failure behavior
 
-No persistent/account preference or switcher is added. The light style still needs
-real-device review for minor paths, buildings, labels and marker/route contrast.
-MapLibre might merit a separate future Epic for dynamic layer/language styling,
-but is unnecessary to display styled raster imagery through Leaflet.
+CARTO displays clickable **© OpenStreetMap contributors, © CARTO** credits on
+every map; OSM fallback removes CARTO's credit and retains OpenStreetMap's.
+Stadia retains its Stadia/OpenMapTiles/OSM credits. Shared attribution is at least
+11px, wraps on narrow screens, and retains accessible links and control focus.
+[CARTO attribution](https://carto.com/attribution/).
 
-## Implementation and failure behavior
+For CARTO/Stadia, Leaflet `{r}` requests a single `@2x` 512px image rendered at
+256 CSS pixels on high-DPI screens. `detectRetina:false` prevents four-request
+splitting; no zoom offset or custom tile size is introduced. CARTO native zoom
+is 20, OSM native zoom is 19. Existing map maximums remain 19 or 20; OSM is
+overzoomed only on surfaces already allowing 20. The geographic grid and marker
+positions do not change.
 
-All nine map views use shared `_MapBasemapStyles` and `_MapBasemapScripts`
-partials and the small `map-basemap.js` helper. The server exposes only the
-allowlisted provider name, never arbitrary configuration, a URL or a key. Leaflet
-remains 1.9.4. Shared CSS corrects the duplicated Leaflet CSS integrity hash,
-styles readable attribution and keyboard focus, and supplies an empty-map
-background. The old geographic image filters are removed.
+After three tile errors over a map's lifetime (network/refusal/quota included),
+CARTO or Stadia switches the **same layer** once to OSM, updates attribution and
+native zoom, and removes its error handler. No provider chain, duplicate layer,
+switch-back, retry loop or payment action occurs. Existing markers/routes,
+controls, pan/zoom and Walk Details diagnostics remain attached. OSM failure
+leaves the overlays/controls usable over a neutral background; tile availability
+is not guaranteed. [OSM's tile policy](https://operations.osmfoundation.org/policies/tiles/)
+continues to apply. No offline cache, prefetch, bulk download, proxy or
+cache-busting parameters are added; normal HTTP caching remains.
 
-After three Stadia tile errors during a map's lifetime, the same Leaflet tile layer
-switches once to OSM, updates attribution and native zoom, and removes its fallback
-handler. Keeping the layer object preserves Walk Details load/error diagnostics.
-There is no automatic switch back or custom retry loop. If OSM also fails, the map
-keeps its neutral background, markers, route and controls without throwing. This
-fallback is best-effort and remains subject to OSM's usage policy.
+## Privacy and regression boundary
 
-GPS collection, persistence, distance, Finish, route styling, geolocation, marker
-sizes/categories/logos/Featured states, popups, filters and importer semantics are
-unchanged. Admin coordinate selection and existing route fitBounds remain intact.
-No controller, model, schema, authentication or application configuration file is
-changed. There is no migration or added basemap preference storage.
+CARTO receives the browser IP/User-Agent, origin referrer where available,
+requested tile coordinates/viewed area and the browser-public key. The tile URL
+contains only the fixed style, z/x/y, retina suffix and required key parameter.
+No UserId, email, dog/WalkId, Privacy Zone, owner or route geometry is appended.
+See `privacy-data-audit.md`. No analytics, cookies or localStorage are added;
+provider roles/retention/regions/transfers still need owner/legal verification.
+The public Privacy Policy is not finalized or changed.
 
-## Local verification — 2026-09-28
+ORS on api.heigit.org, foot-walking, routing budgets, route geometry/styles,
+GPS recording/WalkPoints/distance/proximity/Finish/diagnostics are unchanged.
+Place data/logos/Featured, filters, Nearby/Community, popups, PWA, SEO, importers,
+authentication, public Add Bin and Admin coordinate selection remain unchanged.
+No schema/model snapshot/migration changes.
 
-- Build and Razor compilation pass; 1,081/1,081 .NET and 98/98 Node tests pass.
-- All 14 standalone application JavaScript files pass syntax checks; Home/Active
-  inline JavaScript checks pass. Git whitespace checks pass.
-- Provider regressions cover default/invalid configuration, fixed tile URLs,
-  attribution, preserved surface zooms, retina/referrer options, one-shot fallback,
-  all map surfaces and continued route/marker initialization. Four additional HTTP
-  cases verify rendered allowlisted configuration and active-walk Home markup.
-- 54/54 responsive fixture cases pass: nine scenes at 320, 375, 390, 430, 1024
-  and 1440 pixels. They check attribution bounds/clickability, controls and Admin
-  coordinate updates. Home and Admin use rendered test-page markup; the standalone
-  Active scene is a representative route fixture, not a physical GPS session.
-- 8/8 real-Leaflet failure cases pass with mocked tile responses, covering missing
-  and invalid configuration, Stadia fallback and total tile failure. Automated OSM
-  requests are intercepted; these checks do not fetch public OSM tiles.
-- Seven finite localhost visual cases use actual Stadia raster responses: regional
-  zoom 8, city zoom 13, neighborhood/Places/route zoom 16 and bin/Admin zoom 17.
-  All pass without JavaScript errors. At DPR 2, retina tiles are 512px images
-  displayed at 256 CSS pixels. Sample tile responses advertise a six-hour HTTP
-  cache lifetime. This is functional integration evidence, not a provider benchmark.
-- Screenshots and fixture/probe code live outside the repository under
-  `C:/Codex/epic194`; no external harness, tile archive or generated build output is
-  part of this Epic's repository changes.
+## Verification boundary
 
-Visual review confirms a quiet, cooler grey-green preset rather than the warmer
-sage illustration's exact palette. Generic business POIs are restrained by the
-provider style; there is no per-feature raster styling. Parks, paths, streets,
-building outlines and subdued water retain useful orientation. Existing teal/green
-markers, white popup cards and the active route remain prominent.
+Permanent Node tests exercise provider selection, key sanity checks, fixed URLs,
+attribution, native zoom/retina options and one-time fallback. HTTP tests render
+real Razor with synthetic configuration, prove only the public CARTO key can be
+emitted, and preserve active Home behavior. All nine surfaces retain the shared
+partials. Browser layout and failure fixtures use intercepted tile responses;
+no fake key is sent to CARTO. External fixtures/screenshots are not repository
+files. Authenticated production delivery, dashboard restrictions/quota and
+real-device tile readability still require owner checks after review.
 
-Remaining manual checks: physical iOS/Android touch and GPS visibility recovery,
-slow-network pan/zoom responsiveness, and production-domain authentication/quota
-after owner setup. No production availability or real-device performance claim is
-made. No account, subscription, deployment, production access, commit, push or
-migration was performed during this implementation.
+### Local results — 2026-09-29
+
+- Build and explicit Razor rebuild pass (existing MailKit/MimeKit NU1902 warnings).
+- .NET: 1,159/1,159; Node: 120/120. Focused map-popup/basemap HTTP: 46/46;
+  permanent basemap Node: 13/13. Routing, GPS, Planner, Places/popups/logos,
+  SEO, privacy and importer regression suites are included in the full run.
+- 15 standalone JS files and 11 inline blocks pass syntax checks. Home/Planner
+  use rendered HTML; Active uses synthetic Razor substitutions. Whitespace passes.
+- 54 synthetic layout scenes across 320/375/390/430/1024/1440px pass, including
+  attribution hit testing, active/navigation Home states and Admin picking.
+- 16 browser failure cases pass (missing/malformed/unknown config, 403, 429,
+  network failure, OSM failure too, and retained Stadia fallback; narrow/wide).
+- Continuation: 10 supplemental lifecycle checks pass (five each for CARTO and
+  dormant Stadia): rapid-zoom cancellation, per-map fallback isolation, native
+  zoom 19 at map zoom 20 after fallback, retina size/offset, and remove/recreate.
+- Four browser retina/performance cases pass. At 390px, both providers and DPR
+  1/2 make nine initial requests and 18 after the same pan/zoom sequence. CARTO
+  DPR2 uses 512px source images at 256 CSS pixels. These are mocked request-count
+  checks, not real CDN latency/throughput measurements.
+
+**Visual review remains incomplete:** 24 matched captures were made at fixed
+public city/neighborhood/building/Place-heavy/bin-heavy/park coordinates, zooms
+and 390/1024px widths with synthetic overlays and a sample shop logo. OSM returns
+geography, but CARTO's unkeyed public preview returns only an API-key-required
+placeholder, even with HTTP 200. The watermark was retained. These images cannot
+prove Positron POI reduction, street/path/green-space readability or Admin
+building-level precision. They are not evidence that Positron is an empty map.
+No production key, production referrer or production data was used; all automated
+integration/layout/failure tests intercept tiles without contacting CARTO.
+
+Before production activation, the owner must review actual keyed Positron on the
+same scenes (especially z19 buildings and park paths), check route/logo contrast
+and real mobile controls, confirm allowed production hosts and Commercial Free
+quota in the dashboard. A separately restricted development key is optional;
+never loosen production restrictions. Positron is a candidate worth reviewing,
+not yet a visually approved replacement. No paid-plan operation, production
+activation, commit or deployment was performed in this task.
+
+## Owner-run first keyed visual check (after separate release approval)
+
+This procedure is for the owner; it was not executed by the coding agent. The
+production key stays restricted to `doggydrop.app` and any other explicitly
+approved production hostname. Do not share its value or loosen its restrictions.
+
+1. Finish code review and separately authorize the normal release. Confirm the
+   deployed build includes Epic 19.4.2 before enabling its provider configuration.
+   Keep `Basemap__Provider=osm` until the controlled visual-check window.
+2. In the CARTO dashboard, verify the existing key's Commercial Free status,
+   remaining allowance and exact allowed website hosts. Do not purchase a plan.
+   A preview on a different hostname needs its own owner-issued, separately
+   restricted preview key; do not reuse or broaden the production key for it.
+3. In Render, select the DoggyDrop web service, open **Environment**, and set
+   `Basemap__Provider=carto` and `Basemap__CartoApiKey` to the owner's existing
+   restricted basemap key. Enter the value privately in Render, not in Git or
+   chat. Do not change any ORS setting. **Save only** stages environment values
+   without applying them; they take effect on the next approved deployment.
+   Once the approved build is present and the owner authorizes activation,
+   **Save and deploy** applies them to that existing build. These are owner
+   actions outside this task. See [Render environment-variable save behavior](https://render.com/docs/configure-environment-variables).
+4. Open a fresh browser session at `https://doggydrop.app/` on the allowed domain.
+   For the first check, use ordinary public map exploration, without starting GPS
+   recording. Confirm loaded tiles come from `basemaps.cartocdn.com/light_all/`,
+   real geography appears without an API-key watermark, and CARTO/OSM attribution
+   is visible/clickable. Check tile status and the origin-only referrer locally;
+   do not export request URLs/HAR files containing the key or share the key-bearing
+   HTML attribute. An OSM map alone is not proof that CARTO activation succeeded.
+5. Compare OSM and CARTO screenshots at identical center/zoom/viewport: Ljubljana
+   city (46.0569, 14.5058, z13), neighborhood (same center, z16), buildings
+   (46.0504, 14.5062, z19), Maribor Places (46.5577, 15.6459, z16), bins (same
+   center, z17), and Tivoli park (46.0585, 14.4951, z17), at 390 and 1024px.
+   Capture the OSM reference before activation. Also inspect 320/375/430/1440px.
+   Check street names, minor walking paths, park boundaries, building edges,
+   bins, selected/Featured Place logos, popups, route contrast, attribution and
+   bottom-navigation overlap. Do not interpret a watermark placeholder as Positron.
+6. Inspect the remaining shared surfaces: Active/Walk Details/Planner using
+   owner-approved test records, Place Details, Admin Create/Edit, Add Bin and
+   legacy Home. On coordinate pickers, check z19 alignment, click/drag and field
+   updates, then cancel without saving. On a real high-DPI phone, verify `@2x`
+   tiles, legible text, pan/zoom and controls. Do not create/edit production
+   records merely for this visual check.
+7. Test fallback in that browser by temporarily blocking only
+   `*basemaps.cartocdn.com/*` in DevTools and reloading. After at least three failed
+   tile loads, confirm OSM tiles/credit replace CARTO once, with overlays and
+   controls intact. Pan/zoom: there must be no switch back or layer accumulation.
+   Remove the block and reload to restore a fresh CARTO attempt. Do not revoke
+   keys, weaken restrictions or exhaust the quota to simulate failure.
+8. Monitor CARTO usage/refused requests after the check. If imagery, restrictions
+   or quota cause a problem, restore `Basemap__Provider=osm` through the owner's
+   approved Render configuration deployment, then refresh and confirm OSM-only
+   tile requests. Saving without deployment is not an immediate rollback.
+
+Technical code safety is separate from this manual visual/operational acceptance.
+The continuation reuses the existing implementation and permanent tests; no
+provider, GPS, routing or schema changes were needed during the re-review.
+All listed build/test/fixture checks were rerun successfully. Technical verdict:
+SAFE TO COMMIT, subject to normal code review; no commit was made. There are no
+confirmed BLOCKER/HIGH/MEDIUM implementation findings. The one LOW validation
+limitation is the outstanding owner-run keyed visual/operational acceptance,
+which remains a prerequisite for approving production use of Positron.

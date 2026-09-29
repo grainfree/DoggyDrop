@@ -1,8 +1,13 @@
 (() => {
     "use strict";
-    // Domain authentication is configured by the owner. Never accept a tile URL
-    // or credential from page/query/user data. Unknown configuration uses OSM.
-    const provider = document.currentScript?.dataset.provider === "stadia" ? "stadia" : "osm";
+    // The shared server partial emits an allowlisted provider and, only for CARTO,
+    // its browser-public restricted key. Never accept arbitrary URLs/query inputs.
+    const config = document.currentScript?.dataset;
+    const cartoKey = config?.cartoApiKey;
+    const validCartoKey = typeof cartoKey === "string" && cartoKey.length > 0 && cartoKey.length <= 512
+        && !/[^A-Za-z0-9._~-]/.test(cartoKey);
+    const provider = config?.provider === "stadia" ? "stadia"
+        : config?.provider === "carto" && validCartoKey ? "carto" : "osm";
     const osm = {
         url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
         nativeZoom: 19,
@@ -13,8 +18,13 @@
         nativeZoom: 20,
         attribution: '&copy; <a href="https://stadiamaps.com/attribution/">Stadia Maps</a> &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
     };
+    const carto = {
+        url: "https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png?key=" + encodeURIComponent(validCartoKey ? cartoKey : ""),
+        nativeZoom: 20,
+        attribution: osm.attribution + ', &copy; <a href="https://carto.com/attribution/">CARTO</a>'
+    };
     function addTo(map, { maxZoom = 20 } = {}) {
-        const selected = provider === "stadia" ? stadia : osm;
+        const selected = provider === "carto" ? carto : provider === "stadia" ? stadia : osm;
         const container = map.getContainer();
         container.classList.add("doggydrop-basemap");
         container.dataset.basemap = provider;
@@ -26,7 +36,7 @@
             detectRetina: false,
             referrerPolicy: "strict-origin-when-cross-origin"
         });
-        if (provider === "stadia") {
+        if (provider !== "osm") {
             let errors = 0;
             const fallback = () => {
                 if (++errors < 3) return;

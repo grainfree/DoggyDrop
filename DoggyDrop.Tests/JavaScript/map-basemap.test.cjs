@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path'), test = require('node:test'), vm = require('node:vm');
 const root = path.resolve(__dirname, '../..');
 const read = relative => fs.readFileSync(path.join(root, relative), 'utf8');
-function load(provider) {
+function load(provider, cartoApiKey) {
     const requests = [], credits = new Set();
     const container = { dataset: {}, classList: { add() {} } };
     const map = { getContainer: () => container, hasLayer: () => true,
@@ -14,7 +14,7 @@ function load(provider) {
             emit(name) { handlers[name]?.(); }, setUrl(value) { this.url = value; this.changes++; return this; } };
         requests.push(layer); return layer;
     } } };
-    vm.runInNewContext(read('DoggyDrop/wwwroot/js/map-basemap.js'), { window, document: { currentScript: { dataset: { provider } } } });
+    vm.runInNewContext(read('DoggyDrop/wwwroot/js/map-basemap.js'), { window, document: { currentScript: { dataset: { provider, cartoApiKey } } } });
     return { add: options => window.DoggyDropBasemap.addTo(map, options), requests, credits, container };
 }
 test('missing/invalid provider uses only canonical OSM without credentials', () => {
@@ -35,9 +35,9 @@ test('enabled DoggyDrop style uses one EU Alidade Smooth raster layer with all a
     assert.equal(f.container.dataset.basemap, 'stadia');
 });
 test('existing per-surface maximum zoom is retained without altering the camera', () => {
-    for (const provider of ['stadia','osm']) {
-        assert.equal(load(provider).add({maxZoom:19})[0].options.maxZoom,19);
-        assert.equal(load(provider).add({maxZoom:20})[0].options.maxZoom,20);
+    for (const provider of ['stadia','osm','carto']) {
+        assert.equal(load(provider,'fixture-key').add({maxZoom:19})[0].options.maxZoom,19);
+        assert.equal(load(provider,'fixture-key').add({maxZoom:20})[0].options.maxZoom,20);
     }
 });
 test('three tile failures fall back once on the same layer and update attribution/native zoom', () => {
@@ -58,9 +58,50 @@ test('each Leaflet view uses the same guarded configuration and stylesheet parti
         assert.match(source,/<partial name="_MapBasemapScripts"/);assert.match(source,/<partial name="_MapBasemapStyles"/);
         assert.doesNotMatch(source,/L\.tileLayer\(|CartoBasemap|cartoBasemapKey/);
     }
-    assert.match(read('DoggyDrop/Views/Shared/_MapBasemapScripts.cshtml'),/Configuration\["Basemap:Provider"\] == "stadia" \? "stadia" : "osm"/);
+    const partial=read('DoggyDrop/Views/Shared/_MapBasemapScripts.cshtml');
+    assert.match(partial,/data-provider="@provider"/);assert.match(partial,/data-carto-api-key="@cartoKey"/);
     assert.match(read('DoggyDrop/Views/Shared/_MapBasemapStyles.cshtml'),/sha256-p4NxAoJBhIIN\+hmNHrzRCf9tD\/miZyoHS5obTRR9BMY=/);
     for(const name of ['place-details','place-editor'])assert.match(read('DoggyDrop/wwwroot/js/'+name+'.js'),/DoggyDropBasemap.addTo\(map/);
+});
+
+test('CARTO uses one labelled Positron layer with only its required browser key parameter', () => {
+    const f=load('carto','fixture-key_123.abc~'),[layer]=f.add();
+    assert.equal(f.requests.length,1);assert.equal(f.container.dataset.basemap,'carto');
+    assert.equal(layer.url,'https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png?key=fixture-key_123.abc~');
+    const url=new URL(layer.url.replace('{z}','16').replace('{x}','1').replace('{y}','2').replace('{r}','@2x'));
+    assert.equal(url.protocol,'https:');assert.equal(url.hostname,'basemaps.cartocdn.com');
+    assert.deepEqual([...url.searchParams.keys()],['key']);
+    assert.match(layer.options.attribution,/href="https:\/\/carto.com\/attribution\/"/);
+    assert.match(layer.options.attribution,/OpenStreetMap.*contributors/);
+    assert.equal(layer.options.maxNativeZoom,20);assert.equal(layer.options.detectRetina,false);
+    assert.equal(layer.options.tileSize,undefined);assert.equal(layer.options.zoomOffset,undefined);
+    assert.equal(layer.options.referrerPolicy,'strict-origin-when-cross-origin');
+});
+
+test('CARTO missing, blank and malformed key configurations use OSM without a CARTO request', () => {
+    for(const key of [undefined,null,'',' ',' key','key ','key\n','key\r','a\nb','a\rb','x&UserId=1','<script>','https://evil.invalid','{z}','č','\uD800','x'.repeat(513)]) {
+        const f=load('carto',key),[layer]=f.add();
+        assert.equal(f.container.dataset.basemap,'osm');assert.equal(layer.url,'https://tile.openstreetmap.org/{z}/{x}/{y}.png');
+        assert.equal(f.requests.length,1);assert.doesNotMatch(layer.options.attribution,/CARTO/);
+    }
+});
+
+test('a key alone or unknown provider cannot enable CARTO or leak its key into OSM/Stadia', () => {
+    for(const provider of [undefined,'osm','CARTO','carto ','https://evil.invalid','stadia']) {
+        const [layer]=load(provider,'fixture-key').add();assert.doesNotMatch(layer.url,/fixture-key|key=/);
+        assert.doesNotMatch(layer.url,/cartocdn/);
+    }
+});
+
+test('CARTO refusal/quota/network tile errors fall back once in place without retaining its key or credit', () => {
+    const f=load('carto','fixture-key'),[layer]=f.add({maxZoom:20});
+    layer.emit('tileerror');layer.emit('tileerror');assert.equal(layer.changes,0);
+    layer.emit('tileerror');assert.equal(layer.url,'https://tile.openstreetmap.org/{z}/{x}/{y}.png');
+    assert.equal(layer.options.maxNativeZoom,19);assert.equal(layer.options.maxZoom,20);
+    assert.equal(f.container.dataset.basemap,'osm');assert.equal(f.credits.size,1);
+    assert.doesNotMatch([...f.credits][0],/CARTO|Stadia/);
+    for(let i=0;i<30;i++)layer.emit('tileerror');
+    assert.equal(layer.changes,1);assert.equal(f.requests.length,1);
 });
 test('Home/Active no longer recolor raster tiles and attribution UI remains readable', () => {
     for(const view of ['Map/Index','Walks/Active'])assert.doesNotMatch(read('DoggyDrop/Views/'+view+'.cshtml'),/filter: saturate/);

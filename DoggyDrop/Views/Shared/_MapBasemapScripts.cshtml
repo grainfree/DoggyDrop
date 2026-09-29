@@ -1,2 +1,12 @@
 @inject Microsoft.Extensions.Configuration.IConfiguration Configuration
-<script src="~/js/map-basemap.js" asp-append-version="true" data-provider="@(Configuration["Basemap:Provider"] == "stadia" ? "stadia" : "osm")"></script>
+@{
+    var provider = Configuration["Basemap:Provider"];
+    // Only this intentionally browser-public, domain-restricted basemap key may be emitted.
+    // Reject malformed config locally; CARTO validates entitlement/revocation on tile requests.
+    var cartoKey = provider == "carto" ? Configuration["Basemap:CartoApiKey"] : null;
+    var validCartoKey = cartoKey is { Length: > 0 and <= 512 }
+        && cartoKey.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_' or '.' or '~');
+    provider = provider == "stadia" ? "stadia" : provider == "carto" && validCartoKey ? "carto" : "osm";
+    if (provider != "carto") cartoKey = null;
+}
+<script src="~/js/map-basemap.js" asp-append-version="true" data-provider="@provider" data-carto-api-key="@cartoKey"></script>

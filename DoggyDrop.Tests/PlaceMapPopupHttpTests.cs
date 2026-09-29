@@ -118,6 +118,7 @@ public sealed class PlaceMapPopupHttpTests : IAsyncLifetime
     [Theory]
     [InlineData(null, "osm")]
     [InlineData("stadia", "stadia")]
+    [InlineData("carto", "osm")]
     [InlineData("https://untrusted.invalid/?private=value", "osm")]
     public async Task HomeRendersOnlyAllowlistedBasemapConfiguration(string? configured, string expected)
     {
@@ -131,10 +132,13 @@ public sealed class PlaceMapPopupHttpTests : IAsyncLifetime
         Assert.Contains("sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=", html);
         if (expected == "stadia") await Capture("home-stadia", html);
     }
-    [Fact]
-    public async Task ConfiguredBasemapPreservesActiveHomeWalkPresentation()
+    [Theory]
+    [InlineData("stadia")]
+    [InlineData("carto")]
+    public async Task ConfiguredBasemapPreservesActiveHomeWalkPresentation(string provider)
     {
-        app.Configuration["Basemap:Provider"] = "stadia";
+        app.Configuration["Basemap:Provider"] = provider;
+        app.Configuration["Basemap:CartoApiKey"] = "fixture-public-key";
         await using (var scope = app.Services.CreateAsyncScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -146,11 +150,61 @@ public sealed class PlaceMapPopupHttpTests : IAsyncLifetime
         }
         using var client = Client("admin");
         var html = await Page(client, "/");
-        Assert.Contains("data-provider=\"stadia\"", html);
+        Assert.Contains($"data-provider=\"{provider}\"", html);
         Assert.Contains("id=\"homeActiveWalkSheet\"", html);
         Assert.Contains("map-action-stack--with-active", html);
         Assert.DoesNotContain("id=\"homeIntro\"", html);
-        await Capture("home-active", html);
+        await Capture(provider == "carto" ? "home-active-carto" : "home-active", html);
+    }
+
+    [Theory]
+    [InlineData(null, false)]
+    [InlineData("", false)]
+    [InlineData(" ", false)]
+    [InlineData(" key", false)]
+    [InlineData("key ", false)]
+    [InlineData("key\r\nInjected", false)]
+    [InlineData("<script>alert(1)</script>", false)]
+    [InlineData("x\" onload=\"alert(1)", false)]
+    [InlineData("a&UserId=123", false)]
+    [InlineData("https://untrusted.invalid", false)]
+    [InlineData("{z}", false)]
+    [InlineData("č", false)]
+    [InlineData("fixture-public-key_123.abc~", true)]
+    public async Task CartoConfigurationOnlyEmitsAnExplicitValidBrowserKey(string? key, bool valid)
+    {
+        app.Configuration["Basemap:Provider"] = "carto";
+        app.Configuration["Basemap:CartoApiKey"] = key;
+        app.Configuration["OpenRouteService:ApiKey"] = "fixture-private-ors-must-not-leak";
+        app.Configuration["Basemap:Url"] = "https://untrusted.invalid";
+        using var client = Client(); var html = await Page(client, "/");
+        Assert.Contains($"data-provider=\"{(valid ? "carto" : "osm")}\"", html);
+        var emitted = Regex.Match(html, "data-carto-api-key=\"([^\"]*)\"").Groups[1].Value;
+        Assert.Equal(valid ? key : "", WebUtility.HtmlDecode(emitted));
+        Assert.DoesNotContain("fixture-private-ors-must-not-leak", html);
+        Assert.DoesNotContain("untrusted.invalid", html);
+        Assert.DoesNotContain("onload=\"alert", html);
+        if (valid) await Capture("home-carto", html);
+    }
+
+    [Theory]
+    [InlineData(null)] [InlineData("osm")] [InlineData("stadia")] [InlineData("CARTO")] [InlineData("carto ")]
+    public async Task NonCartoProvidersNeverEmitConfiguredCartoKey(string? provider)
+    {
+        app.Configuration["Basemap:Provider"] = provider;
+        app.Configuration["Basemap:CartoApiKey"] = "fixture-public-key-must-not-be-emitted";
+        using var client = Client(); var html = await Page(client, "/");
+        Assert.Contains($"data-provider=\"{(provider == "stadia" ? "stadia" : "osm")}\"", html);
+        Assert.DoesNotContain("fixture-public-key-must-not-be-emitted", html);
+    }
+
+    [Theory] [InlineData(512, true)] [InlineData(513, false)]
+    public async Task CartoKeyConfigurationHasABoundedLength(int length, bool valid)
+    {
+        app.Configuration["Basemap:Provider"] = "carto";
+        app.Configuration["Basemap:CartoApiKey"] = new string('x', length);
+        using var client = Client(); var html = await Page(client, "/");
+        Assert.Contains($"data-provider=\"{(valid ? "carto" : "osm")}\"", html);
     }
     [Fact]
     public async Task SuccessfulQuickEditReloadsNewCoordinatesAndCategoryAtTheSamePlace()
