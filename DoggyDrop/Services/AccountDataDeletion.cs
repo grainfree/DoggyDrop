@@ -31,6 +31,13 @@ public sealed class AccountDataDeletion(ApplicationDbContext db, UserManager<App
                 mediaUrls.AddRange(await db.WalkPhotos.Where(x => x.UserId == user.Id || x.Walk!.OwnerId == user.Id || x.Walk.Dog!.OwnerId == user.Id)
                     .Select(x => (string?)x.ImageUrl).ToListAsync());
                 mediaUrls.AddRange(await db.TrashBins.Where(x => x.UserId == user.Id && !x.IsApproved).Select(x => x.ImageUrl).ToListAsync());
+                mediaUrls.AddRange(await db.BinContributions.Where(c => c.SubmittedByUserId == user.Id && c.Status == BinContributionStatus.Pending).Select(c => c.ProposedPhotoUrl).ToListAsync());
+                // Remove private submitted text/evidence on account deletion; keep only accepted infrastructure history.
+                await db.BinContributions.Where(c => c.SubmittedByUserId == user.Id && c.Status == BinContributionStatus.Pending)
+                    .ExecuteUpdateAsync(s => s.SetProperty(c => c.Status, BinContributionStatus.Rejected)
+                        .SetProperty(c => c.ReviewedAt, DateTime.UtcNow).SetProperty(c => c.ProposedPhotoUrl, (string?)null));
+                await db.BinContributions.Where(c => c.SubmittedByUserId == user.Id)
+                    .ExecuteUpdateAsync(s => s.SetProperty(c => c.Description, (string?)null).SetProperty(c => c.SubmittedByUserId, (string?)null));
 
                 await db.Friendships.Where(x => x.RequesterId == user.Id || x.AddresseeId == user.Id).ExecuteDeleteAsync();
                 await db.TrashBins.Where(x => x.UserId == user.Id && !x.IsApproved).ExecuteDeleteAsync();

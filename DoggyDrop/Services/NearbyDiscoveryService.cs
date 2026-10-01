@@ -14,7 +14,7 @@ public sealed class NearbyDiscoveryService
 
     public async Task NotifyForApprovedBinAsync(TrashBin bin)
     {
-        if (!bin.IsApproved || bin.ApprovedAt is not { } approvedAt ||
+        if (!bin.IsApproved || bin.IsRetired || bin.ApprovedAt is not { } approvedAt ||
             !ValidCoordinate(bin.Latitude, bin.Longitude)) return;
 
         var latitudeDelta = MaxRadiusMeters / 111_000d;

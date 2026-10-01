@@ -16,7 +16,9 @@
             longitude = b.Longitude,
             date = b.DateAdded.ToString("dd.MM.yyyy"),
             image = b.FullImageUrl,
-            user = b.User?.DisplayName ?? "Neznan uporabnik",
+            user = "Prispevek skupnosti",
+            sourceName = b.DataSource?.Name,
+            sourceUrl = DoggyDrop.Services.BinCommunityRules.PublicSourceLink(b.DataSource?.WebsiteUrl),
             usedCount = b.UsedCount,
             fullReports = b.FullReports,
             missingReports = b.MissingReports,
@@ -3267,7 +3269,7 @@ else if (needsDogOnboarding)
             </form>
             <a asp-controller="Map" asp-action="Add" asp-route-walkId="@activeWalk.Id">
                 <i class="bi bi-plus-lg" aria-hidden="true"></i>
-                <span>Dodaj koš</span>
+                <span>Predlagaj nov koš</span>
             </a>
             <form asp-controller="Walks" asp-action="Finish" asp-route-id="@activeWalk.Id" method="post">
                 <button type="submit" class="is-danger" onclick="return confirm('Zaključim trenutni sprehod?');">
@@ -3323,7 +3325,7 @@ else if (needsDogOnboarding)
             </a>
             <a asp-controller="Map" asp-action="Add">
                 <i class="bi bi-plus-lg" aria-hidden="true"></i>
-                <span>Dodaj koš</span>
+                <span>Predlagaj nov koš</span>
             </a>
             <button type="button" onclick="findNearestTrashBin()">
                 <i class="bi bi-geo-alt-fill" aria-hidden="true"></i>
@@ -3366,7 +3368,7 @@ else if (needsDogOnboarding)
     }
     <a class="map-action-button" asp-controller="Map" asp-action="Add">
         <span class="map-action-button__icon" aria-hidden="true"><i class="bi bi-plus-lg"></i></span>
-        <span>Dodaj koš</span>
+        <span>Predlagaj nov koš</span>
     </a>
     <button type="button" onclick="findNearestTrashBin()" class="map-action-button @(!isSignedIn ? "map-action-button--primary" : "")">
         <span class="map-action-button__icon" aria-hidden="true"><i class="bi bi-geo-alt-fill"></i></span>
@@ -4466,19 +4468,20 @@ else if (needsDogOnboarding)
                 ? "Prijavljeno kot manjkajoč koš"
                 : bin.status === "full"
                     ? "Več prijav polnega koša"
-                    : "Status OK";
+                    : "Brez potrditve na terenu";
             const reliability = Number(bin.reliabilityScore) || 0;
 
             return `
                 <div class="bin-popup">
                     <div class="bin-popup__title">${escapeHtml(bin.name)}</div>
                     <div class="bin-popup__meta">
-                        Predlagal: ${escapeHtml(bin.user)}<br>
+                        ${bin.sourceName ? `Vir: ${escapeHtml(bin.sourceName)}<br>` : ""}
                         Dodano: ${escapeHtml(bin.date)}
                         <br>Status: ${escapeHtml(statusText)}
                         ${bin.lastUsedAt ? `<br>Zadnja uporaba: ${escapeHtml(bin.lastUsedAt)}` : ""}
                     </div>
                     ${bin.image ? `<div class="bin-popup__image-frame"><img class="bin-popup__image" src="${escapeAttribute(bin.image)}" alt="Kos"></div>` : ""}
+                    <a class="bin-popup__button ${bin.image ? "" : "bin-popup__button--primary"}" href="/BinContributions/Create/${Number(bin.id)}?photo=true">${bin.image ? "Predlagaj novo fotografijo" : "Dodaj fotografijo"}</a>
                     <div class="bin-popup__stats">
                         <div class="bin-popup__stat">${Number(bin.usedCount) || 0}<br>uporab</div>
                         <div class="bin-popup__stat">${Number(bin.fullReports) || 0}<br>poln</div>
@@ -4488,7 +4491,7 @@ else if (needsDogOnboarding)
                     <div class="bin-popup__actions">
                         <button type="button" class="bin-popup__button bin-popup__button--primary" onclick="sendBinAction(${Number(bin.id)}, 'used')">Označi uporabo</button>
                         <button type="button" class="bin-popup__button" onclick="sendBinAction(${Number(bin.id)}, 'full')">Poln koš</button>
-                        <button type="button" class="bin-popup__button" onclick="sendBinAction(${Number(bin.id)}, 'missing')">Manjka</button>
+                        <a href="/BinContributions/Create/${Number(bin.id)}">Prijavi težavo</a>
                         <button type="button" class="bin-popup__button" onclick="sendBinAction(${Number(bin.id)}, 'useful')">Koristen</button>
                         <button type="button" class="bin-popup__button" onclick="sendBinAction(${Number(bin.id)}, 'not-useful')">Ni OK</button>
                     </div>
@@ -4510,16 +4513,18 @@ else if (needsDogOnboarding)
                 ? "Prijavljeno kot manjkajoč koš"
                 : bin.status === "full"
                     ? "Več prijav polnega koša"
-                    : "Status OK";
+                    : "Brez potrditve na terenu";
             const reliability = Number(bin.reliabilityScore) || 0;
 
             title.textContent = bin.name || "Pasji kos";
             meta.innerHTML = `
-                Predlagal: ${escapeHtml(bin.user)}<br>
+                ${bin.sourceName ? `Vir: ${escapeHtml(bin.sourceName)}<br>` : ""}
                 Dodano: ${escapeHtml(bin.date)} · ${escapeHtml(statusText)}
             `;
             body.innerHTML = `
-                ${buildBinDetailImage(bin.image, bin.name)}
+                ${bin.image ? buildBinDetailImage(bin.image, bin.name) : ""}
+                <a class="map-bin-detail__button ${bin.image ? "" : "map-bin-detail__button--primary"}" href="/BinContributions/Create/${Number(bin.id)}?photo=true">${bin.image ? "Predlagaj novo fotografijo" : "Dodaj fotografijo"}</a>
+                ${bin.image ? "" : '<p class="map-bin-detail__meta">Pomagaj skupnosti prepoznati lokacijo.</p>'}
                 <div class="map-bin-detail__stats">
                     <div class="map-bin-detail__stat">${Number(bin.usedCount) || 0}<br>uporab</div>
                     <div class="map-bin-detail__stat">${Number(bin.fullReports) || 0}<br>poln</div>
@@ -4529,7 +4534,7 @@ else if (needsDogOnboarding)
                 <div class="map-bin-detail__actions">
                     <button type="button" class="map-bin-detail__button map-bin-detail__button--primary" onclick="sendBinAction(${Number(bin.id)}, 'used')">Označi uporabo</button>
                     <button type="button" class="map-bin-detail__button" onclick="sendBinAction(${Number(bin.id)}, 'full')">Poln koš</button>
-                    <button type="button" class="map-bin-detail__button" onclick="sendBinAction(${Number(bin.id)}, 'missing')">Manjka</button>
+                    <a class="map-bin-detail__link" href="/BinContributions/Create/${Number(bin.id)}">Prijavi težavo</a>
                     <button type="button" class="map-bin-detail__link" onclick="navigateToBinInApp(${Number(bin.id)})">Navigacija</button>
                 </div>
                 <div class="map-bin-detail__feedback" id="binFeedback${Number(bin.id)}"></div>
@@ -4711,11 +4716,12 @@ else if (needsDogOnboarding)
             }
 
             try {
-                const response = await fetch(`/Map/BinAction/${binId}?action=${encodeURIComponent(action)}`, {
+                const response = await fetch(`/Map/BinAction/${binId}`, {
                     method: "POST",
                     headers: {
                         "X-Requested-With": "XMLHttpRequest"
-                    }
+                    },
+                    body: new URLSearchParams({ binAction: action, __RequestVerificationToken: requestVerificationToken })
                 });
 
                 if (response.status === 401 || response.redirected) {

@@ -51,12 +51,14 @@ public sealed class AdminBinsController(ApplicationDbContext db) : Controller
     {
         if (page is < 1 or > 100000 || sourceId is <= 0) return BadRequest();
         var query = db.TrashBins.AsNoTracking();
-        if (state == "approved") query = query.Where(b => b.IsApproved);
-        if (state == "pending") query = query.Where(b => !b.IsApproved);
+        if (state == "approved") query = query.Where(b => b.IsApproved && !b.IsRetired);
+        if (state == "retired") query = query.Where(b => b.IsRetired);
+        if (state == "rejected") query = query.Where(b => b.IsRejected);
+        if (state == "pending") query = query.Where(b => !b.IsApproved && !b.IsRetired && !b.IsRejected);
         if (noSource) query = query.Where(b => b.DataSourceId == null);
         else if (sourceId.HasValue) query = query.Where(b => b.DataSourceId == sourceId);
         var rows = await query.OrderBy(b => b.Id).Skip((page - 1) * 100).Take(101)
-            .Select(b => new AdminBinRow(b.Id, b.Name, b.IsApproved, b.DataSource == null ? null : b.DataSource.Name)).ToListAsync();
+            .Select(b => new AdminBinRow(b.Id, b.Name, b.IsApproved, b.DataSource == null ? null : b.DataSource.Name, b.IsRetired, b.IsRejected)).ToListAsync();
         ViewBag.Page = page; ViewBag.HasNext = rows.Count > 100; ViewBag.State = state;
         ViewBag.SourceId = sourceId; ViewBag.NoSource = noSource;
         ViewBag.DataSources = await db.DataSources.AsNoTracking().OrderBy(s => s.Name).Select(s => new SourceOption(s.Id, s.Name)).ToListAsync();

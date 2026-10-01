@@ -280,7 +280,7 @@ namespace DoggyDrop.Controllers
             var selectedDogEnergy = "auto";
 
             var bins = await _context.TrashBins
-                .Where(bin => bin.IsApproved)
+                .PublicBins()
                 .ToListAsync();
             var route = await BuildPlannerRouteAsync(
                 areaKey,
@@ -359,7 +359,25 @@ namespace DoggyDrop.Controllers
             }
 
             await using var transaction = await _context.Database.BeginTransactionAsync();
+            // Match bin review's lock order: it may write a notification referencing this user.
+            if (plannedWalk != null) await BinCommunityRules.LockAsync(_context);
             await LockWalkStartUserAsync(userId);
+            if (plannedWalk != null)
+            {
+                // Saved stops have coordinates, not BinIds, and share one immutable route geometry.
+                // Dropping a stop alone would leave guidance through its old location. Fail closed
+                // instead of rewriting history or silently substituting a nearby bin.
+                var publicBins = _context.TrashBins.PublicBins();
+                var unavailableBin = await _context.PlannedWalkStops.AsNoTracking()
+                    .Where(stop => stop.PlannedWalkId == plannedWalk.Id && stop.Type == "bin")
+                    .AnyAsync(stop => !publicBins.Any(bin =>
+                        bin.Latitude == stop.Latitude && bin.Longitude == stop.Longitude));
+                if (unavailableBin)
+                {
+                    TempData["ErrorMessage"] = "Ta načrt vsebuje koše, ki niso več na voljo na shranjeni lokaciji. Ustvarite nov načrt; obstoječi načrt in zgodovina ostaneta ohranjena.";
+                    return RedirectToAction(nameof(Index));
+                }
+            }
             var hasActiveWalk = await _context.Walks.AnyAsync(w => w.OwnerId == userId && w.Status == "Active");
             if (hasActiveWalk)
             {
@@ -445,7 +463,7 @@ namespace DoggyDrop.Controllers
             var selectedWalkStyle = GetPlannerStyles().Any(item => item.Key == walkStyle) ? walkStyle! : "balanced";
             var selectedDogEnergy = "auto";
             var bins = await _context.TrashBins
-                .Where(bin => bin.IsApproved)
+                .PublicBins()
                 .ToListAsync();
             var route = await BuildPlannerRouteAsync(areaKey, start, hasCurrentLocation, safeDistanceKm, bins, selectedWalkStyle, selectedDogEnergy, includeBins, includePark, includeWater, includeDogFriendly, preferExternalRouting: true);
 
@@ -569,7 +587,7 @@ namespace DoggyDrop.Controllers
             var selectedWalkStyle = GetPlannerStyles().Any(item => item.Key == walkStyle) ? walkStyle! : "balanced";
             var selectedDogEnergy = "auto";
             var bins = await _context.TrashBins
-                .Where(bin => bin.IsApproved)
+                .PublicBins()
                 .ToListAsync();
             var route = await BuildPlannerRouteAsync(areaKey, start, hasCurrentLocation, safeDistanceKm, bins, selectedWalkStyle, selectedDogEnergy, includeBins, includePark, includeWater, includeDogFriendly, preferExternalRouting: true);
 

@@ -41,7 +41,7 @@ public sealed class BinPhotoHttpTests : IAsyncLifetime
         {
             var db=scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();await db.Database.EnsureCreatedAsync();
             db.Users.Add(new ApplicationUser{Id="admin",UserName="Admin"});
-            db.TrashBins.AddRange(new TrashBin{Name="Photo",ImageUrl=BinPhotoRotationTests.Original,IsApproved=true,Latitude=46,Longitude=15},new TrashBin{Name="No photo"},new TrashBin{Name="External",ImageUrl="https://external.test/photo.jpg"});await db.SaveChangesAsync();
+            db.TrashBins.AddRange(new TrashBin{Name="Photo",ImageUrl=BinPhotoRotationTests.Original,IsApproved=true,Latitude=46,Longitude=15},new TrashBin{Name="No photo",Latitude=46.1,Longitude=15},new TrashBin{Name="External",ImageUrl="https://external.test/photo.jpg"});await db.SaveChangesAsync();
         }
         await app.StartAsync();
     }
@@ -93,7 +93,8 @@ public sealed class BinPhotoHttpTests : IAsyncLifetime
         }
         using var admin=Client("admin");var token=Token(await admin.GetStringAsync("/Map/Edit/2"));
         Assert.Equal(HttpStatusCode.Redirect,(await admin.PostAsync("/AdminBinPhotos/Rotate",Form(token,("id","2"),("operation","left")))).StatusCode);
-        Assert.Equal(HttpStatusCode.Redirect,(await admin.PostAsync("/Map/Approve/2",Form(token))).StatusCode);
+        using var approvalScope=app.Services.CreateScope();var approvalBin=await approvalScope.ServiceProvider.GetRequiredService<ApplicationDbContext>().TrashBins.AsNoTracking().SingleAsync(b=>b.Id==2);
+        Assert.Equal(HttpStatusCode.Redirect,(await admin.PostAsync("/Map/Approve/2",Form(token,("snapshot",BinCommunityRules.Snapshot(approvalBin))))).StatusCode);
         await using var verify=app.Services.CreateAsyncScope();var saved=await verify.ServiceProvider.GetRequiredService<ApplicationDbContext>().TrashBins.FindAsync(2);
         Assert.True(saved!.IsApproved);Assert.NotNull(saved.ApprovedAt);Assert.Equal(storage.Created.Single(),saved.ImageUrl);Assert.Single(storage.Operations);
     }
@@ -101,10 +102,11 @@ public sealed class BinPhotoHttpTests : IAsyncLifetime
     public async Task PublicAddRemainsPublicAndFailedPhotoNeverSilentlyCreatesBinOrReplacesOld()
     {
         using var anon=Client();var page=await anon.GetStringAsync("/Map/Add");Assert.DoesNotContain("bin-photo-rotation",page);
-        using var upload=new MultipartFormDataContent();upload.Add(new StringContent(Token(page)),"__RequestVerificationToken");upload.Add(new StringContent("New bin"),"Name");upload.Add(new StringContent("46"),"Latitude");upload.Add(new StringContent("15"),"Longitude");upload.Add(new ByteArrayContent([1,2,3]),"ImageFile","bad.jpg");
+        using var upload=new MultipartFormDataContent();upload.Add(new StringContent(Token(page)),"__RequestVerificationToken");upload.Add(new StringContent("New bin"),"Name");upload.Add(new StringContent("46.2"),"Latitude");upload.Add(new StringContent("15"),"Longitude");upload.Add(new ByteArrayContent([1,2,3]),"ImageFile","bad.jpg");
         var result=await anon.PostAsync("/Map/Add",upload);Assert.Equal(HttpStatusCode.OK,result.StatusCode);Assert.Contains("12 MiB",await result.Content.ReadAsStringAsync());
         using var admin=Client("admin");var token=Token(await admin.GetStringAsync("/Map/Edit/1"));
-        using var replacement=new MultipartFormDataContent();replacement.Add(new StringContent(token),"__RequestVerificationToken");replacement.Add(new StringContent("1"),"Id");replacement.Add(new StringContent("Photo"),"Name");replacement.Add(new StringContent("46"),"Latitude");replacement.Add(new StringContent("15"),"Longitude");replacement.Add(new ByteArrayContent([1,2,3]),"ImageFile","bad.jpg");
+        using var scopeSnapshot=app.Services.CreateScope();var snapshot=BinCommunityRules.Snapshot(scopeSnapshot.ServiceProvider.GetRequiredService<ApplicationDbContext>().TrashBins.Find(1)!);
+        using var replacement=new MultipartFormDataContent();replacement.Add(new StringContent(snapshot),"Snapshot");replacement.Add(new StringContent(token),"__RequestVerificationToken");replacement.Add(new StringContent("1"),"Id");replacement.Add(new StringContent("Photo"),"Name");replacement.Add(new StringContent("46"),"Latitude");replacement.Add(new StringContent("15"),"Longitude");replacement.Add(new ByteArrayContent([1,2,3]),"ImageFile","bad.jpg");
         Assert.Equal(HttpStatusCode.OK,(await admin.PostAsync("/Map/Edit",replacement)).StatusCode);
         await using var scope=app.Services.CreateAsyncScope();var db=scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();Assert.Equal(3,await db.TrashBins.CountAsync());Assert.Equal(BinPhotoRotationTests.Original,(await db.TrashBins.FindAsync(1))!.ImageUrl);
     }

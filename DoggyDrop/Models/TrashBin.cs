@@ -20,6 +20,12 @@ namespace DoggyDrop.Models
 
         public bool IsApproved { get; set; } = false;
 
+        public bool IsRetired { get; set; }
+
+        // Pending new-bin review stays on the canonical bin record.
+        public bool IsRejected { get; set; }
+        public DateTime? RejectedAt { get; set; }
+
         public DateTime? ApprovedAt { get; set; }
 
         public int? DataSourceId { get; set; }

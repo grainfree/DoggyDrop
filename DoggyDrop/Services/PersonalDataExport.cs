@@ -20,6 +20,8 @@ public sealed class PersonalDataExport(ApplicationDbContext db)
         var buffer = new ArrayBufferWriter<byte>();
         using var writer = new Utf8JsonWriter(buffer, new JsonWriterOptions { Indented = true });
         writer.WriteStartObject();
+        await Rows("BinMaintenanceContributions", db.BinContributions.Where(c => c.SubmittedByUserId == userId).OrderBy(c => c.Id)
+            .Select(c => new { c.Id, c.BinId, c.Type, c.Reason, c.Status, c.Description, c.ProposedLatitude, c.ProposedLongitude, c.PossibleDuplicateBinId, c.CreatedAt, c.ReviewedAt }));
         writer.WriteNumber("FormatVersion", 1);
         writer.WriteString("ExportedAtUtc", DateTime.UtcNow);
         writer.WriteString("Scope", "Podatki trenutnega računa v DoggyDrop. Fotografije so navedene kot povezave, ne kot datoteke. Varnostne skrivnosti in podatki ponudnikov zunaj aplikacije niso vključeni.");

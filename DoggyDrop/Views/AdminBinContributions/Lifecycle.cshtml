@@ -1,0 +1,17 @@
+@model DoggyDrop.Models.TrashBin
+@using DoggyDrop.Services
+@{ ViewData["Title"] = "Javna vidnost koša"; }
+@section Styles { <link rel="stylesheet" href="~/css/bin-contributions.css" asp-append-version="true" /> }
+<main class="bin-contribution-page">
+    <h1>@(Model.IsRetired ? "Ponovno aktiviraj koš" : "Upokoji koš") #@Model.Id</h1>
+    <p>@Model.Name · Vir: @(Model.DataSource?.Name ?? "Ni določen")</p>
+    <p>Zapis, fotografija, izvor in zgodovina ostanejo ohranjeni. Spremeni se javna vidnost koša.</p>
+    @if (Model.IsApproved) {
+        <form asp-action="Lifecycle" method="post"><input type="hidden" name="id" value="@Model.Id" />
+            <input type="hidden" name="snapshot" value="@BinCommunityRules.Snapshot(Model)" />
+            <input type="hidden" name="retired" value="@((!Model.IsRetired).ToString().ToLowerInvariant())" />
+            <button type="submit" class="btn btn-success">Potrdi @(Model.IsRetired ? "ponovno aktivacijo" : "upokojitev")</button>
+        </form>
+    }
+    <a asp-controller="AdminBins" asp-action="Index">Prekliči</a>
+</main>

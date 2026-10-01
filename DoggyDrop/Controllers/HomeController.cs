@@ -197,7 +197,7 @@ namespace DoggyDrop.Controllers
                 .ToListAsync();
             var binPhotoGallery = (await _context.TrashBins
                 .Include(bin => bin.User)
-                .Where(bin => bin.IsApproved && !string.IsNullOrWhiteSpace(bin.ImageUrl))
+                .PublicBins().Where(bin => !string.IsNullOrWhiteSpace(bin.ImageUrl))
                 .OrderByDescending(bin => bin.DateAdded)
                 .Take(12)
                 .ToListAsync())

@@ -1,3 +1,4 @@
+using DoggyDrop.Services;
 using DoggyDrop.Data;
 using DoggyDrop.Models;
 using Microsoft.AspNetCore.Mvc;
@@ -19,7 +20,7 @@ namespace DoggyDrop.Controllers.Api
         [HttpGet("summary")]
         public async Task<IActionResult> Summary()
         {
-            var bins = await _context.TrashBins.ToListAsync();
+            var bins = await _context.TrashBins.PublicBins().ToListAsync();
             var completedWalks = await _context.Walks
                 .Where(walk => walk.Status == "Completed")
                 .ToListAsync();
@@ -32,7 +33,7 @@ namespace DoggyDrop.Controllers.Api
                 {
                     Total = bins.Count,
                     Approved = bins.Count(bin => bin.IsApproved),
-                    Pending = bins.Count(bin => !bin.IsApproved),
+                    Pending = await _context.TrashBins.PendingBins().CountAsync(),
                     Uses = bins.Sum(bin => bin.UsedCount),
                     FullReports = bins.Sum(bin => bin.FullReports),
                     MissingReports = bins.Sum(bin => bin.MissingReports)

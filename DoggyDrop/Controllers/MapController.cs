@@ -77,6 +77,7 @@ namespace DoggyDrop.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [RequestSizeLimit(BinPhotoUploadPolicy.MaxBytes + 65536)]
+        [BinSubmissionLimit]
         public async Task<IActionResult> Add(TrashBinViewModel model, int? walkId = null)
         {
             var returnWalkId = await GetOwnedActiveWalkIdAsync(walkId);
@@ -84,6 +85,9 @@ namespace DoggyDrop.Controllers
             if (!ModelState.IsValid)
                 return View(model);
 
+            if (!BinCommunityRules.Coordinates(model.Latitude, model.Longitude)) ModelState.AddModelError("", "Označi veljavno lokacijo v Sloveniji.");
+            else if (await BinCommunityRules.DuplicateAsync(_context, model.Latitude, model.Longitude)) ModelState.AddModelError("", "V razdalji do vključno 20 m že obstaja predlog ali koš. Preveri zemljevid.");
+            if (!ModelState.IsValid) return View(model);
             string? imageUrl = null;
 
             if (model.ImageFile != null && model.ImageFile.Length > 0)
@@ -108,6 +112,12 @@ namespace DoggyDrop.Controllers
 
             await using (var transaction = await _context.Database.BeginTransactionAsync())
             {
+                await BinCommunityRules.LockAsync(_context);
+                if (await BinCommunityRules.DuplicateAsync(_context, model.Latitude, model.Longitude)) {
+                    // Another submit won. Retain any upload for safe orphan reconciliation.
+                    ModelState.AddModelError("", "Medtem je bil dodan bližnji koš. Preveri zemljevid.");
+                    return View(model);
+                }
                 _context.TrashBins.Add(newBin);
                 await _context.SaveChangesAsync();
                 await _gamificationService.AwardXpAsync(
@@ -158,8 +168,8 @@ namespace DoggyDrop.Controllers
         public async Task<IActionResult> Index()
         {
             var bins = await _context.TrashBins
-                .Include(b => b.User)
-                .Where(b => b.IsApproved)
+                .Include(b => b.DataSource)
+                .PublicBins()
                 .ToListAsync();
 
             if (User.Identity?.IsAuthenticated == true)
@@ -248,7 +258,7 @@ namespace DoggyDrop.Controllers
             var pendingBins = _context.TrashBins
                 .Include(b => b.DataSource)
                 .Include(b => b.User) // ✅ vključimo uporabnika
-                .Where(b => !b.IsApproved)
+                .Where(b => !b.IsApproved && !b.IsRetired && !b.IsRejected)
                 .OrderByDescending(b => b.DateAdded)
                 .ToList();
 
@@ -259,16 +269,22 @@ namespace DoggyDrop.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> Approve(int id)
+        public async Task<IActionResult> Approve(int id, string? snapshot = null)
         {
             await using var transaction = await _context.Database.BeginTransactionAsync();
+            await BinCommunityRules.LockAsync(_context);
+            var pending = await _context.TrashBins.AsNoTracking().SingleOrDefaultAsync(b => b.Id == id && !b.IsApproved && !b.IsRejected && !b.IsRetired);
+            if (pending == null) return RedirectToAction(nameof(Manage));
+            if (snapshot != BinCommunityRules.Snapshot(pending)) return Conflict("Predlog je bil medtem spremenjen. Ponovno odpri pregled.");
+            if (await BinCommunityRules.DuplicateAsync(_context, pending.Latitude, pending.Longitude, id)) return Conflict("Koš ima možnega dvojnika do vključno 20 m. Potrebna je ročna razrešitev.");
             var approvedAt = DateTime.UtcNow;
             var changed = await _context.TrashBins
-                .Where(bin => bin.Id == id && !bin.IsApproved)
+                .Where(bin => bin.Id == id && !bin.IsApproved && !bin.IsRetired && !bin.IsRejected && bin.Latitude == pending.Latitude && bin.Longitude == pending.Longitude
+                    && bin.Name == pending.Name && bin.ImageUrl == pending.ImageUrl && bin.DataSourceId == pending.DataSourceId && bin.UserId == pending.UserId)
                 .ExecuteUpdateAsync(update => update
                     .SetProperty(bin => bin.IsApproved, true)
                     .SetProperty(bin => bin.ApprovedAt, approvedAt));
-            if (changed == 0) return RedirectToAction(nameof(Manage));
+            if (changed == 0) return Conflict("Predlog je bil medtem spremenjen. Ponovno odpri pregled.");
 
             var bin = await _context.TrashBins.AsNoTracking().SingleAsync(item => item.Id == id);
             await AwardFounderBadgeIfFirstInAreaAsync(bin);
@@ -304,19 +320,23 @@ namespace DoggyDrop.Controllers
                 """);
         }
 
-        // Moderator deletion remains available; contributor proposals are retained for reward integrity.
+        // Rejection retains new-bin evidence; approved infrastructure uses the separate retirement flow.
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize]
-        public async Task<IActionResult> Reject(int id, string? returnTo)
+        public async Task<IActionResult> Reject(int id, string? returnTo, string? snapshot = null)
         {
             if (User.IsInRole("Admin"))
             {
                 var bin = await _context.TrashBins.FindAsync(id);
                 if (bin != null)
                 {
-                    _context.TrashBins.Remove(bin);
-                    await _context.SaveChangesAsync();
+                    if (bin.IsApproved || bin.IsRetired) return Conflict("Odobren koš upokoji v Admin pregledu; zavrnitev je namenjena novim predlogom.");
+                    if (bin.IsRejected) return RedirectToAction(nameof(Manage));
+                    if (snapshot != BinCommunityRules.Snapshot(bin)) return Conflict("Predlog je bil medtem spremenjen. Ponovno odpri pregled.");
+                    bin.IsRejected = true; bin.RejectedAt = DateTime.UtcNow;
+                    try { await _context.SaveChangesAsync(); }
+                    catch (DbUpdateConcurrencyException) { return Conflict("Predlog je bil medtem spremenjen. Ponovno odpri pregled."); }
                 }
                 return string.Equals(returnTo, "mybins", StringComparison.OrdinalIgnoreCase)
                     ? RedirectToAction(nameof(MyBins))
@@ -345,8 +365,10 @@ namespace DoggyDrop.Controllers
             if (bin == null)
                 return NotFound();
 
+            if (await _context.BinContributions.AnyAsync(c => c.BinId == id)) return Conflict("Koš ima zgodovino prispevkov. Uporabi upokojitev.");
             _context.TrashBins.Remove(bin);
-            await _context.SaveChangesAsync();
+            try { await _context.SaveChangesAsync(); }
+            catch (DbUpdateException) { return Conflict("Koš se je spremenil ali ima povezano zgodovino. Osveži pregled in uporabi upokojitev."); }
 
             TempData["SuccessMessage"] = "Koš je bil uspešno izbrisan!";
             return RedirectToAction("Manage");
@@ -370,7 +392,7 @@ namespace DoggyDrop.Controllers
         public IActionResult GetNearestBin(double latitude, double longitude)
         {
             var nearest = _context.TrashBins
-                .Where(b => b.IsApproved)
+                .PublicBins()
                 .OrderBy(b => Math.Pow(b.Latitude - latitude, 2) + Math.Pow(b.Longitude - longitude, 2))
                 .FirstOrDefault();
 
@@ -391,7 +413,7 @@ namespace DoggyDrop.Controllers
         public IActionResult GetBestBin(double latitude, double longitude)
         {
             var best = _context.TrashBins
-                .Where(b => b.IsApproved)
+                .PublicBins()
                 .AsEnumerable()
                 .Select(bin => new
                 {
@@ -424,7 +446,7 @@ namespace DoggyDrop.Controllers
         public IActionResult FindNearest()
         {
             var bins = _context.TrashBins
-                .Where(b => b.IsApproved)
+                .PublicBins()
                 .ToList()
                 .Select(b => new
                 {
@@ -441,17 +463,18 @@ namespace DoggyDrop.Controllers
 
         [Authorize]
         [HttpPost]
-        public async Task<IActionResult> BinAction(int id, string action)
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> BinAction(int id, [FromForm] string binAction)
         {
             var bin = await _context.TrashBins.FindAsync(id);
-            if (bin == null || !bin.IsApproved)
+            if (bin == null || !bin.IsApproved || bin.IsRetired)
             {
                 return NotFound();
             }
 
             var now = DateTime.UtcNow;
 
-            switch ((action ?? string.Empty).Trim().ToLowerInvariant())
+            switch ((binAction ?? string.Empty).Trim().ToLowerInvariant())
             {
                 case "used":
                     bin.UsedCount++;
@@ -462,9 +485,7 @@ namespace DoggyDrop.Controllers
                     bin.LastReportedAt = now;
                     break;
                 case "missing":
-                    bin.MissingReports++;
-                    bin.LastReportedAt = now;
-                    break;
+                    return Conflict(new { message = "Težavo oddaj v pregled.", contributionUrl = $"/BinContributions/Create/{id}" });
                 case "useful":
                     bin.UsefulVotes++;
                     break;
@@ -476,7 +497,7 @@ namespace DoggyDrop.Controllers
             }
 
             await _context.SaveChangesAsync();
-            if (string.Equals(action, "useful", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(binAction, "useful", StringComparison.OrdinalIgnoreCase))
             {
                 await _gamificationService.AwardXpAsync(
                     _userManager.GetUserId(User),
@@ -518,7 +539,8 @@ namespace DoggyDrop.Controllers
                 Name = bin.Name,
                 Latitude = bin.Latitude,
                 Longitude = bin.Longitude,
-                CurrentImageUrl = bin.FullImageUrl
+                CurrentImageUrl = bin.FullImageUrl,
+                Snapshot = BinCommunityRules.Snapshot(bin)
             };
 
             return View(model);
@@ -538,6 +560,14 @@ namespace DoggyDrop.Controllers
             ViewData["BinPhotoUrl"] = bin.ImageUrl;
             model.CurrentImageUrl = bin.FullImageUrl;
             if (!ModelState.IsValid) return View(model);
+            if (model.Snapshot != BinCommunityRules.Snapshot(bin)) return Conflict("Koš je bil medtem spremenjen. Ponovno odpri urejanje.");
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+            await BinCommunityRules.LockAsync(_context);
+            if (model.Latitude != bin.Latitude || model.Longitude != bin.Longitude)
+            {
+                if (!BinCommunityRules.Coordinates(model.Latitude, model.Longitude) || await BinCommunityRules.DuplicateAsync(_context, model.Latitude, model.Longitude, bin.Id))
+                { ModelState.AddModelError("", "Lokacija ni veljavna ali ima možnega dvojnika do vključno 20 m."); return View(model); }
+            }
             if (model.ImageFile != null && model.ImageFile.Length > 0)
             {
                 var imageUrl = await UploadBinPhotoAsync(model.ImageFile);
@@ -548,7 +578,8 @@ namespace DoggyDrop.Controllers
             bin.Name = model.Name;
             bin.Latitude = model.Latitude;
             bin.Longitude = model.Longitude;
-            await _context.SaveChangesAsync();
+            try { await _context.SaveChangesAsync(); await transaction.CommitAsync(); }
+            catch (DbUpdateConcurrencyException) { return Conflict("Koš je bil medtem spremenjen. Ponovno odpri urejanje."); }
             TempData["SuccessMessage"] = "Hvala za vaš prispevek! Vaš koš je bil uspešno dodan. Administrator ga bo kmalu pregledal. 🐾";
             return RedirectToAction("Manage");
         }

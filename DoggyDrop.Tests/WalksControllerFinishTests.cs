@@ -752,6 +752,7 @@ public sealed class WalksControllerFinishTests : IDisposable
             }
         };
         context.PlannedWalks.Add(plan);
+        context.TrashBins.Add(new TrashBin { Name = "Koš", IsApproved = true, Latitude = 46.01, Longitude = 15.01 });
         await context.SaveChangesAsync();
 
         await CreateController(context).Start(dogId, plan.Id);
@@ -784,6 +785,7 @@ public sealed class WalksControllerFinishTests : IDisposable
                 ]
             };
             setup.PlannedWalks.Add(plan);
+            setup.TrashBins.Add(new TrashBin { Name = "Prvi koš", IsApproved = true, Latitude = 46.01, Longitude = 15.01 });
             await setup.SaveChangesAsync();
             planId = plan.Id;
         }
@@ -910,6 +912,7 @@ public sealed class WalksControllerFinishTests : IDisposable
                     ]
                 };
                 setup.PlannedWalks.Add(plan);
+                setup.TrashBins.Add(new TrashBin { Name = "Koš", IsApproved = true, Latitude = 46.01, Longitude = 15.01 });
                 await setup.SaveChangesAsync();
                 planId = plan.Id;
             }
@@ -1187,6 +1190,72 @@ public sealed class WalksControllerFinishTests : IDisposable
     {
         await using var context = CreateContext();
         return await CreateController(context).Finish(walkId, null, null);
+    }
+
+    [Theory]
+    [InlineData("active", false, true)]
+    [InlineData("active", true, true)]
+    [InlineData("retired", false, false)]
+    [InlineData("retired", true, false)]
+    [InlineData("pending", false, false)]
+    [InlineData("rejected", false, false)]
+    [InlineData("moved", false, false)]
+    [InlineData("deleted", false, false)]
+    public async Task Start_RevalidatesSavedBinStopsWithoutChangingPlan(string state, bool mixed, bool allowed)
+    {
+        await SeedAsync(0, "Completed");
+        await using var db = CreateContext();
+        var dogId = await db.Dogs.Select(d => d.Id).SingleAsync();
+        if (state != "deleted") db.TrashBins.Add(new TrashBin {
+            Name = "Saved bin", Latitude = state == "moved" ? 46.1 : 46, Longitude = 15,
+            IsApproved = state is "active" or "retired" or "moved", IsRetired = state == "retired", IsRejected = state == "rejected"
+        });
+        var plan = new PlannedWalk { OwnerId = UserId, DogId = dogId, Title = "Ohranjeni načrt",
+            Stops = [new() { Order = 1, Name = "Saved bin", Type = "bin", Latitude = 46, Longitude = 15 }],
+            RoutePoints = [new() { Order = 1, Latitude = 46, Longitude = 15 }, new() { Order = 2, Latitude = 46.02, Longitude = 15.02 }] };
+        if (mixed)
+        {
+            db.TrashBins.Add(new TrashBin { Name = "Active bin", IsApproved = true, Latitude = 46.02, Longitude = 15.02 });
+            plan.Stops.Add(new() { Order = 2, Name = "Active bin", Type = "bin", Latitude = 46.02, Longitude = 15.02 });
+            plan.Stops.Add(new() { Order = 3, Name = "Place", Type = "place", Latitude = 46.03, Longitude = 15.03 });
+            plan.Stops.Add(new() { Order = 4, Name = "Park", Type = "park", Latitude = 46.04, Longitude = 15.04 });
+        }
+        db.PlannedWalks.Add(plan); await db.SaveChangesAsync();
+        var before = System.Text.Json.JsonSerializer.Serialize(plan.Stops.Select(s => new { s.Id, s.Type, s.Name, s.Latitude, s.Longitude }));
+        var controller = CreateController(db);
+        var result = Assert.IsType<RedirectToActionResult>(await controller.Start(dogId, plan.Id));
+        Assert.Equal(allowed ? "Active" : "Index", result.ActionName);
+        Assert.Equal(allowed, await db.Walks.AnyAsync(w => w.Status == "Active"));
+        if (!allowed) { Assert.Contains("niso več na voljo", Assert.IsType<string>(controller.TempData["ErrorMessage"])); Assert.Null(plan.UsedAt); }
+        db.ChangeTracker.Clear();
+        var saved = await db.PlannedWalks.Include(p => p.Stops).Include(p => p.RoutePoints).SingleAsync();
+        Assert.Equal(before, System.Text.Json.JsonSerializer.Serialize(saved.Stops!.OrderBy(s => s.Id).Select(s => new { s.Id, s.Type, s.Name, s.Latitude, s.Longitude })));
+        Assert.Equal(2, saved.RoutePoints!.Count);
+    }
+
+    [Fact]
+    public async Task SavedPlan_RetireBlocksStart_ReactivateAllowsSameBin_HistoryUnchanged()
+    {
+        var historicalId = await SeedAsync(1234, "Completed");
+        await using var db = CreateContext();
+        var historical = await db.Walks.SingleAsync();
+        var bin = new TrashBin { Name = "Old bin", IsApproved = true, Latitude = 46, Longitude = 15 };
+        var plan = new PlannedWalk { OwnerId = UserId, DogId = historical.DogId,
+            Stops = [new() { Name = "Old bin", Type = "bin", Latitude = 46, Longitude = 15 }],
+            RoutePoints = [new() { Latitude = 46, Longitude = 15 }] };
+        db.TrashBins.Add(bin); db.PlannedWalks.Add(plan); historical.PlannedWalk = plan;
+        await db.SaveChangesAsync();
+        var service = new BinContributions(db, new NoOpImageService(), null!, null!, NullLogger<BinContributions>.Instance);
+        await service.LifecycleAsync(bin.Id, BinCommunityRules.Snapshot(bin), true);
+        Assert.Equal("Index", Assert.IsType<RedirectToActionResult>(await CreateController(db).Start(historical.DogId, plan.Id)).ActionName);
+        var details = Assert.IsType<ViewResult>(await CreateController(db).Details(historicalId));
+        var model = Assert.IsType<Walk>(details.Model);
+        Assert.Equal(1234, model.DistanceMeters); Assert.Equal("Old bin", Assert.Single(model.PlannedWalk!.Stops!).Name);
+        Assert.Single(model.PlannedWalk.RoutePoints!);
+        await service.LifecycleAsync(bin.Id, BinCommunityRules.Snapshot(bin), false);
+        Assert.Equal("Active", Assert.IsType<RedirectToActionResult>(await CreateController(db).Start(historical.DogId, plan.Id)).ActionName);
+        Assert.Equal(bin.Id, (await db.TrashBins.PublicBins().SingleAsync()).Id);
+        Assert.Equal("Completed", historical.Status); Assert.Equal(1234, historical.DistanceMeters);
     }
 
     private async Task<int> SeedAsync(double distanceMeters, string status = "Active")

@@ -14,7 +14,8 @@ public sealed class BinPhotoReferences(DbContextOptions<ApplicationDbContext> op
         await using var fresh = new ApplicationDbContext(options);
         // Also retain an asset referenced through a delivery transform/version alias.
         var stem = Path.GetFileNameWithoutExtension(url[(url.LastIndexOf('/') + 1)..]);
-        return await fresh.TrashBins.AsNoTracking().AnyAsync(b => b.ImageUrl != null && b.ImageUrl.Contains("/" + stem));
+        return await fresh.TrashBins.AsNoTracking().AnyAsync(b => b.ImageUrl != null && b.ImageUrl.Contains("/" + stem)) ||
+            await fresh.BinContributions.AsNoTracking().AnyAsync(c => c.Status == DoggyDrop.Models.BinContributionStatus.Pending && c.ProposedPhotoUrl != null && c.ProposedPhotoUrl.Contains("/" + stem));
     }
 }
 

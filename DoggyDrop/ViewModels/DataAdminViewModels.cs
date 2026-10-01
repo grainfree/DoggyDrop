@@ -38,7 +38,7 @@ public sealed class DataSourceInput : IValidatableObject
 
 public sealed record SourceOption(int Id, string Name);
 public sealed record DataSourceRow(int Id, string Name, DataSourceType Type, DateOnly? DataDate, DateTime UpdatedAt, int Bins, int Places);
-public sealed record AdminBinRow(int Id, string Name, bool IsApproved, string? SourceName);
+public sealed record AdminBinRow(int Id, string Name, bool IsApproved, string? SourceName, bool IsRetired = false, bool IsRejected = false);
 
 public enum BulkTarget { Bins = 1, Places = 2 }
 public enum BulkAction { Activate = 1, Deactivate = 2, AssignSource = 3, ClearSource = 4 }

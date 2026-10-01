@@ -242,13 +242,13 @@ public sealed class NearbyDiscoveryServiceTests : IDisposable
         await using var db = Context();
         db.NearbyDiscoveryPreferences.AddRange(Preference("near", 46, 14, 1000), Preference("submitter", 46, 14, 1000));
         db.TrashBins.Add(new TrashBin { Name = "Existing", Latitude = 46, Longitude = 14, IsApproved = true });
-        db.TrashBins.Add(new TrashBin { Name = "New", Latitude = 46, Longitude = 14, UserId = "submitter" });
+        db.TrashBins.Add(new TrashBin { Name = "New", Latitude = 46.001, Longitude = 14, UserId = "submitter" });
         await db.SaveChangesAsync();
         var bin = await db.TrashBins.SingleAsync(item => item.Name == "New");
         var controller = Controller(db);
 
-        await controller.Approve(bin.Id);
-        await controller.Approve(bin.Id);
+        await controller.Approve(bin.Id, BinCommunityRules.Snapshot(bin));
+        await controller.Approve(bin.Id, BinCommunityRules.Snapshot(bin));
 
         Assert.Equal(1, await db.UserNotifications.CountAsync(item => item.UserId == "near" && item.Type == "NewBinNearby"));
         Assert.Equal(1, await db.UserNotifications.CountAsync(item => item.UserId == "submitter" && item.Type == "BinApproved"));
@@ -271,15 +271,15 @@ public sealed class NearbyDiscoveryServiceTests : IDisposable
         });
         db.TrashBins.AddRange(
             new TrashBin { Name = "First", Latitude = 46, Longitude = 14, UserId = "submitter" },
-            new TrashBin { Name = "Second", Latitude = 46, Longitude = 14, UserId = "submitter" });
+            new TrashBin { Name = "Second", Latitude = 46.001, Longitude = 14, UserId = "submitter" });
         await db.SaveChangesAsync();
         var ids = await db.TrashBins.OrderBy(bin => bin.Id).Select(bin => bin.Id).ToArrayAsync();
         var controller = Controller(db);
 
-        await controller.Approve(ids[0]);
-        await controller.Approve(ids[1]);
-        await controller.Approve(ids[0]);
-        await controller.Approve(ids[1]);
+        await controller.Approve(ids[0], BinCommunityRules.Snapshot((await db.TrashBins.AsNoTracking().SingleAsync(b => b.Id == ids[0]))));
+        await controller.Approve(ids[1], BinCommunityRules.Snapshot((await db.TrashBins.AsNoTracking().SingleAsync(b => b.Id == ids[1]))));
+        await controller.Approve(ids[0], BinCommunityRules.Snapshot((await db.TrashBins.AsNoTracking().SingleAsync(b => b.Id == ids[0]))));
+        await controller.Approve(ids[1], BinCommunityRules.Snapshot((await db.TrashBins.AsNoTracking().SingleAsync(b => b.Id == ids[1]))));
 
         var notices = await db.UserNotifications.AsNoTracking().ToListAsync();
         Assert.Equal(3, notices.Count(item => item.UserId == "submitter" && item.Type == "BinApproved"));
@@ -310,7 +310,7 @@ public sealed class NearbyDiscoveryServiceTests : IDisposable
         });
         await db.SaveChangesAsync();
 
-        await Controller(db).Approve(binId);
+        await Controller(db).Approve(binId, BinCommunityRules.Snapshot(await db.TrashBins.AsNoTracking().SingleAsync(b => b.Id == binId)));
 
         Assert.True((await db.TrashBins.AsNoTracking().SingleAsync()).IsApproved);
         Assert.Equal(1, await db.UserNotifications.CountAsync(item => item.UserId == "submitter" && item.SourceKey == $"BinApproved:{binId}"));

@@ -81,10 +81,12 @@
                             <a asp-controller="Map" asp-action="Edit" asp-route-id="@bin.Id">Uredi</a>
 
                             <form asp-controller="Map" asp-action="Approve" asp-route-id="@bin.Id" method="post">
+                                <input type="hidden" name="snapshot" value="@DoggyDrop.Services.BinCommunityRules.Snapshot(bin)" />
                                 <button type="submit" class="is-primary">Potrdi</button>
                             </form>
 
                             <form asp-controller="Map" asp-action="Reject" asp-route-id="@bin.Id" method="post">
+                                <input type="hidden" name="snapshot" value="@DoggyDrop.Services.BinCommunityRules.Snapshot(bin)" />
                                 <button type="submit" onclick="return confirm('Zavrnem ta predlog koša?');">Zavrni</button>
                             </form>
 

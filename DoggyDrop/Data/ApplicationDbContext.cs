@@ -15,6 +15,7 @@ namespace DoggyDrop.Data
         }
 
         public DbSet<TrashBin> TrashBins { get; set; }
+        public DbSet<BinContribution> BinContributions { get; set; }
 
         public DbSet<Place> Places { get; set; }
 
@@ -79,6 +80,20 @@ namespace DoggyDrop.Data
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
+
+            // Compare original infrastructure values, including changes from older/raw writers.
+            builder.Entity<TrashBin>().Property(b => b.IsRetired).HasDefaultValue(false);
+            builder.Entity<TrashBin>().Property(b => b.IsRejected).HasDefaultValue(false);
+            foreach (var property in new[] { "Name", "Latitude", "Longitude", "ImageUrl", "IsApproved", "IsRetired", "IsRejected", "DataSourceId", "UserId" })
+                builder.Entity<TrashBin>().Property(property).IsConcurrencyToken();
+            builder.Entity<BinContribution>().Property(c => c.Status).IsConcurrencyToken();
+            builder.Entity<BinContribution>().HasOne(c => c.Bin).WithMany().HasForeignKey(c => c.BinId).OnDelete(DeleteBehavior.Restrict);
+            builder.Entity<BinContribution>().HasOne(c => c.SubmittedByUser).WithMany().HasForeignKey(c => c.SubmittedByUserId).OnDelete(DeleteBehavior.SetNull);
+            builder.Entity<BinContribution>().HasOne(c => c.ReviewedByUser).WithMany().HasForeignKey(c => c.ReviewedByUserId).OnDelete(DeleteBehavior.SetNull);
+            builder.Entity<BinContribution>().HasIndex(c => new { c.SubmittedByUserId, c.RequestId }).IsUnique();
+            builder.Entity<BinContribution>().HasIndex(c => new { c.SubmittedByUserId, c.BinId, c.Type, c.Reason }).IsUnique()
+                .HasFilter("\"Status\" = 1 AND \"Type\" = 1");
+            builder.Entity<BinContribution>().HasIndex(c => new { c.Status, c.CreatedAt });
 
             builder.Entity<Friendship>()
                 .HasOne(f => f.Requester)

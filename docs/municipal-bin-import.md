@@ -22,7 +22,7 @@ A geographic bounding query fetches at most 50,001 records. More than 50,000 exi
 
 Final insertion revalidates the source and selected rows against current persisted bins and each other inside a transaction. PostgreSQL `pg_advisory_xact_lock(194721, 19)` serializes all importer instances through revalidation and commit. `AddRange` and one `SaveChanges` insert the batch atomically. New conflicts abort the batch and require refreshed review; failed saves expose no DB error details. Replaying a completed session never inserts again; a fresh upload of the same file detects the newly persisted records.
 
-**Remaining race:** ordinary community/Admin Map writers do not acquire the importer advisory lock. A Map insertion after the final duplicate read can still race an import. There is no spatial unique constraint. The importer deliberately does not change existing Map/approval code to close this race. Ordinary writes committed before revalidation are detected.
+**Epic 20.1 coordination:** canonical Map creation, new-bin approval, coordinate edits, contribution review and reactivation now acquire the same advisory lock as the importer. Their final duplicate check and write share one transaction. The earlier race with those application writers is closed. There is still no spatial unique constraint: future/external writers must join this lock protocol. The importer algorithm and its conservative duplicate rules are unchanged.
 
 ## Approved-bin semantics
 

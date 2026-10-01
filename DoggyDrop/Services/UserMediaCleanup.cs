@@ -123,7 +123,8 @@ public sealed class UserMediaCleanup(DbContextOptions<ApplicationDbContext> opti
                 var references = db.Users.Select(x => x.ProfileImageUrl)
                     .Concat(db.Dogs.Select(x => x.PhotoUrl)).Concat(db.WalkPhotos.Select(x => (string?)x.ImageUrl))
                     .Concat(db.TrashBins.Select(x => x.ImageUrl)).Concat(db.Places.Select(x => x.ImageUrl))
-                    .Concat(db.Places.Select(x => x.LogoUrl));
+                    .Concat(db.Places.Select(x => x.LogoUrl))
+                    .Concat(db.BinContributions.Where(c => c.Status == DoggyDrop.Models.BinContributionStatus.Pending).Select(c => c.ProposedPhotoUrl));
                 var inUse = false;
                 await foreach (var url in references.AsAsyncEnumerable())
                     if (storage.References(asset, url)) { inUse = true; break; }

@@ -17,6 +17,8 @@
             <option value="">Vsa stanja</option>
             <option value="approved" selected="@(ViewBag.State == "approved")">Odobreno</option>
             <option value="pending" selected="@(ViewBag.State == "pending")">Čaka na odobritev</option>
+            <option value="retired" selected="@(ViewBag.State == "retired")">Upokojen</option>
+            <option value="rejected" selected="@(ViewBag.State == "rejected")">Zavrnjen predlog</option>
         </select></label>
         <partial name="_DataSourceFilter" />
         <button type="submit" class="places-button">Filtriraj</button>
@@ -27,7 +29,8 @@
         {
             <article>
                 <label class="data-check"><input type="checkbox" name="Ids" value="@bin.Id" form="dataBulkForm" /> Izberi koš #@bin.Id: @bin.Name</label>
-                <p>@(bin.IsApproved ? "Odobreno" : "Čaka na odobritev") · Vir: @(bin.SourceName ?? "Vir ni določen")</p>
+                <p>@(bin.IsRetired ? "Upokojen" : bin.IsRejected ? "Zavrnjeno" : bin.IsApproved ? "Aktiven" : "Čaka na odobritev") · Vir: @(bin.SourceName ?? "Vir ni določen")</p>
+                @if (bin.IsApproved) { <a class="places-button" asp-controller="AdminBinContributions" asp-action="Lifecycle" asp-route-id="@bin.Id">@(bin.IsRetired ? "Ponovno aktiviraj" : "Upokoji")</a> }
                 <a class="places-button" asp-controller="Map" asp-action="Edit" asp-route-id="@bin.Id">Uredi koš</a>
                 <a class="places-button" asp-controller="AdminDuplicates" asp-action="Index" asp-route-target="Bins">Pregled dvojnikov</a>
             </article>

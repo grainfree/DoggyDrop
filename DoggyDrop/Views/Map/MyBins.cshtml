@@ -6,12 +6,13 @@
         .OrderByDescending(bin => bin.DateAdded)
         .ToList();
     var approvedCount = bins.Count(bin => bin.IsApproved);
-    var pendingCount = bins.Count - approvedCount;
+    var pendingCount = bins.Count(b => !b.IsApproved && !b.IsRejected && !b.IsRetired);
     var totalUses = bins.Sum(bin => bin.UsedCount);
     var usefulVotes = bins.Sum(bin => bin.UsefulVotes);
 }
 
 <section class="app-page my-bins-page">
+    <p><a asp-controller="BinContributions" asp-action="Mine">Moje prijave in fotografije</a></p>
     @if (TempData["ErrorMessage"] is string errorMessage)
     {
         <div class="alert alert-warning" role="alert">@errorMessage</div>
@@ -79,7 +80,7 @@
                             <span class="my-bin-card__placeholder" aria-hidden="true"><i class="bi bi-trash3"></i></span>
                         }
                         <span class="my-bin-card__status @(bin.IsApproved ? "is-approved" : "is-pending")">
-                            @(bin.IsApproved ? "Odobreno" : "V pregledu")
+                            @(bin.IsRetired ? "Upokojen" : bin.IsRejected ? "Zavrnjeno" : bin.IsApproved ? "Odobreno" : "V pregledu")
                         </span>
                         <div class="my-bin-card__photo-label">
                             <h2 title="@bin.Name">@bin.Name</h2>

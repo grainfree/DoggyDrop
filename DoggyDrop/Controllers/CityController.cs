@@ -1,3 +1,4 @@
+using DoggyDrop.Services;
 using DoggyDrop.Data;
 using DoggyDrop.Models;
 using DoggyDrop.ViewModels;
@@ -27,7 +28,7 @@ namespace DoggyDrop.Controllers
 
         internal async Task<CityDashboardViewModel> BuildDashboardModelAsync()
         {
-            var bins = await _context.TrashBins
+            var bins = await _context.TrashBins.PublicBins()
                 .OrderByDescending(bin => bin.DateAdded)
                 .ToListAsync();
 
@@ -43,7 +44,7 @@ namespace DoggyDrop.Controllers
             {
                 TotalBins = bins.Count,
                 ApprovedBins = bins.Count(bin => bin.IsApproved),
-                PendingBins = bins.Count(bin => !bin.IsApproved),
+                PendingBins = await _context.TrashBins.PendingBins().CountAsync(),
                 FullReports = bins.Sum(bin => bin.FullReports),
                 MissingReports = bins.Sum(bin => bin.MissingReports),
                 BinUses = bins.Sum(bin => bin.UsedCount),

@@ -156,6 +156,8 @@ builder.Services.AddHttpClient("bin-photo-download").ConfigurePrimaryHttpMessage
 builder.Services.AddScoped<IBinPhotoStorage, BinPhotoStorage>();
 builder.Services.AddScoped<IBinPhotoReferences, BinPhotoReferences>();
 builder.Services.AddScoped<BinPhotoRotationService>();
+builder.Services.AddScoped<BinContributions>();
+builder.Services.AddSingleton<BinSubmissionLimits>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IUserMediaStorage, UserMediaStorage>();
 builder.Services.AddScoped<IUserMediaCleanup, UserMediaCleanup>();

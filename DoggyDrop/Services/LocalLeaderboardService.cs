@@ -40,7 +40,7 @@ namespace DoggyDrop.Services
 
             var bins = await _context.TrashBins
                 .Include(bin => bin.User)
-                .Where(bin => bin.IsApproved)
+                .PublicBins()
                 .ToListAsync();
             var cityBins = bins
                 .Where(bin => IsNearCity(city, bin.Latitude, bin.Longitude))

@@ -112,7 +112,7 @@ test("anonymous Add bin is available while Start Walk retains its login requirem
     assert.ok(addBin, "Add bin must retain the Map/Add link");
     assert.match(addBin, /class="map-action-button"/);
     assert.match(addBin, /class="bi bi-plus-lg"/);
-    assert.match(addBin, /<span>Dodaj koš<\/span>/);
+    assert.match(addBin, /<span>Predlagaj nov koš<\/span>/);
     assert.doesNotMatch(addBin, /bi-lock|prijav|disabled|isSignedIn|\shidden(?:\s|=|>)/i);
     assert.doesNotMatch(addBin.match(/^<a\b[^>]*>/)[0], /aria-hidden/i);
     const anonymousStart = rail.match(/else if \(!isSignedIn\)\s*\{([\s\S]*?)\}/)?.[1];
@@ -144,7 +144,7 @@ test("returning Home removes permanent marketing while retaining compact useful 
 
 test("Home retains four map actions, filters, bins and Places Discovery handoff", () => {
     const rail = home.slice(home.indexOf('<div class="map-action-stack @'), home.indexOf('<div class="map-status-pill">'));
-    for (const text of ["Začni sprehod", "Dodaj koš", "Najbližji koš", "Seznam"]) assert.ok(rail.includes(text));
+    for (const text of ["Začni sprehod", "Predlagaj nov koš", "Najbližji koš", "Seznam"]) assert.ok(rail.includes(text));
     assert.match(rail, /findNearestTrashBin\(\)/);
     assert.match(home, /id="filterToggle"/);
     assert.match(home, /id="exploreList"/);

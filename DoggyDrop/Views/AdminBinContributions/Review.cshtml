@@ -1,0 +1,38 @@
+@model DoggyDrop.Models.BinContribution
+@using DoggyDrop.Models
+@using DoggyDrop.Services
+@{ ViewData["Title"] = "Pregled prispevka"; }
+@section Styles { <link rel="stylesheet" href="~/css/bin-contributions.css" asp-append-version="true" /> }
+<main class="bin-contribution-page">
+    <h1>Pregled prispevka #@Model.Id</h1>
+    <p>@BinCommunityRules.Status(Model.Status) · @Model.CreatedAt.ToString("dd.MM.yyyy HH:mm")</p>
+    <h2>@Model.Bin.Name (#@Model.BinId)</h2>
+    <p>Izvirni vir: @(Model.Bin.DataSource?.Name ?? "Ni določen")</p>
+    <p>Stanje: @(Model.Bin.IsRetired ? "Upokojen" : Model.Bin.IsApproved ? "Aktiven" : "Čaka na odobritev")</p>
+    <p>Trenutna lokacija: @Model.Bin.Latitude, @Model.Bin.Longitude</p>
+    <a asp-controller="Map" asp-action="Edit" asp-route-id="@Model.BinId">Uredi trenutni koš</a>
+    @if (Model.Bin.FullImageUrl != null) { <h3>Trenutna fotografija</h3><img class="bin-contribution-photo" src="@Model.Bin.FullImageUrl" alt="Trenutna fotografija" /> }
+    <h2>@(Model.Type == BinContributionType.Photo ? "Predlog fotografije" : BinCommunityRules.Reason(Model.Reason))</h2>
+    <p class="bin-contribution-text">@Model.Description</p>
+    @if (Model.ProposedLatitude.HasValue) { <p>Predlagana lokacija: @Model.ProposedLatitude, @Model.ProposedLongitude</p> }
+    @if (ViewBag.Duplicate is TrashBin other) {
+        <h3>Možni dvojnik #@other.Id: @other.Name</h3><p>@other.Latitude, @other.Longitude · @Math.Round(DuplicateCandidates.Distance(Model.Bin.Latitude, Model.Bin.Longitude, other.Latitude, other.Longitude)) m</p>
+        <p>Vir: @(other.DataSource?.Name ?? "Ni določen") · @(other.IsRetired ? "Upokojen" : other.IsApproved ? "Aktiven" : "Čaka na odobritev")</p>
+        @if (other.FullImageUrl != null) { <img class="bin-contribution-photo" src="@other.FullImageUrl" alt="Fotografija drugega koša" /> }
+    }
+    @if (Model.Type == BinContributionType.Photo && Model.ProposedPhotoUrl != null && Model.Status != BinContributionStatus.Rejected) {
+        <img class="bin-contribution-photo" src="@Model.ProposedPhotoUrl" alt="Predlagana fotografija" />
+    }
+    @if (Model.Status == BinContributionStatus.Pending) {
+        <form asp-action="Review" method="post">
+            <input type="hidden" name="id" value="@Model.Id" />
+            @if (Model.Reason == BinIssueReason.BIN_MISSING) { <p>Odobritev bo koš upokojila. Zapis, vir, fotografija in zgodovina ostanejo ohranjeni.</p> }
+            @if (Model.Reason is BinIssueReason.NOT_PUBLIC or BinIssueReason.DUPLICATE) { <label><input type="checkbox" name="retire" value="true" /> Ob odobritvi upokoji prijavljeni koš #@Model.BinId (brez združevanja)</label> }
+            @if (Model.Type == BinContributionType.Photo) { <p>Odobritev zamenja le fotografijo. Ne pomeni terenskega preverjanja koša in ne spremeni izvora ali lastništva.</p> }
+            <label>Zasebna opomba skrbnika<textarea name="note" maxlength="1000" rows="3"></textarea></label>
+            <button type="submit" name="accept" value="true" class="btn btn-success">Potrdi predlog</button>
+            <button type="submit" name="accept" value="false" class="btn btn-outline-secondary">Zavrni predlog</button>
+        </form>
+    } else { <p>Pregledano: @Model.ReviewedAt</p><p class="bin-contribution-text">@Model.ReviewNote</p> }
+    <a asp-action="Index">Nazaj na čakalnico</a>
+</main>

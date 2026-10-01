@@ -1,0 +1,23 @@
+@model IReadOnlyList<DoggyDrop.Models.BinContribution>
+@using DoggyDrop.Models
+@using DoggyDrop.Services
+@{ ViewData["Title"] = "Prispevki za koše"; }
+@section Styles { <link rel="stylesheet" href="~/css/bin-contributions.css" asp-append-version="true" /> }
+<main class="bin-contribution-page">
+    <h1>Prispevki za koše</h1><partial name="_DataAdminLinks" />
+    @if (TempData["ContributionMessage"] is string message) { <p role="status">@message</p> }
+    <p><a asp-action="Index">Čakajoči</a> · <a asp-action="Index" asp-route-history="true">Zgodovina</a></p>
+    <h2>Novi koši</h2>
+    @foreach (var bin in (List<TrashBin>)ViewBag.NewBins) { <p>#@bin.Id · @bin.Name · @bin.DateAdded.ToString("dd.MM.yyyy") · <a asp-controller="Map" asp-action="Manage">Preglej predlog novega koša</a></p> }
+    <h2>Težave in fotografije</h2>
+    @foreach (var item in Model) {
+        <article><h3>#@item.BinId · @item.Bin.Name</h3>
+            <p>@(item.Type == BinContributionType.Photo ? "Fotografija" : BinCommunityRules.Reason(item.Reason)) · @BinCommunityRules.Status(item.Status) · @item.CreatedAt.ToString("dd.MM.yyyy HH:mm")</p>
+            <p>Vir: @(item.Bin.DataSource?.Name ?? "Ni določen")</p><a asp-action="Review" asp-route-id="@item.Id">Preglej prispevek</a>
+        </article>
+    }
+    <nav aria-label="Strani prispevkov">
+        @if (ViewBag.Page > 1) { <a asp-action="Index" asp-route-history="@ViewBag.History" asp-route-page="@(ViewBag.Page - 1)">Prejšnja stran</a> }
+        @if (ViewBag.HasNext) { <a asp-action="Index" asp-route-history="@ViewBag.History" asp-route-page="@(ViewBag.Page + 1)">Naslednja stran</a> }
+    </nav>
+</main>

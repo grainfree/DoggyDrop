@@ -104,7 +104,7 @@
             initImagePreview();
             initLoadingState();
             document.getElementById("useMyLocation").addEventListener("click", () => useCurrentLocation(false));
-            useCurrentLocation(true);
+            // Location access is initiated only by the explicit button.
             window.addEventListener("pageshow", refreshMapSize);
             window.addEventListener("resize", refreshMapSize);
             window.addEventListener("orientationchange", () => setTimeout(refreshMapSize, 250));

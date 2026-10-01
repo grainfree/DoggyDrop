@@ -222,12 +222,12 @@ public sealed class MapControllerParkVisitTests : IDisposable
     }
 
     [Fact]
-    public async Task Reject_AdminCanStillModerateApprovedBin()
+    public async Task Reject_ApprovedBinRequiresSeparateRetirement()
     {
         var binId = await AddBinAsync(approved: true, ownerId: "someone-else");
         await using var db = Context();
-        Assert.IsType<RedirectToActionResult>(await Controller(db, admin: true).Reject(binId, null));
-        Assert.False(await db.TrashBins.AnyAsync(bin => bin.Id == binId));
+        Assert.IsType<ConflictObjectResult>(await Controller(db, admin: true).Reject(binId, null));
+        Assert.True(await db.TrashBins.AnyAsync(bin => bin.Id == binId));
     }
 
     public static IEnumerable<object[]> RetiredKeys => ParkLocationCatalog.All

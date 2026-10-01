@@ -1,3 +1,4 @@
+using DoggyDrop.Services;
 using DoggyDrop.Data;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -19,8 +20,7 @@ namespace DoggyDrop.Controllers.Api
         public async Task<IActionResult> Nearby(double? latitude, double? longitude, double radiusKm = 5)
         {
             var bins = await _context.TrashBins
-                .Include(bin => bin.User)
-                .Where(bin => bin.IsApproved)
+                .PublicBins()
                 .ToListAsync();
 
             var binItems = bins
@@ -31,9 +31,7 @@ namespace DoggyDrop.Controllers.Api
                     bin.Latitude,
                     bin.Longitude,
                     ImageUrl = bin.FullImageUrl,
-                    AddedBy = bin.User != null && !string.IsNullOrWhiteSpace(bin.User.DisplayName)
-                        ? bin.User.DisplayName
-                        : "DoggyDrop uporabnik",
+                    AddedBy = "DoggyDrop uporabnik",
                     bin.UsedCount,
                     bin.FullReports,
                     bin.MissingReports,

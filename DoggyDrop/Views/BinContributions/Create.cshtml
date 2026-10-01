@@ -1,0 +1,58 @@
+@model DoggyDrop.ViewModels.BinContributionPage
+@using DoggyDrop.Models
+@using DoggyDrop.Services
+@{ ViewData["Title"] = "Pomagaj izboljšati podatke"; var input = Model.Input; }
+@section Styles {
+    <partial name="_MapBasemapStyles" />
+    <link rel="stylesheet" href="~/css/bin-contributions.css" asp-append-version="true" />
+}
+<main class="bin-contribution-page">
+    <h1>Pomagaj izboljšati podatke</h1>
+    <h2>@Model.Name</h2>
+    @if (Model.Source != null) { <p>Izvirni vir: @Model.Source</p> }
+    <p>Predlog bo pregledal skrbnik. Do odobritve se javni podatki ne spremenijo. Popravek v DoggyDrop ne spreminja OpenStreetMap.</p>
+    <div asp-validation-summary="All" role="alert"></div>
+    <form asp-action="Create" method="post" enctype="multipart/form-data">
+        <input type="hidden" name="BinId" value="@Model.Id" />
+        <input type="hidden" name="RequestId" value="@input.RequestId" />
+        <input type="hidden" name="Type" value="@input.Type" />
+        @if (input.Type == BinContributionType.Photo)
+        {
+            <h2>@(Model.Image == null ? "Dodaj fotografijo" : "Predlagaj novo fotografijo")</h2>
+            @if (Model.Image != null) { <img class="bin-contribution-photo" src="@Model.Image" alt="Trenutna odobrena fotografija koša" /> }
+            <p>Fotografiraj koš in njegovo neposredno okolico. Izogni se prepoznavnim osebam, registrskim tablicam, notranjosti domov in nepovezani zasebni lastnini.</p>
+            <label>Fotografija <input type="file" name="Photo" accept="image/jpeg,image/png,image/webp" required /></label>
+            <p>@BinPhotoUploadPolicy.Error</p>
+        }
+        else
+        {
+            <label>Težava <select name="Reason" id="contributionReason" required>
+                <option value="">Izberi težavo</option>
+                @foreach (var reason in Enum.GetValues<BinIssueReason>()) { <option value="@reason" selected="@(reason == input.Reason)">@BinCommunityRules.Reason(reason)</option> }
+            </select></label>
+            <section id="locationProposal" hidden data-lat="@Model.Latitude.ToString(System.Globalization.CultureInfo.InvariantCulture)" data-lon="@Model.Longitude.ToString(System.Globalization.CultureInfo.InvariantCulture)">
+                <h2>Predlagana lokacija</h2>
+                <p>Trenutni položaj je označen s krogom. Klikni zemljevid za nov položaj.</p>
+                <div id="contributionMap" aria-label="Zemljevid za predlagano lokacijo"></div>
+                <button type="button" id="contributionLocate">Uporabi mojo lokacijo</button>
+                <p id="contributionLocationStatus" role="status"></p>
+                <label>Širina <input name="Latitude" id="proposalLatitude" value="@input.Latitude?.ToString(System.Globalization.CultureInfo.InvariantCulture)" inputmode="decimal" /></label>
+                <label>Dolžina <input name="Longitude" id="proposalLongitude" value="@input.Longitude?.ToString(System.Globalization.CultureInfo.InvariantCulture)" inputmode="decimal" /></label>
+            </section>
+            <section id="duplicateProposal" hidden>
+                <label>Drugi koš <select name="DuplicateBinId"><option value="">Izberi bližnji koš</option>
+                    @foreach (var other in Model.Neighbours) { <option value="@other.Id" selected="@(other.Id == input.DuplicateBinId)">#@other.Id · @other.Name · @Math.Round(other.Metres) m</option> }
+                </select></label>
+                <p>Če drugega koša ni na seznamu, oddaj »Drugo« in opiši lokacijo.</p>
+            </section>
+        }
+        <label>Kratek opis (največ 1000 znakov)<textarea name="Description" maxlength="1000" rows="3">@input.Description</textarea></label>
+        <button type="submit" class="btn btn-success">Pošlji v pregled</button>
+        <a href="/?binId=@Model.Id">Nazaj na koš</a>
+    </form>
+</main>
+@section Scripts {
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <partial name="_MapBasemapScripts" />
+    <script src="~/js/bin-contributions.js" asp-append-version="true"></script>
+}

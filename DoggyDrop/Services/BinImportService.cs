@@ -84,7 +84,7 @@ public sealed class BinImportService(ApplicationDbContext db, TimeProvider clock
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         if (db.Database.IsNpgsql())
         {
-            // All importer instances serialize revalidation + insert. Ordinary map writers do not take this lock.
+            // Shared with canonical bin submission/edit/approval and community coordinate review.
             await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock(194721, 19)", ct);
         }
         if (!await db.DataSources.AnyAsync(s => s.Id == sourceId, ct)) throw new BinImportException("Izbrani vir ne obstaja več. Ponovi uvoz.");
