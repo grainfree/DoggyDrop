@@ -8,6 +8,8 @@
 <main class="places-page data-admin">
     <h1>Koši — viri podatkov</h1>
     <partial name="_DataAdminLinks" />
+    <p><a class="places-button" asp-action="ExportComparison">Izvozi koše za primerjavo</a></p>
+    <p>CSV vsebuje samo infrastrukturne podatke za preverjanje dvojnikov in virov. Vključeni so vsi odobreni koši in koši, ki čakajo na odobritev, ne glede na spodnje filtre.</p>
     <p>Odobritev košev ostaja v <a asp-controller="Map" asp-action="Manage">obstoječi čakalnici</a>. Skupinska dejanja spreminjajo samo vir.</p>
     @if (TempData["DataMessage"] is string message) { <p role="status">@message</p> }
     <form method="get" class="places-filters">
