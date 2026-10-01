@@ -117,35 +117,6 @@ namespace DoggyDrop.Controllers.Api
                 .Take(18)
                 .ToList();
 
-            var parkVisitsQuery = _context.DogParkVisits.Where(visit => visit.VisitedAt >= from);
-            if (normalizedRange == "evening")
-            {
-                parkVisitsQuery = parkVisitsQuery.Where(visit => visit.VisitedAt.Hour >= 17 && visit.VisitedAt.Hour <= 22);
-            }
-
-            var parkVisits = await parkVisitsQuery.ToListAsync();
-            var parkHotspots = parkVisits
-                .GroupBy(visit => new
-                {
-                    visit.PlaceKey,
-                    visit.ParkName,
-                    visit.Latitude,
-                    visit.Longitude
-                })
-                .Select(group => new CommunityHotspot(
-                    "park",
-                    group.Key.Latitude,
-                    group.Key.Longitude,
-                    group.Count(),
-                    group.Key.ParkName,
-                    group.Count() == 1
-                        ? "1 pes je bil tukaj"
-                        : $"{group.Count()} psov je bilo tukaj",
-                    Math.Min(1, group.Count() / 12d)))
-                .OrderByDescending(item => item.Count)
-                .Take(12)
-                .ToList();
-
             var visibleDogs = await _context.Dogs
                 .Where(dog =>
                     dog.NearbyVisibility == "Visible" &&
@@ -172,7 +143,6 @@ namespace DoggyDrop.Controllers.Api
                 .ToList();
 
             var allHotspots = activeHotspots
-                .Concat(parkHotspots)
                 .Concat(routeHotspots)
                 .Concat(dogDensity)
                 .OrderByDescending(item => item.Type == "active" ? 4 : item.Type == "park" ? 3 : item.Type == "route" ? 2 : 1)
@@ -184,7 +154,7 @@ namespace DoggyDrop.Controllers.Api
                 Range = normalizedRange,
                 GeneratedAt = now,
                 ActiveWalkers = activeWalkers.Count,
-                PopularParks = parkHotspots.Count,
+                PopularParks = 0, // Historical visits no longer republish retired facility positions.
                 TrendingRoutes = routeHotspots.Count,
                 DogDensitySpots = dogDensity.Count,
                 Hotspots = allHotspots,

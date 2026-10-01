@@ -1800,9 +1800,9 @@ namespace DoggyDrop.Controllers
             [
                 new WalkSuggestionItem
                 {
-                    Title = "Mestni krog z vodo",
+                    Title = "Mestni krog",
                     Area = "Maribor center",
-                    Description = "Kratek mestni krog mimo parka, pitnika in dog-friendly postanka.",
+                    Description = "Kratek mestni krog mimo razpoložljivih parkov in psom prijaznih lokacij.",
                     DistanceKm = 2.4,
                     Difficulty = "Lahko",
                     BestFor = bestFor
@@ -1844,10 +1844,10 @@ namespace DoggyDrop.Controllers
         {
             return
             [
-                new PlannerStyleOption { Key = "balanced", Name = "Balanced", Description = "Malo vsega: kos, park, voda in lep krog." },
+                new PlannerStyleOption { Key = "balanced", Name = "Balanced", Description = "Koš, park in druge razpoložljive lokacije." },
                 new PlannerStyleOption { Key = "quick", Name = "Quick walk", Description = "Kratek prakticen sprehod s poudarkom na kosu." },
                 new PlannerStyleOption { Key = "park", Name = "Park walk", Description = "Vec vohanja, pocasnejsi tempo in daljsi park stop." },
-                new PlannerStyleOption { Key = "city", Name = "City walk", Description = "Mestni krog z vodo in dog-friendly postankom." },
+                new PlannerStyleOption { Key = "city", Name = "City walk", Description = "Mestni krog s psom prijaznim postankom, če je na voljo." },
                 new PlannerStyleOption { Key = "long", Name = "Long walk", Description = "Daljsa trasa z rezervnim kosom in dodatnimi stopi." }
             ];
         }
@@ -1887,6 +1887,8 @@ namespace DoggyDrop.Controllers
                 }
             }
 
+            var destinations = await PlannerPlaceSource.LoadAsync(_context, area.Latitude, area.Longitude,
+                Math.Max(2.5, AdjustDistanceForEnergyAndStyle(targetDistanceKm, dogEnergy, walkStyle) * 1.2));
             var plan = BuildPlannedRoute(
                 areaKey,
                 area,
@@ -1898,7 +1900,7 @@ namespace DoggyDrop.Controllers
                 includeBins,
                 includePark,
                 includeWater,
-                includeDogFriendly);
+                includeDogFriendly, destinations);
             return await WalkingPlanRouting.ApplyAsync(plan, _walkingRoutes, HttpContext.RequestAborted);
         }
 
@@ -1913,12 +1915,11 @@ namespace DoggyDrop.Controllers
             bool includeBins,
             bool includePark,
             bool includeWater,
-            bool includeDogFriendly)
+            bool includeDogFriendly, IReadOnlyList<PlannerDestination> places)
         {
             var effectiveDistanceKm = AdjustDistanceForEnergyAndStyle(targetDistanceKm, dogEnergy, walkStyle);
             var styleBins = includeBins;
             var stylePark = includePark;
-            var styleWater = includeWater;
             var styleDogFriendly = includeDogFriendly;
 
             switch (walkStyle)
@@ -1926,24 +1927,20 @@ namespace DoggyDrop.Controllers
                 case "quick":
                     styleBins = true;
                     stylePark = false;
-                    styleWater = effectiveDistanceKm >= 2.4 && includeWater;
                     styleDogFriendly = false;
                     break;
                 case "park":
                     stylePark = true;
-                    styleWater = includeWater;
                     styleDogFriendly = effectiveDistanceKm >= 4.5 && includeDogFriendly;
                     break;
                 case "city":
                     styleBins = includeBins;
                     stylePark = effectiveDistanceKm >= 2.8 && includePark;
-                    styleWater = true;
                     styleDogFriendly = true;
                     break;
                 case "long":
                     styleBins = includeBins;
                     stylePark = includePark;
-                    styleWater = includeWater;
                     styleDogFriendly = includeDogFriendly;
                     break;
             }
@@ -1992,19 +1989,9 @@ namespace DoggyDrop.Controllers
                 }
             }
 
-            var places = GetPlannerPlaces(areaKey);
-            if (usesCurrentLocation)
-            {
-                places = [];
-            }
             if (stylePark && effectiveDistanceKm >= 2.2)
             {
                 AddNearestPlannerPlace(stops, places, "park", "Pasji park", "Prostor za pocasnejsi tempo, vohanje in socialni del sprehoda.", ref order);
-            }
-
-            if (styleWater && effectiveDistanceKm >= 2)
-            {
-                AddNearestPlannerPlace(stops, places, "water", "Voda", "Postanek za hidracijo, posebej uporaben v toplejsih dneh.", ref order);
             }
 
             if (styleDogFriendly && effectiveDistanceKm >= 3.2)
@@ -2043,7 +2030,7 @@ namespace DoggyDrop.Controllers
 
         private static void AddNearestPlannerPlace(
             List<PlannedWalkRouteStop> stops,
-            IReadOnlyList<PlannerPlace> places,
+            IReadOnlyList<PlannerDestination> places,
             string type,
             string label,
             string reason,
@@ -2211,7 +2198,7 @@ namespace DoggyDrop.Controllers
                 new QuickWalkTemplate
                 {
                     Title = "Mestna šapa",
-                    Subtitle = "Krog z vodo in dog-friendly postankom, ko se gre v urbano.",
+                    Subtitle = "Krog s psom prijaznim postankom, če je na voljo.",
                     WalkStyle = "city",
                     DistanceKm = 4.5,
                     IncludeBins = true,
@@ -2345,53 +2332,6 @@ namespace DoggyDrop.Controllers
                 "celje" => new PlannerAreaCenter("Celje", 46.2397, 15.2677),
                 "kranj" => new PlannerAreaCenter("Kranj", 46.2397, 14.3556),
                 _ => new PlannerAreaCenter("Maribor", 46.5547, 15.6459)
-            };
-        }
-
-        private static IReadOnlyList<PlannerPlace> GetPlannerPlaces(string areaKey)
-        {
-            return areaKey switch
-            {
-                "ljubljana" =>
-                [
-                    new PlannerPlace("Pasji park Tivoli", "park", 46.0567, 14.4965, 1),
-                    new PlannerPlace("Pasji park Severni park", "park", 46.0615, 14.5210, 2),
-                    new PlannerPlace("Pitnik Tivoli", "water", 46.0552, 14.4958, 1),
-                    new PlannerPlace("Dog friendly center", "cafe", 46.0516, 14.5060, 1),
-                    new PlannerPlace("Pasja trgovina Ljubljana", "shop", 46.0591, 14.5110, 1)
-                ],
-                "koper" =>
-                [
-                    new PlannerPlace("Pasji park Koper", "park", 45.5426, 13.7184, 1),
-                    new PlannerPlace("Pasji park Izola", "park", 45.5365, 13.6619, 2),
-                    new PlannerPlace("Voda Semedela", "water", 45.5438, 13.7195, 1),
-                    new PlannerPlace("Dog friendly Obala", "cafe", 45.5464, 13.7242, 1),
-                    new PlannerPlace("Pasja trgovina Koper", "shop", 45.5488, 13.7306, 1)
-                ],
-                "celje" =>
-                [
-                    new PlannerPlace("Pasji park Celje", "park", 46.2387, 15.2675, 1),
-                    new PlannerPlace("Pasji park Lava", "park", 46.2289, 15.2518, 2),
-                    new PlannerPlace("Voda ob Savinji", "water", 46.2375, 15.2662, 1),
-                    new PlannerPlace("Dog friendly Celje", "cafe", 46.2394, 15.2668, 1),
-                    new PlannerPlace("Pasja trgovina Celje", "shop", 46.2410, 15.2632, 1)
-                ],
-                "kranj" =>
-                [
-                    new PlannerPlace("Pasji park Kranj", "park", 46.2449, 14.3617, 1),
-                    new PlannerPlace("Pasji park Strazisce", "park", 46.2508, 14.3325, 2),
-                    new PlannerPlace("Voda Zlato polje", "water", 46.2458, 14.3598, 1),
-                    new PlannerPlace("Dog friendly Kranj", "cafe", 46.2397, 14.3556, 1),
-                    new PlannerPlace("Pasja trgovina Kranj", "shop", 46.2414, 14.3586, 1)
-                ],
-                _ =>
-                [
-                    new PlannerPlace("Pasji park Mestni park", "park", 46.5625, 15.6480, 1),
-                    new PlannerPlace("Pasji park Tabor", "park", 46.5487, 15.6453, 2),
-                    new PlannerPlace("Pitnik Lent", "water", 46.5572, 15.6467, 1),
-                    new PlannerPlace("Dog friendly Lent", "cafe", 46.5578, 15.6452, 1),
-                    new PlannerPlace("Pasja trgovina Maribor", "shop", 46.5540, 15.6484, 1)
-                ]
             };
         }
 
@@ -2543,7 +2483,6 @@ namespace DoggyDrop.Controllers
 
         private sealed record PlannerAreaCenter(string Name, double Latitude, double Longitude);
 
-        private sealed record PlannerPlace(string Name, string Type, double Latitude, double Longitude, int Priority);
     }
 
     public class WalkPointInput

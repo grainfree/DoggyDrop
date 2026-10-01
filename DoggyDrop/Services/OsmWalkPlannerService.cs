@@ -242,18 +242,16 @@ namespace DoggyDrop.Services
 
             if (includePark || walkStyle == "park")
             {
-                AddBestOsmStop(stops, osmPlaces, "park", "Park/zelena točka", "Zelena točka iz OpenStreetMap za vohanje in mirnejši tempo.", maxCandidateDistanceKm, ref order);
+                AddBestOsmStop(stops, osmPlaces, "park", "Zelena površina (OSM)", "Geografski predlog iz OpenStreetMap; ni potrjen pasji park. Preveri dostop in lokalna pravila.", maxCandidateDistanceKm, ref order);
             }
 
-            if (includeWater || walkStyle == "city")
-            {
-                AddBestOsmStop(stops, osmPlaces, "water", "Voda", "Postanek za hidracijo iz OpenStreetMap podatkov.", maxCandidateDistanceKm, ref order);
-            }
+            // Water stops are deferred to a source-backed WaterPoint model.
+            // In particular, an OSM fountain is not a potable-water claim.
 
             if (includeDogFriendly && effectiveDistanceKm >= 3)
             {
-                AddBestOsmStop(stops, osmPlaces, "shop", "Pet shop", "Dog-friendly praktičen postanek iz OpenStreetMap.", maxCandidateDistanceKm, ref order);
-                AddBestOsmStop(stops, osmPlaces, "cafe", "Dog-friendly", "Socialni dog-friendly postanek iz OpenStreetMap.", maxCandidateDistanceKm, ref order);
+                AddBestOsmStop(stops, osmPlaces, "shop", "Trgovina (OSM)", "Predlog iz OpenStreetMap; preveri poslovanje in dostop s psom.", maxCandidateDistanceKm, ref order);
+                AddBestOsmStop(stops, osmPlaces, "cafe", "Lokal (OSM)", "V OpenStreetMap označen dostop s psom; preveri aktualna pravila lokala.", maxCandidateDistanceKm, ref order);
             }
 
             stops.Add(new PlannedWalkRouteStop

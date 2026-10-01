@@ -8,7 +8,7 @@ fs.mkdirSync(out,{recursive:true});
 const asset=relative=>path.join(root,'DoggyDrop',relative);
 const home=fs.readFileSync(capture+'/home-carto.html','utf8'),edit=fs.readFileSync(capture+'/edit-map.html','utf8');
 const source=fs.readFileSync(root+'/DoggyDrop/Views/Map/Index.cshtml','utf8');
-const build=source.slice(source.indexOf('        function buildManagedPlaceLayer('),source.indexOf('        function buildPlaceLayer('));
+const build=source.slice(source.indexOf('        function buildManagedPlaceLayer('),source.indexOf('        function wireLayerToggle('));
 const activeSource=fs.readFileSync(root+'/DoggyDrop/Views/Walks/Active.cshtml','utf8');
 const activeControls=activeSource.slice(activeSource.indexOf('        <div class="active-walk-map-controls"'),activeSource.indexOf('    <aside class="active-walk-cockpit"')).replace(/<\/article>\s*$/, '');
 const cockpit=activeSource.slice(activeSource.indexOf('    <aside class="active-walk-cockpit"'),activeSource.indexOf('        <p id="cockpitGpsNotice"')).replace('@Model.Dog?.Name','Luna').replace('@SlovenianFormatting.WalkDistance(Model.DistanceMeters)','1,2 km')+'</aside>';
@@ -49,7 +49,7 @@ async function setup(page,scene,zoom){
   if(scene==='home-nearest')document.body.classList.add('map-nearest-preview-active');
   const center=[46.5638,15.6445];window.fixtureMap=L.map(id).setView(center,zoom);DoggyDropBasemap.addTo(fixtureMap,{maxZoom:active?19:20});
   fixtureMap.createPane('placeMarkers').style.zIndex=610;
-  window.attachManagedPlaceImage=DoggyDropPlaceMarker.attachImage;window.navigateToManagedPlaceInApp=()=>{};
+  window.placeMarkers=new Map();window.attachManagedPlaceImage=DoggyDropPlaceMarker.attachImage;window.navigateToManagedPlaceInApp=()=>{};
   const count=scene==='home-places'?12:3,places=Array.from({length:count},(_,i)=>({id:i+1,name:i%2?'Pasji park':'Mr.Pet · testna lokacija',categoryLabel:i%2?'Pasji park':'Trgovina',categoryKey:i%2?'dog-park':'pet-shop',iconClass:i%2?'dd-place-icon--dog-park':'dd-place-icon--pet-shop',isCommercial:i%2===0,isCurrentlyFeatured:i===0,latitude:center[0]+(i%4-1)*.0016,longitude:center[1]+(Math.floor(i/4)-1)*.003,logoUrl:i%2?null:'https://fixture.invalid/logo.svg',detailsUrl:'/lokacije/'+(i+1)+'/testna-lokacija'}));
   const layer=new Function(build+';return buildManagedPlaceLayer;')()(places).addTo(fixtureMap);
   if(scene==='home-neighborhood'){const marker=layer.getLayers()[0];marker.openPopup();}

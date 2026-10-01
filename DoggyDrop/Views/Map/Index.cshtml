@@ -33,19 +33,6 @@
     var managedPlaces = (IReadOnlyList<DoggyDrop.ViewModels.PlaceMapItem>?)ViewBag.ManagedPlaces ?? [];
     var managedPlacesJson = Html.Raw(JsonSerializer.Serialize(managedPlaces, new JsonSerializerOptions(JsonSerializerDefaults.Web)));
     var myDogsJson = Html.Raw(JsonSerializer.Serialize(ViewBag.MyDogs ?? Array.Empty<object>()));
-    var parkLocationsJson = Html.Raw(JsonSerializer.Serialize(
-        ((IEnumerable<DoggyDrop.Services.ParkLocation>?)ViewBag.ParkLocations ?? [])
-            .Select(park => new
-            {
-                placeKey = park.PlaceKey,
-                name = park.Name,
-                area = park.Area,
-                address = park.Address,
-                latitude = park.Latitude,
-                longitude = park.Longitude,
-                type = park.Type,
-                label = park.Label
-            })));
     var isSignedIn = User.Identity?.IsAuthenticated == true;
     var needsDogOnboarding = ViewBag.NeedsDogOnboarding as bool? == true;
     var showFirstWalkPrompt = TempData["ShowFirstWalkPrompt"] as bool? == true;
@@ -90,23 +77,6 @@
     body.map-bin-navigation-active .home-walk-recenter,
     body.map-nearest-preview-active .home-walk-recenter { display:none; }
 
-    .park-reward-sheet { position: fixed; inset: 0; z-index: 2200; display: grid; align-items: end; background: rgba(20,32,28,.38); }
-    .park-reward-sheet[hidden] { display: none; }
-    .park-reward-sheet__panel { max-height: min(82vh, 680px); overflow-y: auto; padding: 20px; border-radius: 22px 22px 0 0; background: #fff; box-shadow: 0 -12px 40px rgba(20,32,28,.2); }
-    .park-reward-sheet__head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
-    .park-reward-sheet__head span { color:#2f6d5f; font-size:.75rem; font-weight:900; text-transform:uppercase; }
-    .park-reward-sheet__head h2 { margin:3px 0 0; font-size:1.35rem; }
-    .park-reward-sheet__close { border:0; background:#eef5f1; width:40px; height:40px; border-radius:50%; font-size:1.4rem; }
-    .park-reward-sheet__grid { display:grid; gap:10px; margin-top:16px; }
-    .park-reward-card { padding:14px; border:1px solid rgba(31,45,41,.1); border-radius:14px; background:#f8fbf8; }
-    .park-reward-card strong { display:block; color:#1f2d29; }
-    .park-reward-card em { color:#ef8f42; font-style:normal; font-weight:900; }
-    .park-reward-card p { margin:4px 0 0; color:#65716d; font-size:.88rem; }
-    .park-reward-card--stamp { background:#fff9ef; }
-    .park-reward-progress { height:8px; margin-top:10px; overflow:hidden; border-radius:999px; background:rgba(47,109,95,.12); }
-    .park-reward-progress span { display:block; height:100%; background:linear-gradient(90deg,#2f6d5f,#ef8f42); }
-    .park-reward-next { display:block; margin-top:14px; padding:14px; border-radius:14px; background:#1f2d29; color:#fff; text-decoration:none; }
-    body.park-reward-open { overflow: hidden; }
 
     .leaflet-pane,
     .leaflet-tile,
@@ -576,7 +546,7 @@
         }
     }
 
-    .park-visit-box {
+    .quick-invite-box {
         display: grid;
         gap: 6px;
         margin-top: 10px;
@@ -585,14 +555,14 @@
         background: #eef7ed;
     }
 
-    .park-visit-box label,
-    .park-visit-box span {
+    .quick-invite-box label,
+    .quick-invite-box span {
         color: #274a40;
         font-size: 0.74rem;
         font-weight: 850;
     }
 
-    .park-visit-box select {
+    .quick-invite-box select {
         min-height: 34px;
         border: 1px solid rgba(47, 109, 95, 0.22);
         border-radius: 8px;
@@ -602,8 +572,8 @@
         font-weight: 850;
     }
 
-    .park-visit-box button,
-    .park-visit-box a {
+    .quick-invite-box button,
+    .quick-invite-box a {
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -615,38 +585,6 @@
         font-size: 0.74rem;
         font-weight: 900;
         text-decoration: none;
-    }
-
-    .map-place-marker {
-        position: relative;
-        display: grid;
-        width: 40px;
-        height: 40px;
-        place-items: center;
-        border: 3px solid #ffffff;
-        border-radius: 999px 999px 999px 8px;
-        box-shadow: 0 12px 24px rgba(31, 45, 41, 0.24);
-        color: #ffffff;
-        font-size: 15px;
-        font-weight: 950;
-        line-height: 1;
-        transform: rotate(-45deg);
-    }
-
-    .map-place-marker span {
-        transform: rotate(45deg);
-    }
-
-    .map-place-marker--park {
-        background: #467b42;
-    }
-
-    .map-place-marker--water {
-        background: #2f7da5;
-    }
-
-    .map-place-marker--cafe {
-        background: #b66b2f;
     }
 
     .map-dog-marker {
@@ -3239,16 +3177,8 @@ else if (needsDogOnboarding)
         <input id="showDogs" type="checkbox" checked />
     </label>
     <label class="map-filter-row">
-        <span>Pasji parki <small id="parkCountLabel"></small></span>
-        <input id="showParks" type="checkbox" checked />
-    </label>
-    <label class="map-filter-row">
-        <span>Pitniki</span>
-        <input id="showWater" type="checkbox" checked />
-    </label>
-    <label class="map-filter-row">
-        <span>Prijazno psom</span>
-        <input id="showCafes" type="checkbox" checked />
+        <span>Lokacije <small id="placeCountLabel"></small></span>
+        <input id="showPlaces" type="checkbox" checked />
     </label>
     <label class="map-filter-row">
         <span>Utrip skupnosti</span>
@@ -3464,7 +3394,6 @@ else if (needsDogOnboarding)
     <div id="communityHeatBody" class="map-community-heat__body">
         <div class="map-community-heat__stats">
             <span><b id="communityActiveWalkers">0</b> <span id="communityActiveWalkersLabel">aktivnih</span></span>
-            <span><b id="communityPopularParks">0</b> parkov</span>
             <span><b id="communityTrendingRoutes">0</b> poti</span>
         </div>
         <div id="communityEvents" class="map-community-heat__events">
@@ -3479,12 +3408,12 @@ else if (needsDogOnboarding)
         <button type="button" id="exploreClose" class="map-explore-close" aria-label="Zapri seznam">&times;</button>
     </div>
     <a class="map-explore-places-link" asp-controller="Places" asp-action="Index"><i class="bi bi-geo-alt" aria-hidden="true"></i> Uporabne lokacije za pse</a>
-    <input id="exploreSearch" class="map-explore-search" type="search" placeholder="Išči park, koš, pitnik ..." autocomplete="off" />
+    <input id="exploreSearch" class="map-explore-search" type="search" placeholder="Išči park, koš, lokacijo ..." autocomplete="off" />
     <div class="map-explore-tabs" aria-label="Tip lokacije">
         <button type="button" class="map-explore-tab is-active" data-explore-filter="all">Vse</button>
         <button type="button" class="map-explore-tab" data-explore-filter="bin">Koši</button>
-        <button type="button" class="map-explore-tab" data-explore-filter="park">Parki</button>
-        <button type="button" class="map-explore-tab" data-explore-filter="water,cafe">Ostalo</button>
+        <button type="button" class="map-explore-tab" data-explore-filter="dog-park">Parki</button>
+        <button type="button" class="map-explore-tab" data-explore-filter="dog-beach,dog-friendly-cafe,pet-shop,veterinarian,groomer,dog-school">Ostalo</button>
     </div>
     <div id="exploreList" class="map-explore-list"></div>
 </aside>
@@ -3551,15 +3480,6 @@ else if (needsDogOnboarding)
         <button type="button" onclick="closeNearestBinPreview()">Prekliči</button>
     </div>
 </aside>
-<aside id="parkRewardSheet" class="park-reward-sheet" hidden aria-live="polite">
-    <section class="park-reward-sheet__panel" role="dialog" aria-modal="true" aria-labelledby="parkRewardTitle">
-        <div class="park-reward-sheet__head">
-            <div><span id="parkRewardEyebrow"></span><h2 id="parkRewardTitle"></h2></div>
-            <button type="button" class="park-reward-sheet__close" onclick="closeParkReward()" aria-label="Zapri nagrade">&times;</button>
-        </div>
-        <div id="parkRewardContent" class="park-reward-sheet__grid"></div>
-    </section>
-</aside>
 <div id="directionsPanel" class="@(hasActiveWalk ? "directions-panel--active-walk" : "")"></div>
 
 @section Scripts {
@@ -3601,9 +3521,6 @@ else if (needsDogOnboarding)
         let binLayer;
         let managedPlaceLayer;
         let dogLayer;
-        let parkLayer;
-        let waterLayer;
-        let cafeLayer;
         let communityLayer;
         let communityHeatRange = "today";
         let communityRefreshTimer = null;
@@ -3626,7 +3543,6 @@ else if (needsDogOnboarding)
         const communityHeatBadge = document.getElementById("communityHeatBadge");
         const communityHeatRangeLabel = document.getElementById("communityHeatRange");
         const communityActiveWalkers = document.getElementById("communityActiveWalkers");
-        const communityPopularParks = document.getElementById("communityPopularParks");
         const communityTrendingRoutes = document.getElementById("communityTrendingRoutes");
         const communityEvents = document.getElementById("communityEvents");
         const mapFounderPrompt = document.getElementById("mapFounderPrompt");
@@ -3901,20 +3817,6 @@ else if (needsDogOnboarding)
             }
         }
 
-        const placeGroups = {
-            parks: @parkLocationsJson,
-            water: [
-                { name: "Pitnik Lent", latitude: 46.5572, longitude: 15.6467, type: "water", label: "Voda" },
-                { name: "Pitnik Tivoli", latitude: 46.0552, longitude: 14.4958, type: "water", label: "Voda" },
-                { name: "Pitnik ob Dravi", latitude: 46.5608, longitude: 15.6395, type: "water", label: "Voda" }
-            ],
-            cafes: [
-                { name: "Dog friendly Lent", latitude: 46.5578, longitude: 15.6452, type: "cafe", label: "Cafe" },
-                { name: "Dog friendly center Ljubljana", latitude: 46.0511, longitude: 14.5051, type: "cafe", label: "Cafe" },
-                { name: "Dog friendly Koper", latitude: 45.5481, longitude: 13.7301, type: "cafe", label: "Cafe" }
-            ]
-        };
-
         const nearbyFallbackAreas = [
             { key: "maribor", name: "Maribor", latitude: 46.5547, longitude: 15.6459 },
             { key: "ljubljana", name: "Ljubljana", latitude: 46.0569, longitude: 14.5058 },
@@ -3951,23 +3853,6 @@ else if (needsDogOnboarding)
                 "shepherd", "spaniel", "shiba", "dalmatian", "puppy", "senior", "small-dog", "big-dog"
             ]);
             return allowed.has(value) ? value : "dog-face";
-        }
-
-        function createPlaceIcon(type) {
-            const symbols = {
-                park: ["@DoggyDrop.Services.PlaceCategories.Get(DoggyDrop.Models.PlaceCategory.DogPark).IconClass", "Pasji park"],
-                water: ["dd-place-icon--water", "Voda"],
-                cafe: ["@DoggyDrop.Services.PlaceCategories.Get(DoggyDrop.Models.PlaceCategory.DogFriendlyCafe).IconClass", "Lokal"]
-            };
-            const kind = Object.hasOwn(symbols, type) ? type : "other";
-            const [symbol, label] = symbols[kind] || ["@DoggyDrop.Services.PlaceCategories.Get((DoggyDrop.Models.PlaceCategory)0).IconClass", "Lokacija"];
-            return L.divIcon({
-                className: "",
-                html: `<span class="map-place-marker map-place-marker--${kind}" role="img" aria-label="${label}"><i class="dd-place-icon ${symbol}" aria-hidden="true"></i></span>`,
-                iconSize: [40, 40],
-                iconAnchor: [20, 20],
-                popupAnchor: [0, -22]
-            });
         }
 
         document.addEventListener("DOMContentLoaded", function () {
@@ -4105,14 +3990,8 @@ else if (needsDogOnboarding)
                 ? managedPlaces.find(place => Number(place.id) === linkedPlaceId)
                 : null;
 
-            parkLayer = buildPlaceLayer(placeGroups.parks);
-            waterLayer = buildPlaceLayer(placeGroups.water);
-            cafeLayer = buildPlaceLayer(placeGroups.cafes);
             dogLayer = L.layerGroup();
             communityLayer = L.layerGroup().addTo(map);
-            parkLayer.addTo(map);
-            waterLayer.addTo(map);
-            cafeLayer.addTo(map);
             loadNearbyDogs();
             loadCommunityHeatmap();
             startCommunityRefresh();
@@ -4153,6 +4032,7 @@ else if (needsDogOnboarding)
                     }
                     openBinDetail(linkedBin);
                 } else if (linkedManagedPlace) {
+                    ensureLayerVisible(linkedManagedPlace.categoryKey);
                     const marker = managedPlaceLayer.getLayers().find(layer => Number(layer.options.placeId) === linkedPlaceId);
                     if (new URLSearchParams(window.location.search).get("navigate") === "1")
                         navigateToManagedPlaceInApp(linkedPlaceId);
@@ -4192,9 +4072,7 @@ else if (needsDogOnboarding)
                 saveMapSetting("showBins", event.target.checked);
             });
 
-            wireLayerToggle("showParks", parkLayer);
-            wireLayerToggle("showWater", waterLayer);
-            wireLayerToggle("showCafes", cafeLayer);
+            wireLayerToggle("showPlaces", managedPlaceLayer);
             wireLayerToggle("showDogs", dogLayer);
             wireLayerToggle("showCommunity", communityLayer, communityHeatPanel);
             document.getElementById("filterToggle").addEventListener("click", openFilterPanel);
@@ -4226,7 +4104,7 @@ else if (needsDogOnboarding)
                 communityHeatToggle.setAttribute("aria-expanded", (!isCollapsed).toString());
                 communityHeatToggle.setAttribute("aria-label", isCollapsed ? "Prikaži utrip skupnosti" : "Skrij utrip skupnosti");
             });
-            document.getElementById("parkCountLabel").textContent = `(${placeGroups.parks.length})`;
+            document.getElementById("placeCountLabel").textContent = `(${managedPlaces.length})`;
             applySavedMapSettings();
             if (homeActiveWalkId > 0) {
                 map.removeLayer(communityLayer);
@@ -4377,209 +4255,10 @@ else if (needsDogOnboarding)
                     marker.setZIndexOffset(0);
                 });
                 marker.addTo(layer);
+                placeMarkers.set(`place-${id}`, marker);
             });
             return layer;
         }
-
-        function buildPlaceLayer(places) {
-            const layer = L.layerGroup();
-            places.forEach(place => {
-                const marker = L.marker([place.latitude, place.longitude], { icon: createPlaceIcon(place.type), title: place.name, alt: `${place.name} – ${place.label}` })
-                    .addTo(layer)
-                    .bindPopup(`
-                        <div class="bin-popup">
-                            <div class="bin-popup__title">${escapeHtml(place.name)}</div>
-                            <div class="bin-popup__meta">
-                                ${escapeHtml(place.label)}${place.area ? ` - ${escapeHtml(place.area)}` : ""}<br>
-                                ${place.address ? escapeHtml(place.address) : "Lokacija na zemljevidu"}
-                            </div>
-                            ${buildParkVisitControls(place)}
-                            <button type="button" class="bin-popup__nav" onclick="navigateToPlaceInApp(${Number(place.latitude)}, ${Number(place.longitude)})">Odpri navigacijo</button>
-                        </div>
-                    `);
-                marker.on("popupopen", () => {
-                    const button = marker.getPopup()?.getElement()?.querySelector("[data-record-park-visit]");
-                    button?.addEventListener("click", () => recordParkVisit(button.dataset.placeKey, button));
-                });
-                placeMarkers.set(getPlaceKey(place), marker);
-            });
-            return layer;
-        }
-
-        function buildParkVisitControls(place) {
-            if (place.type !== "park") {
-                return "";
-            }
-
-            if (!myDogs || myDogs.length === 0) {
-                return `
-                    <div class="park-visit-box">
-                        <span>Za belezenje obiska najprej dodaj psa.</span>
-                        <a href="/Dogs/Create">Dodaj psa</a>
-                    </div>
-                `;
-            }
-
-            const placeKey = getPlaceKey(place);
-            const options = myDogs
-                .map(dog => `<option value="${Number(dog.id ?? dog.Id)}">${escapeHtml(dog.name ?? dog.Name ?? "Pes")}</option>`)
-                .join("");
-
-            return `
-                <div class="park-visit-box">
-                    <label for="parkDog${escapeAttribute(placeKey)}">Obisk parka</label>
-                    <select id="parkDog${escapeAttribute(placeKey)}">${options}</select>
-                    <button type="button" data-record-park-visit data-place-key="${escapeAttribute(placeKey)}">Zabelezi obisk</button>
-                    <span id="parkVisitFeedback${escapeAttribute(placeKey)}"></span>
-                </div>
-            `;
-        }
-
-        async function recordParkVisit(placeKey, triggerButton) {
-            const place = [...placeGroups.parks, ...placeGroups.water, ...placeGroups.cafes]
-                .find(candidate => getPlaceKey(candidate) === placeKey);
-            const feedback = document.getElementById(`parkVisitFeedback${placeKey}`);
-            const dogSelect = document.getElementById(`parkDog${placeKey}`);
-
-            if (!place || !dogSelect) {
-                return;
-            }
-
-            if (triggerButton?.disabled) return;
-            if (triggerButton) {
-                triggerButton.disabled = true;
-                triggerButton.setAttribute("aria-busy", "true");
-                triggerButton.textContent = "Shranjujem ...";
-            }
-
-            if (feedback) {
-                feedback.textContent = "Shranjujem ...";
-            }
-
-            try {
-                const response = await fetch("/Map/ParkVisit", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "X-Requested-With": "XMLHttpRequest",
-                        "RequestVerificationToken": requestVerificationToken
-                    },
-                    body: JSON.stringify({
-                        dogId: Number(dogSelect.value),
-                        placeKey
-                    })
-                });
-
-                if (response.status === 401 || response.redirected) {
-                    window.location.href = "/Identity/Account/Login";
-                    return;
-                }
-
-                if (!response.ok) {
-                    throw new Error("Obiska ni bilo mogoce shraniti.");
-                }
-
-                const result = await response.json();
-                if (feedback) {
-                    feedback.textContent = result.saved
-                        ? `${result.name}: obisk shranjen (${result.visitCount}x).`
-                        : `Obisk je bil ze shranjen pred kratkim (${result.visitCount}x).`;
-                }
-                if (result.saved && result.reward) {
-                    showParkReward(result.reward, triggerButton);
-                }
-            } catch (error) {
-                if (feedback) {
-                    feedback.textContent = error.message;
-                }
-            } finally {
-                if (triggerButton) {
-                    triggerButton.disabled = false;
-                    triggerButton.removeAttribute("aria-busy");
-                    triggerButton.textContent = "Zabelezi obisk";
-                }
-            }
-        }
-
-        let parkRewardTrigger = null;
-
-        function closeParkReward() {
-            const sheet = document.getElementById("parkRewardSheet");
-            if (sheet.hidden) return;
-            sheet.hidden = true;
-            document.body.classList.remove("park-reward-open");
-            parkRewardTrigger?.focus();
-            parkRewardTrigger = null;
-        }
-
-        function rewardProgress(label, value) {
-            const safe = Math.max(0, Math.min(100, Number(value) || 0));
-            return `<div class="park-reward-progress" role="progressbar" aria-label="${escapeAttribute(label)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${safe}"><span style="width:${safe}%"></span></div>`;
-        }
-
-        function showParkReward(reward, triggerButton) {
-            const progression = reward.progression || {};
-            const cards = [];
-            if (progression.userReward) {
-                const item = progression.userReward;
-                cards.push(`<div class="park-reward-card"><strong>+${Number(item.xpEarned)} XP · Nivo ${Number(item.currentLevel)}</strong>${item.leveledUp ? `<em>Nov nivo · ${escapeHtml(item.levelTitle)}</em>` : `<p>${Number(item.xpRemaining)} XP do naslednjega nivoja</p>`}${rewardProgress("Napredek uporabniškega nivoja", item.progressPercent)}</div>`);
-            }
-            if (progression.dogReward) {
-                const item = progression.dogReward;
-                const statLabels = { adventure: "Pustolovščina", social: "Družabnost", forest: "Gozd", city: "Mesto", water: "Voda", speed: "Hitrost" };
-                const changes = Object.entries(item.progressionChanges || {}).filter(([, value]) => Number(value) > 0).map(([key, value]) => `${escapeHtml(statLabels[key] || key)} +${Number(value)}`).join(" · ");
-                cards.push(`<div class="park-reward-card"><strong>${escapeHtml(item.dogName)} +${Number(item.xpEarned)} XP · Nivo ${Number(item.currentLevel)}</strong>${item.leveledUp || item.classChanged ? `<em>${item.leveledUp ? "Nov nivo" : "Nov pasji razred"} · ${escapeHtml(item.currentClass)}</em>` : ""}${changes ? `<p>${changes}</p>` : ""}${rewardProgress("Napredek nivoja psa", item.progressPercent)}</div>`);
-            }
-            if (progression.streakReward) cards.push(`<div class="park-reward-card"><strong>Raziskovalni niz: ${Number(progression.streakReward.currentDays)} dni</strong><p>Nov obisk jutri bo ohranil tvoj raziskovalni ritem.</p></div>`);
-            if (reward.stamp) {
-                const stamp = reward.stamp;
-                const title = stamp.isNew ? "Nova značka lokacije" : stamp.wasUpgraded ? "Značka nadgrajena!" : "Značka lokacije";
-                const transition = stamp.wasUpgraded ? `${escapeHtml(stamp.previousRarity)} → ${escapeHtml(stamp.rarity)}` : escapeHtml(stamp.rarity);
-                cards.push(`<div class="park-reward-card park-reward-card--stamp"><strong>${title}</strong><p>${escapeHtml(stamp.locationName)} · ${transition}</p></div>`);
-            }
-            (progression.unlockedAchievements || []).forEach(item => cards.push(`<div class="park-reward-card"><em>Nov dosežek</em><strong>${escapeHtml(item.name)}</strong><p>${escapeHtml(item.description)}</p></div>`));
-            if (progression.nextGoal) {
-                const goal = progression.nextGoal;
-                cards.push(`<a class="park-reward-next" href="${escapeAttribute(goal.actionUrl)}"><strong>${escapeHtml(goal.title)}</strong><p>${escapeHtml(goal.description)}</p>${rewardProgress("Napredek naslednjega cilja", goal.progressPercent)}</a>`);
-            }
-            document.getElementById("parkRewardEyebrow").textContent = reward.isNewUserDiscovery ? "Nov kraj odkrit!" : "Ponovni obisk";
-            document.getElementById("parkRewardTitle").textContent = reward.parkName;
-            if (!reward.isNewUserDiscovery && reward.isNewForDog && progression.dogReward) {
-                cards.unshift(`<div class="park-reward-card"><strong>Prvi obisk za ${escapeHtml(progression.dogReward.dogName)}</strong><p>Ta kraj že poznaš, tvoj pes pa ga je obiskal prvič.</p></div>`);
-            }
-            document.getElementById("parkRewardContent").innerHTML = cards.join("");
-            const sheet = document.getElementById("parkRewardSheet");
-            parkRewardTrigger = triggerButton || document.activeElement;
-            sheet.hidden = false;
-            document.body.classList.add("park-reward-open");
-            sheet.querySelector(".park-reward-sheet__close")?.focus();
-        }
-
-        document.getElementById("parkRewardSheet")?.addEventListener("click", event => {
-            if (event.target.id === "parkRewardSheet") closeParkReward();
-        });
-
-        document.addEventListener("keydown", event => {
-            const sheet = document.getElementById("parkRewardSheet");
-            if (!sheet || sheet.hidden) return;
-            if (event.key === "Escape") {
-                event.preventDefault();
-                closeParkReward();
-                return;
-            }
-            if (event.key !== "Tab") return;
-            const focusable = [...sheet.querySelectorAll('button:not([disabled]), a[href]')];
-            if (focusable.length === 0) return;
-            const first = focusable[0];
-            const last = focusable[focusable.length - 1];
-            if (event.shiftKey && document.activeElement === first) {
-                event.preventDefault();
-                last.focus();
-            } else if (!event.shiftKey && document.activeElement === last) {
-                event.preventDefault();
-                first.focus();
-            }
-        });
 
         function wireLayerToggle(inputId, layer, panel) {
             document.getElementById(inputId).addEventListener("change", function (event) {
@@ -4600,9 +4279,7 @@ else if (needsDogOnboarding)
 
         function applySavedMapSettings() {
             applyLayerSetting("showBins", binLayer, true);
-            applyLayerSetting("showParks", parkLayer, true);
-            applyLayerSetting("showWater", waterLayer, true);
-            applyLayerSetting("showCafes", cafeLayer, true);
+            applyLayerSetting("showPlaces", managedPlaceLayer, true);
             applyLayerSetting("showDogs", dogLayer, false);
             applyLayerSetting("showCommunity", communityLayer, true, communityHeatPanel);
         }
@@ -4727,7 +4404,6 @@ else if (needsDogOnboarding)
             communityActiveWalkers.textContent = Number(data.activeWalkers || 0).toString();
             document.getElementById("communityActiveWalkersLabel").textContent = Number(data.activeWalkers || 0) === 1
                 ? "aktiven" : "aktivnih";
-            communityPopularParks.textContent = Number(data.popularParks || 0).toString();
             communityTrendingRoutes.textContent = Number(data.trendingRoutes || 0).toString();
             if (communityHeatBadge) {
                 const heatCount = hotspots.length || Number(data.activeWalkers || 0) + Number(data.popularParks || 0) + Number(data.trendingRoutes || 0);
@@ -4918,7 +4594,7 @@ else if (needsDogOnboarding)
         function buildDogPopupContent(dog) {
             const canInvite = Array.isArray(myDogs) && myDogs.length > 0;
             const sourceOptions = canInvite
-                ? `<select id="quickInviteDog${Number(dog.id)}" class="park-visit-box__select">${myDogs.map(item => `<option value="${Number(item.id ?? item.Id)}">${escapeHtml(item.name ?? item.Name ?? "Pes")}</option>`).join("")}</select>`
+                ? `<select id="quickInviteDog${Number(dog.id)}" class="quick-invite-box__select">${myDogs.map(item => `<option value="${Number(item.id ?? item.Id)}">${escapeHtml(item.name ?? item.Name ?? "Pes")}</option>`).join("")}</select>`
                 : "";
             return `
                 <div class="bin-popup">
@@ -4931,7 +4607,7 @@ else if (needsDogOnboarding)
                     ${dog.photoUrl ? `<img class="bin-popup__image" src="${escapeAttribute(dog.photoUrl)}" alt="${escapeAttribute(dog.name)}">` : ""}
                     ${dog.character ? `<p style="margin:10px 0 0;color:#65716d;font-weight:700;">${escapeHtml(dog.character)}</p>` : ""}
                     ${canInvite ? `
-                        <div class="park-visit-box">
+                        <div class="quick-invite-box">
                             <label for="quickInviteDog${Number(dog.id)}">Povabi na sprehod</label>
                             ${sourceOptions}
                             <button type="button" onclick="sendQuickPlaydateInvite(${Number(dog.id)})">Poslji povabilo</button>
@@ -5335,13 +5011,13 @@ else if (needsDogOnboarding)
             navigation.destinationType = navigationDestinationType(destinationType);
             navigation.position = { ...userLocation };
             navigation.followUser = true;
-            navigation.previousLayers = [binLayer, managedPlaceLayer, parkLayer, waterLayer, cafeLayer, dogLayer, communityLayer]
+            navigation.previousLayers = [binLayer, managedPlaceLayer, dogLayer, communityLayer]
                 .filter(layer => map.hasLayer(layer));
             const filterPanel = document.getElementById("filterPanel");
             const filterToggle = document.getElementById("filterToggle");
             navigation.previousFilterState = { panelOpen: !filterPanel.hidden, toggleHidden: filterToggle.hidden };
             closeFilterPanel();
-            [binLayer, managedPlaceLayer, parkLayer, waterLayer, cafeLayer, dogLayer, communityLayer].forEach(layer => map.removeLayer(layer));
+            [binLayer, managedPlaceLayer, dogLayer, communityLayer].forEach(layer => map.removeLayer(layer));
             setBinNavigationMode(true);
             const destinationIcon = navigation.destinationType === "bin"
                 ? createBinIcon(bin, { selected: true })
@@ -5603,7 +5279,7 @@ else if (needsDogOnboarding)
 
             list.innerHTML = items.map(item => `
                 <button type="button" class="map-explore-item" onclick="focusExploreItem('${escapeAttribute(item.key)}')">
-                    <span class="map-explore-item__icon">${escapeHtml(item.shortLabel)}</span>
+                    <span class="map-explore-item__icon">${exploreItemIcon(item)}</span>
                     <span>
                         <strong>${escapeHtml(item.name)}</strong>
                         <span>${escapeHtml(item.subtitle)}</span>
@@ -5626,20 +5302,19 @@ else if (needsDogOnboarding)
                 }))
                 .sort((a, b) => a.distanceMeters - b.distanceMeters);
 
-            const nearestPark = ranked.find(item => item.type === "park");
+            const nearestPark = ranked.find(item => item.type === "dog-park");
             const nearestBin = ranked.find(item => item.type === "bin");
-            const nearestWater = ranked.find(item => item.type === "water");
-            const nearestCafe = ranked.find(item => item.type === "cafe");
+            const nearestCafe = ranked.find(item => item.type === "dog-friendly-cafe");
             const nearbyBin = nearestBin && nearestBin.distanceMeters <= nearbyBinLimitMeters
                 ? nearestBin
                 : null;
 
             const cards = [
-                buildNearbySuggestionCard("Hiter park walk", "Kratek izhod s prostorom za vohanje in igro.", nearestPark, [nearbyBin, nearestWater], hasPreciseLocation, fallbackArea),
+                buildNearbySuggestionCard("Hiter park walk", "Kratek izhod s prostorom za vohanje in igro.", nearestPark, [nearbyBin], hasPreciseLocation, fallbackArea),
                 nearbyBin
-                    ? buildNearbySuggestionCard("Utility walk", "Prakticen mestni krog s kosom in hitro pavzo.", nearbyBin, [nearestCafe, nearestWater], hasPreciseLocation, fallbackArea)
+                    ? buildNearbySuggestionCard("Utility walk", "Prakticen mestni krog s kosom in hitro pavzo.", nearbyBin, [nearestCafe], hasPreciseLocation, fallbackArea)
                     : buildCommunityBinCard(hasPreciseLocation, fallbackArea),
-                buildNearbySuggestionCard("Daljsi social walk", "Za daljsi sprehod povezi park, vodo in dog-friendly postanek.", nearestPark, [nearestWater, nearestCafe], hasPreciseLocation, fallbackArea)
+                buildNearbySuggestionCard("Daljsi social walk", "Za daljši sprehod poveži park in psom prijazen lokal.", nearestPark, [nearestCafe], hasPreciseLocation, fallbackArea)
             ].filter(Boolean);
 
             list.innerHTML = cards.length > 0
@@ -5678,7 +5353,7 @@ else if (needsDogOnboarding)
 
             return `
                 <button type="button" class="map-explore-item" onclick="focusExploreItem('${escapeAttribute(anchor.key)}')">
-                    <span class="map-explore-item__icon">${escapeHtml(anchor.shortLabel)}</span>
+                    <span class="map-explore-item__icon">${exploreItemIcon(anchor)}</span>
                     <span>
                         <strong>${escapeHtml(title)}</strong>
                         <span>${escapeHtml(description)} ${escapeHtml(chain.map(item => item.shortLabel).join(" - "))}</span>
@@ -5726,14 +5401,14 @@ else if (needsDogOnboarding)
                 longitude: bin.longitude
             }));
 
-            const placeItems = [...placeGroups.parks, ...placeGroups.water, ...placeGroups.cafes].map(place => ({
-                key: getPlaceKey(place),
-                type: place.type,
-                shortLabel: place.type === "park" ? "P" : place.type === "water" ? "W" : "C",
+            const placeItems = managedPlaces.map(place => ({
+                key: `place-${Number(place.id)}`,
+                type: place.categoryKey,
+                shortLabel: place.categoryLabel,
+                iconClass: DoggyDropPlaceMarker.iconClass(place),
                 name: place.name,
-                area: place.area,
                 address: place.address,
-                subtitle: `${place.label}${place.area ? ` - ${place.area}` : ""}`,
+                subtitle: place.categoryLabel,
                 latitude: place.latitude,
                 longitude: place.longitude
             }));
@@ -5766,24 +5441,15 @@ else if (needsDogOnboarding)
                 return;
             }
 
-            const mapByType = {
-                park: ["showParks", parkLayer],
-                water: ["showWater", waterLayer],
-                cafe: ["showCafes", cafeLayer]
-            };
-
-            const setting = mapByType[type];
-            if (!setting) {
-                return;
-            }
-
-            document.getElementById(setting[0]).checked = true;
-            setting[1].addTo(map);
-            saveMapSetting(setting[0], true);
+            document.getElementById("showPlaces").checked = true;
+            managedPlaceLayer.addTo(map);
+            saveMapSetting("showPlaces", true);
         }
 
-        function getPlaceKey(place) {
-            return place.placeKey || `${place.type}-${place.latitude}-${place.longitude}`;
+        function exploreItemIcon(item) {
+            return item.iconClass
+                ? `<i class="dd-place-icon ${DoggyDropPlaceMarker.iconClass(item)}" aria-hidden="true"></i>`
+                : escapeHtml(item.shortLabel);
         }
 
         function normalizeSearch(value) {
@@ -5791,12 +5457,6 @@ else if (needsDogOnboarding)
                 .toLowerCase()
                 .normalize("NFD")
                 .replace(/[\u0300-\u036f]/g, "");
-        }
-
-        function showFutureFilterMessage() {
-            const warning = document.getElementById("mapLocationWarning");
-            warning.hidden = false;
-            warning.textContent = "Ta filter je pripravljen, markerje za pse, parke, vodo in kavarne pa dodava v naslednjih korakih.";
         }
 
         function getDistanceMeters(lat1, lng1, lat2, lng2) {

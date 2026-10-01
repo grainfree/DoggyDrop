@@ -139,4 +139,23 @@ public sealed class WalkingRoutingTests
         Assert.NotNull(plan); Assert.True(plan.IsWalkingRoute); Assert.Equal(4, plan.EstimatedMinutes);
         Assert.Equal(3, routes.Received!.Count); Assert.Equal(routes.Received[0], routes.Received[^1]); Assert.Equal(1, handler.Calls);
     }
+
+    [Fact]
+    public async Task OsmGeographicParkIsNotADedicatedDogParkAndWaterIsDeferred()
+    {
+        var handler = new Handler((_, _) => Task.FromResult(Response("""
+            {"elements":[
+              {"type":"node","lat":46.561,"lon":15.64,"tags":{"name":"Generic park","leisure":"park"}},
+              {"type":"node","lat":46.562,"lon":15.64,"tags":{"name":"Fountain","amenity":"fountain"}},
+              {"type":"node","lat":46.563,"lon":15.64,"tags":{"name":"Water","amenity":"drinking_water"}}
+            ]}
+            """)));
+        var routes = new FakeRoutes(true);
+        var planner = new OsmWalkPlannerService(new HttpClient(handler), NullLogger<OsmWalkPlannerService>.Instance, routes);
+        var plan = await planner.PlanAsync(46.56, 15.64, 3, [], "park", "auto", false, true, true, false);
+        Assert.NotNull(plan); Assert.True(plan.IsWalkingRoute); Assert.NotNull(routes.Received);
+        var park = Assert.Single(plan.Stops, s => s.Type == "park");
+        Assert.Equal("Zelena površina (OSM)", park.Label); Assert.Contains("ni potrjen pasji park", park.Reason);
+        Assert.DoesNotContain(plan.Stops, s => s.Type == "water" || s.Name == "Fountain" || s.Name == "Water");
+    }
 }

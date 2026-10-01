@@ -8,7 +8,7 @@ fs.mkdirSync(out,{recursive:true});
 const read=p=>fs.readFileSync(p,'utf8'),clean=s=>s.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,'');
 const home=clean(read(capture+'/home-anonymous.html'));
 const source=read(app+'/Views/Map/Index.cshtml');
-const build=source.slice(source.indexOf('        function buildManagedPlaceLayer('),source.indexOf('        function buildPlaceLayer('));
+const build=source.slice(source.indexOf('        function buildManagedPlaceLayer('),source.indexOf('        function wireLayerToggle('));
 const definitions=[...read(app+'/Services/PlacePresentation.cs').matchAll(/new\(PlaceCategory\.(\w+), "([^"]+)", "[^"]+", "([^"]+)", "([^"]+)", (true|false)\)/g)]
  .map((m,i)=>({id:100+i,category:i+1,categoryLabel:m[2],categoryKey:m[3],iconClass:m[4],isCommercial:m[5]==='true',
  name:i===5?'Pasje igrišče Vir':m[2]+' · fixture',latitude:46.156105842,longitude:14.600444441,detailsUrl:'/Places/Details/'+(100+i)}));
@@ -51,7 +51,7 @@ const logo='<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><rect
   window.map=L.map('map',{zoomAnimation:false,fadeAnimation:false}).setView([46.156105842,14.600444441],16);
   DoggyDropBasemap.addTo(map);
   map.createPane('placeMarkers').style.zIndex=610;
-  window.attachManagedPlaceImage=DoggyDropPlaceMarker.attachImage;
+  window.placeMarkers=new Map();window.attachManagedPlaceImage=DoggyDropPlaceMarker.attachImage;
   window.navigateToManagedPlaceInApp=id=>window.navigated=id;
   window.makeLayer=new Function(build+'; return buildManagedPlaceLayer;')();window.cases=cases;
  },{build,cases});

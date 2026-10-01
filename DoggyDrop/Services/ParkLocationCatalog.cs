@@ -10,6 +10,8 @@ public sealed record ParkLocation(
     string Type = "park",
     string Label = "Pasji park");
 
+// Historical identity compatibility only. Never publish this catalog as current POIs.
+// Keep keys stable for existing visits, stamps and achievement reconstruction.
 public static class ParkLocationCatalog
 {
     public static IReadOnlyList<ParkLocation> All { get; } =

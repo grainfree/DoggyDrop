@@ -16,7 +16,7 @@ Unknown/invalid presentation uses the bundled location pin. Adding an enum value
 
 Home markers and popups share `DoggyDropPlaceMarker.iconClass`. Discovery and Saved use `_PlaceCard`; Details uses the same class for destination, photo fallback and map. Commercial Details remains text-only when no logo/photo is present; a broken existing logo now reveals the category icon within its existing box. Admin has textual category selection and no category preview to change. All logo-capable categories retain valid managed logo > category icon, including cached-load/error fallback. Featured/selected behavior and Saved ordering are unchanged.
 
-Legacy Home park/water/café layers previously used P/W/C. They now reference the central dog/waves/cup artwork, preserving their 40px icon box and anchors. Generic water has a separate water-only mask; DogBeach now includes a dog cue. Water still means water, not a reclassified DogBeach. Record names and types are untouched. Nearby textual abbreviations are not category marker artwork and remain unchanged.
+Epic 19.8 retires the legacy Home park/water/café layers from current discovery. Current Places retain this icon system unchanged. The separate water-only mask remains available as artwork, but does not represent a current supported Place category or public WaterPoint. See `legacy-poi-retirement.md` for historical compatibility.
 
 Icons are decorative (`aria-hidden` directly or through their media container). Category text remains visible on cards/popups/Details, and Home marker image labels include the escaped Place name and category. Leaflet keyboard/click/popup behavior is preserved. No raw SVG DOM or external icon asset is accepted.
 

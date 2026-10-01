@@ -76,12 +76,10 @@ test('new drawings preserve marker geometry and selected/Featured treatment for 
         assert.equal(m.html.includes('managed-place-pin--featured'),c.isCommercial);
     }
 });
-test('legacy park/water/cafe markers use trusted central icons without changing layer dimensions', () => {
+test('retired static POI pins are absent while current Place markers keep central artwork', () => {
     const map=read('DoggyDrop/Views/Map/Index.cshtml');
-    const fn=map.slice(map.indexOf('function createPlaceIcon(type)'),map.indexOf('document.addEventListener("DOMContentLoaded"'));
-    assert.doesNotMatch(fn,/\? "P"|\? "W"|: "C"/);
-    assert.match(fn,/PlaceCategories.Get/);assert.match(fn,/iconSize: \[40, 40\]/);
-    assert.match(fn,/iconAnchor: \[20, 20\]/);assert.match(fn,/popupAnchor: \[0, -22\]/);
+    assert.doesNotMatch(map,/function createPlaceIcon|map-place-marker--park|placeGroups/);
+    assert.match(map,/DoggyDropPlaceMarker.createIcon\(place\)/);
 });
 test('Details logo uses the shared handler for cached success, missing and broken images', () => {
     const vm=require('node:vm');
@@ -108,7 +106,7 @@ test('dog-specific beach artwork is distinct from legacy generic water without r
     const beach=drawing(categories.find(c=>c.enum==='DogBeach'));
     const water=drawing({iconClass:'dd-place-icon--water'});
     assert.notEqual(beach,water);
-    assert.match(read('DoggyDrop/Views/Map/Index.cshtml'),/water: \["dd-place-icon--water", "Voda"\]/);
+    assert.doesNotMatch(read('DoggyDrop/Views/Map/Index.cshtml'), /createPlaceIcon|placeGroups/);
     assert.doesNotMatch(water,/<(?!\/?(?:svg|path)\b)|href=|script/i);
 });
 

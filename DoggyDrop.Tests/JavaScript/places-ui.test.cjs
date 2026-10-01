@@ -143,7 +143,7 @@ test("Place image uses no-referrer and a failed image shows a fallback", () => {
 test("Home Place markers and popups show safe logos without losing category fallback", () => {
     const map = read("DoggyDrop/Views/Map/Index.cshtml");
     const buildStart = map.indexOf("        function buildManagedPlaceLayer(places) {");
-    const buildEnd = map.indexOf("        function buildPlaceLayer(places) {", buildStart);
+    const buildEnd = map.indexOf("        function wireLayerToggle(inputId, layer, panel) {", buildStart);
     const escapeStart = map.indexOf("        function escapeHtml(value) {");
     const escapeEnd = map.indexOf("    </script>", escapeStart);
     assert.ok(buildStart > 0 && buildEnd > buildStart && escapeStart > 0 && escapeEnd > escapeStart);
@@ -189,7 +189,8 @@ test("Home Place markers and popups show safe logos without losing category fall
     const placeMarker = loadPlaceMarker(L);
     const popupFixture = require('./helpers/place-popup-dom.cjs').loadPopup(L);
     const build = new Function("L", "attachManagedPlaceImage", "DoggyDropPlaceMarker", "DoggyDropPlacePopup", "document", "navigateToManagedPlaceInApp",
-        `${map.slice(escapeStart, escapeEnd)}\n${map.slice(buildStart, buildEnd)}\nreturn buildManagedPlaceLayer;`)(L, placeMarker.attachImage, placeMarker, popupFixture.popup, popupFixture.document, () => {});
+        `const placeMarkers = new Map();
+${map.slice(escapeStart, escapeEnd)}\n${map.slice(buildStart, buildEnd)}\nreturn buildManagedPlaceLayer;`)(L, placeMarker.attachImage, placeMarker, popupFixture.popup, popupFixture.document, () => {});
     const withLogo = build([{
         id: 1, name: "Mr.<Pet>", address: "<Unsafe> street", category: 2,
         categoryLabel: "Trgovina", categoryKey: "pet-shop", iconClass: "dd-place-icon--pet-shop", isCommercial: true,

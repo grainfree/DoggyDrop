@@ -174,21 +174,7 @@ namespace DoggyDrop.Controllers.Api
                 });
             }
 
-            var recentVisit = await _context.DogParkVisits
-                .Where(visit => visit.UserId == userId)
-                .OrderByDescending(visit => visit.VisitedAt)
-                .FirstOrDefaultAsync();
-
-            if (recentVisit != null)
-            {
-                items.Add(new
-                {
-                    Type = "PopularParkNearby",
-                    Title = "Predlog parka",
-                    Body = $"Nazadnje si bil pri {recentVisit.ParkName}. Na mapi preveri se druge popularne parke v blizini.",
-                    LinkUrl = "/Map"
-                });
-            }
+            // Do not turn historical park visits into current POI suggestions.
 
             items.Add(new
             {

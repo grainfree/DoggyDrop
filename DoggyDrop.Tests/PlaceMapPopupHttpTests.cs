@@ -320,6 +320,124 @@ public sealed class PlaceMapPopupHttpTests : IAsyncLifetime
         var logoRoute = map.RootElement.EnumerateArray().Single(p => p.GetProperty("id").GetInt32() == 1).GetProperty("detailsUrl").GetString()!;
         await Capture("icons-details-logo", await Page(client, logoRoute));
     }
+    [Fact]
+    public async Task HomeUsesCurrentPlacesAndApprovedBinsWithoutRetiredPublicPois()
+    {
+        await using (var scope = app.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            db.Places.Add(new Place { Name = "Current cafe", Category = PlaceCategory.DogFriendlyCafe, Latitude = 46, Longitude = 15 });
+            db.TrashBins.AddRange(new TrashBin { Name = "Approved fixture bin", IsApproved = true, Latitude = 46, Longitude = 15 },
+                new TrashBin { Name = "Unapproved fixture bin", Latitude = 46, Longitude = 15 });
+            await db.SaveChangesAsync();
+        }
+        using var client = Client(); var html = await Page(client, "/");
+        using var places = Places(html);
+        Assert.Contains(places.RootElement.EnumerateArray(), p => p.GetProperty("categoryKey").GetString() == "dog-park");
+        Assert.Contains(places.RootElement.EnumerateArray(), p => p.GetProperty("categoryKey").GetString() == "dog-friendly-cafe");
+        Assert.Contains("Approved fixture bin", html); Assert.DoesNotContain("Unapproved fixture bin", html);
+        foreach (var retired in new[] { "placeGroups", "buildPlaceLayer", "createPlaceIcon", "/Map/ParkVisit", "showWater", "showParks", "showCafes", "Pitnik Lent", "Dog friendly Lent" })
+            Assert.DoesNotContain(retired, html);
+        foreach (var park in ParkLocationCatalog.All) Assert.DoesNotContain(park.PlaceKey, html);
+        await Capture("home-current-pois", html);
+    }
+
+    [Fact]
+    public async Task EmptyHomeDoesNotSubstituteLegacyPois()
+    {
+        await using var scope = app.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        db.Places.RemoveRange(await db.Places.ToListAsync()); await db.SaveChangesAsync();
+        using var client = Client(); var html = await Page(client, "/");
+        using var places = Places(html); Assert.Empty(places.RootElement.EnumerateArray());
+        Assert.DoesNotContain("placeGroups", html); await Capture("home-empty-pois", html);
+    }
+
+    [Fact]
+    public async Task RetiredCheckInHttpRequiresAuthAndAntiforgeryAndWritesNothing()
+    {
+        using var anonymous = Client();
+        Assert.Equal(HttpStatusCode.Unauthorized, (await anonymous.PostAsync("/Map/ParkVisit", new StringContent("{}", System.Text.Encoding.UTF8, "application/json"))).StatusCode);
+        using var client = Client("user"); var html = await Page(client, "/");
+        var tokenJson = Regex.Match(html, "const requestVerificationToken = ([^;]+);").Groups[1].Value;
+        var token = JsonSerializer.Deserialize<string>(tokenJson);
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsync("/Map/ParkVisit", new StringContent("{}", System.Text.Encoding.UTF8, "application/json"))).StatusCode);
+        client.DefaultRequestHeaders.Add("RequestVerificationToken", token);
+        foreach (var key in new[] { ParkLocationCatalog.All[0].PlaceKey, "unknown-key" })
+        {
+            var body = JsonSerializer.Serialize(new { dogId = 1, placeKey = key, latitude = 46, longitude = 15 });
+            Assert.Equal(HttpStatusCode.Gone, (await client.PostAsync("/Map/ParkVisit", new StringContent(body, System.Text.Encoding.UTF8, "application/json"))).StatusCode);
+        }
+        await using var scope = app.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.Empty(await db.DogParkVisits.ToListAsync()); Assert.All(await db.UserXpEvents.ToListAsync(), row => Assert.Equal("DailyLogin", row.ActivityType));
+    }
+
+    [Fact]
+    public async Task NotificationsKeepHistoryButNeverGenerateLegacyParkRecommendations()
+    {
+        await using (var scope = app.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var dog = new Dog { OwnerId = "user", Name = "History dog" }; db.Dogs.Add(dog); await db.SaveChangesAsync();
+            db.DogParkVisits.AddRange(
+                new DogParkVisit { DogId = dog.Id, UserId = "user", PlaceKey = "retired-a", ParkName = "Retired own park", Latitude = 46, Longitude = 15 },
+                new DogParkVisit { DogId = dog.Id, UserId = "admin", PlaceKey = "retired-b", ParkName = "Retired other park", Latitude = 46.001, Longitude = 15 });
+            db.UserNotifications.Add(new UserNotification { UserId = "user", Type = "PopularParkNearby", Title = "Stored history", Body = "Historical park notice", CreatedAt = DateTime.UtcNow.AddDays(-30) });
+            await db.SaveChangesAsync();
+        }
+        using var client = Client("user");
+        var html = await Page(client, "/Notifications");
+        Assert.Contains("Stored history", html);
+        Assert.DoesNotContain("Retired own park", html); Assert.DoesNotContain("Retired other park", html);
+        foreach (var path in new[] { "/api/notifications/smart", "/api/notifications/center" })
+        {
+            using var json = JsonDocument.Parse(await client.GetStringAsync(path));
+            var cards = json.RootElement.GetProperty(path.EndsWith("center") ? "smart" : "items");
+            Assert.DoesNotContain(cards.EnumerateArray(), row => row.GetProperty("type").GetString() == "PopularParkNearby");
+        }
+        await using var finalScope = app.Services.CreateAsyncScope();
+        var finalDb = finalScope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.Single(await finalDb.UserNotifications.Where(n => n.Type == "PopularParkNearby").ToListAsync());
+        Assert.Equal(2, await finalDb.DogParkVisits.CountAsync());
+    }
+
+    [Fact]
+    public async Task RegionalPlannerUsesCurrentPlacesAndStillWorksWithoutAnyPois()
+    {
+        await using var scope = app.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        db.Places.AddRange(
+            new Place { Name = "Managed regional park", Category = PlaceCategory.DogPark, Latitude = 46.556, Longitude = 15.646 },
+            new Place { Name = "Managed regional cafe", Category = PlaceCategory.DogFriendlyCafe, Latitude = 46.557, Longitude = 15.646 });
+        await db.SaveChangesAsync();
+        var controller = new WalksController(db, scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>(),
+            null!, null!, null!, null!, null!, null!, null!, null!)
+        {
+            ControllerContext = new Microsoft.AspNetCore.Mvc.ControllerContext
+            {
+                HttpContext = new Microsoft.AspNetCore.Http.DefaultHttpContext
+                {
+                    User = new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, "user")], "Test"))
+                }
+            }
+        };
+        async Task<DoggyDrop.ViewModels.PlannedWalkRoute> Plan()
+        {
+            var view = Assert.IsType<Microsoft.AspNetCore.Mvc.ViewResult>(await controller.Planner(null, "maribor", 4, "city", "auto", null, null));
+            return Assert.IsType<DoggyDrop.ViewModels.WalkPlannerViewModel>(view.Model).Route!;
+        }
+        var plan = await Plan();
+        Assert.Contains(plan.Stops, s => s.Name == "Managed regional park" && s.Type == "park");
+        Assert.Contains(plan.Stops, s => s.Name == "Managed regional cafe" && s.Type == "cafe");
+        Assert.DoesNotContain(plan.Stops, s => s.Type == "water");
+        Assert.False(plan.IsWalkingRoute); Assert.Contains(WalkingPlanRouting.ApproximateNotice, plan.Summary);
+        db.Places.RemoveRange(await db.Places.ToListAsync()); await db.SaveChangesAsync();
+        var empty = await Plan(); Assert.NotEmpty(empty.RoutePoints);
+        Assert.All(empty.Stops, s => Assert.Contains(s.Type, new[] { "start", "finish" }));
+        Assert.Empty(await db.PlannedWalks.ToListAsync());
+    }
+
     private static async Task Capture(string name, string html)
     {
         var path = Environment.GetEnvironmentVariable("DOGGYDROP_POPUP_CAPTURE");

@@ -116,76 +116,7 @@ namespace DoggyDrop.Controllers
                     withinHours: 18);
             }
 
-            var recentVisit = await _context.DogParkVisits
-                .Where(visit => visit.UserId == userId)
-                .OrderByDescending(visit => visit.VisitedAt)
-                .FirstOrDefaultAsync();
-
-            if (recentVisit == null)
-            {
-                return;
-            }
-
-            var userVisitedKeys = await _context.DogParkVisits
-                .Where(visit => visit.UserId == userId)
-                .Select(visit => visit.PlaceKey)
-                .Distinct()
-                .ToListAsync();
-
-            var parkCandidates = await _context.DogParkVisits
-                .Where(visit => visit.PlaceKey != recentVisit.PlaceKey)
-                .GroupBy(visit => new
-                {
-                    visit.PlaceKey,
-                    visit.ParkName,
-                    visit.Area,
-                    visit.Address,
-                    visit.Latitude,
-                    visit.Longitude
-                })
-                .Select(group => new
-                {
-                    group.Key.PlaceKey,
-                    group.Key.ParkName,
-                    group.Key.Area,
-                    group.Key.Address,
-                    group.Key.Latitude,
-                    group.Key.Longitude,
-                    VisitCount = group.Count()
-                })
-                .ToListAsync();
-
-            var popularNearbyPark = parkCandidates
-                .Where(candidate => !userVisitedKeys.Contains(candidate.PlaceKey))
-                .Select(candidate => new
-                {
-                    candidate.ParkName,
-                    candidate.Area,
-                    candidate.VisitCount,
-                    DistanceKm = GetDistanceMeters(
-                        recentVisit.Latitude,
-                        recentVisit.Longitude,
-                        candidate.Latitude,
-                        candidate.Longitude) / 1000
-                })
-                .Where(candidate => candidate.DistanceKm <= 8)
-                .OrderBy(candidate => candidate.DistanceKm)
-                .ThenByDescending(candidate => candidate.VisitCount)
-                .FirstOrDefault();
-
-            if (popularNearbyPark != null)
-            {
-                var areaLabel = string.IsNullOrWhiteSpace(popularNearbyPark.Area)
-                    ? "v tvoji okolici"
-                    : $"na območju {popularNearbyPark.Area}";
-                await _notificationService.CreateUniqueRecentAsync(
-                    userId,
-                    "PopularParkNearby",
-                    "Popularen park v blizini",
-                    $"{popularNearbyPark.ParkName} je med bolj obiskanimi pasjimi parki {areaLabel}.",
-                    Url.Action("Index", "Map"),
-                    withinHours: 24);
-            }
+            // Legacy visits remain history, not current facility recommendations.
         }
 
         private async Task<IReadOnlyList<SmartNotificationCard>> BuildSmartCardsAsync(string userId)
@@ -220,22 +151,6 @@ namespace DoggyDrop.Controllers
                 });
             }
 
-            var recentVisit = await _context.DogParkVisits
-                .Where(visit => visit.UserId == userId)
-                .OrderByDescending(visit => visit.VisitedAt)
-                .FirstOrDefaultAsync();
-
-            if (recentVisit != null)
-            {
-                cards.Add(new SmartNotificationCard
-                {
-                    Type = "PopularParkNearby",
-                    Title = "Predlog parka",
-                    Body = $"Nazadnje si bil pri {recentVisit.ParkName}. Na mapi preveri se druge popularne parke v blizini.",
-                    LinkUrl = Url.Action("Index", "Map")
-                });
-            }
-
             cards.Add(new SmartNotificationCard
             {
                 Type = "NearbyMapTips",
@@ -255,22 +170,5 @@ namespace DoggyDrop.Controllers
             return cards;
         }
 
-        private static double GetDistanceMeters(double lat1, double lng1, double lat2, double lng2)
-        {
-            const double earthRadiusMeters = 6371000;
-            var dLat = ToRadians(lat2 - lat1);
-            var dLng = ToRadians(lng2 - lng1);
-            var a =
-                Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
-                Math.Cos(ToRadians(lat1)) * Math.Cos(ToRadians(lat2)) *
-                Math.Sin(dLng / 2) * Math.Sin(dLng / 2);
-
-            return earthRadiusMeters * 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
-        }
-
-        private static double ToRadians(double value)
-        {
-            return value * Math.PI / 180;
-        }
     }
 }
