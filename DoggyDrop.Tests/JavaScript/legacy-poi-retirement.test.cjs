@@ -25,6 +25,8 @@ function fixture() {
         placeMarkers:new Map([["place-1",{openPopup:()=>calls.push('place-popup')}]]),
         binMarkers:new Map([[9,{openPopup:()=>calls.push('bin-popup')}]]),
         managedPlaceLayer:{addTo:()=>calls.push('places')},binLayer:{addTo:()=>calls.push('bins')},
+        homeLocations:{reveal:(marker,callback)=>{if(marker)callback();}},
+        openBinDetail:()=>calls.push('bin-detail'),
         saveMapSetting:(key,value)=>calls.push([key,value])
     });
     vm.runInContext(names.map(fn).join('\n'),context);
@@ -54,7 +56,7 @@ test('Nearby suggestions resolve only persisted park/cafe/bin targets and remain
 test('Place and bin focus restores only the corresponding current layer; stale legacy keys do nothing',()=>{
     const {context:c,elements:e,calls}=fixture(); c.focusExploreItem('park-46-15');assert.deepEqual(calls,[]);
     c.focusExploreItem('place-1');assert.ok(e.showPlaces.checked);assert.ok(calls.includes('place-popup'));
-    c.focusExploreItem('bin-9');assert.ok(e.showBins.checked);assert.ok(calls.includes('bin-popup'));
+    c.focusExploreItem('bin-9');assert.ok(e.showBins.checked);assert.ok(calls.includes('bin-detail'));
 });
 test('Current Place text and category icons remain escaped in discovery markup',()=>{
     const {context:c,elements:e}=fixture();c.managedPlaces[0].name='<img onerror=alert(1)>';c.managedPlaces[0].iconClass='bad" onclick="evil';

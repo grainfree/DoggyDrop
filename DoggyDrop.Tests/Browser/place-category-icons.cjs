@@ -52,6 +52,8 @@ const logo='<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><rect
   DoggyDropBasemap.addTo(map);
   map.createPane('placeMarkers').style.zIndex=610;
   window.placeMarkers=new Map();window.attachManagedPlaceImage=DoggyDropPlaceMarker.attachImage;
+  // This gallery isolates individual artwork; actual Home clustering has its own browser suite.
+  window.homeLocations={createLayer:L.layerGroup,pin(){},release(){}};
   window.navigateToManagedPlaceInApp=id=>window.navigated=id;
   window.makeLayer=new Function(build+'; return buildManagedPlaceLayer;')();window.cases=cases;
  },{build,cases});

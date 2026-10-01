@@ -35,7 +35,7 @@ const tile='<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><re
    assert.equal(rows.length,empty?0:4);
    assert.ok(rows.every(r=>r.type==='bin'||r.key.startsWith('place-')));
    assert.equal(await page.locator('.map-place-marker').count(),0);
-   assert.equal(await page.locator('.managed-place-pin').count(),empty?0:3);
+   assert.equal(await page.evaluate(()=>managedPlaceLayer.getLayers().length),empty?0:3);
    for(const state of ['all','dog-park','dog-friendly-cafe','search-empty']){
     await page.evaluate(state=>{
      openExplorePanel(); exploreFilter=state==='search-empty'?'all':state;

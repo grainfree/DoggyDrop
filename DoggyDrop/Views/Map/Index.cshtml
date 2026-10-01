@@ -56,6 +56,8 @@
     <partial name="_MapBasemapStyles" />
     <link rel="stylesheet" href="~/css/bin-marker.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/places.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/lib/leaflet.markercluster-1.5.3/MarkerCluster.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/home-map-locations.css" asp-append-version="true" />
 }
 
 <style>
@@ -3489,6 +3491,8 @@ else if (needsDogOnboarding)
             crossorigin=""></script>
     <partial name="_MapBasemapScripts" />
     <script src="~/js/bin-marker.js" asp-append-version="true"></script>
+    <script src="~/lib/leaflet.markercluster-1.5.3/leaflet.markercluster.js" asp-append-version="true"></script>
+    <script src="~/js/home-map-locations.js" asp-append-version="true"></script>
     <script src="~/js/place-marker.js" asp-append-version="true"></script>
     <script src="~/js/place-popup.js" asp-append-version="true"></script>
     <script src="~/js/walking-route.js" asp-append-version="true"></script>
@@ -3519,6 +3523,7 @@ else if (needsDogOnboarding)
         const navigationRerouteMeters = 60;
         const navigationArrivalMeters = 30;
         let binLayer;
+        let homeLocations;
         let managedPlaceLayer;
         let dogLayer;
         let communityLayer;
@@ -3968,7 +3973,8 @@ else if (needsDogOnboarding)
                 homeWalkTrailLayer = L.polyline(homeWalkTrailPoints, { color: "#15803d", weight: 6, opacity: 1 }).addTo(map);
             }
 
-            binLayer = L.layerGroup().addTo(map);
+            homeLocations = DoggyDropHomeLocations.create(map);
+            binLayer = homeLocations.createLayer();
             bins.forEach(bin => {
                 const marker = L.marker([bin.latitude, bin.longitude], { icon: createBinIcon(bin), pane: "binMarkers" })
                     .addTo(binLayer);
@@ -3980,6 +3986,7 @@ else if (needsDogOnboarding)
                 });
                 binMarkers.set(Number(bin.id), marker);
             });
+            binLayer.addTo(map);
             managedPlaceLayer = buildManagedPlaceLayer(managedPlaces).addTo(map);
             const linkedBinId = Number(new URLSearchParams(window.location.search).get("binId"));
             const linkedBin = Number.isSafeInteger(linkedBinId) && linkedBinId > 0
@@ -4036,7 +4043,7 @@ else if (needsDogOnboarding)
                     const marker = managedPlaceLayer.getLayers().find(layer => Number(layer.options.placeId) === linkedPlaceId);
                     if (new URLSearchParams(window.location.search).get("navigate") === "1")
                         navigateToManagedPlaceInApp(linkedPlaceId);
-                    else marker?.openPopup();
+                    else homeLocations.reveal(marker, () => marker.openPopup());
                 } else if (homeActiveWalkId > 0) {
                     if (homeWalkCamera.follow) frameHomeWalk();
                 } else if (bins.length > 0) {
@@ -4115,14 +4122,14 @@ else if (needsDogOnboarding)
             window.setInterval(refreshNotificationPreview, 60000);
             updateFounderPrompt();
             map.on("moveend", updateFounderPrompt);
-            if (!linkedBin) focusMapNearUser();
+            if (!linkedBin) focusMapNearUser(Boolean(linkedManagedPlace));
 
             if (!window.isSecureContext) {
                 document.getElementById("mapLocationWarning").hidden = false;
             }
         }
 
-        function focusMapNearUser() {
+        function focusMapNearUser(preserveFocus = false) {
             if (!navigator.geolocation || !window.isSecureContext) {
                 return;
             }
@@ -4141,14 +4148,17 @@ else if (needsDogOnboarding)
                         .bindPopup("Tvoja lokacija");
                 }
 
-                if (homeActiveWalkId > 0) {
-                    if (homeWalkCamera.follow) frameHomeWalk();
-                } else map.setView([userLocation.lat, userLocation.lng], 15, { animate: true });
+                // Geolocation still updates the user marker; an explicit Place owns the initial camera.
+                if (!preserveFocus) {
+                    if (homeActiveWalkId > 0) {
+                        if (homeWalkCamera.follow) frameHomeWalk();
+                    } else map.setView([userLocation.lat, userLocation.lng], 15, { animate: true });
+                }
                 updateFounderPrompt();
                 loadNearbyDogs();
                 renderNearbySuggestions();
             }, () => {
-                if (homeActiveWalkId <= 0 && bins.length > 0) {
+                if (!preserveFocus && homeActiveWalkId <= 0 && bins.length > 0) {
                     const bounds = L.latLngBounds(bins.map(bin => [bin.latitude, bin.longitude]));
                     map.fitBounds(bounds.pad(0.2), { maxZoom: 16 });
                 }
@@ -4229,7 +4239,7 @@ else if (needsDogOnboarding)
         }
 
         function buildManagedPlaceLayer(places) {
-            const layer = L.layerGroup();
+            const layer = homeLocations.createLayer();
             places.forEach(place => {
                 const id = Number(place.id);
                 const lat = Number(place.latitude);
@@ -4244,6 +4254,7 @@ else if (needsDogOnboarding)
                     .bindPopup(popup, { className: "place-map-popup", maxWidth: 260, minWidth: 200 });
                 marker.on("add", () => attachManagedPlaceImage(marker.getElement()));
                 marker.on("popupopen", () => {
+                    homeLocations.pin(marker);
                     marker.getElement()?.querySelector(".managed-place-pin")?.classList.add("managed-place-pin--selected");
                     marker.setZIndexOffset(500);
                     attachManagedPlaceImage(marker.getPopup()?.getElement());
@@ -4251,6 +4262,7 @@ else if (needsDogOnboarding)
                     if (close) { close.setAttribute("aria-label", "Zapri lokacijo"); close.title = "Zapri lokacijo"; }
                 });
                 marker.on("popupclose", () => {
+                    homeLocations.release(marker);
                     marker.getElement()?.querySelector(".managed-place-pin")?.classList.remove("managed-place-pin--selected");
                     marker.setZIndexOffset(0);
                 });
@@ -4524,7 +4536,7 @@ else if (needsDogOnboarding)
             `;
             panel.hidden = false;
             map.closePopup();
-            map.panTo([bin.latitude, bin.longitude], { animate: true, duration: 0.35 });
+            homeLocations.reveal(binMarkers.get(Number(bin.id)));
         }
 
         function closeBinDetail() {
@@ -4532,7 +4544,10 @@ else if (needsDogOnboarding)
             if (panel) {
                 panel.hidden = true;
             }
-            if (activeBinId !== null) setSelectedBinMarker(activeBinId, false);
+            if (activeBinId !== null) {
+                setSelectedBinMarker(activeBinId, false);
+                homeLocations.release(binMarkers.get(activeBinId));
+            }
             activeBinId = null;
         }
 
@@ -5427,10 +5442,10 @@ else if (needsDogOnboarding)
                 : placeMarkers.get(key);
 
             ensureLayerVisible(item.type);
-            map.setView([item.latitude, item.longitude], Math.max(map.getZoom(), 16), { animate: true });
-            if (marker) {
-                marker.openPopup();
-            }
+            homeLocations.reveal(marker, () => {
+                if (item.type === "bin") openBinDetail(bins.find(bin => Number(bin.id) === Number(key.replace("bin-", ""))));
+                else marker.openPopup();
+            });
         }
 
         function ensureLayerVisible(type) {

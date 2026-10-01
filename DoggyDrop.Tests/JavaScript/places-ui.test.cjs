@@ -190,6 +190,7 @@ test("Home Place markers and popups show safe logos without losing category fall
     const popupFixture = require('./helpers/place-popup-dom.cjs').loadPopup(L);
     const build = new Function("L", "attachManagedPlaceImage", "DoggyDropPlaceMarker", "DoggyDropPlacePopup", "document", "navigateToManagedPlaceInApp",
         `const placeMarkers = new Map();
+const homeLocations = { createLayer: L.layerGroup, pin() {}, release() {} };
 ${map.slice(escapeStart, escapeEnd)}\n${map.slice(buildStart, buildEnd)}\nreturn buildManagedPlaceLayer;`)(L, placeMarker.attachImage, placeMarker, popupFixture.popup, popupFixture.document, () => {});
     const withLogo = build([{
         id: 1, name: "Mr.<Pet>", address: "<Unsafe> street", category: 2,

@@ -1,0 +1,27 @@
+/* Home only: keep the marker hit boxes/anchors and individual artwork intact. */
+.leaflet-marker-icon.home-location-cluster {
+    display: grid;
+    place-items: center;
+    box-sizing: border-box;
+    border: 3px solid #286b52;
+    border-radius: 50%;
+    background: #eaf5ed;
+    color: #193f31;
+    box-shadow: 0 2px 7px rgba(20, 46, 34, .22);
+    font: 800 16px/1 system-ui, sans-serif;
+}
+.home-location-cluster:focus-visible {
+    outline: 3px solid #173f31;
+    outline-offset: 3px;
+    box-shadow: 0 0 0 3px #fff;
+}
+.home-map--broad .leaflet-binMarkers-pane .map-bin-marker:not(.map-bin-marker--selected),
+.home-map--broad .leaflet-placeMarkers-pane .managed-place-pin:not(.managed-place-pin--selected) {
+    transform: scale(.85);
+}
+.home-map--mid .leaflet-binMarkers-pane .map-bin-marker:not(.map-bin-marker--selected),
+.home-map--mid .leaflet-placeMarkers-pane .managed-place-pin:not(.managed-place-pin--selected) {
+    transform: scale(.95);
+}
+.home-map--broad .leaflet-binMarkers-pane .map-bin-marker:not(.map-bin-marker--selected),
+.home-map--mid .leaflet-binMarkers-pane .map-bin-marker:not(.map-bin-marker--selected) { transform-origin: 50% 100%; }

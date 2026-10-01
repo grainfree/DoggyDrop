@@ -50,6 +50,8 @@ async function setup(page,scene,zoom){
   const center=[46.5638,15.6445];window.fixtureMap=L.map(id).setView(center,zoom);DoggyDropBasemap.addTo(fixtureMap,{maxZoom:active?19:20});
   fixtureMap.createPane('placeMarkers').style.zIndex=610;
   window.placeMarkers=new Map();window.attachManagedPlaceImage=DoggyDropPlaceMarker.attachImage;window.navigateToManagedPlaceInApp=()=>{};
+  // Attribution fixtures isolate overlays; full Home lifecycle is covered by home-map-locations.cjs.
+  window.homeLocations={createLayer:L.layerGroup,pin(){},release(){}};
   const count=scene==='home-places'?12:3,places=Array.from({length:count},(_,i)=>({id:i+1,name:i%2?'Pasji park':'Mr.Pet · testna lokacija',categoryLabel:i%2?'Pasji park':'Trgovina',categoryKey:i%2?'dog-park':'pet-shop',iconClass:i%2?'dd-place-icon--dog-park':'dd-place-icon--pet-shop',isCommercial:i%2===0,isCurrentlyFeatured:i===0,latitude:center[0]+(i%4-1)*.0016,longitude:center[1]+(Math.floor(i/4)-1)*.003,logoUrl:i%2?null:'https://fixture.invalid/logo.svg',detailsUrl:'/lokacije/'+(i+1)+'/testna-lokacija'}));
   const layer=new Function(build+';return buildManagedPlaceLayer;')()(places).addTo(fixtureMap);
   if(scene==='home-neighborhood'){const marker=layer.getLayers()[0];marker.openPopup();}
