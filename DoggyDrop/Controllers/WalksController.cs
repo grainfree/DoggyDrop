@@ -213,6 +213,7 @@ namespace DoggyDrop.Controllers
             var userId = _userManager.GetUserId(User);
             var plan = await _context.PlannedWalks
                 .Include(item => item.Stops)
+                .Include(item => item.RoutePoints)
                 .FirstOrDefaultAsync(item => item.Id == id && item.OwnerId == userId);
 
             if (plan == null)
@@ -220,6 +221,12 @@ namespace DoggyDrop.Controllers
                 return NotFound();
             }
 
+            if (plan.AreaKey == SmartWalkPolicy.Version)
+            {
+                var dogs = await _context.Dogs.AsNoTracking().Where(d => d.OwnerId == userId).OrderBy(d => d.Name).ToListAsync();
+                Response.Headers.CacheControl = "private, no-store";
+                return View("SmartPlanner", new SmartPlannerViewModel(dogs, plan.DogId, plan));
+            }
             return RedirectToAction(nameof(Planner), new
             {
                 dogId = plan.DogId,
@@ -253,7 +260,7 @@ namespace DoggyDrop.Controllers
             bool includePark = true,
             bool includeWater = true,
             bool includeDogFriendly = true,
-            int? savedPlanId = null)
+            int? savedPlanId = null, string? mode = null)
         {
             var userId = _userManager.GetUserId(User);
             var dogs = await _context.Dogs
@@ -266,6 +273,16 @@ namespace DoggyDrop.Controllers
                 dogId = null;
             }
 
+            // Existing parameterized bookmarks and explicit advanced mode keep their flow.
+            if (mode != "manual" && area == null && distanceKm == null && walkStyle == null
+                && latitude == null && longitude == null && savedPlanId == null
+                && !Request.Query.ContainsKey("includeBins") && !Request.Query.ContainsKey("includePark")
+                && !Request.Query.ContainsKey("includeWater") && !Request.Query.ContainsKey("includeDogFriendly")
+                && !Request.Query.ContainsKey("dogEnergy"))
+            {
+                Response.Headers.CacheControl = "private, no-store";
+                return View("SmartPlanner", new SmartPlannerViewModel(dogs, dogId ?? dogs.FirstOrDefault()?.Id));
+            }
             var areas = GetPlannerAreas();
             var styles = GetPlannerStyles();
             var areaKey = areas.Any(candidate => candidate.Key == area)
@@ -327,7 +344,9 @@ namespace DoggyDrop.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Start(int dogId, int? plannedWalkId = null)
+        public Task<IActionResult> Start(int dogId, int? plannedWalkId = null) => StartCore(dogId, plannedWalkId);
+
+        private async Task<IActionResult> StartCore(int dogId, int? plannedWalkId, Func<bool>? previewAvailable = null)
         {
             var userId = _userManager.GetUserId(User);
             if (string.IsNullOrWhiteSpace(userId))
@@ -361,6 +380,7 @@ namespace DoggyDrop.Controllers
             await using var transaction = await _context.Database.BeginTransactionAsync();
             // Match bin review's lock order: it may write a notification referencing this user.
             if (plannedWalk != null) await BinCommunityRules.LockAsync(_context);
+            if (plannedWalk?.AreaKey == SmartWalkPolicy.Version) await WaterPoints.LockAsync(_context, HttpContext.RequestAborted);
             await LockWalkStartUserAsync(userId);
             if (plannedWalk != null)
             {
@@ -376,6 +396,16 @@ namespace DoggyDrop.Controllers
                 {
                     TempData["ErrorMessage"] = "Ta načrt vsebuje koše, ki niso več na voljo na shranjeni lokaciji. Ustvarite nov načrt; obstoječi načrt in zgodovina ostaneta ohranjena.";
                     return RedirectToAction(nameof(Index));
+                }
+            }
+            if (plannedWalk?.AreaKey == SmartWalkPolicy.Version)
+            {
+                var stops = await _context.PlannedWalkStops.AsNoTracking().Where(s => s.PlannedWalkId == plannedWalk.Id).ToListAsync(HttpContext.RequestAborted);
+                await SmartWalkEligibility.LockPlacesAsync(_context, stops.Where(s => s.Type is "park" or "place").Select(s => (s.Latitude,s.Longitude)), HttpContext.RequestAborted);
+                if (!await SmartWalkEligibility.StopsAvailableAsync(_context, stops, HttpContext.RequestAborted))
+                {
+                    TempData["ErrorMessage"] = "Postanek ni več na voljo na shranjeni lokaciji. Pripravi nov predlog; shranjeni načrt ostane ohranjen.";
+                    return RedirectToAction(nameof(Plan), new { id = plannedWalk.Id });
                 }
             }
             var hasActiveWalk = await _context.Walks.AnyAsync(w => w.OwnerId == userId && w.Status == "Active");
@@ -407,6 +437,14 @@ namespace DoggyDrop.Controllers
                 }
             }
 
+            // A Smart preview may expire or be replaced during database lock waits.
+            // Saved-plan starts have no preview and retain their existing contract.
+            if (previewAvailable != null && !previewAvailable())
+            {
+                TempData["ErrorMessage"] = "Predogled je potekel. Pripravi nov predlog sprehoda.";
+                return RedirectToAction(nameof(Planner));
+            }
+
             if (plannedWalk != null)
             {
                 plannedWalk.UsedAt = DateTime.UtcNow;
@@ -417,6 +455,62 @@ namespace DoggyDrop.Controllers
             await transaction.CommitAsync();
 
             return RedirectToAction(nameof(Active), new { id = walk.Id });
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        [RequestSizeLimit(4096)]
+        [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting("walking-route")]
+        [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+        public async Task<IActionResult> SmartPlan(string? token, int? dogId, bool start,
+            [FromServices] SmartWalkPreviews previews, CancellationToken ct)
+        {
+            var owner = _userManager.GetUserId(User)!;
+            var preview = previews.Get(owner, token);
+            if (!ModelState.IsValid || preview == null)
+            {
+                TempData["ErrorMessage"] = "Predogled je potekel. Pripravi nov predlog sprehoda.";
+                return RedirectToAction(nameof(Planner));
+            }
+            if ((start && !dogId.HasValue) || (dogId.HasValue && !await _context.Dogs.AnyAsync(d => d.Id == dogId && d.OwnerId == owner, ct))) return BadRequest();
+            await preview.SaveGate.WaitAsync(ct);
+            try
+            {
+                // Expiry/replacement can occur while another Save owns the gate.
+                if (previews.Get(owner, token) != preview)
+                {
+                    TempData["ErrorMessage"] = "Predogled je potekel. Pripravi nov predlog sprehoda.";
+                    return RedirectToAction(nameof(Planner));
+                }
+                if (!preview.SavedPlanId.HasValue)
+                {
+                    await using var transaction = await _context.Database.BeginTransactionAsync(ct);
+                    await BinCommunityRules.LockAsync(_context);
+                    await WaterPoints.LockAsync(_context, ct);
+                    await SmartWalkEligibility.LockPlacesAsync(_context, preview.Selection.Stops.Where(s => s.Kind is "park" or "place").Select(s => (s.Latitude,s.Longitude)), ct);
+                    if (!await SmartWalkEligibility.PreviewAvailableAsync(_context, preview.Selection.Stops, ct))
+                    {
+                        TempData["ErrorMessage"] = "Izbran postanek ni več na voljo. Pripravi nov predlog.";
+                        return RedirectToAction(nameof(Planner));
+                    }
+                    if (previews.Get(owner, token) != preview)
+                    {
+                        TempData["ErrorMessage"] = "Predogled je potekel. Pripravi nov predlog sprehoda.";
+                        return RedirectToAction(nameof(Planner));
+                    }
+                    var plan = SmartWalkEligibility.ToPlan(owner, dogId, preview.Selection);
+                    _context.PlannedWalks.Add(plan);
+                    await _context.SaveChangesAsync(ct);
+                    await transaction.CommitAsync(ct);
+                    preview.SavedPlanId = plan.Id;
+                    await _gamificationService.AwardXpAsync(owner, GamificationConstants.CreateRoute,
+                        GamificationConstants.CreateRouteXp, nameof(PlannedWalk), plan.Id.ToString(), "Nova pot");
+                }
+                if (start) return await StartCore(dogId!.Value, preview.SavedPlanId, () => previews.Get(owner, token) == preview);
+                TempData["SuccessMessage"] = "Predlagani sprehod je shranjen.";
+                return RedirectToAction(nameof(Plan), new { id = preview.SavedPlanId });
+            }
+            finally { preview.SaveGate.Release(); }
         }
 
         [HttpPost]

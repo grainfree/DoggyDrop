@@ -183,6 +183,8 @@ builder.Services.AddScoped<ISeasonalEventService, SeasonalEventService>();
 builder.Services.AddScoped<ILocalLeaderboardService, LocalLeaderboardService>();
 builder.Services.AddScoped<IMapStampService, MapStampService>();
 builder.Services.AddWalkingRouting();
+builder.Services.AddScoped<SmartWalkPlanner>();
+builder.Services.AddSingleton<SmartWalkPreviews>();
 builder.Services.AddHttpClient<IOsmWalkPlannerService, OsmWalkPlannerService>(client =>
 {
     client.Timeout = TimeSpan.FromSeconds(5);

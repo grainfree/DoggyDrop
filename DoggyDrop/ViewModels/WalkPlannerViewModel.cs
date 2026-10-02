@@ -123,3 +123,8 @@ namespace DoggyDrop.ViewModels
         public string Description { get; set; } = string.Empty;
     }
 }
+
+namespace DoggyDrop.ViewModels
+{
+    public sealed record SmartPlannerViewModel(IReadOnlyList<DoggyDrop.Models.Dog> Dogs, int? SelectedDogId, DoggyDrop.Models.PlannedWalk? SavedPlan = null);
+}

@@ -1,0 +1,93 @@
+@model DoggyDrop.ViewModels.SmartPlannerViewModel
+@using System.Text.Json
+@{ ViewData["Title"] = "Predlagaj sprehod"; }
+@section Styles {
+    <partial name="_MapBasemapStyles" />
+    <link rel="stylesheet" href="~/css/smart-walk.css" asp-append-version="true" />
+}
+<section id="smartWalk" class="app-page smart-walk">
+    <header class="app-page__header">
+        <h1 class="app-page__title">Predlagaj sprehod</h1>
+        <p>Izberi čas in izhodišče. Pripravili bomo predlog pešpoti.</p>
+        <a asp-action="Planner" asp-route-mode="manual" asp-route-dogId="@Model.SelectedDogId">Napredni planer</a>
+    </header>
+    @if (TempData["ErrorMessage"] is string error) { <p class="smart-error" role="alert">@error</p> }
+    @if (TempData["SuccessMessage"] is string success) { <p class="smart-notice" role="status">@success</p> }
+    <div class="smart-layout">
+        <form id="smartForm" class="smart-card">
+            @Html.AntiForgeryToken()
+            <fieldset><legend>Koliko časa imaš?</legend><div class="smart-choices">
+                @foreach (var minutes in new[] { 15, 30, 45, 60 }) {
+                    <label class="smart-choice"><input type="radio" name="minutes" value="@minutes" checked="@(minutes == 30)" /><span>@minutes min</span></label>
+                }
+            </div></fieldset>
+            <fieldset><legend>Vrsta sprehoda</legend><div class="smart-choices">
+                <label class="smart-choice"><input type="radio" name="walkType" value="loop" checked /><span>Krožni sprehod</span></label>
+                <label class="smart-choice"><input type="radio" name="walkType" value="destination" /><span>Do izbranega kraja</span></label>
+            </div></fieldset>
+            <div id="smartDestination" hidden>
+                <label for="smartSearch">Poišči kraj v DoggyDrop</label>
+                <input id="smartSearch" type="search" maxlength="80" placeholder="Ime kraja" />
+                <button id="smartFind" type="button" class="smart-secondary">Poišči</button>
+                <label for="smartPlace">Cilj</label><select id="smartPlace"><option value="">Izberi najdeni kraj</option></select>
+            </div>
+            <fieldset><legend>Če je mogoče, ob poti</legend><div class="smart-choices">
+                <label class="smart-choice"><input type="checkbox" name="preference" value="water" /><span><i class="bi bi-droplet" aria-hidden="true"></i> Pitnik</span></label>
+                <label class="smart-choice"><input type="checkbox" name="preference" value="bin" /><span><i class="bi bi-trash3" aria-hidden="true"></i> Koš</span></label>
+                <label class="smart-choice"><input type="checkbox" name="preference" value="park" /><span><i class="dd-place-icon dd-place-icon--dog-park" aria-hidden="true"></i> Pasji park</span></label>
+            </div><p class="smart-help">Želje niso zagotovilo. Prednost ima primerno trajanje sprehoda.</p></fieldset>
+            <fieldset><legend>Kje začneš?</legend>
+                <p id="smartLocation" role="status">Najprej izberi izhodišče.</p>
+                <div class="smart-actions"><button id="smartLocate" type="button" class="smart-secondary">Uporabi mojo lokacijo</button><button id="smartPick" type="button" class="smart-secondary">Izberi na zemljevidu</button></div>
+            </fieldset>
+            <button id="smartGenerate" type="submit" class="smart-primary">Predlagaj sprehod</button>
+            <p id="smartStatus" role="status" aria-live="polite"></p>
+            <p id="smartError" class="smart-error" role="alert" hidden></p>
+        </form>
+        <div class="smart-route-column">
+            <div class="smart-card smart-map-card">
+                <h2>Zemljevid sprehoda</h2>
+                <p class="smart-help">Za ročno izhodišče uporabi izbiro na zemljevidu. Zemljevid lahko premikaš tudi s puščicami.</p>
+                <div id="smartMap" tabindex="0" aria-label="Zemljevid predlaganega sprehoda"></div>
+                <button id="smartCenter" type="button" class="smart-secondary" hidden>Uporabi sredino zemljevida</button>
+            </div>
+            <section id="smartResult" class="smart-card" aria-labelledby="smartResultTitle" hidden>
+                <h2 id="smartResultTitle" tabindex="-1">Predlog sprehoda</h2>
+                <p class="smart-metrics"><strong id="smartDuration"></strong><span id="smartDistance"></span></p>
+                <ul id="smartFacts"></ul><p id="smartNotice" class="smart-help"></p>
+                <div id="smartFreshActions">
+                    <form asp-action="SmartPlan" method="post" id="smartSave">
+                        <input type="hidden" name="token" id="smartToken" />
+                        <label for="smartDog">Pes za sprehod</label>
+                        <select name="dogId" id="smartDog"><option value="">Izberi psa za začetek</option>
+                            @foreach(var dog in Model.Dogs) { <option value="@dog.Id" selected="@(dog.Id == Model.SelectedDogId)">@dog.Name</option> }
+                        </select>
+                        <div class="smart-actions"><button type="submit" name="start" value="true" id="smartStart" class="smart-primary">Začni sprehod</button><button type="submit" name="start" value="false" class="smart-secondary">Shrani načrt</button></div>
+                    </form>
+                    <button type="button" id="smartAgain" class="smart-secondary">Predlagaj drugače</button>
+                </div>
+                @if (Model.SavedPlan is { } plan) {
+                    <form asp-action="Start" method="post" id="smartSavedStart">
+                        <input type="hidden" name="plannedWalkId" value="@plan.Id" />
+                        <label for="smartSavedDog">Pes za sprehod</label>
+                        <select id="smartSavedDog" name="dogId" required><option value="">Izberi psa</option>
+                            @foreach(var dog in Model.Dogs.Where(d => plan.DogId == null || d.Id == plan.DogId)) { <option value="@dog.Id" selected="@(dog.Id == Model.SelectedDogId)">@dog.Name</option> }
+                        </select><button type="submit" class="smart-primary">Začni shranjeni sprehod</button>
+                    </form>
+                    <script id="smartSaved" type="application/json">@Html.Raw(JsonSerializer.Serialize(new {
+                        points = (plan.RoutePoints ?? []).OrderBy(p => p.Order).Select(p => new[] { p.Latitude, p.Longitude }),
+                        distanceMeters = plan.EstimatedDistanceKm * 1000, durationSeconds = plan.EstimatedMinutes * 60,
+                        facts = Array.Empty<object>(), highlights = (plan.Stops ?? []).Where(s => s.Type != "start" && s.Type != "finish").Select(s => new { kind = s.Type, name = s.Name, latitude = s.Latitude, longitude = s.Longitude }),
+                        notice = "Shranjen načrt prikazuje takratno pot. Pred začetkom preverimo razpoložljivost izbranih postankov. Čas hoje je okviren; preveri razmere na terenu."
+                    }))</script>
+                }
+                <p class="smart-route-credit">Pot: <a href="https://openrouteservice.org/" target="_blank" rel="noopener noreferrer">© openrouteservice.org by HeiGIT</a> · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a></p>
+            </section>
+        </div>
+    </div>
+</section>
+@section Scripts {
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <partial name="_MapBasemapScripts" />
+    <script src="~/js/smart-walk.js" asp-append-version="true"></script>
+}

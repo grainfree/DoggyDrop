@@ -485,3 +485,33 @@ Pitniki visibility uses the existing local map-preference mechanism only.
 Admin CSV previews use bounded, owner-bound, expiring instance memory. Sources and
 imported infrastructure persist in the application database. No new legal retention
 promise is made; no production import or Privacy/Terms rewrite is part of this Epic.
+
+### Epic 21.0 — Smart Walk Planner technical flow
+
+Default authenticated Planner now waits for an explicit start selection and Generate.
+Browser location permission is requested only from the location button; alternatively
+the user chooses a map start. Smart requests POST start coordinates, duration,
+preferences and optional public Place ID to DoggyDrop. There are no new coordinate
+URLs, localStorage entries, analytics or background GPS/routing callbacks.
+
+The existing server-side ORS foot-walking client receives bounded route anchors and
+coordinates (up to three attempts/generation), under the existing shared provider
+budget. It receives no DoggyDrop user/dog identifier. No key or request coordinates
+are added to normal logs. Browser basemap/font providers remain the existing shared
+configuration. Legacy advanced Planner location/Overpass behavior remains as audited;
+this change does not claim to remove it from that explicit secondary flow.
+
+One owner-bound preview per user holds precise selected route/inputs in process
+memory for ten minutes, bounded to 128 previews total; replaced/evicted/expired
+previews are unavailable. Limiter owner keys are bounded to 4,096 entries for one
+minute. No cross-user recommendation cache or persistent planning history is added.
+Explicit Save/Start persists the selected geometry/metrics and public named stops
+through the existing owned PlannedWalk tables and existing personal-data lifecycle.
+No new data retention promise is made. Current eligibility is rechecked for new
+guidance without rewriting historical routes.
+
+Public infrastructure projections/response facts exclude private DataSource metadata,
+Admin notes, user identity and credentials. DOM text rendering protects source names.
+No production/provider credentials or regions/transfer arrangements were inspected;
+existing owner/legal decisions and Privacy launch blockers remain unresolved.
+See `smart-walk-planner.md` for budgets, cache bounds, limitations and test procedures.

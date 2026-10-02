@@ -1,0 +1,19 @@
+.smart-walk{max-width:1200px;margin:auto;padding-bottom:calc(var(--app-bottom-nav-clearance,80px) + env(safe-area-inset-bottom,0px) + 32px)}
+.smart-walk [hidden]{display:none!important}.smart-layout{display:grid;grid-template-columns:minmax(280px,360px) minmax(0,1fr);gap:20px;align-items:start}
+.smart-walk :is(button,input,select,a,[role=alert]){scroll-margin-block:80px calc(var(--app-bottom-nav-clearance,80px) + 24px)}
+#smartResult{scroll-margin-top:90px}#smartResultTitle:focus-visible{outline:3px solid #247452;outline-offset:4px}
+.smart-card{background:var(--bs-body-bg,#fff);border:1px solid #dce8e1;border-radius:18px;padding:20px;min-width:0;box-shadow:0 4px 18px #163d2910}
+.smart-route-column{display:grid;gap:16px;min-width:0}.smart-walk h2{font-size:1.2rem}.smart-walk fieldset{border:0;padding:0;margin:0 0 20px}.smart-walk legend,.smart-walk label:not(.smart-choice){font-size:1rem;font-weight:650;margin-bottom:8px}
+.smart-choices,.smart-actions{display:flex;gap:8px;flex-wrap:wrap}.smart-choice{position:relative;margin:0;cursor:pointer}.smart-choice input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+.smart-choice span{display:flex;gap:6px;align-items:center;min-height:44px;padding:10px 12px;border:1px solid #c2d8cb;border-radius:12px;background:#f7faf8;color:#174c39}
+.smart-choice input:checked+span{background:#e2f2e8;border-color:#247452;box-shadow:inset 0 0 0 1px #247452}.smart-choice input:focus-visible+span{outline:3px solid #247452;outline-offset:3px}
+.smart-walk button{min-height:44px;border-radius:12px;padding:10px 14px;font-weight:650;line-height:1.4;white-space:normal}.smart-primary{color:#fff;background:#216348;border:1px solid #216348}.smart-secondary{color:#174c39;background:#f5faf7;border:1px solid #bfd6c8}
+.smart-walk button:disabled{opacity:.65;cursor:wait}.smart-walk button:focus-visible,.smart-walk a:focus-visible,.smart-walk select:focus-visible,.smart-walk input:focus-visible{outline:3px solid #247452;outline-offset:3px}
+.smart-walk select,.smart-walk input[type=search]{width:100%;min-height:44px;border:1px solid #a9bfb1;border-radius:10px;padding:10px;background:#fff;color:#163f2e;margin-bottom:10px;font-size:1rem}
+.smart-help{font-size:.875rem;color:#4c6258;margin:10px 0;overflow-wrap:anywhere}.smart-error{background:#fff0ed;border:1px solid #eab5a9;border-radius:10px;color:#8c2917;padding:12px}.smart-notice{background:#edf7ef;border-radius:10px;padding:12px}
+.smart-metrics{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}.smart-metrics strong{font-size:1.6rem}.smart-route-credit{font-size:12px;line-height:1.5;margin:16px 0 0;overflow-wrap:anywhere}.smart-route-credit a{color:#255e49;text-decoration:underline}
+#smartMap{height:clamp(280px,45dvh,480px);border-radius:12px;isolation:isolate}#smartMap .leaflet-control-attribution{margin:4px;max-width:calc(100% - 8px)}#smartMap .leaflet-bottom.leaflet-right{max-width:100%}
+#smartCenter,#smartAgain{margin-top:12px}#smartGenerate{width:100%}#smartStatus:empty{margin:0}#smartSave .smart-actions{margin-top:12px}#smartSavedStart button{margin-top:12px}
+.smart-marker-body{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border:2px solid #216348;border-radius:50%;background:#fff;color:#216348;font-size:20px;box-shadow:0 2px 5px #0003}.smart-marker-start .smart-marker-body{background:#216348;color:#fff}.smart-marker:focus-visible{outline:3px solid #247452;outline-offset:4px}#smartFacts{padding-left:20px}#smartFacts li{margin:6px 0}
+@media(max-width:767px){.smart-layout{grid-template-columns:minmax(0,1fr);gap:14px}.smart-card{padding:16px}.smart-walk{padding-left:12px;padding-right:12px}.smart-walk .app-page__header{margin-bottom:16px}}
+@media(max-width:350px){.smart-card{padding:12px}.smart-choice span{padding:10px}.smart-actions>*{flex:1 1 auto}}
