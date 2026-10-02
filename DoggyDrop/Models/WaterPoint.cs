@@ -15,6 +15,7 @@ public sealed class WaterPoint
     public double Longitude { get; set; }
     public bool IsApproved { get; set; }
     public bool IsRetired { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore] public Guid EvidenceVersion { get; set; }
     public int? DataSourceId { get; set; }
     [System.Text.Json.Serialization.JsonIgnore] public DataSource? DataSource { get; set; }
     public DateTime DateAdded { get; set; } = DateTime.UtcNow;

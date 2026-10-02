@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddCommunityConfirmations();
 
 builder.Services.Configure<CookiePolicyOptions>(options =>
 {

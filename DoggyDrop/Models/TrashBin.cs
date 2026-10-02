@@ -22,6 +22,9 @@ namespace DoggyDrop.Models
 
         public bool IsRetired { get; set; }
 
+        [System.Text.Json.Serialization.JsonIgnore]
+        public Guid EvidenceVersion { get; set; }
+
         // Pending new-bin review stays on the canonical bin record.
         public bool IsRejected { get; set; }
         public DateTime? RejectedAt { get; set; }

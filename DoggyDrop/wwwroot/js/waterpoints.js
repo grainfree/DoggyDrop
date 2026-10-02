@@ -8,12 +8,14 @@
     function popup(point,navigate) {
         const node=document.createElement("section");node.className="waterpoint-popup";
         function text(tag,value){const e=document.createElement(tag);e.textContent=value;node.append(e);return e;}
-        text("h3",label(point));text("p","Vir označuje pitnik. Delovanje in kakovost vode trenutno nista potrjena.");
-        text("p",point.seasonality===1?"Po viru sezonsko; preveri lokalno obvestilo.":point.seasonality===2?"Vir navaja celoletno uporabo; trenutno delovanje ni potrjeno.":"Sezonskost ni znana.");
+        text("h3",label(point));text("p","Vir označuje pitnik. Kakovost vode ni neodvisno preverjena.");
+        text("p",point.seasonality===1?"Po viru sezonsko; preveri lokalno obvestilo.":point.seasonality===2?"Vir navaja celoletno uporabo; upoštevaj lokalna obvestila.":"Sezonskost ni znana.");
         if(point.access===0)text("p","Dostop ni posebej naveden v viru; upoštevaj oznake na kraju.");
         if(point.dogAccess===1)text("p","Vir navaja dovoljen dostop psov; posoda za pse ni potrjena.");
         if(point.dogAccess===2)text("p","Vir navaja, da psi niso dovoljeni.");
         const button=text("button","Peš do pitnika");button.type="button";button.addEventListener("click",()=>navigate(point.id));
+        const trust=document.createElement("div");trust.className="infrastructure-confirmation";trust.dataset.confirmKind="water";trust.dataset.confirmId=String(point.id);node.append(trust);
+        window.DoggyDropConfirmations?.render(trust,point.trust);
         if(point.sourceName){const source=text("p","Vir: ");let url;
             try {url=new URL(point.sourceUrl);if(!["https:","http:"].includes(url.protocol)||url.username||url.password)url=null;}catch{url=null;}
             const e=document.createElement(url?"a":"span");e.textContent=point.sourceName;if(url){e.href=url.href;e.target="_blank";e.rel="noopener noreferrer";}source.append(e);}
@@ -30,7 +32,9 @@
         layer.clearLayers();const markers=new Map();
         points.filter(valid).forEach(p=>{if(markers.has(p.id))return;
             const marker=L.marker([p.latitude,p.longitude],{icon:icon(),title:label(p),alt:"Pitnik: "+label(p),pane:"waterMarkers"})
-                .bindPopup(()=>popup(p,navigate),{maxWidth:280}).addTo(layer);markers.set(p.id,marker);});return markers;
+                .bindPopup(()=>popup(p,navigate),{maxWidth:280,
+                    maxHeight:Math.max(120,Math.min(320,(Number(window.innerHeight)||900)-400)),
+                    autoPanPaddingTopLeft:[16,90],autoPanPaddingBottomRight:[16,200]}).addTo(layer);markers.set(p.id,marker);});return markers;
     }
     async function current(id,signal) {
         const response=await fetch(id?`/api/waterpoints/${id}`:"/api/waterpoints",{cache:"no-store",credentials:"same-origin",signal});

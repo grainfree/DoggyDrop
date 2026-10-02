@@ -7,10 +7,12 @@
     ViewData["Title"] = "Zemljevid";
     ViewData["FullBleed"] = true;
     var requestVerificationToken = Antiforgery.GetAndStoreTokens(Context).RequestToken;
+    var binTrust = ViewBag.BinTrust as IReadOnlyDictionary<int, DoggyDrop.Services.InfrastructureTrustSummary>;
     var json = JsonSerializer.Serialize(
         Model.Select(b => new
         {
             id = b.Id,
+            trust = binTrust?.GetValueOrDefault(b.Id, DoggyDrop.Services.InfrastructureTrust.Empty),
             name = b.Name,
             latitude = b.Latitude,
             longitude = b.Longitude,
@@ -28,7 +30,7 @@
             status = b.MissingReports >= 2 ? "missing" : b.FullReports >= 2 ? "full" : "ok",
             lastUsedAt = b.LastUsedAt.HasValue ? b.LastUsedAt.Value.ToString("dd.MM.yyyy HH:mm") : null,
             lastReportedAt = b.LastReportedAt.HasValue ? b.LastReportedAt.Value.ToString("dd.MM.yyyy HH:mm") : null
-        })
+        }), new JsonSerializerOptions(JsonSerializerDefaults.Web)
     );
 
     var binsJson = Html.Raw(json);
@@ -62,6 +64,7 @@
     <link rel="stylesheet" href="~/lib/leaflet.markercluster-1.5.3/MarkerCluster.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/home-map-locations.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/waterpoints.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/infrastructure-confirmations.css" asp-append-version="true" />
 }
 
 <style>
@@ -3513,6 +3516,7 @@ else if (needsDogOnboarding)
     <script src="~/js/bin-marker.js" asp-append-version="true"></script>
     <script src="~/lib/leaflet.markercluster-1.5.3/leaflet.markercluster.js" asp-append-version="true"></script>
     <script src="~/js/home-map-locations.js" asp-append-version="true"></script>
+    <script src="~/js/infrastructure-confirmations.js" asp-append-version="true"></script>
     <script src="~/js/waterpoints.js" asp-append-version="true"></script>
     <script src="~/js/place-marker.js" asp-append-version="true"></script>
     <script src="~/js/place-popup.js" asp-append-version="true"></script>
@@ -3532,6 +3536,8 @@ else if (needsDogOnboarding)
                 typeof place.categoryKey === "string" && place.categoryKey !== "other";
         });
         const requestVerificationToken = @Html.Raw(JsonSerializer.Serialize(requestVerificationToken));
+        DoggyDropConfirmations.configure({ signedIn: @isSignedIn.ToString().ToLowerInvariant(), token: requestVerificationToken,
+            find: (kind, id) => (kind === "water" ? waterPoints : bins).find(p => Number(p.id) === id) });
         let map;
         let userMarker;
         const navigation = {
@@ -4022,6 +4028,9 @@ else if (needsDogOnboarding)
 
         function initMap() {
             map = L.map("map").setView([46.5547, 15.6459], 14);
+            map.on("popupopen", event => { closeBinDetail(); DoggyDropConfirmations.hydrate(); DoggyDropConfirmations.fit(map, event.popup); });
+            map.on("popupclose", () => DoggyDropConfirmations.cancel());
+            DoggyDropConfirmations.observeLayout(map);
             map.createPane("binMarkers").style.zIndex = 590;
             map.createPane("placeMarkers").style.zIndex = 610;
             map.createPane("waterMarkers").style.zIndex = 605;
@@ -4539,8 +4548,7 @@ else if (needsDogOnboarding)
                 ? "Prijavljeno kot manjkajoč koš"
                 : bin.status === "full"
                     ? "Več prijav polnega koša"
-                    : "Brez potrditve na terenu";
-            const reliability = Number(bin.reliabilityScore) || 0;
+                    : "Podatek o infrastrukturi";
 
             return `
                 <div class="bin-popup">
@@ -4558,7 +4566,7 @@ else if (needsDogOnboarding)
                         <div class="bin-popup__stat">${Number(bin.fullReports) || 0}<br>poln</div>
                         <div class="bin-popup__stat">${Number(bin.usefulVotes) || 0}<br>koristen</div>
                     </div>
-                    <div class="bin-popup__meta">Zanesljivost: ${reliability}/100${bin.lastReportedAt ? `<br>Zadnja prijava: ${escapeHtml(bin.lastReportedAt)}` : ""}</div>
+                    <div class="infrastructure-confirmation" data-confirm-kind="bin" data-confirm-id="${Number(bin.id)}"></div>
                     <div class="bin-popup__actions">
                         <button type="button" class="bin-popup__button bin-popup__button--primary" onclick="sendBinAction(${Number(bin.id)}, 'used')">Označi uporabo</button>
                         <button type="button" class="bin-popup__button" onclick="sendBinAction(${Number(bin.id)}, 'full')">Poln koš</button>
@@ -4573,6 +4581,7 @@ else if (needsDogOnboarding)
         }
 
         function openBinDetail(bin) {
+            DoggyDropConfirmations.cancel();
             if (activeBinId !== null && activeBinId !== Number(bin.id)) setSelectedBinMarker(activeBinId, false);
             activeBinId = Number(bin.id);
             setSelectedBinMarker(activeBinId, true);
@@ -4584,8 +4593,7 @@ else if (needsDogOnboarding)
                 ? "Prijavljeno kot manjkajoč koš"
                 : bin.status === "full"
                     ? "Več prijav polnega koša"
-                    : "Brez potrditve na terenu";
-            const reliability = Number(bin.reliabilityScore) || 0;
+                    : "Podatek o infrastrukturi";
 
             title.textContent = bin.name || "Pasji kos";
             meta.innerHTML = `
@@ -4601,7 +4609,7 @@ else if (needsDogOnboarding)
                     <div class="map-bin-detail__stat">${Number(bin.fullReports) || 0}<br>poln</div>
                     <div class="map-bin-detail__stat">${Number(bin.usefulVotes) || 0}<br>koristen</div>
                 </div>
-                <div class="map-bin-detail__meta">Zanesljivost: ${reliability}/100${bin.lastReportedAt ? `<br>Zadnja prijava: ${escapeHtml(bin.lastReportedAt)}` : ""}</div>
+                <div class="infrastructure-confirmation" data-confirm-kind="bin" data-confirm-id="${Number(bin.id)}"></div>
                 <div class="map-bin-detail__actions">
                     <button type="button" class="map-bin-detail__button map-bin-detail__button--primary" onclick="sendBinAction(${Number(bin.id)}, 'used')">Označi uporabo</button>
                     <button type="button" class="map-bin-detail__button" onclick="sendBinAction(${Number(bin.id)}, 'full')">Poln koš</button>
@@ -4611,11 +4619,14 @@ else if (needsDogOnboarding)
                 <div class="map-bin-detail__feedback" id="binFeedback${Number(bin.id)}"></div>
             `;
             panel.hidden = false;
+            DoggyDropConfirmations.hydrate(body);
+            DoggyDropConfirmations.fit(map);
             map.closePopup();
             homeLocations.reveal(binMarkers.get(Number(bin.id)));
         }
 
         function closeBinDetail() {
+            DoggyDropConfirmations.cancel();
             const panel = document.getElementById("binDetailPanel");
             if (panel) {
                 panel.hidden = true;

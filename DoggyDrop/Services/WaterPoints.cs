@@ -4,7 +4,8 @@ using Microsoft.EntityFrameworkCore;
 namespace DoggyDrop.Services;
 
 public sealed record WaterPointMapItem(int Id, string Name, double Latitude, double Longitude,
-    WaterAccess Access, WaterSeasonality Seasonality, WaterDogAccess DogAccess, string? SourceName, string? SourceUrl);
+    WaterAccess Access, WaterSeasonality Seasonality, WaterDogAccess DogAccess, string? SourceName, string? SourceUrl,
+    InfrastructureTrustSummary? Trust = null);
 
 public static class WaterPoints
 {
@@ -18,7 +19,7 @@ public static class WaterPoints
     {
         var rows = await points.AsNoTracking().PublicWater().OrderBy(p => p.Id).Select(p => new WaterPointMapItem(
             p.Id, p.Name ?? "Pitnik", p.Latitude, p.Longitude, p.Access, p.Seasonality, p.DogAccess,
-            p.DataSource == null ? null : p.DataSource.Name, p.DataSource == null ? null : p.DataSource.WebsiteUrl)).ToListAsync(ct);
+            p.DataSource == null ? null : p.DataSource.Name, p.DataSource == null ? null : p.DataSource.WebsiteUrl, null)).ToListAsync(ct);
         return rows.Select(p => p with { Name = string.IsNullOrWhiteSpace(p.Name) ? "Pitnik" : p.Name,
             SourceUrl = SafeSourceUrl(p.SourceUrl) }).ToList();
     }

@@ -226,7 +226,11 @@ namespace DoggyDrop.Controllers
                 .Select(row => new { row.Place.Id, row.Place.Name, row.Place.Category,
                     row.Place.Latitude, row.Place.Longitude, row.Place.Address, row.Place.LogoUrl, row.IsCurrentlyFeatured })
                 .ToListAsync();
-            ViewBag.WaterPoints = await WaterPoints.LoadAsync(_context.WaterPoints);
+            var trust = new InfrastructureTrust(_context, _clock);
+            ViewBag.BinTrust = await trust.BinsAsync();
+            var waterTrust = await trust.WaterAsync();
+            ViewBag.WaterPoints = (await WaterPoints.LoadAsync(_context.WaterPoints))
+                .Select(p => p with { Trust = waterTrust.GetValueOrDefault(p.Id, InfrastructureTrust.Empty) }).ToList();
             ViewBag.ManagedPlaces = managedPlaces
                 .Select(place =>
                 {
@@ -279,11 +283,13 @@ namespace DoggyDrop.Controllers
             if (snapshot != BinCommunityRules.Snapshot(pending)) return Conflict("Predlog je bil medtem spremenjen. Ponovno odpri pregled.");
             if (await BinCommunityRules.DuplicateAsync(_context, pending.Latitude, pending.Longitude, id)) return Conflict("Koš ima možnega dvojnika do vključno 20 m. Potrebna je ročna razrešitev.");
             var approvedAt = DateTime.UtcNow;
+            var evidenceVersion = Guid.NewGuid();
             var changed = await _context.TrashBins
                 .Where(bin => bin.Id == id && !bin.IsApproved && !bin.IsRetired && !bin.IsRejected && bin.Latitude == pending.Latitude && bin.Longitude == pending.Longitude
                     && bin.Name == pending.Name && bin.ImageUrl == pending.ImageUrl && bin.DataSourceId == pending.DataSourceId && bin.UserId == pending.UserId)
                 .ExecuteUpdateAsync(update => update
                     .SetProperty(bin => bin.IsApproved, true)
+                    .SetProperty(bin => bin.EvidenceVersion, evidenceVersion)
                     .SetProperty(bin => bin.ApprovedAt, approvedAt));
             if (changed == 0) return Conflict("Predlog je bil medtem spremenjen. Ponovno odpri pregled.");
 

@@ -1,0 +1,15 @@
+@model DoggyDrop.Controllers.ConfirmationHistory
+@{ ViewData["Title"] = "Potrditve skupnosti"; }
+@section Styles { <link rel="stylesheet" href="~/css/places.css" asp-append-version="true" /> }
+<main class="places-page">
+    <h1>Potrditve skupnosti</h1><h2>@Model.Name</h2>
+    <p>@(Model.Kind == "water" ? "Opaženo delovanje pitnika, ne preverjanje pitnosti." : "Opažena prisotnost koša, ne potrditev stanja ali praznjenja.")</p>
+    <p>Vseh opažanj: @Model.Total · Različni potrjevalci v zadnjih 30 dneh: @Model.Summary.RecentUniqueConfirmers</p>
+    <p>Zadnja potrditev v javnem obdobju: @(Model.Summary.LastConfirmedAt?.ToString("dd.MM.yyyy HH:mm 'UTC'") ?? "Še ni potrjeno")</p>
+    @if(Model.Summary.HasCurrentIssue) { <p>Prijavljena je težava. Preglej obstoječe prijave; potrditev jih ne razreši.</p> }
+    <p>Osebne lokacije se ne shranjujejo. Potrditev ne zahteva odobritve. Zgodovina ostane tudi po umiku infrastrukture.</p>
+    @foreach(var row in Model.Rows) { <article><p>@row.CreatedAt.ToString("dd.MM.yyyy HH:mm 'UTC'") · @(row.CurrentEvidence ? "Sedanje obdobje evidence" : "Prejšnje obdobje evidence")</p></article> }
+    @if(Model.Page > 1) { <a asp-route-kind="@Model.Kind" asp-route-id="@Model.Id" asp-route-page="@(Model.Page-1)">Prejšnja stran</a> }
+    @if(Model.Total > Model.Page*100) { <a asp-route-kind="@Model.Kind" asp-route-id="@Model.Id" asp-route-page="@(Model.Page+1)">Naslednja stran</a> }
+    <a asp-controller="@(Model.Kind == "water" ? "AdminWaterPoints" : "AdminBins")" asp-action="Index">Nazaj na seznam</a>
+</main>

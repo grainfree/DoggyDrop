@@ -100,6 +100,7 @@ test("Active and Home inline scripts remain syntactically valid after Razor valu
         .replace(/@Model\.DistanceMeters\.ToString\([^\r\n]+\)/, "0");
     const home = read("DoggyDrop/Views/Map/Index.cshtml")
         .match(/<script>\s*(const bins =[\s\S]*?)<\/script>/)[1]
+        .replaceAll("@isSignedIn.ToString().ToLowerInvariant()", "true")
         .replaceAll("@binsJson", "[]")
         .replaceAll("@waterPointsJson", "[]")
         .replaceAll("@managedPlacesJson", "[]")

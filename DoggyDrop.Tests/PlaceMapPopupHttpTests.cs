@@ -125,7 +125,8 @@ public sealed class PlaceMapPopupHttpTests : IAsyncLifetime
         var match=System.Text.RegularExpressions.Regex.Match(html,@"let waterPoints = ([^\r\n]+);");
         using var json=JsonDocument.Parse(match.Groups[1].Value);var point=Assert.Single(json.RootElement.EnumerateArray());
         Assert.Equal("</script><script>window.waterXss=1</script>",point.GetProperty("name").GetString());
-        Assert.Equal(new[]{"id","name","latitude","longitude","access","seasonality","dogAccess","sourceName","sourceUrl"},point.EnumerateObject().Select(x=>x.Name));
+        Assert.Equal(new[]{"id","name","latitude","longitude","access","seasonality","dogAccess","sourceName","sourceUrl","trust"},point.EnumerateObject().Select(x=>x.Name));
+        Assert.Equal(new[]{"lastConfirmedAt","recentUniqueConfirmers","state","hasCurrentIssue"},point.GetProperty("trust").EnumerateObject().Select(x=>x.Name));
     }
 
     [Fact]

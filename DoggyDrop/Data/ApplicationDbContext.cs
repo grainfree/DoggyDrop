@@ -16,6 +16,7 @@ namespace DoggyDrop.Data
 
         public DbSet<TrashBin> TrashBins { get; set; }
         public DbSet<BinContribution> BinContributions { get; set; }
+        public DbSet<InfrastructureConfirmation> InfrastructureConfirmations { get; set; }
 
         public DbSet<Place> Places { get; set; }
 
@@ -78,9 +79,49 @@ namespace DoggyDrop.Data
 
         public DbSet<DataProtectionKey> DataProtectionKeys { get; set; }
 
+        // Ordinary name/source/photo/counter edits do not invalidate physical observations.
+        // Every tracked physical/lifecycle transition starts a new evidence period, including
+        // retire -> reactivate at the same coordinate. Historical events stay immutable.
+        private void UpdateEvidenceVersions()
+        {
+            ChangeTracker.DetectChanges();
+            foreach (var entry in ChangeTracker.Entries().Where(e => e.State == EntityState.Modified &&
+                (e.Entity is TrashBin || e.Entity is WaterPoint)))
+            {
+                var fields = entry.Entity is TrashBin
+                    ? new[] { "Latitude", "Longitude", "IsApproved", "IsRetired", "IsRejected" }
+                    : new[] { "Latitude", "Longitude", "IsApproved", "IsRetired", "Potability", "Access" };
+                if (fields.Any(name => !Equals(entry.Property(name).OriginalValue, entry.Property(name).CurrentValue)))
+                    entry.Property("EvidenceVersion").CurrentValue = Guid.NewGuid();
+            }
+        }
+
+        public override int SaveChanges(bool acceptAllChangesOnSuccess)
+        {
+            UpdateEvidenceVersions();
+            return base.SaveChanges(acceptAllChangesOnSuccess);
+        }
+        public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+        {
+            UpdateEvidenceVersions();
+            return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+        }
+
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
+
+            builder.Entity<TrashBin>().Property(b => b.EvidenceVersion).HasDefaultValue(Guid.Empty).IsConcurrencyToken();
+            builder.Entity<WaterPoint>().Property(b => b.EvidenceVersion).HasDefaultValue(Guid.Empty).IsConcurrencyToken();
+            var confirmation = builder.Entity<InfrastructureConfirmation>();
+            confirmation.HasOne(c => c.TrashBin).WithMany().HasForeignKey(c => c.TrashBinId).OnDelete(DeleteBehavior.Restrict);
+            confirmation.HasOne(c => c.WaterPoint).WithMany().HasForeignKey(c => c.WaterPointId).OnDelete(DeleteBehavior.Restrict);
+            confirmation.HasOne(c => c.User).WithMany().HasForeignKey(c => c.UserId).OnDelete(DeleteBehavior.SetNull);
+            confirmation.ToTable(t => t.HasCheckConstraint("CK_Confirmation_Target", "(\"Type\" = 1 AND \"TrashBinId\" IS NOT NULL AND \"WaterPointId\" IS NULL) OR (\"Type\" = 2 AND \"WaterPointId\" IS NOT NULL AND \"TrashBinId\" IS NULL)"));
+            confirmation.HasIndex(c => new { c.TrashBinId, c.EvidenceVersion, c.CreatedAt });
+            confirmation.HasIndex(c => new { c.WaterPointId, c.EvidenceVersion, c.CreatedAt });
+            confirmation.HasIndex(c => new { c.UserId, c.TrashBinId, c.CreatedAt });
+            confirmation.HasIndex(c => new { c.UserId, c.WaterPointId, c.CreatedAt });
 
             // Compare original infrastructure values, including changes from older/raw writers.
             builder.Entity<TrashBin>().Property(b => b.IsRetired).HasDefaultValue(false);

@@ -4,7 +4,7 @@
 @{var point=ViewBag.Point as WaterPoint;ViewData["Title"]=point==null?"Dodaj pitnik":"Uredi pitnik";}
 @section Styles {<partial name="_MapBasemapStyles" /><link rel="stylesheet" href="~/css/places.css" asp-append-version="true" />}
 <main class="places-page"><h1>@ViewData["Title"]</h1><a asp-action="Index">Vsi pitniki</a>
-@if(point!=null){<p>@WaterPoints.Status(point) · #@point.Id</p>}
+@if(point!=null){<p>@WaterPoints.Status(point) · #@point.Id</p><a asp-controller="AdminConfirmations" asp-action="Index" asp-route-kind="water" asp-route-id="@point.Id">Potrditve skupnosti</a>}
 <p>Vir označuje pitnik; odobritev ni zagotovilo trenutne kakovosti vode ali delovanja. Zasebne, notranje in strankam omejene točke označi kot omejen dostop.</p>
 <form asp-action="@(point==null?"Create":"Edit")" asp-route-id="@point?.Id" method="post" class="places-form">
 <div asp-validation-summary="All" role="alert"></div><input type="hidden" name="OriginalUpdatedAt" value="@Model.OriginalUpdatedAt?.ToString("O")" />

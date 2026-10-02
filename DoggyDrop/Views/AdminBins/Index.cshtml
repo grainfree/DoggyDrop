@@ -32,6 +32,7 @@
                 <p>@(bin.IsRetired ? "Upokojen" : bin.IsRejected ? "Zavrnjeno" : bin.IsApproved ? "Aktiven" : "Čaka na odobritev") · Vir: @(bin.SourceName ?? "Vir ni določen")</p>
                 @if (bin.IsApproved) { <a class="places-button" asp-controller="AdminBinContributions" asp-action="Lifecycle" asp-route-id="@bin.Id">@(bin.IsRetired ? "Ponovno aktiviraj" : "Upokoji")</a> }
                 <a class="places-button" asp-controller="Map" asp-action="Edit" asp-route-id="@bin.Id">Uredi koš</a>
+                <a class="places-button" asp-controller="AdminConfirmations" asp-action="Index" asp-route-kind="bin" asp-route-id="@bin.Id">Potrditve skupnosti</a>
                 <a class="places-button" asp-controller="AdminDuplicates" asp-action="Index" asp-route-target="Bins">Pregled dvojnikov</a>
             </article>
         }

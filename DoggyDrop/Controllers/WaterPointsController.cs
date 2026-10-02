@@ -8,12 +8,17 @@ namespace DoggyDrop.Controllers;
 
 [AllowAnonymous]
 [ResponseCache(NoStore=true,Location=ResponseCacheLocation.None)]
-public sealed class WaterPointsController(ApplicationDbContext db, IWalkingRoutes routes) : Controller
+public sealed class WaterPointsController(ApplicationDbContext db, IWalkingRoutes routes, TimeProvider? clock = null) : Controller
 {
+    private async Task<List<WaterPointMapItem>> PublicItems(int? id, CancellationToken ct) {
+        var query = id.HasValue ? db.WaterPoints.Where(p => p.Id == id) : db.WaterPoints;
+        var trust = await new InfrastructureTrust(db, clock ?? TimeProvider.System).WaterAsync(id.HasValue ? [id.Value] : null, ct);
+        return (await WaterPoints.LoadAsync(query, ct)).Select(p => p with { Trust = trust.GetValueOrDefault(p.Id, InfrastructureTrust.Empty) }).ToList();
+    }
     [HttpGet("/api/waterpoints")]
-    public async Task<IActionResult> Index(CancellationToken ct)=>Json(await WaterPoints.LoadAsync(db.WaterPoints,ct));
+    public async Task<IActionResult> Index(CancellationToken ct)=>Json(await PublicItems(null,ct));
     [HttpGet("/api/waterpoints/{id:int}")]
-    public async Task<IActionResult> Details(int id,CancellationToken ct){var p=(await WaterPoints.LoadAsync(db.WaterPoints.Where(p=>p.Id==id),ct)).SingleOrDefault();return p==null?NotFound():Json(p);}
+    public async Task<IActionResult> Details(int id,CancellationToken ct){var p=(await PublicItems(id,ct)).SingleOrDefault();return p==null?NotFound():Json(p);}
     public sealed record RouteInput(WalkingRoutesController.CoordinateInput? Origin);
     [HttpPost("/api/waterpoints/{id:int}/route"),ValidateAntiForgeryToken,EnableRateLimiting("walking-route"),RequestSizeLimit(4096)]
     public async Task<IActionResult> Route(int id,[FromBody] RouteInput? input,CancellationToken ct) {

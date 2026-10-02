@@ -1,0 +1,8 @@
+.infrastructure-confirmation { margin:8px 0; padding:8px 10px; border:1px solid #d8e5dd; border-radius:10px; background:#f5f9f6; color:#23493d; overflow-wrap:anywhere; }
+.infrastructure-confirmation p { margin:0; font-size:12px; line-height:1.45; }
+.infrastructure-confirmation small { display:block; font-size:11px; line-height:1.4; }
+.infrastructure-confirmation .confirmation-summary { font-weight:650; }
+.infrastructure-confirmation .confirmation-action { display:flex; align-items:center; justify-content:center; width:100%; min-height:44px; margin-top:4px; padding:6px 8px; border:1px solid #b9d2c5; border-radius:8px; background:white; color:#235b47; font-size:13px; font-weight:700; text-decoration:none; }
+.confirmation-action:focus-visible { outline:3px solid #206853; outline-offset:2px; }
+.confirmation-action:disabled { opacity:.75; cursor:wait; }
+.infrastructure-confirmation .confirmation-status:not(:empty) { margin-top:4px; }
