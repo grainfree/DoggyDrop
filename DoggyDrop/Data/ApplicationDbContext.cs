@@ -24,6 +24,7 @@ namespace DoggyDrop.Data
         public DbSet<PlaceAmenity> PlaceAmenities { get; set; }
 
         public DbSet<DataSource> DataSources { get; set; }
+        public DbSet<WaterPoint> WaterPoints { get; set; }
 
         public DbSet<Dog> Dogs { get; set; }
 
@@ -110,6 +111,17 @@ namespace DoggyDrop.Data
             builder.Entity<Friendship>()
                 .HasIndex(f => new { f.RequesterId, f.AddresseeId })
                 .IsUnique();
+
+            builder.Entity<WaterPoint>().Property(p => p.UpdatedAt).IsConcurrencyToken();
+            builder.Entity<WaterPoint>().HasOne(p => p.DataSource).WithMany()
+                .HasForeignKey(p => p.DataSourceId).OnDelete(DeleteBehavior.SetNull);
+            builder.Entity<WaterPoint>().HasIndex(p => new { p.IsApproved, p.IsRetired });
+            builder.Entity<WaterPoint>().HasIndex(p => new { p.Latitude, p.Longitude });
+            builder.Entity<WaterPoint>().ToTable(t => {
+                t.HasCheckConstraint("CK_WaterPoint_Coordinates", "\"Latitude\" >= -90 AND \"Latitude\" <= 90 AND \"Longitude\" >= -180 AND \"Longitude\" <= 180");
+                t.HasCheckConstraint("CK_WaterPoint_Evidence", "\"Potability\" BETWEEN 0 AND 2 AND \"Access\" BETWEEN 0 AND 3 AND \"Seasonality\" BETWEEN 0 AND 2 AND \"DogAccess\" BETWEEN 0 AND 2");
+                t.HasCheckConstraint("CK_WaterPoint_Approval", "NOT \"IsApproved\" OR (\"Potability\" = 1 AND \"Access\" <> 3)");
+            });
 
             builder.Entity<Place>()
                 .HasIndex(place => new { place.IsActive, place.Category });

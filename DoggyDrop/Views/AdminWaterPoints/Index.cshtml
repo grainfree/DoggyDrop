@@ -1,0 +1,12 @@
+@model IReadOnlyList<DoggyDrop.Models.WaterPoint>
+@using DoggyDrop.Services
+@{ViewData["Title"]="Pitniki";}
+@section Styles {<link rel="stylesheet" href="~/css/places.css" asp-append-version="true" />}
+<main class="places-page"><h1>Pitniki</h1><partial name="_DataAdminLinks" />
+<a asp-action="Create" class="places-button">Dodaj pitnik</a> <a asp-controller="AdminWaterImport" asp-action="Index" class="places-button">Uvoz pitnikov</a>
+<form method="get" class="places-form"><label class="places-field">Iskanje<input name="q" value="@ViewBag.Query" /></label>
+<label class="places-field">Stanje<select name="status"><option value="">Vsa</option><option value="active" selected="@(ViewBag.Status=="active")">Aktivni</option><option value="pending" selected="@(ViewBag.Status=="pending")">Čakajoči</option><option value="retired" selected="@(ViewBag.Status=="retired")">Umaknjeni</option></select></label>
+<label class="places-field">Vir<select name="sourceId"><option value="">Vsi viri</option>@foreach(var s in (IReadOnlyList<ImportSource>)ViewBag.Sources){<option value="@s.Id" selected="@(ViewBag.SourceId==s.Id)">@s.Name</option>}</select></label><button class="places-button">Filtriraj</button></form>
+<p>Najdenih: @ViewBag.Total</p>
+@foreach(var p in Model){<article class="my-3"><a asp-action="Edit" asp-route-id="@p.Id">#@p.Id · @(p.Name??"Pitnik")</a> · @WaterPoints.Status(p)</article>}
+<nav aria-label="Strani pitnikov">@if(ViewBag.Page>1){<a asp-route-page="@(ViewBag.Page-1)" asp-route-q="@ViewBag.Query" asp-route-status="@ViewBag.Status" asp-route-sourceId="@ViewBag.SourceId">Prejšnja</a>} <span>Stran @ViewBag.Page</span> @if(ViewBag.Page*100<ViewBag.Total){<a asp-route-page="@(ViewBag.Page+1)" asp-route-q="@ViewBag.Query" asp-route-status="@ViewBag.Status" asp-route-sourceId="@ViewBag.SourceId">Naslednja</a>}</nav></main>

@@ -468,3 +468,20 @@ Approving a photo or coordinate change preserves original DataSource and bin own
 Replaced/rejected managed media are deleted only after a successful decision and a shared-reference check, including other pending evidence. Provider failures leave the decision committed and emit a neutral log message without URLs or submitted text. Unknown database commit outcomes retain uploaded media for reconciliation. There is no automatic orphan sweep or newly invented retention period. Retention of review history, cleanup/reconciliation operations, provider copies/backups and legal bases remain owner decisions. The pending-submission limiter holds a bounded set of account/IP keys in process memory for one hour; it is not a persistent activity log.
 
 See `bin-community-contributions.md` for the migration, lifecycle and verification contract. This engineering change does not finalize Privacy or remove the existing public-launch/municipal-outreach legal-content blocker.
+
+### Epic 20.2 — WaterPoint infrastructure
+
+WaterPoint public reads use explicit infrastructure DTOs: ID, name, coordinates,
+access/seasonality/dog-access evidence, source name and safe HTTP(S) source URL.
+No source contacts/notes, users, import decisions or concurrency token are public.
+Nearest-water refresh sends no user coordinates to the server and computes a direct
+geographic choice in browser memory following an explicit location action.
+Directions POST the origin and public WaterPoint ID to the same-origin protected
+endpoint; the server loads the current eligible target before using the existing
+ORS foot-walking client. ORS therefore receives origin and destination coordinates
+under the existing routing flow/budgets; no key is exposed. No new provider,
+analytics, identity association, location persistence or coordinate-bearing logs.
+Pitniki visibility uses the existing local map-preference mechanism only.
+Admin CSV previews use bounded, owner-bound, expiring instance memory. Sources and
+imported infrastructure persist in the application database. No new legal retention
+promise is made; no production import or Privacy/Terms rewrite is part of this Epic.

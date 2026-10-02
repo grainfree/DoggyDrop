@@ -226,6 +226,7 @@ namespace DoggyDrop.Controllers
                 .Select(row => new { row.Place.Id, row.Place.Name, row.Place.Category,
                     row.Place.Latitude, row.Place.Longitude, row.Place.Address, row.Place.LogoUrl, row.IsCurrentlyFeatured })
                 .ToListAsync();
+            ViewBag.WaterPoints = await WaterPoints.LoadAsync(_context.WaterPoints);
             ViewBag.ManagedPlaces = managedPlaces
                 .Select(place =>
                 {

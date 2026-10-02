@@ -1,0 +1,19 @@
+@model DoggyDrop.Services.WaterImportPage
+@{ ViewData["Title"] = "Potrdi uvoz pitnikov"; }
+@section Styles {
+    <link rel="stylesheet" href="~/css/places.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/bin-import.css" asp-append-version="true" />
+}
+<main class="places-page bin-import">
+    <h1>Potrdi uvoz pitnikov</h1>
+    <partial name="_Context" model="Model" />
+    <p>Izbranih: <strong>@Model.Selected.Count</strong> · Izključeni možni dvojniki: @Model.Duplicates · Neveljavno: @Model.Invalid · Neizbrane pripravljene vrstice: @(Model.Ready - Model.Selected.Count)</p>
+    <p>Dodani bodo novi odobreni pitniki z izbranim virom, brez uporabniškega avtorja, nagrad ali obvestil Nearby. Obstoječi pitniki ostanejo nespremenjeni. Datum dodajanja in odobritve pomeni čas uvoza.</p>
+    <p>Potrjujem, da izbrani vir označuje pitnike, brez zasebnih/notranjih ali nepitnih točk. Odobritev ni fizični pregled niti zagotovilo delovanja ali kakovosti vode.</p>
+    <p>Pred shranjevanjem se dvojniki ponovno preverijo. Ob napaki se ne uvozi nobena vrstica.</p>
+    <form asp-action="Apply" asp-route-id="@Model.Id" method="post">
+        <input type="hidden" name="version" value="@Model.Version" />
+        <button type="submit" class="places-button places-button--primary">Uvozi @Model.Selected.Count pitnikov</button>
+        <a asp-action="Preview" asp-route-id="@Model.Id" class="places-button">Nazaj na pregled</a>
+    </form>
+</main>

@@ -32,6 +32,7 @@
     );
 
     var binsJson = Html.Raw(json);
+    var waterPointsJson = Html.Raw(JsonSerializer.Serialize((IReadOnlyList<DoggyDrop.Services.WaterPointMapItem>?)ViewBag.WaterPoints ?? [], new JsonSerializerOptions(JsonSerializerDefaults.Web)));
     var managedPlaces = (IReadOnlyList<DoggyDrop.ViewModels.PlaceMapItem>?)ViewBag.ManagedPlaces ?? [];
     var managedPlacesJson = Html.Raw(JsonSerializer.Serialize(managedPlaces, new JsonSerializerOptions(JsonSerializerDefaults.Web)));
     var myDogsJson = Html.Raw(JsonSerializer.Serialize(ViewBag.MyDogs ?? Array.Empty<object>()));
@@ -60,6 +61,7 @@
     <link rel="stylesheet" href="~/css/places.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/lib/leaflet.markercluster-1.5.3/MarkerCluster.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/home-map-locations.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/waterpoints.css" asp-append-version="true" />
 }
 
 <style>
@@ -3188,6 +3190,7 @@ else if (needsDogOnboarding)
         <span>Utrip skupnosti</span>
         <input id="showCommunity" type="checkbox" checked />
     </label>
+    <label class="map-filter-row"><span>Pitniki <small id="waterCountLabel"></small></span><input id="showDrinkingWater" type="checkbox" checked /></label>
     <div class="map-heatmap-range" aria-label="Obdobje utripa skupnosti">
         <button type="button" class="is-active" data-heatmap-range="today">Danes</button>
         <button type="button" data-heatmap-range="week">Ta teden</button>
@@ -3411,6 +3414,7 @@ else if (needsDogOnboarding)
         <h2>Raziskuj lokacije</h2>
         <button type="button" id="exploreClose" class="map-explore-close" aria-label="Zapri seznam">&times;</button>
     </div>
+    <section class="water-infrastructure" aria-label="Pitniki"><button type="button" id="nearestWater">Najbližji pitnik</button><button type="button" id="refreshWater">Osveži pitnike</button><p id="waterStatus" role="status"></p></section>
     <a class="map-explore-places-link" asp-controller="Places" asp-action="Index"><i class="bi bi-geo-alt" aria-hidden="true"></i> Uporabne lokacije za pse</a>
     <input id="exploreSearch" class="map-explore-search" type="search" placeholder="Išči park, koš, lokacijo ..." autocomplete="off" />
     <div class="map-explore-tabs" aria-label="Tip lokacije">
@@ -3495,6 +3499,7 @@ else if (needsDogOnboarding)
     <script src="~/js/bin-marker.js" asp-append-version="true"></script>
     <script src="~/lib/leaflet.markercluster-1.5.3/leaflet.markercluster.js" asp-append-version="true"></script>
     <script src="~/js/home-map-locations.js" asp-append-version="true"></script>
+    <script src="~/js/waterpoints.js" asp-append-version="true"></script>
     <script src="~/js/place-marker.js" asp-append-version="true"></script>
     <script src="~/js/place-popup.js" asp-append-version="true"></script>
     <script src="~/js/walking-route.js" asp-append-version="true"></script>
@@ -3502,6 +3507,8 @@ else if (needsDogOnboarding)
 
     <script>
         const bins = @binsJson;
+        let waterPoints = @waterPointsJson;
+        let waterLayer, waterMarkers = new Map();
         const managedPlaces = (@managedPlacesJson).filter(place => {
             const id = Number(place.id);
             const lat = Number(place.latitude);
@@ -3514,7 +3521,7 @@ else if (needsDogOnboarding)
         let map;
         let userMarker;
         const navigation = {
-            active: false, destination: null, destinationType: "generic", position: null, routeLayer: null,
+            waterLookupSequence: 0, active: false, destination: null, destinationType: "generic", position: null, routeLayer: null,
             distanceMeters: null, durationSeconds: null, routeStatus: "loading", followUser: false,
             lastAttemptedPosition: null, lastSuccessfulPosition: null,
             requestSequence: 0, abortController: null, routePending: false,
@@ -3965,6 +3972,7 @@ else if (needsDogOnboarding)
             map = L.map("map").setView([46.5547, 15.6459], 14);
             map.createPane("binMarkers").style.zIndex = 590;
             map.createPane("placeMarkers").style.zIndex = 610;
+            map.createPane("waterMarkers").style.zIndex = 605;
             map.createPane("navigationMarkers").style.zIndex = 620;
             map.createPane("userMarkers").style.zIndex = 630;
 
@@ -3990,6 +3998,10 @@ else if (needsDogOnboarding)
             });
             binLayer.addTo(map);
             managedPlaceLayer = buildManagedPlaceLayer(managedPlaces).addTo(map);
+            waterLayer = homeLocations.createLayer().addTo(map);
+            renderWaterPoints();
+            document.getElementById("nearestWater").addEventListener("click", findNearestWater);
+            document.getElementById("refreshWater").addEventListener("click", refreshWaterPoints);
             const linkedBinId = Number(new URLSearchParams(window.location.search).get("binId"));
             const linkedBin = Number.isSafeInteger(linkedBinId) && linkedBinId > 0
                 ? bins.find(bin => Number(bin.id) === linkedBinId)
@@ -4030,6 +4042,8 @@ else if (needsDogOnboarding)
                 map.fitBounds(bounds.pad(0.2), { maxZoom: 16 });
             } else if (managedPlaces.length > 0) {
                 map.fitBounds(L.latLngBounds(managedPlaces.map(place => [place.latitude, place.longitude])).pad(0.2), { maxZoom: 16 });
+            } else if (waterPoints.length > 0) {
+                map.fitBounds(L.latLngBounds(waterPoints.map(point => [point.latitude, point.longitude])).pad(0.2), { maxZoom: 16 });
             }
 
             requestAnimationFrame(() => {
@@ -4053,6 +4067,8 @@ else if (needsDogOnboarding)
                     map.fitBounds(bounds.pad(0.2), { maxZoom: 16 });
                 } else if (managedPlaces.length > 0) {
                     map.fitBounds(L.latLngBounds(managedPlaces.map(place => [place.latitude, place.longitude])).pad(0.2), { maxZoom: 16 });
+                } else if (waterPoints.length > 0) {
+                    map.fitBounds(L.latLngBounds(waterPoints.map(point => [point.latitude, point.longitude])).pad(0.2), { maxZoom: 16 });
                 }
             });
 
@@ -4082,6 +4098,7 @@ else if (needsDogOnboarding)
             });
 
             wireLayerToggle("showPlaces", managedPlaceLayer);
+            wireLayerToggle("showDrinkingWater", waterLayer);
             wireLayerToggle("showDogs", dogLayer);
             wireLayerToggle("showCommunity", communityLayer, communityHeatPanel);
             document.getElementById("filterToggle").addEventListener("click", openFilterPanel);
@@ -4294,6 +4311,7 @@ else if (needsDogOnboarding)
         function applySavedMapSettings() {
             applyLayerSetting("showBins", binLayer, true);
             applyLayerSetting("showPlaces", managedPlaceLayer, true);
+            applyLayerSetting("showDrinkingWater", waterLayer, true);
             applyLayerSetting("showDogs", dogLayer, false);
             applyLayerSetting("showCommunity", communityLayer, true, communityHeatPanel);
         }
@@ -4941,6 +4959,67 @@ else if (needsDogOnboarding)
             });
         }
 
+        function renderWaterPoints() {
+            waterMarkers = DoggyDropWaterPoints.populate(waterLayer, waterPoints, navigateToWater);
+            document.getElementById("waterCountLabel").textContent = `(${waterMarkers.size})`;
+        }
+        async function refreshWaterPoints() {
+            const sequence = ++navigation.waterLookupSequence;
+            try {
+                const fresh = await DoggyDropWaterPoints.current();
+                if (sequence !== navigation.waterLookupSequence) return;
+                waterPoints = fresh; renderWaterPoints();
+                document.getElementById("waterStatus").textContent = "Pitniki so osveženi.";
+            } catch { if (sequence === navigation.waterLookupSequence) document.getElementById("waterStatus").textContent = "Pitnikov ni bilo mogoče osvežiti."; }
+        }
+        function setHomeUserLocation(location) {
+            userLocation = { lat: location.lat, lng: location.lng };
+            if (userMarker) {
+                userMarker.setLatLng([userLocation.lat, userLocation.lng]);
+            } else {
+                userMarker = L.marker([userLocation.lat, userLocation.lng], { icon: userIcon, pane: "userMarkers" })
+                    .addTo(map)
+                    .bindPopup("Tvoja lokacija");
+            }
+        }
+
+        function waterOrigin() {
+            if (userLocation) return Promise.resolve(userLocation);
+            return new Promise((resolve,reject) => {
+                if (!navigator.geolocation || !window.isSecureContext) return reject(new Error("Za najbližji pitnik ali navigacijo dovoli lokacijo."));
+                navigator.geolocation.getCurrentPosition(p => resolve({lat:p.coords.latitude,lng:p.coords.longitude}),
+                    () => reject(new Error("Lokacije ni bilo mogoče pridobiti.")), {enableHighAccuracy:true,maximumAge:0,timeout:10000});
+            });
+        }
+        async function findNearestWater() {
+            const sequence = ++navigation.waterLookupSequence;
+            const status = document.getElementById("waterStatus");status.textContent = "Iščem najbližji pitnik ...";
+            try {
+                const origin = await waterOrigin();
+                const fresh = await DoggyDropWaterPoints.current();
+                if (sequence !== navigation.waterLookupSequence) return;
+                waterPoints = fresh;renderWaterPoints();
+                const nearest = DoggyDropWaterPoints.nearest(fresh,origin);
+                if (!nearest) {status.textContent = "V bližini (do 25 km) ni razpoložljivih pitnikov v podatkih.";return;}
+                setHomeUserLocation(origin);
+                document.getElementById("showDrinkingWater").checked = true;waterLayer.addTo(map);
+                homeLocations.reveal(waterMarkers.get(nearest.point.id),()=>waterMarkers.get(nearest.point.id).openPopup());
+                status.textContent = `Najbližji po zračni razdalji: ${formatDistance(nearest.metres)}. Pešpot izračunaj z gumbom v pojavnem oknu.`;
+                closeExplorePanel();
+            } catch(error) {if(sequence === navigation.waterLookupSequence)status.textContent = error.message;}
+        }
+        async function navigateToWater(id) {
+            const sequence = ++navigation.waterLookupSequence;
+            try {
+                const origin = await waterOrigin();
+                const point = await DoggyDropWaterPoints.current(id);
+                if (sequence !== navigation.waterLookupSequence) return;
+                if (!DoggyDropWaterPoints.valid(point)) throw new Error("Lokacija pitnika ni veljavna.");
+                setHomeUserLocation(origin);
+                navigateToPlaceInApp(point.latitude,point.longitude,DoggyDropWaterPoints.label(point),"water",{waterPointId:point.id});
+            } catch(error) {if(sequence === navigation.waterLookupSequence)alert(error.message);}
+        }
+
         function navigateToManagedPlaceInApp(id) {
             const place = managedPlaces.find(item => Number(item.id) === Number(id));
             if (!place) return;
@@ -4957,6 +5036,7 @@ else if (needsDogOnboarding)
                 name: name || place?.name || "Izbrana lokacija",
                 latitude,
                 longitude,
+                waterPointId: managedPlace?.waterPointId,
                 logoUrl: managedPlace?.logoUrl || "",
                 category: managedPlace?.category,
                 categoryLabel: managedPlace?.categoryLabel,
@@ -5004,7 +5084,7 @@ else if (needsDogOnboarding)
         }
 
         function navigationDestinationType(type) {
-            return type === "bin" || type === "place" ? type : "generic";
+            return type === "bin" || type === "place" || type === "water" ? type : "generic";
         }
 
         function navigationHeading(type) {
@@ -5032,16 +5112,17 @@ else if (needsDogOnboarding)
             navigation.destinationType = navigationDestinationType(destinationType);
             navigation.position = { ...userLocation };
             navigation.followUser = true;
-            navigation.previousLayers = [binLayer, managedPlaceLayer, dogLayer, communityLayer]
+            navigation.previousLayers = [binLayer, managedPlaceLayer, waterLayer, dogLayer, communityLayer]
                 .filter(layer => map.hasLayer(layer));
             const filterPanel = document.getElementById("filterPanel");
             const filterToggle = document.getElementById("filterToggle");
             navigation.previousFilterState = { panelOpen: !filterPanel.hidden, toggleHidden: filterToggle.hidden };
             closeFilterPanel();
-            [binLayer, managedPlaceLayer, dogLayer, communityLayer].forEach(layer => map.removeLayer(layer));
+            [binLayer, managedPlaceLayer, waterLayer, dogLayer, communityLayer].forEach(layer => map.removeLayer(layer));
             setBinNavigationMode(true);
             const destinationIcon = navigation.destinationType === "bin"
                 ? createBinIcon(bin, { selected: true })
+                : navigation.destinationType === "water" ? DoggyDropWaterPoints.icon()
                 : navigation.destinationType === "place"
                     ? DoggyDropPlaceMarker.createIcon(bin, { selected: true })
                     : L.divIcon({ className: "", html: '<span class="navigation-destination-icon"><i class="bi bi-geo-alt-fill" aria-hidden="true"></i></span>', iconSize: [40, 40], iconAnchor: [20, 40] });
@@ -5108,6 +5189,7 @@ else if (needsDogOnboarding)
         }
 
         function stopInAppNavigation() {
+            navigation.waterLookupSequence++;
             const wasNavigating = navigation.active;
             navigation.requestSequence++;
             navigation.abortController?.abort();
@@ -5177,7 +5259,7 @@ else if (needsDogOnboarding)
             updateDirectionsPanelForNavigation();
             const route = await fetchWalkingRoute(origin, {
                 lat: Number(bin.latitude ?? bin.Latitude), lng: Number(bin.longitude ?? bin.Longitude)
-            }, controller.signal);
+            }, controller.signal, bin.waterPointId);
             if (!navigation.active || sequence !== navigation.requestSequence) return;
             navigation.abortController = null;
             navigation.routePending = false;
@@ -5208,9 +5290,11 @@ else if (needsDogOnboarding)
             }
         }
 
-        async function fetchWalkingRoute(origin, destination, signal) {
+        async function fetchWalkingRoute(origin, destination, signal, waterPointId = null) {
             try {
-                const routed = await DoggyDropWalkingRoute.request(origin, destination, requestVerificationToken, signal);
+                const routed = waterPointId
+                    ? await DoggyDropWaterPoints.route(origin, waterPointId, requestVerificationToken, signal)
+                    : await DoggyDropWalkingRoute.request(origin, destination, requestVerificationToken, signal);
                 if (signal.aborted) return null;
                 return routed || {
                     points: [[origin.lat, origin.lng], [destination.lat, destination.lng]],
@@ -5219,6 +5303,11 @@ else if (needsDogOnboarding)
                 };
             } catch (error) {
                 if (signal.aborted || error?.name === "AbortError") return null;
+                if (waterPointId) {
+                    if (error.unavailable) { stopInAppNavigation(); alert(error.message); return null; }
+                    return { points: [[origin.lat, origin.lng], [destination.lat, destination.lng]],
+                        distanceMeters: getDistanceMeters(origin.lat, origin.lng, destination.lat, destination.lng), durationSeconds: null, isFallback: true };
+                }
                 throw error;
             }
         }

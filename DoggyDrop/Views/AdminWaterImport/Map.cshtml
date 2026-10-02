@@ -1,0 +1,31 @@
+@model DoggyDrop.Services.WaterImportPage
+@{ ViewData["Title"] = "Izberi stolpce"; }
+@section Styles {
+    <link rel="stylesheet" href="~/css/places.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/bin-import.css" asp-append-version="true" />
+}
+<main class="places-page bin-import">
+    <h1>Izberi stolpce</h1>
+    <partial name="_Context" model="Model" />
+    <p>Predloge preveri in potrdi. X/Y ne pomenita nujno WGS84 koordinat. Pretvorba koordinatnih sistemov in geokodiranje nista vključena.</p>
+    <div asp-validation-summary="All" role="alert"></div>
+    <form asp-action="Map" asp-route-id="@Model.Id" method="post" class="places-form">
+        <input type="hidden" name="version" value="@Model.Version" />
+        @foreach (var field in new[] { (Key: "latitude", Label: "Širina / Latitude *", Index: (int?)Model.Mapping!.Latitude), (Key: "longitude", Label: "Dolžina / Longitude *", Index: (int?)Model.Mapping!.Longitude), (Key: "name", Label: "Ime / opis (neobvezno)", Index: Model.Mapping!.Name), (Key: "access", Label: "Dostop (neobvezno)", Index: Model.Mapping!.Access), (Key: "seasonality", Label: "Sezonskost (neobvezno)", Index: Model.Mapping!.Seasonality), (Key: "dogAccess", Label: "Psi (neobvezno)", Index: Model.Mapping!.DogAccess), (Key: "potability", Label: "Vir za pitno vodo (neobvezno)", Index: Model.Mapping!.Potability) })
+        {
+            <label class="places-field">@field.Label
+                <select name="@field.Key" required="@(field.Key is "latitude" or "longitude")">
+                    <option value="">Brez izbire</option>
+                    @for (var i = 0; i < Model.Headers!.Length; i++) { <option value="@i" selected="@(field.Index == i)">@Model.Headers[i]</option> }
+                </select>
+            </label>
+        }
+        <p>Ime je neobvezno (največ 200 znakov); prazno ostane prazno, javno se prikaže »Pitnik«.
+        Access: Unknown / Public / Permissive / Restricted. Seasonality: Unknown / Seasonal / SourceReportedYearRound.
+        DogAccess: Unknown / Allowed / NotAllowed. Potability: Unknown / SourceReportedDrinking / NotDrinking.
+        Brez stolpca Potability s potrditvijo izjavljaš, da vir označuje pitnike (SourceReportedDrinking).
+        Omejeni dostop in nepotrjena pitnost nista dovoljena za uvoz. Neznana sezonskost/dostop ostaneta neznana.</p>
+        <button class="places-button places-button--primary" type="submit">Potrdi stolpce in prikaži predogled</button>
+    </form>
+    <form asp-action="Cancel" asp-route-id="@Model.Id" method="post"><button class="places-button" type="submit">Prekliči uvoz</button></form>
+</main>

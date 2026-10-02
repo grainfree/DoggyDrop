@@ -107,6 +107,28 @@ public sealed class PlaceMapPopupHttpTests : IAsyncLifetime
         await Capture(admin ? "home-admin" : user == null ? "home-anonymous" : "home-user", html);
     }
     [Fact]
+    public async Task HomeWaterPayloadIsCurrentAndEscapesSourceTextWithoutPrivateMetadata()
+    {
+        await using (var scope=app.Services.CreateAsyncScope()) {
+            var db=scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var source=new DataSource{Name="</script><img src=x onerror=alert(1)>",Notes="WATER_PRIVATE_NOTES",ContactEmail="WATER_PRIVATE_CONTACT"};
+            db.DataSources.Add(source);await db.SaveChangesAsync();
+            db.WaterPoints.AddRange(
+                new WaterPoint{Name="</script><script>window.waterXss=1</script>",Latitude=46,Longitude=15,IsApproved=true,Potability=WaterPotability.SourceReportedDrinking,DataSourceId=source.Id},
+                new WaterPoint{Name="WATER_PENDING",Latitude=46.1,Longitude=15},
+                new WaterPoint{Name="WATER_RETIRED",Latitude=46.2,Longitude=15,IsApproved=true,IsRetired=true,Potability=WaterPotability.SourceReportedDrinking});
+            await db.SaveChangesAsync();
+        }
+        using var client=Client();var html=await Page(client,"/");
+        Assert.DoesNotContain("WATER_PRIVATE",html);Assert.DoesNotContain("WATER_PENDING",html);Assert.DoesNotContain("WATER_RETIRED",html);
+        Assert.DoesNotContain("</script><script>window.waterXss=1</script>",html);
+        var match=System.Text.RegularExpressions.Regex.Match(html,@"let waterPoints = ([^\r\n]+);");
+        using var json=JsonDocument.Parse(match.Groups[1].Value);var point=Assert.Single(json.RootElement.EnumerateArray());
+        Assert.Equal("</script><script>window.waterXss=1</script>",point.GetProperty("name").GetString());
+        Assert.Equal(new[]{"id","name","latitude","longitude","access","seasonality","dogAccess","sourceName","sourceUrl"},point.EnumerateObject().Select(x=>x.Name));
+    }
+
+    [Fact]
     public async Task ExistingEditRemainsAdminOnlyAndAntiforgeryProtected()
     {
         using var anon = Client(); using var user = Client("user"); using var admin = Client("admin");

@@ -1,0 +1,15 @@
+@model DoggyDrop.Services.WaterImportPage
+@{ ViewData["Title"] = "Uvoz zaključen"; }
+@section Styles {
+    <link rel="stylesheet" href="~/css/places.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/bin-import.css" asp-append-version="true" />
+}
+<main class="places-page bin-import">
+    <h1>Uvoženih @Model.Result!.Imported pitnikov.</h1>
+    <partial name="_Context" model="Model" />
+    <p>Skupaj prebranih vrstic: @Model.Result.Total</p>
+    <p>Izključeni možni dvojniki: @Model.Result.Duplicates · Neveljavno: @Model.Result.Invalid · Neizbrane pripravljene vrstice: @Model.Result.Unselected</p>
+    <a asp-controller="AdminBins" asp-action="Index" asp-route-sourceId="@Model.Source.Id" class="places-button">Preglej pitnike</a>
+    <a asp-action="Index" class="places-button">Nov uvoz</a>
+    <form asp-action="Cancel" asp-route-id="@Model.Id" method="post"><button class="places-button" type="submit">Zapri rezultat in sprosti začasni prostor</button></form>
+</main>

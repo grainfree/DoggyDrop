@@ -1,0 +1,27 @@
+@model IReadOnlyList<DoggyDrop.Services.ImportSource>
+@using DoggyDrop.ViewModels
+@{ ViewData["Title"] = "Uvoz pitnikov"; }
+@section Styles {
+    <link rel="stylesheet" href="~/css/places.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/bin-import.css" asp-append-version="true" />
+}
+<main class="places-page bin-import">
+    <h1>Uvoz pitnikov</h1>
+    <partial name="_DataAdminLinks" />
+    <p>Naloži CSV, potrdi stolpce in preveri vrstice. Šele zadnja potrditev doda pitnike.</p>
+    <div asp-validation-summary="All" role="alert"></div>
+    <form asp-action="Upload" method="post" enctype="multipart/form-data" class="places-form">
+        <label class="places-field">Vir podatkov
+            <select name="sourceId" required>
+                <option value="">Izberi vir</option>
+                @foreach (var source in Model) { <option value="@source.Id">@source.Name · @DataAdminLabels.SourceType(source.Type) · @(source.DataDate?.ToString("dd. MM. yyyy") ?? "Datum ni določen")</option> }
+            </select>
+        </label>
+        <p><a asp-controller="AdminDataSources" asp-action="Create">Dodaj vir podatkov</a></p>
+        <label class="places-field">Datoteka CSV (UTF-8, največ 5 MiB)<input type="file" name="file" accept=".csv,text/csv" required /></label>
+        <label class="places-field">Ločilo<select name="delimiter"><option value="">Samodejno, če je nedvoumno</option><option value=";">Podpičje (;)</option><option value=",">Vejica (,)</option></select></label>
+        <p>Prva vrstica je glava. Največ 10.000 podatkovnih vrstic, 64 stolpcev, 200.000 celic in 4096 znakov na polje. Za druge kodne strani najprej izvozi UTF-8.</p>
+        <p>Začasni uvoz velja 30 minut in je dostopen samo tebi. Po ponovnem zagonu aplikacije je treba CSV naložiti znova.</p>
+        <button type="submit" class="places-button places-button--primary">Naloži in izberi stolpce</button>
+    </form>
+</main>

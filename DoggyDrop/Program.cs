@@ -170,6 +170,8 @@ builder.Services.AddScoped<BinImportService>();
 
 builder.Services.AddSingleton<PlaceImportSessions>();
 builder.Services.AddScoped<PlaceImportService>();
+builder.Services.AddSingleton<WaterImportSessions>();
+builder.Services.AddScoped<WaterImportService>();
 builder.Services.AddSingleton<IGamificationCalendar, GamificationCalendar>();
 builder.Services.AddScoped<IWeeklyGoalsService, WeeklyGoalsService>();
 builder.Services.AddScoped<IGamificationService, GamificationService>();

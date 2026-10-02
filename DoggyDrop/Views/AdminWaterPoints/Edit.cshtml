@@ -1,0 +1,24 @@
+@model DoggyDrop.ViewModels.WaterPointInput
+@using DoggyDrop.Models
+@using DoggyDrop.Services
+@{var point=ViewBag.Point as WaterPoint;ViewData["Title"]=point==null?"Dodaj pitnik":"Uredi pitnik";}
+@section Styles {<partial name="_MapBasemapStyles" /><link rel="stylesheet" href="~/css/places.css" asp-append-version="true" />}
+<main class="places-page"><h1>@ViewData["Title"]</h1><a asp-action="Index">Vsi pitniki</a>
+@if(point!=null){<p>@WaterPoints.Status(point) · #@point.Id</p>}
+<p>Vir označuje pitnik; odobritev ni zagotovilo trenutne kakovosti vode ali delovanja. Zasebne, notranje in strankam omejene točke označi kot omejen dostop.</p>
+<form asp-action="@(point==null?"Create":"Edit")" asp-route-id="@point?.Id" method="post" class="places-form">
+<div asp-validation-summary="All" role="alert"></div><input type="hidden" name="OriginalUpdatedAt" value="@Model.OriginalUpdatedAt?.ToString("O")" />
+<label class="places-field">Ime (neobvezno)<input asp-for="Name" maxlength="200" aria-describedby="Name-error" /><span asp-validation-for="Name" id="Name-error"></span></label>
+<label class="places-field">Vir<select asp-for="DataSourceId"><option value="">Ni določen</option>@foreach(var s in (IReadOnlyList<ImportSource>)ViewBag.Sources){<option value="@s.Id">@s.Name</option>}</select><span asp-validation-for="DataSourceId"></span></label>
+<label class="places-field">Pitnost po viru<select asp-for="Potability"><option value="0">Neznano</option><option value="1">Vir označuje pitnik</option><option value="2">Ni pitna voda</option></select></label>
+<label class="places-field">Dostop po viru<select asp-for="Access"><option value="0">Neznano</option><option value="1">Javno</option><option value="2">Dovoljeno</option><option value="3">Omejeno / zasebno / notranje</option></select></label>
+<label class="places-field">Sezonskost po viru<select asp-for="Seasonality"><option value="0">Neznano</option><option value="1">Sezonsko</option><option value="2">Vir navaja celoletno</option></select></label>
+<label class="places-field">Dostop psov po viru<select asp-for="DogAccess"><option value="0">Ni podatka</option><option value="1">Dovoljen (ni dokaz posode za pse)</option><option value="2">Ni dovoljen</option></select></label>
+<label><input asp-for="IsApproved" /> Odobren za javni prikaz, če ni umaknjen</label>
+<label class="places-field">Zemljepisna širina<input asp-for="Latitude" type="number" step="any" min="-90" max="90" required aria-describedby="Latitude-error" /><span asp-validation-for="Latitude" id="Latitude-error"></span></label>
+<label class="places-field">Zemljepisna dolžina<input asp-for="Longitude" type="number" step="any" min="-180" max="180" required aria-describedby="Longitude-error" /><span asp-validation-for="Longitude" id="Longitude-error"></span></label>
+<p>Koordinate lahko vpišeš s tipkovnico ali izbereš točko na zemljevidu.</p><div id="placePickerMap" style="height:320px;max-width:100%" aria-label="Izbira lokacije pitnika"></div><p id="placePickerStatus" role="status"></p>
+<button type="button" id="placeUseLocation" class="places-button">Uporabi mojo lokacijo</button><button type="submit" class="places-button places-button--primary">Shrani pitnik</button></form>
+@if(point!=null){<form asp-action="Retire" asp-route-id="@point.Id" method="post" class="my-3"><input type="hidden" name="originalUpdatedAt" value="@point.UpdatedAt.ToString("O")" /><input type="hidden" name="retired" value="@((!point.IsRetired).ToString().ToLowerInvariant())" /><button class="places-button" type="submit">@(point.IsRetired?"Ponovno aktiviraj isti zapis":"Umakni iz javnega prikaza")</button></form>}
+</main>
+@section Scripts {<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script><partial name="_MapBasemapScripts" /><script src="~/js/place-editor.js" asp-append-version="true"></script>}

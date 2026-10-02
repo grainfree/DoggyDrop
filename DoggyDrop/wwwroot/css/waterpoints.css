@@ -1,0 +1,13 @@
+.waterpoint-pin{display:grid;place-items:center;width:34px;height:36px;border:2px solid #fff;border-radius:50% 50% 45% 45%;background:#e4f1f5;color:#23697c;box-shadow:0 2px 5px #173c4440;box-sizing:border-box}
+.waterpoint-pin svg{width:25px;height:25px}
+.waterpoint-marker:focus-visible{outline:3px solid #173f31;outline-offset:3px;border-radius:50%}
+.home-map--broad .leaflet-waterMarkers-pane .waterpoint-pin{transform:scale(.85);transform-origin:50% 100%}
+.home-map--mid .leaflet-waterMarkers-pane .waterpoint-pin{transform:scale(.95);transform-origin:50% 100%}
+.waterpoint-popup{max-width:260px;overflow-wrap:anywhere;font:14px/1.4 system-ui,sans-serif}
+.waterpoint-popup h3{font-size:17px;margin:0 0 8px;color:#23697c}
+.waterpoint-popup p{margin:8px 0}
+.waterpoint-popup button{background:#23697c;color:white;border:0;border-radius:8px;padding:10px 14px;min-height:44px}
+.waterpoint-popup button:focus-visible,.waterpoint-popup a:focus-visible{outline:3px solid #173f31;outline-offset:3px}
+.water-infrastructure{padding:10px 0;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.water-infrastructure button{border:1px solid #23697c;color:#23697c;background:white;border-radius:8px;min-height:44px;padding:8px 12px}
+.water-infrastructure [role=status]{flex-basis:100%;margin:0;overflow-wrap:anywhere}
