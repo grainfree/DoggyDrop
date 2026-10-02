@@ -1,4 +1,86 @@
 (() => {
+    const form = document.getElementById('contributionForm');
+    if (form) {
+        const submit = document.getElementById('contributionSubmit');
+        const label = document.getElementById('contributionSubmitLabel');
+        const spinner = document.getElementById('contributionSpinner');
+        const status = document.getElementById('contributionSubmitStatus');
+        let submitting = false;
+        let generation = 0;
+        function resetSubmission() {
+            submitting = false;
+            submit.disabled = false;
+            form.setAttribute('aria-busy', 'false');
+            label.textContent = 'Pošlji v pregled';
+            spinner.hidden = true;
+            status.textContent = '';
+        }
+        function showFailure(messages, validationDocument) {
+            const summary = document.querySelector('.community-errors');
+            const list = document.createElement('ul');
+            for (const message of messages) {
+                const item = document.createElement('li'); item.textContent = message; list.appendChild(item);
+            }
+            summary.replaceChildren(list);
+            summary.classList.remove('validation-summary-valid');
+            summary.classList.add('validation-summary-errors');
+            // Copy only validation text, never returned HTML, scripts, values or file inputs.
+            for (const slot of form.querySelectorAll('[data-valmsg-for]')) {
+                const name = slot.getAttribute('data-valmsg-for');
+                const source = validationDocument && Array.from(validationDocument.querySelectorAll('[data-valmsg-for]'))
+                    .find(item => item.getAttribute('data-valmsg-for') === name);
+                slot.textContent = source ? source.textContent : '';
+                for (const field of form.elements) if (field.name === name) field.setAttribute('aria-invalid', slot.textContent ? 'true' : 'false');
+            }
+            summary.focus();
+        }
+        form.addEventListener('submit', async event => {
+            if (submitting) { event.preventDefault(); return; }
+            if (event.defaultPrevented) return;
+            if (!form.checkValidity()) { event.preventDefault(); form.reportValidity(); return; }
+            event.preventDefault();
+            // Same multipart POST, antiforgery token and RequestId as the native form fallback.
+            // Only the nameless submit button is disabled: photo and field values stay intact.
+            submitting = true;
+            const attempt = ++generation;
+            submit.disabled = true;
+            form.setAttribute('aria-busy', 'true');
+            label.textContent = 'Pošiljam …';
+            spinner.hidden = false;
+            status.textContent = 'Pošiljam … Počakaj, da se prispevek pošlje v pregled.';
+            let navigating = false;
+            try {
+                const response = await fetch(form.action, {
+                    method: 'POST', body: new FormData(form), credentials: 'same-origin', redirect: 'manual'
+                });
+                if (attempt !== generation) return;
+                // Do not follow the redirect in fetch: that would consume Mine's TempData message.
+                // Create's existing successful redirect is Mine. Its auth checks still apply.
+                if (response.type === 'opaqueredirect') {
+                    window.location.assign(form.dataset.successUrl);
+                    navigating = true;
+                    return;
+                }
+                let validationDocument, messages = [];
+                if (response.status === 400 && (response.headers.get('content-type') || '').includes('text/html')) {
+                    validationDocument = new DOMParser().parseFromString(await response.text(), 'text/html');
+                    messages = Array.from(validationDocument.querySelectorAll('.community-errors.validation-summary-errors li'))
+                        .map(item => item.textContent.trim()).filter(Boolean);
+                }
+                if (attempt !== generation) return;
+                showFailure(messages.length ? messages : [response.status === 429
+                    ? 'Preveč poskusov. Počakaj malo in poskusi znova.'
+                    : 'Prispevka ni bilo mogoče poslati. Poskusi znova.'], validationDocument);
+            } catch {
+                if (attempt === generation) showFailure(['Povezava je bila prekinjena. Preveri povezavo in poskusi znova.']);
+            } finally {
+                if (!navigating && attempt === generation) resetSubmission();
+            }
+        });
+        // Also unlock a retained page after Back (including Safari's back/forward cache).
+        window.addEventListener('pageshow', () => { generation++; resetSubmission(); });
+        resetSubmission();
+    }
     // Native picker remains the submission control; previews stay on this device.
     const photo = document.getElementById('contributionPhoto');
     if (photo) {

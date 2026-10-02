@@ -19,7 +19,7 @@
         <p>Predlog bo pregledal skrbnik. Do odobritve se javni podatki ne spremenijo.</p>
     </header>
     <div class="community-errors" asp-validation-summary="All" role="alert" tabindex="-1"></div>
-    <form asp-action="Create" method="post" enctype="multipart/form-data">
+    <form id="contributionForm" asp-action="Create" method="post" enctype="multipart/form-data" aria-busy="false" data-success-url="@Url.Action("Mine", "BinContributions")">
         <input type="hidden" name="BinId" value="@Model.Id" />
         <input type="hidden" name="RequestId" value="@input.RequestId" />
         <input type="hidden" name="Type" value="@input.Type" />
@@ -71,8 +71,12 @@
             @if (Model.Source.Contains("OpenStreetMap", StringComparison.OrdinalIgnoreCase)) { <span>Popravek v DoggyDrop ne spreminja OpenStreetMap.</span> }
             </div></aside>
         }
-        <div class="community-actions"><button type="submit" class="community-primary">Pošlji v pregled</button><a class="community-secondary" href="/?binId=@Model.Id">Prekliči in nazaj na koš</a></div>
+        <div class="community-actions">
+            <button id="contributionSubmit" type="submit" class="community-primary"><span class="community-submit-spinner" id="contributionSpinner" aria-hidden="true" hidden></span><span id="contributionSubmitLabel">Pošlji v pregled</span></button>
+            <a class="community-secondary" href="/?binId=@Model.Id">Prekliči in nazaj na koš</a>
+        </div>
     </form>
+    <p id="contributionSubmitStatus" class="community-submit-status" role="status" aria-live="polite" aria-atomic="true"></p>
 </div>
 @section Scripts {
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>

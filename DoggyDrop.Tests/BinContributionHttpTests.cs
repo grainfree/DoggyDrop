@@ -406,6 +406,28 @@ public sealed class BinContributionHttpTests : IAsyncLifetime
         Assert.Equal(BinContributionStatus.Pending, (await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().BinContributions.SingleAsync()).Status);
     }
 
+    [Theory]
+    [InlineData(false)] [InlineData(true)]
+    public async Task FailedSubmissionReturnsEnabledFormWithTextAndSameIdempotencyKey(bool photo)
+    {
+        using var user = Client("user");
+        var page = await user.GetStringAsync("/BinContributions/Create/1?photo=" + photo);
+        var requestId = Guid.NewGuid().ToString();
+        var result = await user.PostAsync("/BinContributions/Create", Form(Token(page), ("BinId", "1"),
+            ("Type", photo ? "Photo" : "Issue"), ("RequestId", requestId), ("Description", "Opis za ponovni poskus")));
+        Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+        var html = await result.Content.ReadAsStringAsync();
+        Assert.Contains("Opis za ponovni poskus", html);
+        Assert.Contains(requestId, html);
+        Assert.Contains("aria-busy=\"false\"", html);
+        var button = Regex.Match(html, "<button[^>]*id=\"contributionSubmit\"[^>]*>").Value;
+        Assert.NotEmpty(button); Assert.DoesNotContain("disabled", button);
+        Assert.Contains("validation-summary-errors", html);
+        await CaptureUx(photo ? "submit-photo-errors" : "submit-report-errors", html);
+        await using var scope = app.Services.CreateAsyncScope();
+        Assert.Empty(await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().BinContributions.ToListAsync());
+    }
+
     public async Task DisposeAsync(){if(app!=null)await app.DisposeAsync();File.Delete(file);}
     private sealed class Uploads:ICloudinaryService,IBinPhotoStorage
     {

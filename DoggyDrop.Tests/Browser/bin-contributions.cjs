@@ -33,7 +33,7 @@ async function assertClearance(page) {
   });assert.ok(clear,'bottom nav obscures '+await control.evaluate(e=>e.id||e.textContent.slice(0,50)));
  }
 }
-(async()=>{const browser=await chromium.launch({channel:process.env.BROWSER_CHANNEL||'msedge',headless:true}),results=[],mobileResults=[];let actionCases=0;
+(async()=>{const browser=await chromium.launch({channel:process.env.BROWSER_CHANNEL||'msedge',headless:true}),results=[],mobileResults=[],submitResults=[];let actionCases=0;
  try{
   for(const width of [320,375,390,430,1024,1440]){
    const {page,errors}=await load(browser,'home',width);await page.waitForFunction(()=>typeof binLayer!=='undefined'&&binLayer);
@@ -117,6 +117,60 @@ async function assertClearance(page) {
     if(scene==='contribute'&&width===390){await page.setViewportSize({width,height:390});await page.locator('textarea').focus();await assertClearance(page);}
     assert.deepEqual(errors,[]);mobileResults.push({width,safeArea,scene});await page.close();
    }
+  for(const width of [320,375,390,430,768,1024])for(const kind of ['photo','issue','location'])for(const outcome of ['success','validation','network'])for(const keyboard of [false,true]) {
+   const {page,errors}=await load(browser,kind==='photo'?'photo':'contribute',width);
+   await page.emulateMedia({reducedMotion:keyboard?'reduce':'no-preference'});
+   if(kind==='photo')await page.locator('#contributionPhoto').setInputFiles({name:'prispevek.png',mimeType:'image/png',buffer:png});
+   else {
+    await page.locator('#contributionReason').selectOption(kind==='location'?'WRONG_LOCATION':'DAMAGED');
+    if(kind==='location'){await page.locator('#proposalLatitude').fill('46.001');await page.locator('#proposalLongitude').fill('15.001');}
+   }
+   await page.locator('textarea[name=Description]').fill('Opis za ponovni poskus');
+   const originalId=await page.locator('input[name=RequestId]').inputValue(),token=await page.locator('#contributionForm input[name=__RequestVerificationToken]').inputValue();
+   const requests=[];let release,received;const gate=new Promise(r=>release=r),started=new Promise((resolve,reject)=>{
+    const timeout=setTimeout(()=>reject(new Error('Contribution POST was not intercepted')),30000);
+    received=()=>{clearTimeout(timeout);resolve();};
+   });let mineGets=0;
+   await page.route('**/BinContributions/Mine',r=>{mineGets++;return r.fulfill({contentType:'text/html; charset=utf-8',body:fs.readFileSync(capture+'/mine-success.html','utf8')});});
+   await page.route(/\/BinContributions\/Create(?:\/\d+)?(?:\?.*)?$/,async r=>{
+    requests.push(r.request().postDataBuffer().toString());
+    if(requests.length===1){received();await gate;}
+    if(requests.length===1&&outcome==='network')return r.abort('failed');
+    if(requests.length===1&&outcome==='validation')return r.fulfill({status:400,contentType:'text/html; charset=utf-8',body:fs.readFileSync(capture+(kind==='photo'?'/submit-photo-errors.html':'/submit-report-errors.html'),'utf8')});
+    return r.fulfill({status:302,headers:{location:'/BinContributions/Mine'}});
+   });
+   const button=page.locator('#contributionSubmit');
+   if(keyboard){await button.focus();await button.press('Enter');}else await button.click();
+   await started;
+   assert.equal(await button.isDisabled(),true);assert.equal(await button.innerText(),'Pošiljam …');
+   assert.equal(await page.locator('#contributionForm').getAttribute('aria-busy'),'true');
+   assert.equal(await page.locator('#contributionSpinner').isVisible(),true);
+   assert.equal(await page.locator('#contributionSpinner').evaluate(e=>getComputedStyle(e).animationName),keyboard?'none':'community-submit-spin');
+   assert.equal(await page.locator('textarea').inputValue(),'Opis za ponovni poskus');
+   if(kind==='photo')assert.equal(await page.locator('#contributionPhoto').evaluate(e=>e.files[0].name),'prispevek.png');
+   await page.evaluate(()=>{document.getElementById('contributionSubmit').click();document.getElementById('contributionForm').requestSubmit();document.getElementById('contributionForm').requestSubmit();});
+   assert.equal(requests.length,1);assert.ok(requests[0].includes(originalId));assert.ok(requests[0].includes(token));assert.ok(requests[0].includes('Opis za ponovni poskus'));
+   if(kind==='photo')assert.ok(requests[0].includes('filename="prispevek.png"'));
+   if(width===390&&kind==='photo'&&outcome==='success'&&!keyboard)await page.screenshot({path:out+'/submit-busy-390.png'});
+   release();
+   if(outcome!=='success'){
+    await page.waitForFunction(()=>!document.getElementById('contributionSubmit').disabled);
+    assert.equal(await page.locator('#contributionForm').getAttribute('aria-busy'),'false');
+    assert.equal(await button.innerText(),'Pošlji v pregled');assert.equal(await page.locator('#contributionSpinner').isVisible(),false);
+    assert.equal(await page.locator('.community-errors').isVisible(),true);assert.ok(await page.locator('.community-errors').innerText());
+    assert.equal(await page.locator('textarea').inputValue(),'Opis za ponovni poskus');
+    assert.equal(await page.locator('input[name=RequestId]').inputValue(),originalId);
+    if(kind==='photo')assert.equal(await page.locator('#contributionPhoto').evaluate(e=>e.files[0].name),'prispevek.png');
+    await button.click();
+   }
+   await page.waitForURL('**/BinContributions/Mine');
+   assert.equal(mineGets,1,'fetch must not consume the success page before browser navigation');
+   assert.equal(await page.locator('.community-success').isVisible(),true);assert.match(await page.locator('.community-success').innerText(),/pregled/);
+   assert.equal(requests.length,outcome==='success'?1:2);
+   if(requests.length===2)assert.ok(requests[1].includes(originalId));
+   assert.deepEqual(errors,[]);submitResults.push({width,kind,outcome,keyboard});await page.close();
+  }
+  fs.writeFileSync(out+'/submit-results.json',JSON.stringify(submitResults,null,2));console.log(`PASS ${submitResults.length}/${submitResults.length} submit/busy/failure/retry/keyboard cases`);
   fs.writeFileSync(out+'/mobile-results.json',JSON.stringify(mobileResults,null,2));console.log(`PASS ${mobileResults.length}/${mobileResults.length} mobile UX/safe-area cases`);
   fs.writeFileSync(out+'/results.json',JSON.stringify(results,null,2));console.log(`PASS ${results.length}/${results.length} community layout/entry/geolocation cases`);
   console.log(`PASS ${actionCases}/4 actual Home mutation request cases`);

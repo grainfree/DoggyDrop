@@ -51,6 +51,12 @@
 .community-public .community-primary, .community-public .community-secondary, .community-public #contributionLocate { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 12px 16px; border-radius: 12px; font: inherit; font-weight: 700; text-align: center; text-decoration: none; }
 .community-public .community-primary { color: #fff; background: #246952; border: 1px solid #246952; }
 .community-public .community-primary:hover { background: #194f3d; }
+.community-public .community-primary:disabled { cursor: wait; background: #326c58; color: #fff; }
+.community-submit-spinner { width: 18px; height: 18px; flex: 0 0 18px; margin-right: 10px; border: 2px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: community-submit-spin .8s linear infinite; }
+.community-submit-status { margin: 12px 0 0; color: #286552; font-size: .9rem; }
+.community-submit-status:empty { display: none; }
+@keyframes community-submit-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .community-submit-spinner { animation: none; } }
 .community-public .community-secondary, .community-public #contributionLocate { color: #286552; background: #f4f8f4; border: 1px solid #d6e3da; }
 .community-public #locationProposal { display: grid; gap: 12px; }
 .community-success { display: flex; align-items: start; gap: 12px; padding: 18px; margin-bottom: 20px; border: 1px solid #b4d5c1; border-radius: 18px; background: #edf8f0; }
