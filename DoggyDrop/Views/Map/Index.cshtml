@@ -743,7 +743,7 @@
     .nearest-bin-preview__actions button:last-child { background: #fff; color: #2f6d5f; }
 
     .navigation-card {
-        padding: 11px 14px 12px;
+        padding: 9px 12px 10px;
         border: 1px solid #bad3c6;
         border-radius: 8px;
         background: #fff;
@@ -786,7 +786,7 @@
         color: #455b51;
     }
 
-    .navigation-card__actions { display: flex; gap: 8px; margin-top: 8px; }
+    .navigation-card__actions { display: flex; gap: 8px; margin-top: 6px; }
     .navigation-card__actions button {
         min-height: 44px;
         padding: 0 12px;
@@ -799,6 +799,19 @@
     .navigation-card__actions button:last-child { margin-left: auto; }
     .navigation-card__actions button[hidden] { display: none; }
     .navigation-card__actions button:last-child { border-color: #cbd8d0; background: #f5f8f5; }
+
+    .navigation-card__attribution {
+        display: block;
+        margin-top: 6px;
+        color: #4f625b;
+        font-size: .75rem;
+        line-height: 1.35;
+    }
+    .navigation-card__attribution a { color: #365c4f; text-decoration: underline; }
+    .navigation-card a:focus-visible, .navigation-card button:focus-visible {
+        outline: 3px solid #176a4d;
+        outline-offset: 2px;
+    }
 
     .navigation-destination-icon {
         display: grid;
@@ -1838,9 +1851,10 @@
         line-height: 1.2;
     }
 
-    body.map-bin-navigation-active .leaflet-control-attribution {
-        margin-bottom: calc(var(--app-bottom-nav-clearance, 96px) + 168px) !important;
-        max-width: min(46vw, 220px);
+    body.map-bin-navigation-active #map .leaflet-control-attribution {
+        margin-bottom: var(--navigation-attribution-bottom, 0px) !important;
+        margin-right: 8px;
+        max-width: min(440px, calc(100% - 16px));
         font-size: 9px;
         line-height: 1.2;
     }
@@ -3561,6 +3575,43 @@ else if (needsDogOnboarding)
         const communityEvents = document.getElementById("communityEvents");
         const mapFounderPrompt = document.getElementById("mapFounderPrompt");
 
+        // UI geometry only: observers never request routes or change GPS state.
+        function updateNavigationLayout() {
+            const panel = document.getElementById("directionsPanel");
+            if (!navigation.active) {
+                panel.style.removeProperty("bottom");
+                document.getElementById("map").style.removeProperty("--navigation-attribution-bottom");
+                return;
+            }
+            const bottomNav = document.querySelector(".app-bottom-nav");
+            const navRect = bottomNav?.getBoundingClientRect();
+            const viewport = window.visualViewport;
+            const viewportBottom = viewport ? viewport.offsetTop + viewport.height : window.innerHeight;
+            const viewportInset = Math.max(0, window.innerHeight - viewportBottom);
+            const navClearance = navRect?.height ? Math.max(0, window.innerHeight - navRect.top) + 8 : 24;
+            panel.style.bottom = window.innerWidth < 1024
+                ? `max(var(--app-bottom-nav-clearance, 96px), ${Math.ceil(Math.max(navClearance, viewportInset + 8))}px)`
+                : `${Math.ceil(Math.max(24, viewportInset + 8))}px`;
+            const mapElement = map.getContainer();
+            const mapRect = mapElement.getBoundingClientRect();
+            const panelRect = panel.getBoundingClientRect();
+            mapElement.style.setProperty("--navigation-attribution-bottom", `${Math.ceil(Math.max(0, mapRect.bottom - panelRect.top + 8))}px`);
+        }
+
+        function observeNavigationLayout() {
+            let frame = null;
+            const schedule = () => {
+                if (frame !== null) return;
+                frame = requestAnimationFrame(() => { frame = null; updateNavigationLayout(); });
+            };
+            const observer = new ResizeObserver(schedule);
+            [map.getContainer(), document.getElementById("directionsPanel"), document.querySelector(".app-bottom-nav")]
+                .filter(Boolean).forEach(element => observer.observe(element));
+            window.addEventListener("resize", schedule);
+            window.visualViewport?.addEventListener("resize", schedule);
+            window.visualViewport?.addEventListener("scroll", schedule);
+        }
+
         function setDirectionsPanelCompact(isCompact) {
             const panel = document.getElementById("directionsPanel");
             if (!panel) {
@@ -3575,6 +3626,7 @@ else if (needsDogOnboarding)
                 setActiveWalkSheetExpanded(false);
             }
             document.body.classList.toggle("map-bin-navigation-active", Boolean(isActive));
+            updateNavigationLayout();
             if (homeWalkPlanLayer) {
                 if (isActive) map.removeLayer(homeWalkPlanLayer);
                 else if (!map.hasLayer(homeWalkPlanLayer)) homeWalkPlanLayer.addTo(map);
@@ -3977,6 +4029,7 @@ else if (needsDogOnboarding)
             map.createPane("userMarkers").style.zIndex = 630;
 
             DoggyDropBasemap.addTo(map);
+            observeNavigationLayout();
 
             if (homeActiveWalkId > 0) {
                 homeWalkPlanLayer = L.polyline(homeWalkPlanPoints, { color: "#d97706", weight: 4, opacity: 0.8, dashArray: "8 8" }).addTo(map);
@@ -5280,8 +5333,9 @@ else if (needsDogOnboarding)
                 map.invalidateSize({ pan: false });
                 const mapRect = map.getContainer().getBoundingClientRect();
                 const sheetRect = document.getElementById("directionsPanel").getBoundingClientRect();
-                const coveredHeight = Math.max(0, mapRect.bottom - sheetRect.top);
-                const bottomPadding = Math.min(Math.max(24, map.getSize().y - 80), Math.ceil(coveredHeight + 16));
+                const attributionRect = map.getContainer().querySelector(".leaflet-control-attribution").getBoundingClientRect();
+                const coveredHeight = Math.max(0, mapRect.bottom - Math.min(sheetRect.top, attributionRect.top));
+                const bottomPadding = Math.min(Math.max(24, map.getSize().y - 80), Math.ceil(coveredHeight + 36));
                 map.fitBounds(navigation.routeLayer.getBounds(), {
                     paddingTopLeft: mobile ? [34, 112] : [48, 88],
                     paddingBottomRight: mobile ? [42, bottomPadding] : [48, bottomPadding],
@@ -5332,13 +5386,14 @@ else if (needsDogOnboarding)
                     <h3 class="navigation-card__title">${escapeHtml(bin.name || bin.Name || "Cilj")}</h3>
                     <div class="navigation-card__metrics"><strong>${distanceLabel}</strong><span>${approximate ? `zračna razdalja · ${eta}` : eta}</span></div>
                     <p class="navigation-card__status" role="status">${escapeHtml(routeNote)}</p>
-                    ${!approximate && navigation.routeStatus === "routed" ? '<small>Pot: <a href="https://openrouteservice.org/" target="_blank" rel="noopener noreferrer">© openrouteservice.org by HeiGIT</a> · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a></small>' : ""}
                     <div class="navigation-card__actions">
                         <button type="button" onclick="recenterNavigation()" ${navigation.followUser ? "hidden" : ""} aria-label="Nazaj na mojo lokacijo"><i class="bi bi-crosshair" aria-hidden="true"></i> Nazaj na mojo lokacijo</button>
                         <button type="button" onclick="stopInAppNavigation()" aria-label="Končaj navigacijo"><i class="bi bi-x-lg" aria-hidden="true"></i> Končaj</button>
                     </div>
+                    ${!approximate && navigation.routeStatus === "routed" ? '<small class="navigation-card__attribution">Pot: <a href="https://openrouteservice.org/" target="_blank" rel="noopener noreferrer">© openrouteservice.org by HeiGIT</a> · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a></small>' : ""}
                 </article>
             `;
+            updateNavigationLayout();
         }
 
         function openFilterPanel() {
