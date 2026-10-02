@@ -312,6 +312,100 @@ public sealed class BinContributionHttpTests : IAsyncLifetime
         Assert.Contains("OSM bin", await anon.GetStringAsync("/"));
         Assert.Equal(1234, (await db.Walks.AsNoTracking().SingleAsync(w => w.Id == history.Id)).DistanceMeters);
     }
+    private static async Task CaptureUx(string name, string html)
+    {
+        var capture = Environment.GetEnvironmentVariable("DOGGYDROP_COMMUNITY_CAPTURE");
+        if (capture == null) return;
+        Directory.CreateDirectory(capture);
+        await File.WriteAllTextAsync(Path.Combine(capture, name + ".html"), html);
+    }
+
+    [Fact]
+    public async Task PublicContributionFormsKeepNativeUploadAndAssociatedValidation()
+    {
+        using var user = Client("user");
+        var photo = await user.GetStringAsync("/BinContributions/Create/1?photo=true");
+        Assert.Contains("for=\"contributionPhoto\"", photo);
+        Assert.Contains("name=\"Photo\"", photo);
+        Assert.Contains("accept=\"image/jpeg,image/png,image/webp\"", photo);
+        Assert.DoesNotContain("capture=", photo);
+        Assert.Contains("aria-describedby=\"photoHelp photoError\"", photo);
+        await CaptureUx("photo", photo);
+        var issue = await user.GetStringAsync("/BinContributions/Create/1");
+        Assert.Contains("community-source-note", issue);
+        Assert.Contains("Popravek v DoggyDrop ne spreminja OpenStreetMap.", issue);
+        Assert.DoesNotContain("PRIVATE SOURCE", issue);
+        await CaptureUx("contribute", issue);
+        var invalid = await user.PostAsync("/BinContributions/Create", Form(Token(issue), ("BinId", "1"),
+            ("Type", "Issue"), ("Description", new string('x', 1001)), ("RequestId", Guid.NewGuid().ToString())));
+        Assert.Equal(HttpStatusCode.BadRequest, invalid.StatusCode);
+        var errors = await invalid.Content.ReadAsStringAsync();
+        Assert.Contains("id=\"descriptionError\"", errors);
+        Assert.Contains("aria-invalid=\"true\"", errors);
+        await CaptureUx("contribute-errors", errors);
+        var missingPhoto = await user.PostAsync("/BinContributions/Create", Form(Token(photo), ("BinId", "1"),
+            ("Type", "Photo"), ("RequestId", Guid.NewGuid().ToString())));
+        Assert.Equal(HttpStatusCode.BadRequest, missingPhoto.StatusCode);
+        var photoErrors = await missingPhoto.Content.ReadAsStringAsync();
+        Assert.Contains("validation-summary-errors", photoErrors);
+        await CaptureUx("photo-errors", photoErrors);
+        await using var scope = app.Services.CreateAsyncScope();
+        Assert.Empty(await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().BinContributions.ToListAsync());
+    }
+
+    [Fact]
+    public async Task HistoryCardsUseEncodedNamesAndSafePublicMapLinksWithoutPrivateMetadata()
+    {
+        using var user = Client("user");
+        await CaptureUx("mine-empty", await user.GetStringAsync("/BinContributions/Mine"));
+        await using (var scope = app.Services.CreateAsyncScope()) {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            (await db.TrashBins.FindAsync(1))!.Name = "Park ob reki <img src=x onerror=alert(1)>";
+            db.BinContributions.Add(new BinContribution { BinId=1, SubmittedByUserId="user", Type=BinContributionType.Photo,
+                ReviewNote="PRIVATE REVIEW", ProposedPhotoUrl="/uploads/PRIVATE_PHOTO.webp", RequestId=Guid.NewGuid() });
+            await db.SaveChangesAsync();
+        }
+        var single = await user.GetStringAsync("/BinContributions/Mine");
+        Assert.Contains("Park ob reki &lt;img", single);
+        Assert.DoesNotContain("Park ob reki <img", single);
+        Assert.Contains("href=\"/?binId=1\"", single);
+        Assert.DoesNotContain("PRIVATE", single);
+        await CaptureUx("mine-one", single);
+        await using (var scope = app.Services.CreateAsyncScope()) {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            db.BinContributions.AddRange(
+                new BinContribution { BinId=2, SubmittedByUserId="user", Type=BinContributionType.Issue, Reason=BinIssueReason.WRONG_LOCATION, Status=BinContributionStatus.Approved, RequestId=Guid.NewGuid() },
+                new BinContribution { BinId=3, SubmittedByUserId="user", Type=BinContributionType.Issue, Reason=BinIssueReason.DAMAGED, Status=BinContributionStatus.Rejected, RequestId=Guid.NewGuid() },
+                new BinContribution { BinId=1, SubmittedByUserId="admin", Type=BinContributionType.Photo, RequestId=Guid.NewGuid() });
+            await db.SaveChangesAsync();
+        }
+        var multiple = await user.GetStringAsync("/BinContributions/Mine");
+        Assert.Equal(3, Regex.Matches(multiple, "<article>").Count);
+        Assert.DoesNotContain("href=\"/?binId=2\"", multiple);
+        Assert.DoesNotContain("href=\"/?binId=3\"", multiple);
+        foreach (var status in new[] { "V pregledu", "Odobreno", "Zavrnjeno" }) Assert.Contains(status, multiple);
+        await CaptureUx("mine-multiple", multiple);
+    }
+
+    [Fact]
+    public async Task SubmissionSuccessRemainsReviewPendingAndEmptyHistoryOffersMap()
+    {
+        using var user = Client("user");
+        var empty = WebUtility.HtmlDecode(await user.GetStringAsync("/BinContributions/Mine"));
+        Assert.Contains("Tvoj prvi prispevek šteje", empty);
+        Assert.Contains("href=\"/\"", empty);
+        var form = await user.GetStringAsync("/BinContributions/Create/1");
+        var response = await user.PostAsync("/BinContributions/Create", Form(Token(form), ("BinId", "1"),
+            ("Type", "Issue"), ("Reason", "DAMAGED"), ("RequestId", Guid.NewGuid().ToString())));
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        var success = await user.GetStringAsync(response.Headers.Location!);
+        Assert.Contains("community-success\" role=\"status\"", success);
+        Assert.Contains("Hvala. Prijavo bomo pregledali.", success);
+        await CaptureUx("mine-success", success);
+        await using var scope = app.Services.CreateAsyncScope();
+        Assert.Equal(BinContributionStatus.Pending, (await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().BinContributions.SingleAsync()).Status);
+    }
+
     public async Task DisposeAsync(){if(app!=null)await app.DisposeAsync();File.Delete(file);}
     private sealed class Uploads:ICloudinaryService,IBinPhotoStorage
     {

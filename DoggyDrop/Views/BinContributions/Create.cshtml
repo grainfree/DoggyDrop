@@ -1,56 +1,79 @@
 @model DoggyDrop.ViewModels.BinContributionPage
 @using DoggyDrop.Models
 @using DoggyDrop.Services
-@{ ViewData["Title"] = "Pomagaj izboljšati podatke"; var input = Model.Input; }
+@{
+    var input = Model.Input;
+    var isPhoto = input.Type == BinContributionType.Photo;
+    ViewData["Title"] = isPhoto ? "Dodaj fotografijo" : "Prijavi težavo";
+}
 @section Styles {
     <partial name="_MapBasemapStyles" />
     <link rel="stylesheet" href="~/css/bin-contributions.css" asp-append-version="true" />
 }
-<main class="bin-contribution-page">
-    <h1>Pomagaj izboljšati podatke</h1>
-    <h2>@Model.Name</h2>
-    @if (Model.Source != null) { <p>Izvirni vir: @Model.Source</p> }
-    <p>Predlog bo pregledal skrbnik. Do odobritve se javni podatki ne spremenijo. Popravek v DoggyDrop ne spreminja OpenStreetMap.</p>
-    <div asp-validation-summary="All" role="alert"></div>
+<div class="bin-contribution-page community-public">
+    <a class="community-back" href="/?binId=@Model.Id"><i class="bi bi-arrow-left" aria-hidden="true"></i> Nazaj na koš</a>
+    <header class="community-heading">
+        <span class="community-eyebrow">Skupaj izboljšujemo zemljevid</span>
+        <h1>@ViewData["Title"]</h1>
+        <p class="community-bin-name">@(string.IsNullOrWhiteSpace(Model.Name) ? "Koš za pasje iztrebke" : Model.Name)</p>
+        <p>Predlog bo pregledal skrbnik. Do odobritve se javni podatki ne spremenijo.</p>
+    </header>
+    <div class="community-errors" asp-validation-summary="All" role="alert" tabindex="-1"></div>
     <form asp-action="Create" method="post" enctype="multipart/form-data">
         <input type="hidden" name="BinId" value="@Model.Id" />
         <input type="hidden" name="RequestId" value="@input.RequestId" />
         <input type="hidden" name="Type" value="@input.Type" />
-        @if (input.Type == BinContributionType.Photo)
+        @if (isPhoto)
         {
-            <h2>@(Model.Image == null ? "Dodaj fotografijo" : "Predlagaj novo fotografijo")</h2>
-            @if (Model.Image != null) { <img class="bin-contribution-photo" src="@Model.Image" alt="Trenutna odobrena fotografija koša" /> }
-            <p>Fotografiraj koš in njegovo neposredno okolico. Izogni se prepoznavnim osebam, registrskim tablicam, notranjosti domov in nepovezani zasebni lastnini.</p>
-            <label>Fotografija <input type="file" name="Photo" accept="image/jpeg,image/png,image/webp" required /></label>
-            <p>@BinPhotoUploadPolicy.Error</p>
+            @if (Model.Image != null) { <figure class="community-current-photo"><img class="bin-contribution-photo" src="@Model.Image" alt="Trenutna odobrena fotografija koša" /><figcaption>Trenutna fotografija · predlagaš lahko zamenjavo.</figcaption></figure> }
+            <p class="community-hint">Fotografiraj koš in njegovo neposredno okolico. Izogni se prepoznavnim osebam, registrskim tablicam, notranjosti domov in nepovezani zasebni lastnini.</p>
+            <div class="community-upload">
+                <input class="community-native-file" id="contributionPhoto" type="file" name="Photo" accept="image/jpeg,image/png,image/webp" required aria-describedby="photoHelp photoError" aria-invalid="@(ViewData.ModelState["Photo"]?.Errors.Count > 0 ? "true" : "false")" />
+                <label class="community-upload-label" for="contributionPhoto"><i class="bi bi-camera" aria-hidden="true"></i><span id="photoChooseLabel">Fotografiraj ali izberi fotografijo</span></label>
+            </div>
+            <p id="photoHelp" class="community-hint">@BinPhotoUploadPolicy.Error</p>
+            @Html.ValidationMessage("Photo", null, new { id = "photoError", @class = "community-field-error" })
+            <figure id="photoPreview" class="community-preview" hidden><img id="photoPreviewImage" alt="Predogled izbrane fotografije koša" /><figcaption>Predogled · fotografija še ni poslana.</figcaption></figure>
+            <p id="photoSelectionStatus" class="community-hint" role="status"></p>
+            <button type="button" id="photoRemove" class="community-secondary" hidden>Odstrani fotografijo</button>
         }
         else
         {
-            <label>Težava <select name="Reason" id="contributionReason" required>
+            <label>Težava <select name="Reason" id="contributionReason" required aria-describedby="reasonError" aria-invalid="@(ViewData.ModelState["Reason"]?.Errors.Count > 0 ? "true" : "false")">
                 <option value="">Izberi težavo</option>
                 @foreach (var reason in Enum.GetValues<BinIssueReason>()) { <option value="@reason" selected="@(reason == input.Reason)">@BinCommunityRules.Reason(reason)</option> }
             </select></label>
+            @Html.ValidationMessage("Reason", null, new { id = "reasonError", @class = "community-field-error" })
             <section id="locationProposal" hidden data-lat="@Model.Latitude.ToString(System.Globalization.CultureInfo.InvariantCulture)" data-lon="@Model.Longitude.ToString(System.Globalization.CultureInfo.InvariantCulture)">
                 <h2>Predlagana lokacija</h2>
                 <p>Trenutni položaj je označen s krogom. Klikni zemljevid za nov položaj.</p>
                 <div id="contributionMap" aria-label="Zemljevid za predlagano lokacijo"></div>
                 <button type="button" id="contributionLocate">Uporabi mojo lokacijo</button>
                 <p id="contributionLocationStatus" role="status"></p>
-                <label>Širina <input name="Latitude" id="proposalLatitude" value="@input.Latitude?.ToString(System.Globalization.CultureInfo.InvariantCulture)" inputmode="decimal" /></label>
-                <label>Dolžina <input name="Longitude" id="proposalLongitude" value="@input.Longitude?.ToString(System.Globalization.CultureInfo.InvariantCulture)" inputmode="decimal" /></label>
+                <label>Širina <input name="Latitude" id="proposalLatitude" value="@input.Latitude?.ToString(System.Globalization.CultureInfo.InvariantCulture)" inputmode="decimal" aria-describedby="latitudeError" /></label>
+                @Html.ValidationMessage("Latitude", null, new { id = "latitudeError", @class = "community-field-error" })
+                <label>Dolžina <input name="Longitude" id="proposalLongitude" value="@input.Longitude?.ToString(System.Globalization.CultureInfo.InvariantCulture)" inputmode="decimal" aria-describedby="longitudeError" /></label>
+                @Html.ValidationMessage("Longitude", null, new { id = "longitudeError", @class = "community-field-error" })
             </section>
             <section id="duplicateProposal" hidden>
-                <label>Drugi koš <select name="DuplicateBinId"><option value="">Izberi bližnji koš</option>
+                <label>Drugi koš <select name="DuplicateBinId" aria-describedby="duplicateError"><option value="">Izberi bližnji koš</option>
                     @foreach (var other in Model.Neighbours) { <option value="@other.Id" selected="@(other.Id == input.DuplicateBinId)">#@other.Id · @other.Name · @Math.Round(other.Metres) m</option> }
                 </select></label>
+                @Html.ValidationMessage("DuplicateBinId", null, new { id = "duplicateError", @class = "community-field-error" })
                 <p>Če drugega koša ni na seznamu, oddaj »Drugo« in opiši lokacijo.</p>
             </section>
         }
-        <label>Kratek opis (največ 1000 znakov)<textarea name="Description" maxlength="1000" rows="3">@input.Description</textarea></label>
-        <button type="submit" class="btn btn-success">Pošlji v pregled</button>
-        <a href="/?binId=@Model.Id">Nazaj na koš</a>
+        <label>Kratek opis<textarea name="Description" maxlength="1000" rows="3" aria-describedby="descriptionHelp descriptionError" aria-invalid="@(ViewData.ModelState["Description"]?.Errors.Count > 0 ? "true" : "false")">@input.Description</textarea></label>
+        <p id="descriptionHelp" class="community-hint">Največ 1000 znakov. Opiši le podatke, pomembne za ta koš.</p>
+        @Html.ValidationMessage("Description", null, new { id = "descriptionError", @class = "community-field-error" })
+        @if (Model.Source != null) {
+            <aside class="community-source-note"><i class="bi bi-info-circle" aria-hidden="true"></i><div>Izvirni vir: @Model.Source
+            @if (Model.Source.Contains("OpenStreetMap", StringComparison.OrdinalIgnoreCase)) { <span>Popravek v DoggyDrop ne spreminja OpenStreetMap.</span> }
+            </div></aside>
+        }
+        <div class="community-actions"><button type="submit" class="community-primary">Pošlji v pregled</button><a class="community-secondary" href="/?binId=@Model.Id">Prekliči in nazaj na koš</a></div>
     </form>
-</main>
+</div>
 @section Scripts {
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <partial name="_MapBasemapScripts" />

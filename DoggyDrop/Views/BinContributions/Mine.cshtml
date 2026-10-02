@@ -3,16 +3,24 @@
 @using DoggyDrop.Models
 @{ ViewData["Title"] = "Moji prispevki"; }
 @section Styles { <link rel="stylesheet" href="~/css/bin-contributions.css" asp-append-version="true" /> }
-<main class="bin-contribution-page">
-    <h1>Moji prispevki</h1>
-    @if (TempData["ContributionMessage"] is string message) { <p role="status">@message</p> }
-    <p><a asp-controller="Map" asp-action="MyBins">Moji predlogi novih košev</a> · <a href="/">Zemljevid</a></p>
+<div class="bin-contribution-page community-public community-history">
+    <a class="community-back" href="/"><i class="bi bi-arrow-left" aria-hidden="true"></i> Nazaj na zemljevid</a>
+    <header class="community-heading"><span class="community-eyebrow">Skupaj izboljšujemo zemljevid</span><h1>Moji prispevki</h1><p>Tvoje fotografije in predlogi pomagajo drugim na sprehodu.</p></header>
+    @if (TempData["ContributionMessage"] is string message) { <div class="community-success" role="status"><i class="bi bi-check-circle" aria-hidden="true"></i><div><strong>@message</strong><p>Prispevek bo pregledal skrbnik. Javni podatki se spremenijo šele po odobritvi.</p></div></div> }
+    <a class="community-back" asp-controller="Map" asp-action="MyBins">Moji predlogi novih košev <i class="bi bi-arrow-right" aria-hidden="true"></i></a>
     @foreach (var item in Model) {
-        <article><h2>Koš #@item.BinId</h2><p>@(item.Type == BinContributionType.Photo ? "Fotografija" : BinCommunityRules.Reason(item.Reason)) · @BinCommunityRules.Status(item.Status)</p><time>@item.CreatedAt.ToString("dd.MM.yyyy")</time></article>
+        var icon = item.Type == BinContributionType.Photo ? "bi-camera" : item.Reason == BinIssueReason.WRONG_LOCATION ? "bi-geo-alt" : "bi-flag";
+        var statusClass = item.Status == BinContributionStatus.Pending ? "pending" : item.Status == BinContributionStatus.Approved ? "approved" : "rejected";
+        <article>
+            <div class="community-card-heading"><span class="community-type-icon"><i class="bi @icon" aria-hidden="true"></i></span><div><h2>@(string.IsNullOrWhiteSpace(item.BinName) ? "Koš za pasje iztrebke" : item.BinName)</h2><p>@(item.Type == BinContributionType.Photo ? "Fotografija" : BinCommunityRules.Reason(item.Reason))</p></div></div>
+            <div class="community-card-meta"><span class="community-badge community-badge--@statusClass">@BinCommunityRules.Status(item.Status)</span><span>Poslano <time datetime="@item.CreatedAt.ToString("yyyy-MM-dd")">@item.CreatedAt.ToString("dd.MM.yyyy")</time></span></div>
+            @if (item.CanShowOnMap) { <a class="community-map-link" href="/?binId=@item.BinId">Prikaži na zemljevidu <i class="bi bi-arrow-up-right" aria-hidden="true"></i></a> }
+            else { <p class="community-hint">Koš trenutno ni na javnem zemljevidu.</p> }
+        </article>
     }
-    @if (Model.Count == 0) { <p>Prispevkov še ni.</p> }
-    <nav aria-label="Strani prispevkov">
+    @if (Model.Count == 0) { <section class="community-empty"><span class="community-type-icon"><i class="bi bi-heart" aria-hidden="true"></i></span><h2>Tvoj prvi prispevek šteje</h2><p>Pomagaj izboljšati DoggyDrop. Na zemljevidu izberi koš, dodaj fotografijo ali sporoči težavo.</p><a class="community-primary" href="/">Razišči zemljevid</a></section> }
+    <nav class="community-pagination" aria-label="Strani prispevkov">
         @if (ViewBag.Page > 1) { <a asp-action="Mine" asp-route-page="@(ViewBag.Page - 1)">Prejšnja stran</a> }
         @if (ViewBag.HasNext) { <a asp-action="Mine" asp-route-page="@(ViewBag.Page + 1)">Naslednja stran</a> }
     </nav>
-</main>
+</div>

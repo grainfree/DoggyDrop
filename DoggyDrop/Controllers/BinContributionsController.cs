@@ -58,9 +58,11 @@ public sealed class BinContributionsController(ApplicationDbContext db, BinContr
         if (owner == null) return Forbid();
         // No pending image URL or private Admin note in user history.
         var rows = await db.BinContributions.AsNoTracking().Where(c => c.SubmittedByUserId == owner)
-            .OrderByDescending(c => c.Id).Skip((page - 1) * 100).Take(101).Select(c => new BinContributionHistory(c.Id, c.BinId, c.Type, c.Reason, c.Status, c.CreatedAt)).ToListAsync();
+            .OrderByDescending(c => c.Id).Skip((page - 1) * 100).Take(101).Select(c => new BinContributionHistory(c.Id, c.BinId, c.Type, c.Reason, c.Status, c.CreatedAt,
+                c.Bin.Name, c.Bin.IsApproved && !c.Bin.IsRetired)).ToListAsync();
         ViewBag.Page = page; ViewBag.HasNext = rows.Count > 100;
         return View(rows.Take(100).ToList());
     }
 }
-public sealed record BinContributionHistory(long Id, int BinId, BinContributionType Type, BinIssueReason? Reason, BinContributionStatus Status, DateTime CreatedAt);
+public sealed record BinContributionHistory(long Id, int BinId, BinContributionType Type, BinIssueReason? Reason, BinContributionStatus Status, DateTime CreatedAt,
+    string? BinName, bool CanShowOnMap);

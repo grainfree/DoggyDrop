@@ -1,4 +1,50 @@
 (() => {
+    // Native picker remains the submission control; previews stay on this device.
+    const photo = document.getElementById('contributionPhoto');
+    if (photo) {
+        const preview = document.getElementById('photoPreview');
+        const image = document.getElementById('photoPreviewImage');
+        const remove = document.getElementById('photoRemove');
+        const label = document.getElementById('photoChooseLabel');
+        const feedback = document.getElementById('photoSelectionStatus');
+        let objectUrl;
+        function clearPreview() {
+            image.onload = image.onerror = null;
+            image.removeAttribute('src'); preview.hidden = true;
+            if (objectUrl) URL.revokeObjectURL(objectUrl);
+            objectUrl = null;
+        }
+        function updatePreview() {
+            clearPreview();
+            const file = photo.files[0];
+            remove.hidden = !file;
+            label.textContent = file ? 'Zamenjaj fotografijo' : 'Fotografiraj ali izberi fotografijo';
+            feedback.textContent = file ? 'Fotografija je izbrana. Pred pošiljanjem preveri predogled.' : '';
+            // A local preview is convenience only; all upload validation stays on the server.
+            if (!file) return;
+            if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 12 * 1024 * 1024) {
+                feedback.textContent = 'Predogled ni na voljo. Izberi JPG, PNG ali WebP do 12 MiB.';
+                return;
+            }
+            const currentUrl = objectUrl = URL.createObjectURL(file);
+            image.onload = () => { if (objectUrl === currentUrl) preview.hidden = false; };
+            image.onerror = () => {
+                if (objectUrl !== currentUrl) return;
+                clearPreview(); feedback.textContent = 'Predogleda ni mogoče prikazati. Izberi drugo fotografijo.';
+            };
+            image.src = currentUrl;
+        }
+        photo.addEventListener('change', updatePreview);
+        remove.addEventListener('click', () => {
+            clearPreview(); photo.value = ''; remove.hidden = true;
+            label.textContent = 'Fotografiraj ali izberi fotografijo';
+            feedback.textContent = 'Fotografija je odstranjena.'; photo.focus();
+        });
+        window.addEventListener('pagehide', clearPreview);
+        window.addEventListener('pageshow', event => {
+            if (event.persisted && photo.files.length) updatePreview();
+        });
+    }
     const reason = document.getElementById('contributionReason');
     if (!reason) return;
     const section = document.getElementById('locationProposal');

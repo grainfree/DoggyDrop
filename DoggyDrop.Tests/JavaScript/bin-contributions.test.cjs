@@ -15,6 +15,48 @@ test('switching reasons displays only relevant controls',()=>{const f=fixture();
 test('explicit numeric input updates proposal with no geolocation',()=>{const f=fixture();f.change('WRONG_LOCATION');f.elements.get('proposalLatitude').value='46.12';f.elements.get('proposalLongitude').value='15.34';f.elements.get('proposalLongitude').events.change();assert.equal(f.elements.get('proposalLatitude').value,'46.120000');assert.equal(f.calls.geo,0);});
 
 const home=fs.readFileSync(path.resolve(__dirname,'../../DoggyDrop/Views/Map/Index.cshtml'),'utf8');
+function uploadFixture() {
+ const elements=new Map();
+ for(const id of ['contributionPhoto','photoPreview','photoPreviewImage','photoRemove','photoChooseLabel','photoSelectionStatus'])
+  elements.set(id,{hidden:true,value:'',files:[],textContent:'',events:{},addEventListener(k,f){this.events[k]=f;},removeAttribute(k){delete this[k];},focus(){this.focused=true;}});
+ const revoked=[],events={},created=[];
+ vm.runInNewContext(code,{document:{getElementById:id=>elements.get(id)},window:{addEventListener(k,f){events[k]=f;}},URL:{createObjectURL(file){created.push(file);return 'blob:'+created.length;},revokeObjectURL(url){revoked.push(url);}}});
+ return {elements,revoked,events,created,select(file){elements.get('contributionPhoto').files=file?[file]:[];elements.get('contributionPhoto').events.change();}};
+}
+test('native photo selection previews locally and replacing revokes the previous blob',()=>{
+ const f=uploadFixture(),file={type:'image/png',size:100};f.select(file);
+ const image=f.elements.get('photoPreviewImage');image.onload();
+ assert.equal(f.elements.get('photoPreview').hidden,false);
+ assert.equal(f.elements.get('photoChooseLabel').textContent,'Zamenjaj fotografijo');
+ f.select(file);assert.deepEqual(f.revoked,['blob:1']);assert.equal(image.src,'blob:2');
+});
+test('remove clears selection and preview, restores picker focus and cannot submit removed file',()=>{
+ const f=uploadFixture();f.select({type:'image/png',size:100});f.elements.get('photoRemove').events.click();
+ assert.equal(f.elements.get('contributionPhoto').value,'');assert.equal(f.elements.get('contributionPhoto').focused,true);
+ assert.equal(f.elements.get('photoPreview').hidden,true);assert.equal(f.elements.get('photoRemove').hidden,true);
+ assert.deepEqual(f.revoked,['blob:1']);
+});
+test('late preview completion cannot revive a removed or replaced image',()=>{
+ const f=uploadFixture();f.select({type:'image/png',size:100});const old=f.elements.get('photoPreviewImage').onload;
+ f.select({type:'image/jpeg',size:100});old();assert.equal(f.elements.get('photoPreview').hidden,true);
+ f.elements.get('photoRemove').events.click();old();assert.equal(f.elements.get('photoPreview').hidden,true);
+});
+test('unsupported or oversized files do not allocate previews; server remains authoritative',()=>{
+ const f=uploadFixture();for(const file of [{type:'image/svg+xml',size:100},{type:'image/png',size:13*1024*1024}]){
+  f.select(file);assert.equal(f.created.length,0);assert.equal(f.elements.get('photoRemove').hidden,false);
+  assert.equal(f.elements.get('contributionPhoto').files[0],file);
+ }
+});
+test('failed image decode and page exit release preview URLs',()=>{
+ const f=uploadFixture();f.select({type:'image/png',size:100});f.elements.get('photoPreviewImage').onerror();
+ assert.equal(f.elements.get('photoPreview').hidden,true);assert.deepEqual(f.revoked,['blob:1']);
+ f.select({type:'image/png',size:100});f.events.pagehide();assert.deepEqual(f.revoked,['blob:1','blob:2']);
+});
+test('browser back restores the preview of a retained native selection after pagehide cleanup',()=>{
+ const f=uploadFixture();f.select({type:'image/png',size:100});f.events.pagehide();
+ f.events.pageshow({persisted:true});assert.equal(f.elements.get('photoPreviewImage').src,'blob:2');
+ f.elements.get('photoPreviewImage').onload();assert.equal(f.elements.get('photoPreview').hidden,false);
+});
 const actionCode=home.slice(home.indexOf('async function sendBinAction('),home.indexOf('function findNearestTrashBin()'));
 for(const action of ['used','full','useful','not-useful'])test(`actual Home ${action} request carries rendered token and unambiguous form action`,async()=>{
  const feedback={textContent:''},requests=[];
