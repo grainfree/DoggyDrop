@@ -14,6 +14,7 @@ using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddCommunityConfirmations();
+builder.Services.AddPasswordSettings();
 
 builder.Services.Configure<CookiePolicyOptions>(options =>
 {

@@ -1,0 +1,15 @@
+.account-security { max-width: 560px; margin: 0 auto; padding: 24px 16px calc(var(--app-bottom-nav-clearance, 88px) + 24px); overflow-wrap: anywhere; }
+.account-security h1 { font-size: clamp(1.5rem, 5vw, 2rem); margin: 0 0 12px; }
+.account-security__eyebrow { color: #2f6d5f; font-weight: 800; margin-bottom: 6px; }
+.account-security__form { display: grid; gap: 20px; padding: 20px; margin: 20px 0 12px; border: 1px solid #dce6df; border-radius: 20px; background: #fff; }
+.account-security__form > div { min-width: 0; }
+.account-security label { display: block; font-weight: 800; margin-bottom: 6px; }
+.account-security input { box-sizing: border-box; width: 100%; min-width: 0; min-height: 48px; padding: 10px 12px; border: 1px solid #819c90; border-radius: 10px; font: inherit; font-size: 16px; background: #fff; color: #173f35; }
+.account-security__submit { min-height: 48px; border: 0; border-radius: 12px; padding: 12px; background: #2f6d5f; color: #fff; font: inherit; font-weight: 800; }
+.account-security__back { display: inline-flex; align-items: center; min-height: 44px; padding: 8px 4px; color: #245649; font-weight: 800; }
+.account-security :is(input,button,a):focus-visible { outline: 3px solid #bf741f; outline-offset: 3px; }
+.account-security .field-validation-error, .account-security__errors { color: #962d26; }
+.account-security .field-validation-error { display: block; margin-top: 6px; }
+.account-security__errors.validation-summary-valid { display: none; }
+.account-security__errors ul { margin: 0; padding-left: 20px; }
+.account-security__success { padding: 16px; border-radius: 12px; border: 1px solid #86ad93; background: #e8f4e9; color: #234e32; }
