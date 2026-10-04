@@ -130,7 +130,7 @@ if (!string.IsNullOrWhiteSpace(googleClientId) && !string.IsNullOrWhiteSpace(goo
             options.ClientId = googleClientId;
             options.ClientSecret = googleClientSecret;
             options.CallbackPath = new PathString("/signin-google");
-            options.SaveTokens = true;
+            options.SaveTokens = false; // Sign-in only; no application feature needs provider tokens.
             options.AccessDeniedPath = "/Identity/Account/Login";
         });
 }

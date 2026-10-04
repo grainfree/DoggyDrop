@@ -11,11 +11,18 @@
         </div>
 
         <div class="auth-hero">
-            <span>Povezava računa</span>
-            <h1>Dokončaj prijavo z Google računom.</h1>
-            <p>Večinoma DoggyDrop račun ustvari samodejno. Če manjka email, ga potrdi tukaj in nadaljuj.</p>
+            <span>Zunanja prijava</span>
+            <h1>Dokončaj prijavo.</h1>
         </div>
 
+        @if (Model.EmailConflict)
+        {
+            <p role="status">Račun s tem e-poštnim naslovom že obstaja. Prijavi se v obstoječi račun in zunanjo prijavo poveži v nastavitvah računa.</p>
+            <a class="btn btn-success auth-submit" asp-page="./Login" asp-route-returnUrl="/Identity/Account/Manage/ExternalLogins">Prijavi se v obstoječi račun</a>
+        }
+        else
+        {
+        <p>Za nov račun potrebujemo e-poštni naslov. Ta korak ne poveže obstoječega računa.</p>
         <form asp-page="./ExternalLogin" asp-page-handler="Confirmation" asp-route-returnUrl="@Model.ReturnUrl" method="post" class="auth-form">
             <div asp-validation-summary="All" class="text-danger small"></div>
 
@@ -27,6 +34,7 @@
 
             <button type="submit" class="btn btn-success auth-submit">Nadaljuj</button>
         </form>
+        }
     </div>
 </section>
 

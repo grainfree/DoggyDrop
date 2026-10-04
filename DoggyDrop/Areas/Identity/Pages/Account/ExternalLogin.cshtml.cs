@@ -1,200 +1,107 @@
 using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
+using DoggyDrop.Data;
 using DoggyDrop.Models;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.EntityFrameworkCore;
 
 namespace DoggyDrop.Areas.Identity.Pages.Account;
 
-public class ExternalLoginModel : PageModel
+[ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+public class ExternalLoginModel(SignInManager<ApplicationUser> signIn, UserManager<ApplicationUser> users,
+    ApplicationDbContext db) : PageModel
 {
-    private readonly SignInManager<ApplicationUser> _signInManager;
-    private readonly UserManager<ApplicationUser> _userManager;
-
-    public ExternalLoginModel(
-        SignInManager<ApplicationUser> signInManager,
-        UserManager<ApplicationUser> userManager)
-    {
-        _signInManager = signInManager;
-        _userManager = userManager;
-    }
-
-    [BindProperty]
-    public InputModel Input { get; set; } = new();
-
+    [BindProperty] public InputModel Input { get; set; } = new();
     public string ReturnUrl { get; set; } = "/";
-
-    public string ProviderDisplayName { get; set; } = "Google";
-
-    [TempData]
-    public string? ErrorMessage { get; set; }
-
+    public string ProviderDisplayName { get; set; } = "Zunanja prijava";
+    public bool EmailConflict { get; set; }
+    [TempData] public string? ErrorMessage { get; set; }
     public class InputModel
     {
-        [Required(ErrorMessage = "Email naslov je obvezen.")]
-        [EmailAddress(ErrorMessage = "Vnesi veljaven email naslov.")]
-        public string Email { get; set; } = string.Empty;
+        [Required(ErrorMessage = "E-poštni naslov je obvezen.")]
+        [EmailAddress(ErrorMessage = "Vnesi veljaven e-poštni naslov.")]
+        public string Email { get; set; } = "";
     }
-
-    public IActionResult OnPostAsync(string provider, string? returnUrl = null)
+    private string LocalReturn(string? value) => Url.IsLocalUrl(value) ? value! : "/";
+    public async Task<IActionResult> OnPostAsync(string provider, string? returnUrl = null)
     {
-        returnUrl ??= Url.Content("~/");
-
-        if (string.IsNullOrWhiteSpace(provider))
-        {
-            ErrorMessage = "Izberi ponudnika za zunanjo prijavo.";
-            return RedirectToPage("./Login", new { ReturnUrl = returnUrl });
-        }
-
-        var redirectUrl = Url.Page("./ExternalLogin", pageHandler: "Callback", values: new { returnUrl });
-        var properties = _signInManager.ConfigureExternalAuthenticationProperties(provider, redirectUrl);
-
-        return new ChallengeResult(provider, properties);
+        ReturnUrl = LocalReturn(returnUrl);
+        if (!(await signIn.GetExternalAuthenticationSchemesAsync()).Any(s => s.Name == provider))
+            return Failure();
+        await HttpContext.SignOutAsync(IdentityConstants.ExternalScheme);
+        var redirect = Url.Page("./ExternalLogin", "Callback", new { returnUrl = ReturnUrl });
+        return Challenge(signIn.ConfigureExternalAuthenticationProperties(provider, redirect), provider);
     }
-
     public async Task<IActionResult> OnGetCallbackAsync(string? returnUrl = null, string? remoteError = null)
     {
-        returnUrl ??= Url.Content("~/");
-
-        if (!string.IsNullOrWhiteSpace(remoteError))
-        {
-            ErrorMessage = $"Napaka pri zunanji prijavi: {remoteError}";
-            return RedirectToPage("./Login", new { ReturnUrl = returnUrl });
-        }
-
-        var info = await _signInManager.GetExternalLoginInfoAsync();
-        if (info == null)
-        {
-            ErrorMessage = "Napaka pri pridobivanju podatkov o zunanji prijavi.";
-            return RedirectToPage("./Login", new { ReturnUrl = returnUrl });
-        }
-
-        var signInResult = await _signInManager.ExternalLoginSignInAsync(
-            info.LoginProvider,
-            info.ProviderKey,
-            isPersistent: false,
-            bypassTwoFactor: true);
-
-        if (signInResult.Succeeded)
-        {
-            return LocalRedirect(returnUrl);
-        }
-
-        var email = info.Principal.FindFirstValue(ClaimTypes.Email);
-        if (!string.IsNullOrWhiteSpace(email))
-        {
-            var existingUser = await _userManager.FindByEmailAsync(email);
-            if (existingUser != null)
-            {
-                var existingLogins = await _userManager.GetLoginsAsync(existingUser);
-                if (!existingLogins.Any(login => login.LoginProvider == info.LoginProvider && login.ProviderKey == info.ProviderKey))
-                {
-                    var linkResult = await _userManager.AddLoginAsync(existingUser, info);
-                    if (!linkResult.Succeeded)
-                    {
-                        ErrorMessage = "Google prijave ni bilo mogoče povezati z obstoječim računom.";
-                        return RedirectToPage("./Login", new { ReturnUrl = returnUrl });
-                    }
-                }
-
-                await _signInManager.SignInAsync(existingUser, isPersistent: false);
-                return LocalRedirect(returnUrl);
-            }
-
-            var createdUser = await CreateExternalUserAsync(info, email);
-            if (createdUser != null)
-            {
-                await _signInManager.SignInAsync(createdUser, isPersistent: false);
-                return LocalRedirect(returnUrl);
-            }
-
-            Input.Email = email;
-        }
-
-        ProviderDisplayName = info.ProviderDisplayName ?? "Google";
-        ReturnUrl = returnUrl;
-        return Page();
+        ReturnUrl = LocalReturn(returnUrl);
+        if (!string.IsNullOrEmpty(remoteError)) return Failure();
+        return await CompleteAsync(false);
     }
-
     public async Task<IActionResult> OnPostConfirmationAsync(string? returnUrl = null)
     {
-        returnUrl ??= Url.Content("~/");
-
-        var info = await _signInManager.GetExternalLoginInfoAsync();
-        if (info == null)
+        ReturnUrl = LocalReturn(returnUrl);
+        return await CompleteAsync(true);
+    }
+    private async Task<IActionResult> CompleteAsync(bool submitted)
+    {
+        var info = await signIn.GetExternalLoginInfoAsync();
+        if (info == null || info.AuthenticationProperties?.Items.ContainsKey("XsrfId") == true)
+            return Failure(); // An account-management challenge is not a registration/login challenge.
+        ProviderDisplayName = info.ProviderDisplayName ?? "Zunanja prijava";
+        // A failed linked login must never fall through to email lookup/registration.
+        var linked = await users.FindByLoginAsync(info.LoginProvider, info.ProviderKey);
+        if (linked != null)
         {
-            ErrorMessage = "Napaka pri potrditvi zunanjih informacij.";
-            return RedirectToPage("./Login", new { ReturnUrl = returnUrl });
+            var result = await signIn.ExternalLoginSignInAsync(info.LoginProvider, info.ProviderKey, false, bypassTwoFactor: false);
+            if (result.Succeeded) return LocalRedirect(ReturnUrl);
+            if (result.RequiresTwoFactor) return RedirectToPage("./LoginWith2fa", new { ReturnUrl, RememberMe = false });
+            if (result.IsLockedOut) return RedirectToPage("./Lockout");
+            return Failure();
         }
-
-        if (!ModelState.IsValid)
+        var claimedEmail = info.Principal.FindFirstValue(ClaimTypes.Email);
+        // Provider email, when present, cannot be replaced by a posted form value.
+        var email = string.IsNullOrWhiteSpace(claimedEmail) ? (submitted ? Input.Email?.Trim() : null) : claimedEmail.Trim();
+        ModelState.Clear();
+        Input.Email = email ?? "";
+        if (email == null && !submitted) return Page();
+        if (!TryValidateModel(Input, nameof(Input))) return Page();
+        email = Input.Email;
+        if (await users.FindByEmailAsync(email) != null || await users.FindByNameAsync(email) != null)
         {
-            ProviderDisplayName = info.ProviderDisplayName ?? "Google";
-            ReturnUrl = returnUrl;
+            EmailConflict = true;
+            await HttpContext.SignOutAsync(IdentityConstants.ExternalScheme);
             return Page();
         }
-
-        var existingUser = await _userManager.FindByEmailAsync(Input.Email);
-        if (existingUser != null)
+        // The unique normalized username (email) and provider tuple remain DB-enforced.
+        // A losing registration never retries by attaching to the winning account.
+        try
         {
-            var linkResult = await _userManager.AddLoginAsync(existingUser, info);
-            if (linkResult.Succeeded)
-            {
-                await _signInManager.SignInAsync(existingUser, isPersistent: false);
-                return LocalRedirect(returnUrl);
-            }
-
-            foreach (var error in linkResult.Errors)
-            {
-                ModelState.AddModelError(string.Empty, error.Description);
-            }
+            await using var transaction = await db.Database.BeginTransactionAsync();
+            var user = new ApplicationUser {
+                UserName = email, Email = email, EmailConfirmed = false,
+                DisplayName = info.Principal.FindFirstValue("name") ?? info.Principal.FindFirstValue(ClaimTypes.Name) ?? "Uporabnik"
+            };
+            if (!(await users.CreateAsync(user)).Succeeded || !(await users.AddLoginAsync(user, info)).Succeeded)
+                return RegistrationFailure();
+            await transaction.CommitAsync();
         }
-        else
-        {
-            var createdUser = await CreateExternalUserAsync(info, Input.Email);
-            if (createdUser != null)
-            {
-                await _signInManager.SignInAsync(createdUser, isPersistent: false);
-                return LocalRedirect(returnUrl);
-            }
-
-            ModelState.AddModelError(string.Empty, "Google računa ni bilo mogoče dokončati.");
-        }
-
-        ProviderDisplayName = info.ProviderDisplayName ?? "Google";
-        ReturnUrl = returnUrl;
+        catch (DbUpdateException) { return RegistrationFailure(); }
+        // Respect the same Identity sign-in policy as an already-linked account.
+        var createdResult = await signIn.ExternalLoginSignInAsync(info.LoginProvider, info.ProviderKey, false, bypassTwoFactor: false);
+        return createdResult.Succeeded ? LocalRedirect(ReturnUrl) : Failure();
+    }
+    private IActionResult RegistrationFailure()
+    {
+        ModelState.AddModelError("", "Računa ni bilo mogoče ustvariti. Poskusi znova ali se prijavi v obstoječi račun.");
         return Page();
     }
-
-    private async Task<ApplicationUser?> CreateExternalUserAsync(ExternalLoginInfo info, string email)
+    private IActionResult Failure()
     {
-        var displayName = info.Principal.FindFirstValue("name")
-            ?? info.Principal.FindFirstValue(ClaimTypes.Name)
-            ?? "Uporabnik";
-
-        var user = new ApplicationUser
-        {
-            UserName = email,
-            Email = email,
-            EmailConfirmed = true,
-            DisplayName = displayName
-        };
-
-        var createResult = await _userManager.CreateAsync(user);
-        if (!createResult.Succeeded)
-        {
-            return null;
-        }
-
-        var addLoginResult = await _userManager.AddLoginAsync(user, info);
-        if (!addLoginResult.Succeeded)
-        {
-            await _userManager.DeleteAsync(user);
-            return null;
-        }
-
-        return user;
+        ErrorMessage = "Zunanje prijave ni bilo mogoče dokončati. Poskusi znova.";
+        return RedirectToPage("./Login", new { ReturnUrl });
     }
 }

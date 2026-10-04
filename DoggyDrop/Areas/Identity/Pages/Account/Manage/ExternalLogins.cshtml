@@ -1,0 +1,39 @@
+@page
+@model DoggyDrop.Areas.Identity.Pages.Account.Manage.ExternalLoginsModel
+@{
+    ViewData["Title"] = "Povezane prijave";
+    ViewData["ActivePage"] = ManageNavPages.ExternalLogins;
+}
+<h2>Povezane prijave</h2>
+<p>Zunanjo prijavo lahko povežeš samo s svojim prijavljenim računom.</p>
+@if (!string.IsNullOrEmpty(Model.StatusMessage))
+{
+    <p class="alert alert-info" role="status">@Model.StatusMessage</p>
+}
+@if (Model.CurrentLogins.Count == 0)
+{
+    <p>Še nimaš povezanih zunanjih prijav.</p>
+}
+@foreach (var login in Model.CurrentLogins)
+{
+    <form method="post" asp-page-handler="RemoveLogin" class="mb-3">
+        <strong>@login.ProviderDisplayName</strong>
+        <input type="hidden" name="loginProvider" value="@login.LoginProvider" />
+        <input type="hidden" name="providerKey" value="@login.ProviderKey" />
+        @if (Model.ShowRemoveButton)
+        {
+            <button type="submit" class="btn btn-outline-danger">Odstrani @login.ProviderDisplayName</button>
+        }
+    </form>
+}
+@if (Model.OtherLogins.Count > 0)
+{
+    <form method="post" asp-page-handler="LinkLogin" class="mb-3">
+        @foreach (var provider in Model.OtherLogins)
+        {
+            <button type="submit" class="btn btn-success mb-2" name="provider" value="@provider.Name">Poveži @provider.DisplayName</button>
+        }
+    </form>
+}
+<p><a asp-page="./ChangePassword">Nastavitve gesla</a></p>
+<p><a asp-controller="Home" asp-action="UserProfile" asp-area="">Nazaj na profil</a></p>
