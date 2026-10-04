@@ -51,7 +51,7 @@
     <meta name="mobile-web-app-capable" content="yes" />
 
     <!-- 🔒 Dodatna varnost -->
-    <meta name="referrer" content="no-referrer-when-downgrade" />
+    <meta name="referrer" content="@(Context.Request.Path.StartsWithSegments("/Identity") ? "no-referrer" : "no-referrer-when-downgrade")" />
 
     <!-- 🎨 CSS -->
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />

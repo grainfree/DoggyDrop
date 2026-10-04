@@ -386,6 +386,7 @@ namespace DoggyDrop.Controllers
 
         [Authorize]
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> UpdateProfile(string DisplayName, IFormFile? ProfileImage)
         {
             var user = await _userManager.GetUserAsync(User);
