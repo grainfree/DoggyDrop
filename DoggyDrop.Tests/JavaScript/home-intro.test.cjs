@@ -163,42 +163,15 @@ test("mobile actions and filters reserve safe-area clearance and community stays
     assert.match(css, /:focus-visible/);
 });
 
-function runPwa({ intro = false, active = false, storageFails = false, stored = null } = {}) {
-    const source = layout.match(/<script>\s*(document.addEventListener\('DOMContentLoaded',[\s\S]*?)<\/script>/)[1];
-    let shown = 0;
-    let writes = 0;
-    vm.runInNewContext(source, {
-        document: {
-            addEventListener: (_, callback) => callback(), getElementById: () => ({}),
-            body: { classList: { contains: name => name === "home-intro-visible" ? intro : active } }
-        },
-        localStorage: {
-            getItem() { if (storageFails) throw Error("blocked"); return stored; },
-            setItem() { if (storageFails) throw Error("blocked"); writes++; }
-        },
-        bootstrap: { Toast: class { show() { shown++; } } }
-    });
-    return { shown, writes };
-}
-
-test("PWA prompt defers first-run and active walks without consuming its preference", () => {
-    assert.deepEqual(runPwa({ intro: true }), { shown: 0, writes: 0 });
-    assert.deepEqual(runPwa({ active: true }), { shown: 0, writes: 0 });
-    assert.deepEqual(runPwa(), { shown: 1, writes: 1 });
-    assert.deepEqual(runPwa({ stored: "true" }), { shown: 0, writes: 0 });
-    assert.match(css, /#pwaPrompt \{\s*top: 132px !important; bottom: auto !important/);
-});
-
-test("PWA and existing Home map settings tolerate disabled storage", () => {
-    assert.deepEqual(runPwa({ storageFails: true }), { shown: 1, writes: 0 });
+test("install guidance is contextual and existing Home settings tolerate disabled storage", () => {
+    assert.doesNotMatch(layout, /new bootstrap.Toast|id="pwaPrompt"/);
+    assert.match(layout, /<details id="pwaInstall"/);
     const settings = home.slice(home.indexOf('        function getMapSetting('), home.indexOf('        function buildPopupContent('));
     const context = { mapSettingsPrefix: "test.", localStorage: {
         getItem() { throw Error("blocked"); }, setItem() { throw Error("blocked"); }
     } };
-    vm.createContext(context);
-    vm.runInContext(settings, context);
+    vm.createContext(context); vm.runInContext(settings, context);
     assert.equal(context.getMapSetting("bins", true), true);
-    assert.equal(context.getMapSetting("parks", false), false);
     assert.doesNotThrow(() => context.saveMapSetting("bins", false));
 });
 

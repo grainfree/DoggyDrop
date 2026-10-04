@@ -43,6 +43,7 @@
     position: static; width: auto; margin: 0; padding: 0; border: 0; box-shadow: none; background: transparent; transform: none;
 }
 .home-context .map-weekly-preview { margin: 0; padding: 0; border: 0; }
+.home-intro-visible .map-status-pill,
 .home-intro-visible .home-context, .home-intro-visible .map-founder-prompt,
 .home-intro-visible #pwaPrompt,
 body:has(.home-context[open]) #pwaPrompt,
@@ -86,4 +87,17 @@ body.map-nearest-preview-active .home-context { display: none !important; }
 }
 @media (prefers-reduced-motion: reduce) {
     .map-community-heat { transition: none; }
+}
+/* In tablet landscape the vertical action rail could cover the header/menu. */
+@media (min-width: 576px) and (max-width: 1023.98px) and (max-height: 600px) {
+    body:not(.map-walk-active) .map-action-stack {
+        left: 10px; right: 10px; width: auto;
+        bottom: calc(86px + env(safe-area-inset-bottom, 0px));
+        grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px;
+    }
+    body:not(.map-walk-active) .map-action-button {
+        grid-template-columns: 1fr; justify-items: center;
+        min-height: 58px; padding: 6px; gap: 3px; font-size: .75rem;
+    }
+    body:not(.map-walk-active) .map-action-button__icon { width: 26px; height: 26px; }
 }

@@ -212,10 +212,15 @@ if (AchievementReconciliationCommand.IsRequested(args))
 }
 
 app.UseMiddleware<SeoIndexingMiddleware>();
+app.UseMiddleware<LaunchHeaders>();
 
 if (!app.Environment.IsDevelopment())
 {
-    app.UseExceptionHandler("/Home/Error");
+    app.UseExceptionHandler(errorApp => errorApp.Run(async context => {
+        context.Response.StatusCode = 500;
+        if (LaunchReadiness.WantsHtml(context)) await LaunchReadiness.WriteStatus(context);
+        else await context.Response.WriteAsJsonAsync(new { error = "Prišlo je do napake." });
+    }));
 }
 
 app.UseForwardedHeaders(new ForwardedHeadersOptions
@@ -223,7 +228,12 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
     ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedHost | ForwardedHeaders.XForwardedProto
 });
 
-app.UseStaticFiles();
+if (!app.Environment.IsDevelopment()) app.UseHsts();
+app.UseStatusCodePages(async status => {
+    if (status.HttpContext.Response.StatusCode is 403 or 404 && LaunchReadiness.WantsHtml(status.HttpContext))
+        await LaunchReadiness.WriteStatus(status.HttpContext);
+});
+app.UseStaticFiles(new StaticFileOptions { OnPrepareResponse = LaunchReadiness.StaticResponse });
 app.UseRouting();
 app.UseCookiePolicy();
 app.UseAuthentication();

@@ -1,11 +1,11 @@
 {
   "name": "DoggyDrop",
   "short_name": "DoggyDrop",
-  "description": "Poišči in dodaj koše za pasje iztrebke okoli sebe.",
+  "description": "Poišči koše, pitnike in pasje lokacije ter načrtuj sprehod.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#425F57",
+  "theme_color": "#2F6D5F",
   "orientation": "portrait",
   "scope": "/",
   "icons": [

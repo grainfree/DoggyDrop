@@ -1,4 +1,4 @@
-﻿@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.Identity
 @using DoggyDrop.Data
 @using Microsoft.EntityFrameworkCore
 @inject SignInManager<ApplicationUser> SignInManager
@@ -51,11 +51,12 @@
     <meta name="mobile-web-app-capable" content="yes" />
 
     <!-- 🔒 Dodatna varnost -->
-    <meta name="referrer" content="@(Context.Request.Path.StartsWithSegments("/Identity") ? "no-referrer" : "no-referrer-when-downgrade")" />
+    <meta name="referrer" content="@(Context.Request.Path.StartsWithSegments("/Identity") ? "no-referrer" : "strict-origin-when-cross-origin")" />
 
     <!-- 🎨 CSS -->
-    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" asp-append-version="true" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+    <link rel="stylesheet" href="~/css/pwa.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/place-category-icons.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/DoggyDrop.styles.css" asp-append-version="true" />
@@ -132,6 +133,12 @@
             </button>
         </div>
         <div class="offcanvas-body app-menu-sheet__body">
+            <details id="pwaInstall" class="pwa-install">
+                <summary>Namesti DoggyDrop</summary>
+                <p id="pwaInstallHelp">DoggyDrop lahko uporabljaš tudi brez namestitve.</p>
+                <button id="pwaInstallButton" type="button" hidden>Namesti aplikacijo</button>
+            </details>
+            <p id="pwaUpdate" role="status" hidden>Na voljo je nova različica. Ko končaš sprehod in pošiljanje, zapri vse zavihke DoggyDrop ter aplikacijo znova odpri.</p>
             @if (isSignedIn)
             {
                 <div class="app-menu-user">
@@ -270,37 +277,16 @@
         </div>
     </footer>*@
 
-    <script src="~/lib/jquery/dist/jquery.min.js"></script>
-    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/lib/jquery/dist/jquery.min.js" asp-append-version="true"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js" asp-append-version="true"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
     <partial name="_ValidationScriptsPartial" />
     
-    <div id="pwaPrompt" class="toast align-items-center text-bg-light border-0" role="alert"
-         style="position: fixed; bottom: 20px; left: 20px; z-index: 2000;" aria-live="assertive" aria-atomic="true">
-        <div class="d-flex">
-            <div class="toast-body">
-                📲 Želiš hiter dostop? Dodaj DoggyDrop na začetni zaslon!
-                <br><small class="text-muted">V brskalniku pritisni <strong>“Dodaj na začetni zaslon”</strong>.</small>
-            </div>
-            <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast" aria-label="Zapri"></button>
-        </div>
+    <div id="pwaNetwork" class="pwa-network" role="status" hidden>
+        <p>Trenutno ni povezave. Sveži podatki, poti in prispevki potrebujejo internet. Po vrnitvi povezave lahko dejanje ponoviš.</p>
+        <button id="pwaNetworkDismiss" type="button">Zapri obvestilo</button>
     </div>
-
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            // Leave first-run explanation and active-walk controls unobstructed.
-            // An unseen install prompt remains eligible on a later visit.
-            if (document.body.classList.contains('home-intro-visible') ||
-                document.body.classList.contains('map-walk-active')) return;
-            let promptShown = false;
-            try { promptShown = localStorage.getItem('pwaPromptShown') === 'true'; } catch { }
-            if (!promptShown) {
-                const toast = new bootstrap.Toast(document.getElementById('pwaPrompt'));
-                toast.show();
-                try { localStorage.setItem('pwaPromptShown', 'true'); } catch { }
-            }
-        });
-    </script>
+    <script src="~/js/pwa.js" asp-append-version="true"></script>
 
     @if (isSignedIn)
     {

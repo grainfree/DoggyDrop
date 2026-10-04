@@ -3090,9 +3090,9 @@
         <span class="home-intro__brand">DOGGYDROP</span>
         <h1 id="homeIntroTitle">Vse za lažji sprehod s psom.</h1>
         <ul>
-            <li><i class="bi bi-trash" aria-hidden="true"></i> Najdi najbližji koš.</li>
-            <li><i class="bi bi-geo-alt" aria-hidden="true"></i> Odkrij uporabne pasje lokacije.</li>
-            <li><i class="bi bi-activity" aria-hidden="true"></i> Beleži sprehode.</li>
+            <li><i class="bi bi-trash" aria-hidden="true"></i> Najdi koše, pitnike in pasje lokacije.</li>
+            <li><i class="bi bi-geo-alt" aria-hidden="true"></i> Načrtuj in beleži sprehode.</li>
+            <li><i class="bi bi-activity" aria-hidden="true"></i> Pomagaj s potrditvijo, prijavo ali fotografijo.</li>
         </ul>
         <div class="home-intro__actions">
             <button id="dismissHomeIntro" type="button">Razišči zemljevid</button>
@@ -4203,7 +4203,8 @@ else if (needsDogOnboarding)
             window.setInterval(refreshNotificationPreview, 60000);
             updateFounderPrompt();
             map.on("moveend", updateFounderPrompt);
-            if (!linkedBin) focusMapNearUser(Boolean(linkedManagedPlace));
+            // An existing active recording keeps its location behavior; browsing never prompts.
+            if (homeActiveWalkId > 0 && !linkedBin) focusMapNearUser(Boolean(linkedManagedPlace));
 
             if (!window.isSecureContext) {
                 document.getElementById("mapLocationWarning").hidden = false;
@@ -4864,7 +4865,7 @@ else if (needsDogOnboarding)
 
             if (!window.isSecureContext) {
                 document.getElementById("mapLocationWarning").hidden = false;
-                alert("Lokacija na tej povezavi ni dovoljena. Za GPS na telefonu bova kasneje uredila HTTPS.");
+                alert("Za lokacijo uporabi varno povezavo HTTPS. Zemljevid lahko raziskuješ tudi brez lokacije.");
                 return;
             }
 
@@ -4914,7 +4915,7 @@ else if (needsDogOnboarding)
                     renderNearbySuggestions();
                 })
                 .catch(error => { if (lookupId === nearestBinLookupId) alert(error.message); });
-            }, () => { if (lookupId === nearestBinLookupId) alert("Napaka pri pridobivanju lokacije."); }, {
+            }, () => { if (lookupId === nearestBinLookupId) alert("Lokacije ni bilo mogoče pridobiti. Preveri dovoljenje in signal ter poskusi znova. Zemljevid lahko raziskuješ tudi brez lokacije."); }, {
                 enableHighAccuracy: true,
                 maximumAge: 0,
                 timeout: 10000
@@ -4960,7 +4961,7 @@ else if (needsDogOnboarding)
                 status.textContent = "Predlogi so pripravljeni iz tvoje trenutne lokacije.";
                 renderNearbySuggestions();
             }, () => {
-                status.textContent = "Lokacije ni bilo mogoce pridobiti. Prikazani so predlogi iz centra zemljevida.";
+                status.textContent = "Lokacije ni bilo mogoče pridobiti. Preveri dovoljenje in signal ter poskusi znova. Zemljevid lahko raziskuješ tudi brez lokacije. Prikazani so predlogi iz centra zemljevida.";
                 renderNearbySuggestions();
             }, {
                 enableHighAccuracy: true,
@@ -5016,7 +5017,7 @@ else if (needsDogOnboarding)
                 }
 
                 beginNavigation();
-            }, () => alert("Lokacije ni bilo mogoce pridobiti."), {
+            }, () => alert("Lokacije ni bilo mogoče pridobiti. Preveri dovoljenje in signal ter poskusi znova. Zemljevid lahko raziskuješ tudi brez lokacije."), {
                 enableHighAccuracy: true,
                 maximumAge: 0,
                 timeout: 10000
@@ -5140,7 +5141,7 @@ else if (needsDogOnboarding)
                 }
 
                 beginNavigation();
-            }, () => alert("Lokacije ni bilo mogoce pridobiti."), {
+            }, () => alert("Lokacije ni bilo mogoče pridobiti. Preveri dovoljenje in signal ter poskusi znova. Zemljevid lahko raziskuješ tudi brez lokacije."), {
                 enableHighAccuracy: true,
                 maximumAge: 0,
                 timeout: 10000

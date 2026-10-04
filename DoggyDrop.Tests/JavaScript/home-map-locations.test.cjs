@@ -66,7 +66,7 @@ test('a marker cannot belong to two logical layers',()=>{
 test('Home-only assets leave precision maps, Active and Planner free of clustering',()=>{
     const home=fs.readFileSync(path.join(root,'DoggyDrop/Views/Map/Index.cshtml'),'utf8');
     assert.match(home,/leaflet@1\.9\.4/);assert.match(home,/leaflet\.markercluster-1\.5\.3/);
-    assert.match(home,/if \(!linkedBin\) focusMapNearUser\(Boolean\(linkedManagedPlace\)\)/);
+    assert.match(home,/if \(homeActiveWalkId > 0 && !linkedBin\) focusMapNearUser\(Boolean\(linkedManagedPlace\)\)/);
     for(const file of ['Views/Map/Add.cshtml','Views/Places/Details.cshtml','Views/Walks/Active.cshtml','Views/Walks/Planner.cshtml','Views/AdminPlaces/Create.cshtml','Views/AdminPlaces/Edit.cshtml']) {
         const content=fs.readFileSync(path.join(root,'DoggyDrop',file),'utf8');assert.doesNotMatch(content,/home-map-locations|markercluster/i,file);
     }

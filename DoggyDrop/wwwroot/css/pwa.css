@@ -1,0 +1,13 @@
+.launch-document { margin:0; min-height:100dvh; background:#f4f8f5; color:#17322c; font:1rem/1.6 system-ui,sans-serif; }
+.launch-document main { box-sizing:border-box; max-width:40rem; margin:auto; padding:calc(3rem + env(safe-area-inset-top,0px)) 1.25rem calc(3rem + env(safe-area-inset-bottom,0px)); overflow-wrap:anywhere; }
+.launch-brand { font-weight:800; color:#24695a; }
+.launch-document h1 { font-size:clamp(1.5rem,5vw,2rem); line-height:1.25; }
+.launch-document a, .pwa-install button { display:inline-flex; align-items:center; min-height:44px; padding:.6rem 1rem; border:0; border-radius:.6rem; background:#24695a; color:white; font:inherit; font-weight:700; }
+.pwa-install { margin:1rem 0; padding:1rem; border:1px solid #dbe7e0; border-radius:12px; color:#17322c; background:#f4f8f5; }
+.pwa-install summary { min-height:44px; cursor:pointer; font-weight:700; padding:.5rem; }
+.pwa-install p { margin:.5rem 0; overflow-wrap:anywhere; }
+.pwa-install [hidden], .pwa-network[hidden] { display:none !important; }
+.pwa-network { position:fixed; z-index:2000; top:calc(70px + env(safe-area-inset-top,0px)); left:50%; transform:translateX(-50%); width:min(32rem,calc(100% - 24px)); max-height:calc(100dvh - 230px - env(safe-area-inset-bottom,0px)); overflow:auto; padding:.75rem; border:1px solid #b6cec3; border-radius:12px; background:#f4f8f5; color:#17322c; box-shadow:0 4px 20px #17322c26; }
+.pwa-network button { min-height:44px; padding:.5rem .75rem; border:1px solid #24695a; border-radius:6px; background:white; color:#24695a; }
+.pwa-network p { margin:0 0 .5rem; }
+.pwa-install :focus-visible,.pwa-network :focus-visible,.launch-document :focus-visible { outline:3px solid #24695a; outline-offset:3px; }

@@ -22,7 +22,7 @@ public sealed record SeoMetadata(string Title, string Description, string Canoni
         "Občine in komunalna podjetja lahko z obstoječimi podatki o lokacijah košev pomagajo dopolniti zemljevid DoggyDrop. Vključitev je brezplačna.", MunicipalitiesPath);
 
     public static SeoMetadata Home { get; } = new("DoggyDrop – zemljevid za sprehode s psom",
-        "Najdi koše za pasje iztrebke in uporabne pasje lokacije ter beleži sprehode s psom.", "/");
+        "Najdi koše, pitnike in uporabne pasje lokacije, načrtuj sprehod in pomagaj skupnosti.", "/");
     public static SeoMetadata Discovery { get; } = new("Pasje lokacije | DoggyDrop",
         "Razišči veterinarje, trgovine, pasje parke in druge uporabne lokacije za pse. Oglej si lokacijo in navodila za pot.", "/Places");
 
