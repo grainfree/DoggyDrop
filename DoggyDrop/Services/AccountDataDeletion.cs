@@ -40,7 +40,12 @@ public sealed class AccountDataDeletion(ApplicationDbContext db, UserManager<App
                     .ExecuteUpdateAsync(s => s.SetProperty(c => c.Description, (string?)null).SetProperty(c => c.SubmittedByUserId, (string?)null));
 
                 await db.Friendships.Where(x => x.RequesterId == user.Id || x.AddresseeId == user.Id).ExecuteDeleteAsync();
-                await db.TrashBins.Where(x => x.UserId == user.Id && !x.IsApproved).ExecuteDeleteAsync();
+                // Formerly public bins can be unapproved again and still have protected
+                // infrastructure history. Retain those hidden records, without ownership,
+                // rather than failing the entire account deletion on a restricted FK.
+                await db.TrashBins.Where(x => x.UserId == user.Id && !x.IsApproved
+                    && !db.BinContributions.Any(c => c.BinId == x.Id)
+                    && !db.InfrastructureConfirmations.Any(c => c.TrashBinId == x.Id)).ExecuteDeleteAsync();
                 await db.TrashBins.Where(x => x.UserId == user.Id).ExecuteUpdateAsync(s => s.SetProperty(x => x.UserId, (string?)null));
 
                 // No actor FK exists on legacy notifications. Obsolete walk broadcasts are

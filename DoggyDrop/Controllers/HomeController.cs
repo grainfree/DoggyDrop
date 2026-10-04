@@ -23,6 +23,7 @@ namespace DoggyDrop.Controllers
         private readonly ILocalLeaderboardService _localLeaderboardService;
         private readonly IMapStampService _mapStampService;
         private readonly IUserAchievementService _userAchievementService;
+        private readonly IUserMediaCleanup? _mediaCleanup;
 
         public HomeController(
             ILogger<HomeController> logger,
@@ -34,7 +35,8 @@ namespace DoggyDrop.Controllers
             ISeasonalEventService seasonalEventService,
             ILocalLeaderboardService localLeaderboardService,
             IMapStampService mapStampService,
-            IUserAchievementService userAchievementService)
+            IUserAchievementService userAchievementService,
+            IUserMediaCleanup? mediaCleanup = null)
         {
             _logger = logger;
             _userManager = userManager;
@@ -46,6 +48,7 @@ namespace DoggyDrop.Controllers
             _localLeaderboardService = localLeaderboardService;
             _mapStampService = mapStampService;
             _userAchievementService = userAchievementService;
+            _mediaCleanup = mediaCleanup;
         }
 
         public IActionResult Index()
@@ -395,6 +398,7 @@ namespace DoggyDrop.Controllers
                 return NotFound();
             }
 
+            var previousImage = user.ProfileImageUrl;
             user.DisplayName = DisplayName;
 
             if (ProfileImage != null && ProfileImage.Length > 0)
@@ -406,7 +410,9 @@ namespace DoggyDrop.Controllers
                 }
             }
 
-            await _userManager.UpdateAsync(user);
+            var result = await _userManager.UpdateAsync(user);
+            if (result.Succeeded && previousImage != user.ProfileImageUrl && _mediaCleanup != null)
+                await _mediaCleanup.CleanupAsync([previousImage]);
             return RedirectToAction(nameof(UserProfile));
         }
 

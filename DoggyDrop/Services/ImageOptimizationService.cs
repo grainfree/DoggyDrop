@@ -41,7 +41,8 @@ namespace DoggyDrop.Services
         {
             using var original = new MemoryStream();
             var bin = preset == ImageOptimizationPreset.TrashBin;
-            var strict = preset is ImageOptimizationPreset.Walk or ImageOptimizationPreset.PlaceLogo or ImageOptimizationPreset.TrashBin;
+            // Profile/dog originals must not bypass pixel re-encoding on decode failure.
+            var strict = preset is ImageOptimizationPreset.Profile or ImageOptimizationPreset.Walk or ImageOptimizationPreset.PlaceLogo or ImageOptimizationPreset.TrashBin;
             var maxBytes = bin ? BinPhotoUploadPolicy.MaxBytes : preset == ImageOptimizationPreset.PlaceLogo ? PlaceLogoUploadPolicy.MaxBytes : WalkPhotoUploadPolicy.MaxBytes;
             if (strict && input.CanSeek && input.Length - input.Position > maxBytes)
                 return RejectedWalkImage();

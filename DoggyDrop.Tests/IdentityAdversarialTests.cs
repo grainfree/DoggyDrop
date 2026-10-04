@@ -29,7 +29,7 @@ namespace DoggyDrop.Tests;
 
 // Actual Identity cookie, Razor, antiforgery, limiter and EF store. No application startup,
 // bootstrap, migrations, external login, email or production providers run in this host.
-public sealed class IdentityAdversarialTests : IAsyncLifetime
+public sealed partial class IdentityAdversarialTests : IAsyncLifetime
 {
     private const string Change = "/Identity/Account/Manage/ChangePassword";
     private const string Set = "/Identity/Account/Manage/SetPassword";
@@ -83,6 +83,9 @@ public sealed class IdentityAdversarialTests : IAsyncLifetime
             sp.GetRequiredService<UserManager<ApplicationUser>>(), null!, mail, sp.GetRequiredService<ApplicationDbContext>(),
             sp.GetRequiredService<IGamificationService>(), sp.GetRequiredService<ISeasonalEventService>(),
             sp.GetRequiredService<ILocalLeaderboardService>(), sp.GetRequiredService<IMapStampService>(), sp.GetRequiredService<IUserAchievementService>()));
+        builder.Services.AddScoped<AccountDataDeletion>();
+        builder.Services.AddScoped<PersonalDataExport>();
+        builder.Services.AddSingleton<IUserMediaCleanup, PrivacyNoMedia>();
         builder.Services.AddRazorPages();
         app = builder.Build(); app.UseRouting(); app.UseAuthentication(); app.UseAuthorization(); app.UseRateLimiter();
         app.MapControllerRoute("default", "{controller=Home}/{action=Index}/{id?}"); app.MapRazorPages();

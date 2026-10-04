@@ -191,3 +191,8 @@ Final code review: **BLOCKER 0, HIGH 0, MEDIUM 0**. One Epic 23 LOW limitation: 
 - NEW `DoggyDrop/wwwroot/offline.html`
 - NEW `DoggyDrop/wwwroot/sw.js`
 - NEW `docs/launch-readiness.md`
+
+
+## Epic 24.0 privacy/legal gate (2026-10-04)
+
+The factual Privacy/Terms drafts, owner-only data export, account deletion and new-upload metadata controls are undergoing technical review. This does **not** approve a public launch or municipal outreach. Both remain **BLOCKED** until the controller/address, legal bases, retention, children/rights procedures, provider arrangements, final Terms/photo permission and ODbL decisions in [privacy-legal-review.md](privacy-legal-review.md) are resolved. See [privacy-data-audit.md](privacy-data-audit.md) for current technical behavior; older milestone counts above are historical. No policy is represented as legally approved and no production action is part of this change.

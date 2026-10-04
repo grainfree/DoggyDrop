@@ -28,17 +28,23 @@ namespace DoggyDrop.Services
         // ✅ Nalaganje profilne slike
         public async Task<string?> UploadImageAsync(IFormFile file)
         {
-            if (file == null || file.Length == 0)
+            if (file == null || file.Length is <= 0 or > WalkPhotoUploadPolicy.MaxBytes)
             {
-                Console.WriteLine("⚠️ Profilna slika: prazna datoteka.");
                 return null;
             }
 
-            await using var stream = file.OpenReadStream();
+            await using var input = file.OpenReadStream();
+            var optimized = await _imageOptimizationService.OptimizeAsync(input, file.ContentType, file.FileName, ImageOptimizationPreset.Profile);
+            await using var content = optimized.Content;
+            if (!optimized.WasOptimized) return null;
+            var name = $"{Guid.NewGuid():N}.webp";
+            // SDK stream ownership must not destroy the normalized local-fallback bytes.
+            using var stream = new MemoryStream();
+            await content.CopyToAsync(stream); stream.Position = 0;
 
             var uploadParams = new ImageUploadParams
             {
-                File = new FileDescription(file.FileName, stream),
+                File = new FileDescription(name, stream),
                 Folder = "doggydrop-profile-images",
                 UseFilename = true,
                 UniqueFilename = true,
@@ -47,18 +53,15 @@ namespace DoggyDrop.Services
 
             var uploadResult = await _cloudinary.UploadAsync(uploadParams);
 
-            Console.WriteLine("🌩️ Rezultat nalaganja (profilna slika):");
-            Console.WriteLine($"StatusCode: {uploadResult.StatusCode}");
-            Console.WriteLine($"SecureUrl: {uploadResult.SecureUrl}");
-            Console.WriteLine($"Error: {uploadResult.Error?.Message}");
-
             if (uploadResult.SecureUrl != null)
             {
                 return uploadResult.SecureUrl.ToString();
             }
 
-            _logger.LogWarning("Cloudinary profile upload failed. Falling back to local storage. Error: {Error}", uploadResult.Error?.Message);
-            return await SaveLocalImageAsync(file, "profile-images");
+            _logger.LogWarning("Cloudinary profile upload failed; using normalized local storage.");
+            content.Position = 0;
+            var sanitized = new FormFile(content, 0, content.Length, "ImageFile", name) { Headers = new HeaderDictionary(), ContentType = "image/webp" };
+            return await SaveLocalImageAsync(sanitized, "profile-images");
         }
 
         // Bin uploads always store normalized pixels; never fall back to original bytes.
@@ -116,7 +119,7 @@ namespace DoggyDrop.Services
                 return uploadResult.SecureUrl.ToString();
             }
 
-            _logger.LogWarning("Cloudinary walk upload failed. Falling back to local storage. Error: {Error}", uploadResult.Error?.Message);
+            _logger.LogWarning("Cloudinary walk upload failed; using normalized local storage.");
             return await SaveSanitizedWalkImageLocallyAsync(file);
         }
 

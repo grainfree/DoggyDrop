@@ -33,10 +33,10 @@ namespace DoggyDrop.Services
                 await client.SendAsync(message);
                 await client.DisconnectAsync(true);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Console.WriteLine($"❌ Napaka pri pošiljanju e-pošte: {ex.Message}");
-                // ali uporabi ILogger za logiranje napake
+                // SMTP exception text may contain recipients, message data or credentials.
+                Console.WriteLine("Pošiljanje e-pošte ni uspelo.");
             }
         }
 

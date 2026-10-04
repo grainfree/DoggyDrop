@@ -59,6 +59,12 @@
         <a class="profile-settings" asp-area="Identity" asp-page="/Account/Manage/ExternalLogins">Povezane prijave</a>
     </article>
 
+    <article class="profile-panel" aria-labelledby="profile-privacy-heading">
+        <div class="profile-panel__header"><h2 id="profile-privacy-heading">Moji podatki</h2></div>
+        <a class="profile-settings" asp-area="Identity" asp-page="/Account/Manage/PersonalData">Prenos podatkov in izbris računa</a>
+        <a class="profile-settings" asp-controller="Home" asp-action="Privacy">Zasebnost</a>
+    </article>
+
     <article class="profile-panel profile-xp">
         <div class="profile-panel__header"><h2>Trenutni zagon</h2></div>
         <div class="profile-streak-grid">

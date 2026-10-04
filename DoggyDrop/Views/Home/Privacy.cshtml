@@ -1,6 +1,41 @@
-﻿@{
-    ViewData["Title"] = "Privacy Policy";
+@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
+@{
+    ViewData["Title"] = "Zasebnost";
+    var contact = DoggyDrop.Services.PublicContact.Parse(Configuration["PublicContact:Email"]);
 }
-<h1>@ViewData["Title"]</h1>
-
-<p>Use this page to detail your site's privacy policy.</p>
+@section Styles { <link rel="stylesheet" href="~/css/legal.css" asp-append-version="true" /> }
+<article class="legal-page" aria-labelledby="privacy-title">
+    <p class="legal-page__eyebrow">DoggyDrop · osebni podatki</p>
+    <h1 id="privacy-title">Zasebnost</h1>
+    <aside class="legal-page__notice"><strong>Informativni osnutek pred javnim zagonom.</strong> Ta stran opisuje trenutno delovanje aplikacije. Pravni pregled še ni zaključen: manjkajo potrjeni podatki o upravljavcu, pravnih podlagah, rokih hrambe in ponudnikih. Javna uvedba in občinsko sodelovanje do dopolnitve nista pripravljena.</aside>
+    <nav aria-label="Vsebina obvestila o zasebnosti"><a href="#account-data">Podatki</a><a href="#location-data">Lokacija</a><a href="#public-data">Javni prikazi</a><a href="#privacy-controls">Tvoje možnosti</a><a href="#privacy-contact">Kontakt</a></nav>
+    <h2 id="account-data">Kateri podatki nastajajo</h2>
+    <p>Zemljevid in javne lokacije lahko raziskuješ brez računa. Račun uporablja e-poštni naslov, prijavne podatke, izbrano prikazno ime in morebitno profilno fotografijo. Pri prijavi z Googlom se shrani povezava z zunanjim računom; aplikacija ne shranjuje Googlovih dostopnih ali osvežitvenih žetonov.</p>
+    <p>Glede na uporabljene funkcije se hranijo podatki psov, sprehodi, GPS točke, fotografije, shranjene lokacije in načrti sprehodov, prispevki, potrditve infrastrukture, nastavitve zasebnosti, prijateljstva, dogovori za druženje, obvestila ter napredek in dosežki. Prostovoljno besedilo naj ne vsebuje občutljivih podatkov o tebi ali drugih.</p>
+    <h2 id="location-data">Lokacija in sprehodi</h2>
+    <p>Brskalnik za lokacijo zahteva dovoljenje. Ogled zemljevida sam po sebi ne zahteva snemanja sprehoda. Med aktivnim snemanjem se GPS točke pošiljajo strežniku in hranijo kot tvoja pot. Podrobnosti poti, GPS točke in fotografije sprehoda so v aplikaciji dostopne lastniku; prijateljstvo ne odpre zasebne poti.</p>
+    <p>Pri skupnostni potrditvi koša ali pitnika strežnik začasno uporabi lokacijo in natančnost za preverjanje bližine. Natančne koordinate uporabnikove potrditve se ne shranijo. Ostanejo vrsta potrditve, cilj, čas in povezava z računom; javnost vidi povzetek brez identitete avtorja.</p>
+    <p>Navodila za pešpot prek strežnika pošljejo izhodišče, cilj in morebitne vmesne točke ponudniku openrouteservice (HeiGIT). Zemljevidne ploščice razkrijejo ponudniku prikazano območje in običajne omrežne podatke. Načrt shranjene poti lahko vsebuje natančno geometrijo. Starejši načrtovalnik lahko izbrano izhodišče hrani tudi v lokalni shrambi brskalnika.</p>
+    <h2 id="public-data">Kaj je lahko javno</h2>
+    <p>Odobrene lokacije košev, pitnikov in krajev ter sprejete fotografije infrastrukture so javne. Vir podatkov ostane naveden tudi po skupnostnem popravku. Prispevek ni takoj objavljen; najprej se pregleda. Internih opomb skrbnikov in zasebnih kontaktov virov javni prikazi ne vsebujejo.</p>
+    <p>Skupnost prikazuje skupne statistike in grobo lokacijsko dejavnost več uporabnikov, ne posameznih zasebnih poti. Iskanje bližnjih psov je prostovoljno in uporablja približno lokacijo; vidnost upravljaš v nastavitvah. Dogovori za druženje vsebujejo podatke, ki jih zanje vneseš, zato vanje ne vpisuj domačega naslova. Nekateri skupnostni prikazi kažejo izbrano prikazno ime in profilne podatke.</p>
+    <h2>Fotografije</h2>
+    <p>Fotografiraj infrastrukturo brez prepoznavnih ljudi, registrskih tablic ali zasebnih prostorov. Nove fotografije profilov, psov in košev se pred shranjevanjem ponovno kodirajo; podprti tokovi odstranjujejo izvorne metapodatke. To ne pomeni, da so stare datoteke ali vse kopije pri ponudnikih očiščene.</p>
+    <p>Izvoz vsebuje povezave do fotografij, ne arhiva slik. Naslov medijske datoteke je lahko dostopen vsakomur, ki ga pozna, tudi kadar je stran sprehoda zasebna. Povezav do zasebnih fotografij ne deli.</p>
+    <h2>Piškotki, lokalna shramba in PWA</h2>
+    <p>Aplikacija uporablja piškotke za prijavo, zaščito obrazcev in prijavne postopke. Lokalna shramba ohranja izbrane nastavitve zemljevida, uvodni prikaz in nastavitve sprehoda; starejši načrtovalnik lahko ohrani izbrano lokacijo. Te podatke lahko odstraniš v nastavitvah brskalnika. To ne izbriše podatkov računa na strežniku.</p>
+    <p>Nameščena PWA ima omejeno stran za odsotno povezavo. Ne zagotavlja zemljevida, pošiljanja prispevkov ali snemanja poti brez povezave in ne ponavlja neuspelih zahtev. V pregledani kodi ni oglaševalskega sledilnika ali analitičnega SDK. To ne izključuje omrežnih dnevnikov gostovanja ali zunanjih ponudnikov.</p>
+    <h2>Zunanje storitve in hramba</h2>
+    <p>Pri delovanju lahko sodelujejo Render in PostgreSQL, Google za prijavo in pisave, ponudniki zemljevidov OpenStreetMap, CARTO ali Stadia glede na nastavitve, openrouteservice, javni CDN, vremenske storitve ter pri starejšem načrtovanju Overpass. Fotografije lahko uporablja lokalna shramba, Cloudinary ali Cloudflare R2; e-pošto pošilja konfigurirana storitev SMTP.</p>
+    <p>Aktivni produkcijski ponudniki, regije, pogodbe in mednarodni prenosi še zahtevajo potrditev upravljavca. Splošni roki hrambe osebnih podatkov, dnevnikov, fotografij in varnostnih kopij niso potrjeni. Kratkotrajni predogledi in omejitve zahtev niso splošna politika brisanja računa.</p>
+    <h2 id="privacy-controls">Prenos, popravek in izbris</h2>
+    <p>V profilu lahko popraviš podatke in odpreš upravljanje osebnih podatkov. Prenos JSON vključuje tudi zasebne lokacije; shrani ga na varno mesto. Ne vsebuje gesel, varnostnih ključev ali prijavnih žetonov.</p>
+    <p>Izbris računa zahteva prijavo in potrditev; za račun z geslom tudi trenutno geslo. Odstrani zasebne podatke računa, pse, sprehode in povezane GPS točke, shranjene načrte ter povezave. Javna infrastruktura in zgodovina prispevkov ali potrditev lahko ostaneta brez povezave z računom. Besedilo lastnih prispevkov se odstrani, čakajoči prispevki se zaprejo. Fotografije se poskusijo odstraniti, če niso več uporabljene; uspeh pri ponudniku in takojšnji izbris varnostnih kopij nista zagotovljena.</p>
+    <p><a class="legal-page__action" asp-area="Identity" asp-page="/Account/Manage/PersonalData">Upravljaj osebne podatke</a></p>
+    <h2 id="privacy-contact">Upravljavec in vprašanja</h2>
+    <p>Po podatkih lastnika projekt vodi Jernej Furman s.p., ki ga zastopa Jernej Furman, Slovenija. Uradni poslovni naslov še ni potrjen za to obvestilo.</p>
+    @if (contact != null) { <p>Za vprašanja o zasebnosti ter zahteve za dostop, popravek, izbris, omejitev, prenosljivost ali ugovor piši na <a href="@contact.Mailto">@contact.Email</a>. Obravnava zahteve je odvisna od veljavnih pravic in preverjanja upravičenosti.</p> }
+    else { <p>Kontakt za zasebnost trenutno ni na voljo. Podatke računa lahko še vedno upravljaš prek zgornje povezave.</p> }
+    <p>Pravni pregled mora pred javnim zagonom dopolniti pravne podlage po namenih, roke hrambe, podatke o ponudnikih in prenosih, pritožbeni postopek ter obravnavo otrok. Ta osnutek ne določa nove starostne omejitve ali soglasja za oglaševanje.</p>
+    <p><a asp-controller="Home" asp-action="Terms">Pogoji uporabe</a> · <a href="/">Nazaj na zemljevid</a></p>
+</article>

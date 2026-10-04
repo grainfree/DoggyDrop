@@ -53,7 +53,7 @@ namespace DoggyDrop.Services
         private async Task<string?> UploadFileAsync(IFormFile file, string folderName, ImageOptimizationPreset preset)
         {
             if (file == null || file.Length == 0 ||
-                (preset == ImageOptimizationPreset.Walk && file.Length > WalkPhotoUploadPolicy.MaxBytes) ||
+                (preset is ImageOptimizationPreset.Profile or ImageOptimizationPreset.Walk && file.Length > WalkPhotoUploadPolicy.MaxBytes) ||
                 (preset == ImageOptimizationPreset.TrashBin && file.Length > BinPhotoUploadPolicy.MaxBytes))
             {
                 return null;
@@ -69,9 +69,9 @@ namespace DoggyDrop.Services
             await using var stream = file.OpenReadStream();
             var optimizedImage = await _imageOptimizationService.OptimizeAsync(stream, file.ContentType, file.FileName, preset);
             await using var optimizedStream = optimizedImage.Content;
-            if (preset is ImageOptimizationPreset.Walk or ImageOptimizationPreset.TrashBin && !optimizedImage.WasOptimized)
+            if (!optimizedImage.WasOptimized)
             {
-                _logger.LogWarning("Walk image could not be sanitized; R2 upload was rejected.");
+                _logger.LogWarning("Image could not be sanitized; R2 upload was rejected.");
                 return null;
             }
             var key = BuildObjectKey(folderName, optimizedImage.Extension);
@@ -97,15 +97,9 @@ namespace DoggyDrop.Services
                 await _s3Client.PutObjectAsync(request);
                 return BuildPublicUrl(key);
             }
-            catch (AmazonS3Exception exception)
+            catch (AmazonS3Exception)
             {
-                _logger.LogError(
-                    exception,
-                    "Cloudflare R2 upload failed for bucket {BucketName}, key {Key}. Status: {StatusCode}, ErrorCode: {ErrorCode}",
-                    _settings.BucketName,
-                    key,
-                    exception.StatusCode,
-                    exception.ErrorCode);
+                _logger.LogError("Cloudflare R2 upload failed.");
                 return null;
             }
         }

@@ -1,59 +1,27 @@
-﻿@{
-    ViewData["Title"] = "Splošni pogoji uporabe – DoggyDrop";
+@{
+    ViewData["Title"] = "Pogoji uporabe";
 }
-
-<div class="container mt-4" style="max-width: 800px;">
-    <h1 class="mb-4">📝 Splošni pogoji uporabe – DoggyDrop</h1>
-    <p>Z registracijo v aplikacijo DoggyDrop (v nadaljevanju »aplikacija«) uporabnik potrjuje, da se strinja s spodaj navedenimi pogoji.</p>
-
-    <h5 class="mt-4">1. Opis storitve</h5>
-    <p>DoggyDrop je mobilna in spletna aplikacija, ki uporabnikom omogoča iskanje in dodajanje lokacij košev za pasje iztrebke. Aplikacija deluje na podlagi prispevkov uporabnikov, ki prostovoljno označujejo lokacije, dodajajo slike in prispevajo k boljši uporabniški izkušnji za vse.</p>
-
-    <h5 class="mt-4">2. Uporabniški račun</h5>
-    <ul>
-        <li>Račun uporablja e-poštni naslov. Prijava je mogoča z geslom ali, kadar je na voljo, z Googlovim računom.</li>
-        <li>Uporabnik je odgovoren za varovanje svojih prijavnih podatkov.</li>
-        <li>Aplikacija si pridržuje pravico do začasne ali trajne ukinitve računa ob zaznavi zlorab (npr. namerno napačne lokacije, neprimerne fotografije ipd.).</li>
-    </ul>
-
-    <h5 class="mt-4">3. Prispevanje vsebin (lokacije, slike)</h5>
-    <ul>
-        <li>Vsak uporabnik lahko prostovoljno dodaja lokacije košev ter nalaga fotografije.</li>
-        <li>Uporabnik jamči, da je vsebina resnična, avtentična in ustreza namenu aplikacije.</li>
-        <li>Dodajanje lokacij ni dovoljeno za namene zavajanja, promocije, oglaševanja ali komercialne rabe brez dovoljenja upravljavca aplikacije.</li>
-    </ul>
-
-    <h5 class="mt-4">4. Uporaba fotografij in vsebine</h5>
-    <ul>
-        <li>Z oddajo fotografije koša v aplikaciji se uporabnik izrecno strinja, da:</li>
-        <ul>
-            <li>dovoljuje uporabo posredovane fotografije za namen prikaza v aplikaciji,</li>
-            <li>dovoljuje uporabo fotografije (brez navedbe osebnih podatkov) za namene promocije aplikacije (npr. družbena omrežja, predstavitve, spletna stran),</li>
-            <li>se odpoveduje morebitnim avtorskopravnim zahtevkom za takšno uporabo.</li>
-        </ul>
-    </ul>
-
-    <h5 class="mt-4">5. Varstvo osebnih podatkov</h5>
-    <ul>
-        <li>Glede na uporabljene funkcije aplikacija shranjuje podatke računa in psov, sprehode z GPS točkami, fotografije, prispevke, shranjene kraje, nastavitve ter podatke o dejavnosti in povezavah z drugimi uporabniki.</li>
-        <li>Potrjeni koši so javni. Podrobnosti sprehodov, GPS poti in fotografije sprehodov so v aplikaciji dostopne samo lastniku. Prijateljstvo ne omogoča dostopa do njih. Skupnost prikazuje skupne statistične seštevke in približno dejavnost več uporabnikov, ne posameznih zasebnih sprehodov. Zasebno območje dodatno izključi uporabnikove sprehode iz lokacijskih prikazov hoje na zemljevidu skupnosti.</li>
-        <li>Pri delovanju sodelujejo zunanje storitve za gostovanje, zemljevide, pisave, prijavo in glede na nastavitve tudi fotografije ter e-pošto. Njihove produkcijske nastavitve in pravni pogoji se še preverjajo.</li>
-        <li>V upravljanju računa sta na voljo prenos osebnih podatkov v JSON in potrjeni izbris računa. Potrjeni javni koši ostanejo brez povezave z računom. Odstranitev ne zagotavlja takojšnjega izbrisa kopij pri ponudnikih ali v varnostnih kopijah.</li>
-        <li>Za upravljanje podatkov se uporablja ustrezna tehnična zaščita.</li>
-    </ul>
-
-    <h5 class="mt-4">6. Omejitev odgovornosti</h5>
-    <ul>
-        <li>Upravljavec aplikacije ne prevzema odgovornosti za točnost posameznih uporabniških prispevkov (npr. lokacije košev).</li>
-        <li>Aplikacija ni namenjena nadomeščanju uradnih informacij občin ali komunalnih služb.</li>
-        <li>Uporabnik aplikacijo uporablja na lastno odgovornost.</li>
-    </ul>
-
-    <h5 class="mt-4">7. Spremembe pogojev</h5>
-    <ul>
-        <li>Upravljavec si pridržuje pravico do spremembe teh pogojev brez predhodnega obvestila.</li>
-        <li>Spremenjeni pogoji stopijo v veljavo z objavo na spletni strani ali znotraj aplikacije.</li>
-    </ul>
-
-    <p class="mt-4"><strong>Z uporabo in registracijo v aplikacijo potrjujete, da ste prebrali in razumeli splošne pogoje uporabe ter se z njimi strinjate.</strong></p>
-</div>
+@section Styles { <link rel="stylesheet" href="~/css/legal.css" asp-append-version="true" /> }
+<article class="legal-page" aria-labelledby="terms-title">
+    <p class="legal-page__eyebrow">DoggyDrop · uporaba storitve</p>
+    <h1 id="terms-title">Pogoji uporabe</h1>
+    <aside class="legal-page__notice"><strong>Osnutek za pregled pred javnim zagonom.</strong> Spodaj so navodila in dejanske omejitve storitve. Končni pravni pogoji, pravice uporabe prispevkov in postopek sprememb še zahtevajo odobritev upravljavca in pravni pregled.</aside>
+    <h2>Raziskovanje in sprehodi</h2>
+    <p>DoggyDrop povezuje zemljevid košev, pitnikov in uporabnih krajev, peš navigacijo, načrte in snemanje sprehodov ter skupnostne prispevke. Zemljevid lahko raziskuješ brez računa. Snemanje sprehoda in osebne funkcije zahtevajo prijavo.</p>
+    <p>Lokacije so iz javnih virov, skrbniških vnosov in skupnosti. Podatki niso zagotovilo trenutne razpoložljivosti, dostopnosti ali uradne preveritve. Upoštevaj oznake na kraju, pravila dostopa in varnost. DoggyDrop ne nadomešča občinskih ali drugih uradnih informacij.</p>
+    <h2>Pešpoti in voda</h2>
+    <p>Navodila uporabljajo profil za hojo. Tudi izračunana pot ni zagotovilo varnega, dovoljenega ali prehodnega odseka. Neposredna razdalja in približna geometrija nista preverjena pešpot. GPS in ocene časa imajo omejitve; aplikacija ni namenjena nujni pomoči.</p>
+    <p>Pitnost, dostop in sezonskost pitnika izhajajo iz navedenih podatkov. Potrditev skupnosti, da pitnik deluje, ni preizkus pitnosti ali uradno potrdilo. Ne predpostavljaj, da je vsak pitnik namenjen psom.</p>
+    <h2>Prispevki in potrditve</h2>
+    <p>Prispevaj resnične, koristne podatke. Ne objavljaj tujih osebnih podatkov, žaljive ali zavajajoče vsebine. Fotografije naj prikazujejo infrastrukturo brez prepoznavnih ljudi, registrskih tablic in zasebnih prostorov. Prispevaj le vsebino, za katero imaš potrebne pravice.</p>
+    <p>Predlogi fotografij, lokacij in težav se pregledajo; oddaja ne pomeni takojšnje objave ali odobritve. Sprejeta fotografija ne potrdi vseh lastnosti lokacije. Potrditev koša pomeni opaženo prisotnost, ne zagotovila čistoče ali nepoškodovanosti. Zloraba potrjevanja škoduje skupnosti.</p>
+    <p>Tehnični namen obdelave fotografije je sprejem, prilagoditev velikosti, pregled, shranjevanje in prikaz v DoggyDrop. Ta osnutek ne uvaja dovoljenja za ločeno promocijsko uporabo ali odpovedi avtorskim pravicam. Končno dovoljenje za te namene mora biti pravno pregledano pred javno uvedbo.</p>
+    <h2>Viri podatkov</h2>
+    <p>Izvor podatkov ostane naveden tudi po skupnostnih izboljšavah. Popravek v DoggyDrop ne spremeni samodejno OpenStreetMap. Zemljevid in podatki iz OpenStreetMap imajo zahteve za navedbo vira in licenco ODbL; sama navedba vira ali skrbniški pregled ne rešita vseh obveznosti nadaljnje uporabe.</p>
+    <h2>Račun in zasebnost</h2>
+    <p>Varuj prijavne podatke. V profilu lahko upravljaš račun, preneseš osebne podatke v JSON in zahtevaš izbris. Zasebne poti niso odprte prijateljem. Javno sprejeta infrastruktura lahko po izbrisu računa ostane brez povezave z avtorjem.</p>
+    <p><a asp-controller="Home" asp-action="Privacy">Preberi obvestilo o zasebnosti</a> za podatkovne tokove, možnosti upravljanja in kontakt. Ta osnutek ne pomeni soglasja za vse obdelave osebnih podatkov.</p>
+    <h2>Kaj še zahteva odobritev</h2>
+    <p>Pred javnim zagonom je treba dopolniti podatke upravljavca, pravne pogoje prispevanja, ravnanje ob kršitvah, obravnavo otrok, pravice uporabnikov in obveščanje o spremembah. Javna uvedba in občinsko sodelovanje do zaključka pregleda ostajata blokirana.</p>
+    <p><a class="legal-page__action" href="/">Nazaj na zemljevid</a></p>
+</article>

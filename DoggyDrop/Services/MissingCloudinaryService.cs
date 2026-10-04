@@ -18,10 +18,15 @@ namespace DoggyDrop.Services
             _imageOptimizationService = imageOptimizationService;
         }
 
-        public Task<string?> UploadImageAsync(IFormFile file)
+        public async Task<string?> UploadImageAsync(IFormFile file)
         {
-            _logger.LogWarning("Cloudinary is not configured. Saving profile image locally.");
-            return SaveLocalImageAsync(file, "profile-images");
+            if (file == null || file.Length is <= 0 or > WalkPhotoUploadPolicy.MaxBytes) return null;
+            await using var input = file.OpenReadStream();
+            var optimized = await _imageOptimizationService.OptimizeAsync(input, file.ContentType, file.FileName, ImageOptimizationPreset.Profile);
+            await using var content = optimized.Content;
+            if (!optimized.WasOptimized) return null;
+            var sanitized = new FormFile(content, 0, content.Length, "ImageFile", "profile.webp") { Headers = new HeaderDictionary(), ContentType = "image/webp" };
+            return await SaveLocalImageAsync(sanitized, "profile-images");
         }
 
         public async Task<string?> UploadTrashBinImageAsync(IFormFile file)

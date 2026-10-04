@@ -17,19 +17,22 @@ namespace DoggyDrop.Controllers
         private readonly ICloudinaryService _cloudinaryService;
         private readonly IDogProgressionService _dogProgressionService;
         private readonly IUserAchievementService _userAchievementService;
+        private readonly IUserMediaCleanup? _mediaCleanup;
 
         public DogsController(
             ApplicationDbContext context,
             UserManager<ApplicationUser> userManager,
             ICloudinaryService cloudinaryService,
             IDogProgressionService dogProgressionService,
-            IUserAchievementService userAchievementService)
+            IUserAchievementService userAchievementService,
+            IUserMediaCleanup? mediaCleanup = null)
         {
             _context = context;
             _userManager = userManager;
             _cloudinaryService = cloudinaryService;
             _dogProgressionService = dogProgressionService;
             _userAchievementService = userAchievementService;
+            _mediaCleanup = mediaCleanup;
         }
 
         [HttpGet]
@@ -374,6 +377,7 @@ namespace DoggyDrop.Controllers
                 return NotFound();
             }
 
+            var previousPhoto = dog.PhotoUrl;
             dog.Name = model.Name;
             dog.Breed = model.Breed;
             dog.AgeYears = model.AgeYears;
@@ -400,6 +404,8 @@ namespace DoggyDrop.Controllers
             await _context.SaveChangesAsync();
 
             TempData["SuccessMessage"] = $"{dog.Name} je posodobljen.";
+            if (previousPhoto != dog.PhotoUrl && _mediaCleanup != null)
+                await _mediaCleanup.CleanupAsync([previousPhoto]);
             return RedirectToAction(nameof(Details), new { id = dog.Id });
         }
 
@@ -429,8 +435,11 @@ namespace DoggyDrop.Controllers
                 return RedirectToAction(nameof(Details), new { id });
             }
 
+            var previousPhoto = dog.PhotoUrl;
             dog.PhotoUrl = photoUrl;
             await _context.SaveChangesAsync();
+            if (previousPhoto != photoUrl && _mediaCleanup != null)
+                await _mediaCleanup.CleanupAsync([previousPhoto]);
 
             TempData["SuccessMessage"] = "Fotografija psa je posodobljena.";
             return RedirectToAction(nameof(Details), new { id });

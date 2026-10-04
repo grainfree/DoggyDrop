@@ -4,10 +4,12 @@
     ViewData["Title"] = "Izbris računa";
     ViewData["ActivePage"] = ManageNavPages.PersonalData;
 }
-<h3>@ViewData["Title"]</h3>
+<link rel="stylesheet" href="~/css/legal.css" asp-append-version="true" />
+<section class="legal-page" aria-labelledby="personal-data-title">
+<h1 id="personal-data-title">@ViewData["Title"]</h1>
 <div class="alert alert-warning" role="alert">
     <p>Izbris računa je trajen. Odstranjeni bodo profil, psi, sprehodi in GPS točke, shranjeni kraji, prijateljstva ter drugi podatki računa v aplikaciji.</p>
-    <p>Potrjeni javni koši ostanejo brez povezave z računom. Nepotrjeni predlogi se odstranijo. Shranjene fotografije poskusimo odstraniti, če jih drugi zapisi ne uporabljajo; ob napaki ponudnika lahko ostanejo v shrambi. Izbris ne pomeni takojšnjega izbrisa varnostnih kopij ponudnikov.</p>
+    <p>Javni koši ter zapisi z zgodovino prispevkov ali potrditev ostanejo brez povezave z računom. Sveži nepotrjeni predlogi brez zgodovine se odstranijo. Lastno besedilo prispevkov se odstrani in čakajoči prispevki se zaprejo; sprejete javne fotografije lahko ostanejo kot del infrastrukture. Shranjene fotografije poskusimo odstraniti, če jih drugi zapisi ne uporabljajo; ob napaki ponudnika lahko ostanejo v shrambi. Izbris ne pomeni takojšnjega izbrisa varnostnih kopij ponudnikov.</p>
 </div>
 <p>Pred izbrisom lahko <a asp-page="./PersonalData">preneseš svoje podatke</a>.</p>
 <form method="post">
@@ -25,3 +27,6 @@
     </div>
     <button type="submit" class="btn btn-danger">Trajno izbriši račun</button>
 </form>
+
+<p><a href="/Home/Privacy">Zasebnost in kontakt</a> · <a href="/Home/UserProfile">Nazaj na profil</a></p>
+</section>
