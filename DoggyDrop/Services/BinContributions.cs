@@ -125,6 +125,7 @@ public sealed class BinContributions(ApplicationDbContext db, ICloudinaryService
             else if (item.Type == BinContributionType.Photo) cleanup = item.ProposedPhotoUrl;
             item.Status = accept ? BinContributionStatus.Approved : BinContributionStatus.Rejected;
             item.ReviewedAt = DateTime.UtcNow; item.ReviewedByUserId = reviewer; item.ReviewNote = note?.Trim();
+            await ActivityEmails.QueueAsync(db, ActivityEmails.ReviewType(item, accept), item.SubmittedByUserId, item.BinId, item.Id);
             if (item.SubmittedByUserId != null)
                 db.UserNotifications.Add(new UserNotification { UserId = item.SubmittedByUserId, Type = "BinContributionReviewed",
                     Title = "Prispevek je pregledan", Body = accept ? "Tvoj prispevek je odobren." : "Tvoj prispevek je zavrnjen.",

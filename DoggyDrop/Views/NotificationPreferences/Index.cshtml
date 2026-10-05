@@ -1,0 +1,17 @@
+@model bool
+@{ ViewData["Title"] = "E-poštna obvestila"; }
+<link rel="stylesheet" href="~/css/email-notifications.css" asp-append-version="true" />
+<section class="app-page email-settings">
+    <article class="profile-panel">
+        <h1>E-poštna obvestila</h1>
+        @if (TempData["EmailPreferenceSaved"] is string message) { <p role="status">@message</p> }
+        <form method="post" asp-controller="NotificationPreferences" asp-action="Index">
+            <label class="email-settings__choice"><input type="checkbox" name="contributionUpdates" value="true" checked="@Model" aria-describedby="email-help" /> Posodobitve mojih prispevkov</label>
+            <input type="hidden" name="contributionUpdates" value="false" />
+            <p id="email-help">Rezultati pregleda predlogov košev, fotografij, lokacij in prijav. Obvestila pošiljamo le na potrjen e-poštni naslov računa.</p>
+            <p>Potrditve računa, ponastavitve gesla in druge zahtevane varnostne e-pošte ta nastavitev ne izklopi. Povzetkov in marketinških sporočil ne pošiljamo.</p>
+            <button type="submit" class="btn btn-success">Shrani nastavitve</button>
+        </form>
+        <p><a asp-controller="Home" asp-action="UserProfile">Nazaj na profil</a> · <a asp-controller="Home" asp-action="Privacy">Zasebnost</a></p>
+    </article>
+</section>

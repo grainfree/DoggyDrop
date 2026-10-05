@@ -299,6 +299,8 @@ namespace DoggyDrop.Controllers
             if (!string.IsNullOrWhiteSpace(bin.UserId))
             {
                 await CreateBinApprovedNotificationAsync(bin);
+                await ActivityEmails.QueueAsync(_context, ActivityEmailType.BinApproved, bin.UserId, bin.Id);
+                await _context.SaveChangesAsync();
                 await _gamificationService.AwardXpAsync(
                     bin.UserId,
                     GamificationConstants.ApprovedTrashBin,
@@ -342,6 +344,7 @@ namespace DoggyDrop.Controllers
                     if (bin.IsRejected) return RedirectToAction(nameof(Manage));
                     if (snapshot != BinCommunityRules.Snapshot(bin)) return Conflict("Predlog je bil medtem spremenjen. Ponovno odpri pregled.");
                     bin.IsRejected = true; bin.RejectedAt = DateTime.UtcNow;
+                    await ActivityEmails.QueueAsync(_context, ActivityEmailType.BinRejected, bin.UserId, bin.Id);
                     try { await _context.SaveChangesAsync(); }
                     catch (DbUpdateConcurrencyException) { return Conflict("Predlog je bil medtem spremenjen. Ponovno odpri pregled."); }
                 }

@@ -44,6 +44,8 @@ namespace DoggyDrop.Data
         public DbSet<Friendship> Friendships { get; set; }
 
         public DbSet<UserNotification> UserNotifications { get; set; }
+        public DbSet<NotificationOutbox> NotificationOutbox { get; set; }
+        public DbSet<NotificationPreference> NotificationPreferences { get; set; }
 
         public DbSet<WalkReaction> WalkReactions { get; set; }
 
@@ -196,6 +198,21 @@ namespace DoggyDrop.Data
             builder.Entity<SavedPlace>()
                 .HasOne(saved => saved.Place).WithMany()
                 .HasForeignKey(saved => saved.PlaceId).OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<NotificationPreference>().HasKey(p => p.UserId);
+            builder.Entity<NotificationPreference>().Property(p => p.ContributionUpdates).HasDefaultValue(true);
+            builder.Entity<NotificationPreference>().HasOne(p => p.User).WithMany().HasForeignKey(p => p.UserId).OnDelete(DeleteBehavior.Cascade);
+            var outbox = builder.Entity<NotificationOutbox>();
+            outbox.HasOne(n => n.RecipientUser).WithMany().HasForeignKey(n => n.RecipientUserId).OnDelete(DeleteBehavior.Cascade);
+            outbox.HasOne(n => n.Bin).WithMany().HasForeignKey(n => n.BinId).OnDelete(DeleteBehavior.SetNull);
+            outbox.HasOne(n => n.Contribution).WithMany().HasForeignKey(n => n.ContributionId).OnDelete(DeleteBehavior.SetNull);
+            outbox.HasIndex(n => n.EventKey).IsUnique();
+            outbox.HasIndex(n => new { n.Status, n.NextAttemptAt });
+            outbox.HasIndex(n => new { n.Status, n.LeaseUntil });
+            outbox.ToTable(t => {
+                t.HasCheckConstraint("CK_Outbox_Status", "\"Status\" BETWEEN 1 AND 5");
+                t.HasCheckConstraint("CK_Outbox_Attempts", "\"AttemptCount\" >= 0 AND \"AttemptCount\" <= \"AttemptLimit\" AND \"AttemptLimit\" BETWEEN 5 AND 10");
+            });
 
             builder.Entity<UserNotification>()
                 .HasOne(n => n.User)

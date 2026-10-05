@@ -1,0 +1,8 @@
+.email-settings{max-width:900px;margin:auto;padding:20px 12px calc(110px + env(safe-area-inset-bottom,0px));overflow-wrap:anywhere}
+.email-settings h1{font-size:1.6rem}.email-settings h2{font-size:1.1rem}.email-settings p{line-height:1.6}
+.email-settings__choice{display:flex;align-items:center;gap:12px;min-height:44px;font-weight:600}
+.email-settings__choice input{width:22px;height:22px;flex-shrink:0;accent-color:#236957}
+.email-settings button,.email-settings select{min-height:44px;max-width:100%}.email-settings a{display:inline-block;padding-block:10px}
+.email-settings :focus-visible{outline:3px solid #236957;outline-offset:3px}
+.email-settings__filters{display:flex;flex-wrap:wrap;gap:12px;margin-block:16px}.email-settings__filters label{display:grid;gap:6px;max-width:100%}
+.email-delivery{margin-block:16px;padding:16px;background:#fff;border:1px solid #d7e4db;border-radius:18px}.email-delivery dd{margin-left:0}.email-delivery dt{font-weight:600}

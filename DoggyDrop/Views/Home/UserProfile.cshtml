@@ -62,6 +62,8 @@
     <article class="profile-panel" aria-labelledby="profile-privacy-heading">
         <div class="profile-panel__header"><h2 id="profile-privacy-heading">Moji podatki</h2></div>
         <a class="profile-settings" asp-area="Identity" asp-page="/Account/Manage/PersonalData">Prenos podatkov in izbris računa</a>
+        <a class="profile-settings" asp-controller="NotificationPreferences" asp-action="Index">E-poštna obvestila</a>
+        @if (User.IsInRole("Admin")) { <a class="profile-settings" asp-controller="AdminEmail" asp-action="Index">Dostava e-pošte</a> }
         <a class="profile-settings" asp-controller="Home" asp-action="Privacy">Zasebnost</a>
     </article>
 

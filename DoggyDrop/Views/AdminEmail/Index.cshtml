@@ -1,0 +1,28 @@
+@model IReadOnlyList<DoggyDrop.Controllers.EmailDeliveryRow>
+@using DoggyDrop.Models
+@{ ViewData["Title"] = "Dostava e-pošte"; }
+<link rel="stylesheet" href="~/css/email-notifications.css" asp-append-version="true" />
+<section class="app-page email-settings">
+    <h1>Dostava e-pošte</h1>
+    <p>Sent pomeni, da je SMTP sprejel sporočilo, ne da ga je prejemnik prebral.</p>
+    @if (TempData["EmailRetry"] is string message) { <p role="status">@message</p> }
+    <form method="get" class="email-settings__filters">
+        <label>Stanje <select name="status"><option value="">Vsa</option>@foreach (var s in Enum.GetValues<EmailDeliveryStatus>()) { <option selected="@(ViewBag.Status == s)" value="@((int)s)">@s</option> }</select></label>
+        <label>Vrsta <select name="type"><option value="">Vse</option>@foreach (var t in Enum.GetValues<ActivityEmailType>()) { <option selected="@(ViewBag.Type == t)" value="@((int)t)">@t</option> }</select></label>
+        <button type="submit" class="btn btn-secondary">Filtriraj</button>
+    </form>
+    @if (Model.Count == 0) { <p>Ni obvestil za izbran filter.</p> }
+    @foreach (var row in Model) {
+        <article class="profile-panel email-delivery">
+            <h2>@row.Type · #@row.Id</h2><p>@row.Status · @row.Recipient</p>
+            <dl><dt>Ustvarjeno (UTC)</dt><dd>@row.CreatedAt.ToString("u")</dd><dt>Poskusi</dt><dd>@row.Attempts</dd><dt>Izid</dt><dd>@row.Failure</dd>
+            <dt>Poslano (UTC)</dt><dd>@(row.SentAt?.ToString("u") ?? "—")</dd>
+            @if (row.Status == EmailDeliveryStatus.Pending) { <dt>Naslednji poskus (UTC)</dt><dd>@row.NextAttemptAt.ToString("u")</dd> }</dl>
+            @if (row.Status == EmailDeliveryStatus.Failed && row.Attempts < 10) {
+                <form method="post" asp-action="Retry"><input type="hidden" name="id" value="@row.Id" /><button class="btn btn-secondary" type="submit">Ponovi poskus</button></form>
+            }
+        </article>
+    }
+    @if (ViewBag.Page > 1) { <a asp-action="Index" asp-route-page="@(ViewBag.Page - 1)" asp-route-status="@ViewBag.Status" asp-route-type="@ViewBag.Type">Prejšnja stran</a> }
+    @if (ViewBag.More == true) { <a asp-action="Index" asp-route-page="@(ViewBag.Page + 1)" asp-route-status="@ViewBag.Status" asp-route-type="@ViewBag.Type">Naslednja stran</a> }
+</section>

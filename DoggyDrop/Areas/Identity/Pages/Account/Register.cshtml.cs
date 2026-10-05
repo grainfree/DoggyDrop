@@ -104,7 +104,7 @@ namespace DoggyDrop.Areas.Identity.Pages.Account
                     await _emailSender.SendEmailAsync(
                         "admin@doggydrop.app",
                         "📬 Nova registracija uporabnika",
-                        $"📢 Nov uporabnik se je registriral: <strong>{Input.Email}</strong><br>Datum: {DateTime.UtcNow}");
+                        $"📢 Nov uporabnik se je registriral: <strong>{HtmlEncoder.Default.Encode(Input.Email)}</strong><br>Datum: {DateTime.UtcNow}");
 
                     var userId = await _userManager.GetUserIdAsync(user);
                     var code = await _userManager.GenerateEmailConfirmationTokenAsync(user);

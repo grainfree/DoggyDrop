@@ -20,6 +20,13 @@ public sealed class PersonalDataExport(ApplicationDbContext db)
         var buffer = new ArrayBufferWriter<byte>();
         using var writer = new Utf8JsonWriter(buffer, new JsonWriterOptions { Indented = true });
         writer.WriteStartObject();
+        writer.WritePropertyName("EmailPreferences");
+        JsonSerializer.Serialize(writer, new {
+            ContributionUpdates = !await db.NotificationPreferences.AnyAsync(p => p.UserId == userId && !p.ContributionUpdates, ct),
+            ProductDigest = false, Marketing = false
+        }, JsonOptions);
+        await Rows("ActivityEmailHistory", db.NotificationOutbox.AsNoTracking().Where(n => n.RecipientUserId == userId).OrderBy(n => n.Id)
+            .Select(n => new { n.Type, n.Status, n.CreatedAt, n.SentAt }));
         await Rows("BinMaintenanceContributions", db.BinContributions.Where(c => c.SubmittedByUserId == userId).OrderBy(c => c.Id)
             .Select(c => new { c.Id, c.BinId, c.Type, c.Reason, c.Status, c.Description, c.ProposedLatitude, c.ProposedLongitude, c.PossibleDuplicateBinId, c.CreatedAt, c.ReviewedAt }));
         await Rows("InfrastructureConfirmations", db.InfrastructureConfirmations.AsNoTracking().Where(c => c.UserId == userId).OrderBy(c => c.Id)

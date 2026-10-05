@@ -1,5 +1,24 @@
 # Privacy data audit — Epic 24.0
 
+## Epic 25 factual extension
+
+Activity email adds NotificationPreferences (owner, contribution-updates boolean)
+and NotificationOutbox (owner, fixed event type/version, nullable bin/contribution
+references, dedup key, status, UTC timestamps, bounded attempts, lease UUID/time,
+safe failure category). No address snapshot, email-body archive, private notes,
+GPS, IP, tokens or tracking data. Current confirmed email is resolved for delivery;
+latest opt-out is respected. Identity security email is separate. No digest,
+marketing, welcome or receipt delivery; review results only. Hosted delivery is
+off until explicitly enabled in Production; tests/development never use live SMTP.
+
+Preferences and outbox history cascade-delete with account; an already-in-flight
+SMTP message cannot be recalled. Owner export includes effective preferences and
+event type/status/created/sent, without worker/payload/failure internals. Admin sees
+masked recipients and operational metadata with authorized CSRF-protected retry.
+No automatic retention cleanup is introduced; long-term retention/provider copies
+remain OWNER/LEGAL REVIEW. Privacy/Terms remain drafts and launch/outreach BLOCKED.
+See [email-notifications.md](email-notifications.md) for delivery limits and owner checks.
+
 Audit date: 2026-10-04. Baseline: `45fbdf6c75de906ebb78511d302fc51a8b2bca1f`.
 This document supersedes the accumulated historical audit notes. It describes repository behavior, not a production inspection or a legal opinion. No production data, credentials or live operational providers were accessed. New public Privacy/Terms text is an explicitly marked draft, not an approved policy.
 

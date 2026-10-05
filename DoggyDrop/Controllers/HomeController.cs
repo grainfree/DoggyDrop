@@ -469,16 +469,5 @@ namespace DoggyDrop.Controllers
             return PublicUserPresentation.Name(user);
         }
 
-        [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> TestEmail()
-        {
-            var testEmail = "admin@doggydrop.app";
-            await _emailSender.SendEmailAsync(
-                testEmail,
-                "Testno sporocilo iz DoggyDrop",
-                "To je testni email, poslan iz aplikacije DoggyDrop.");
-
-            return Content($"Testni e-mail poslan na {testEmail}");
-        }
     }
 }

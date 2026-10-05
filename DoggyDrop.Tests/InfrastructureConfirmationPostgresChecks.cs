@@ -22,8 +22,11 @@ public static class InfrastructureConfirmationPostgresChecks
         ApplicationDbContext Db()=>new(options);
         await using var db=Db();var count=0;var clock=new InfrastructureConfirmationTests.Clock();
         try {
-            var migrations=db.Database.GetMigrations().ToArray();Assert.EndsWith("AddInfrastructureConfirmations",migrations[^1]);
-            await db.GetService<IMigrator>().MigrateAsync(migrations[^2]);
+            var migrations=db.Database.GetMigrations().ToArray();
+            var confirmationIndex=Array.FindIndex(migrations,m=>m.EndsWith("_AddInfrastructureConfirmations",StringComparison.Ordinal));
+            Assert.True(confirmationIndex>0);
+            var predecessor=migrations[confirmationIndex-1];
+            await db.GetService<IMigrator>().MigrateAsync(predecessor);
             await using(var legacy=new LegacyDb(options)) {
                 legacy.Users.Add(new(){Id="owner",UserName="owner"});legacy.Users.Add(new(){Id="other",UserName="other"});
                 legacy.DataSources.Add(new(){Id=1,Name="Synthetic OSM",Notes="private"});
@@ -86,8 +89,9 @@ public static class InfrastructureConfirmationPostgresChecks
                 Assert.Equal(3,recorder.Sql.Count);Assert.Equal(2,recorder.Sql.Count(s=>s.Contains("GROUP BY")&&s.Contains("DISTINCT")));Assert.Empty(measured.ChangeTracker.Entries());
                 Console.WriteLine($"Trust performance: infrastructure={size}, history={history}, SQL=3, aggregates={bins.Count+waters.Count}, elapsedMs={watch.Elapsed.TotalMilliseconds:F2}");count++;
             }
-            // Down migration removes only this Epic's fields/table; original application rows survive.
-            var populated=await Snapshot(cs);await db.GetService<IMigrator>().MigrateAsync(migrations[^2]);Assert.Equal(populated,await Snapshot(cs));count++;
+            // Roll back to the confirmation predecessor even after later additive migrations exist.
+            // All pre-confirmation application rows must still survive unchanged.
+            var populated=await Snapshot(cs);await db.GetService<IMigrator>().MigrateAsync(predecessor);Assert.Equal(populated,await Snapshot(cs));count++;
             return count;
         } finally {await db.Database.EnsureDeletedAsync();}
     }

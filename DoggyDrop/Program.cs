@@ -152,6 +152,11 @@ builder.Services.PostConfigure<EmailSettings>(settings =>
         : settings.SmtpPass;
 });
 builder.Services.AddTransient<IEmailSender, EmailSender>();
+builder.Services.AddTransient<IEmailTransport, SmtpEmailTransport>();
+builder.Services.AddScoped<ActivityEmailTemplate>();
+builder.Services.AddSingleton<SeoSite>();
+builder.Services.AddScoped<NotificationDelivery>();
+builder.Services.AddHostedService<NotificationWorker>();
 builder.Services.AddHttpClient();
 builder.Services.AddSingleton<IImageOptimizationService, ImageOptimizationService>();
 builder.Services.AddSingleton<IBinPhotoProcessor>(services => (ImageOptimizationService)services.GetRequiredService<IImageOptimizationService>());

@@ -1,44 +1,13 @@
-﻿using MailKit.Net.Smtp;
-using MailKit.Security;
 using Microsoft.AspNetCore.Identity.UI.Services;
-using Microsoft.Extensions.Options;
-using MimeKit;
 
-namespace DoggyDrop.Services
+namespace DoggyDrop.Services;
+
+// Identity stays immediate and non-throwing, independent of outbox/preferences.
+public sealed class EmailSender(IEmailTransport transport) : IEmailSender
 {
-    public class EmailSender : IEmailSender
+    public async Task SendEmailAsync(string email, string subject, string htmlMessage)
     {
-        private readonly EmailSettings _emailSettings;
-
-        public EmailSender(IOptions<EmailSettings> emailSettings)
-        {
-            _emailSettings = emailSettings.Value;
-        }
-
-        public async Task SendEmailAsync(string email, string subject, string htmlMessage)
-        {
-            try
-            {
-                var message = new MimeMessage();
-                message.From.Add(new MailboxAddress(_emailSettings.SenderName, _emailSettings.SenderEmail));
-                message.To.Add(MailboxAddress.Parse(email));
-                message.Subject = subject;
-
-                var bodyBuilder = new BodyBuilder { HtmlBody = htmlMessage };
-                message.Body = bodyBuilder.ToMessageBody();
-
-                using var client = new SmtpClient();
-                await client.ConnectAsync(_emailSettings.SmtpServer, _emailSettings.SmtpPort, SecureSocketOptions.StartTls);
-                await client.AuthenticateAsync(_emailSettings.SmtpUser, _emailSettings.SmtpPass);
-                await client.SendAsync(message);
-                await client.DisconnectAsync(true);
-            }
-            catch (Exception)
-            {
-                // SMTP exception text may contain recipients, message data or credentials.
-                Console.WriteLine("Pošiljanje e-pošte ni uspelo.");
-            }
-        }
-
+        try { await transport.SendAsync(email, new RenderedEmail(subject, htmlMessage, ""), CancellationToken.None); }
+        catch (Exception) { /* Do not disclose tokens, recipients or provider details. */ }
     }
 }
